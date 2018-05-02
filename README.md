@@ -3,6 +3,12 @@ A sensor custom_component for displaying Reverse Geocode (PLACE) details
 
 Place Support for OpenStreetMap Geocode sensors.
 
+Create a directory named 'custom_components' in the same directory that stores your configuration.yaml file, then create a directory named 'sensors' in it.  Download the places.py file and place it in the sensors directory.
+
+See below for instructions on how to enable it in your configuration.yaml file and how to create notifications with it.
+
+NOTE:  This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude co-ordinates (such as Owntracks or iCloud).
+
 Original Author:  Jim Thompson
 
 ```
