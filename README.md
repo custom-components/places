@@ -1,7 +1,7 @@
 # HomeAssistant-Places
 A sensor custom_component for displaying Reverse Geocode (PLACE) details
 
-Place Support for OpenStreetMap Geocode sensors.
+"Place" Support for OpenStreetMap Reverse Geocode sensors.
 
 Create a directory named 'custom_components' in the same directory that stores your configuration.yaml file, then create a directory named 'sensors' in it.  Download the places.py file and place it in the sensors directory.
 
