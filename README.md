@@ -5,6 +5,7 @@ Place Support for OpenStreetMap Geocode sensors.
 
 Original Author:  Jim Thompson
 
+```
 20180330 - Initial Release
          - Event driven and timed updates
          - Subscribes to DeviceTracker state update events
@@ -46,13 +47,15 @@ Original Author:  Jim Thompson
            - latitude
            - longitude
          - Added Map_link option to generate a Google or Apple Maps link to the users current location
-         
+ ```
+ 
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
   Optionally allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
   The displayed state adds a time stamp "(since hh:mm)" so you can tell how long a person has been at a location.
   Configuration Instructions are below - as well as sample automations for notifications.
   
+```
   The display options I have set for Sharon are "zone, place" so her state is displayed as:
   - not_home, Richmond Hill GO Station, building, building, Beverley Acres, 6, Newkirk Road (since 18:44)
   There are a lot of additional attributes (beyond state) that are available which can be used in notifications, alerts, etc:
@@ -198,3 +201,4 @@ To enable detailed logging for this component, add the following to your configu
     default: warn
     logs:
       custom_components.sensor.places: debug  
+```
