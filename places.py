@@ -3,7 +3,7 @@ Place Support for OpenStreetMap Geocode sensors.
 
 Original Author:  Jim Thompson
 
-Current Version:  1.1  20180510 - Jim Thompson
+Current Version:  1.2  20180510 - Jim Thompson
 
 20180330 - Initial Release
          - Event driven and timed updates
@@ -61,6 +61,7 @@ Current Version:  1.1  20180510 - Jim Thompson
             Notes:  All options must be specified in lower case.  
                     State and Region return the same data (so only use one of them).
          - Also added 'options' to the attribute list that gets populated by this sensor (to make it easier to see why a specific state is being generated)
+20180510 - Fixed stupid bug introduced yesterday.  Converted display options from string to list.
 
            
 Description:
@@ -623,7 +624,11 @@ class Places(Entity):
 
                 _LOGGER.debug( "(" + self._name + ") Building State from Display Options: " + self._options)
 
-                display_options = self._options
+                display_options = []
+                options_array = self._options.split(',')
+                for option in options_array:
+                    display_options.append(option.strip())
+                    
                 user_display = []
 
                 if "zone" in display_options:
