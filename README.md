@@ -10,7 +10,7 @@ See below for instructions on how to enable it in your configuration.yaml file a
 NOTE:  This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude co-ordinates (such as Owntracks or iCloud).
 
 Original Author:  Jim Thompson
-
+Current Version:  1.2
 ```
 20180330 - Initial Release
          - Event driven and timed updates
