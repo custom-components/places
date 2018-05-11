@@ -68,6 +68,8 @@ Original Author:  Jim Thompson
             Notes:  All options must be specified in lower case.  
                     State and Region return the same data (so only use one of them).
          - Also added 'options' to the attribute list that gets populated by this sensor (to make it easier to see why a specific state is being generated)
+20180510 - Fixed stupid bug introduced yesterday.  Converted display options from string to list.
+
 
  
 Description:
