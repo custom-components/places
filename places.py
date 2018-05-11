@@ -3,6 +3,8 @@ Place Support for OpenStreetMap Geocode sensors.
 
 Original Author:  Jim Thompson
 
+Current Version:  1.1  20180510 - Jim Thompson
+
 20180330 - Initial Release
          - Event driven and timed updates
          - Subscribes to DeviceTracker state update events
@@ -44,7 +46,23 @@ Original Author:  Jim Thompson
            - latitude
            - longitude
          - Added Map_link option to generate a Google or Apple Maps link to the users current location
-         
+20180509 - Updated to support new option value of "do_not_reorder" to disable the automatic ordered display of any specified options
+         - If "do_not_reorder" appears anywhere in the list of comma delimited options, the state display will be built 
+           using the order of options as they are specified in the options config value.
+           ie:  options: street, street_number, do_not_reorder, postal_code, city, country 
+           will result in a state comprised of: 
+                <street>, <street_number>, <postal_code>, <city>, <country> 
+           without the "do_not_reorder" option, it would be:
+                <street_number>, <street>, <postal_code>, <city>, <country>
+         - The following attributes can be specified in any order for building the display string manually:
+            - do_not_reorder
+            - place_type, place_name, place_category, place_neighbourhood, street_number, street, city,
+            - postal_town, state, region, county, country, postal_code, formatted_address
+            Notes:  All options must be specified in lower case.  
+                    State and Region return the same data (so only use one of them).
+         - Also added 'options' to the attribute list that gets populated by this sensor (to make it easier to see why a specific state is being generated)
+
+           
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
   Optionally allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
@@ -225,6 +243,7 @@ CONF_OPTIONS = 'options'
 CONF_MAP_PROVIDER = 'map_provider'
 CONF_MAP_ZOOM = 'map_zoom'
 
+ATTR_OPTIONS = 'options'
 ATTR_STREET_NUMBER = 'street_number'
 ATTR_STREET = 'street'
 ATTR_CITY = 'city'
@@ -398,6 +417,7 @@ class Places(Entity):
             ATTR_HOME_LONGITUDE: self._home_longitude,
             ATTR_DIRECTION_OF_TRAVEL: self._direction,
             ATTR_MAP_LINK: self._map_link,
+            ATTR_OPTIONS: self._options
         }
 
 
@@ -607,7 +627,8 @@ class Places(Entity):
                 user_display = []
 
                 if "zone" in display_options:
-                    user_display.append(self._devicetracker_zone)
+                    zone = self._devicetracker_zone
+                    user_display.append(zone)
                 if "place" in display_options:
                     if place_name != "-":
                         user_display.append(place_name)
@@ -629,6 +650,8 @@ class Places(Entity):
                     user_display.append(county)
                 if "state" in display_options:
                     user_display.append(region)
+                elif "region" in display_options:
+                    user_display.append(region)
                 if "postal_code" in display_options:
                     user_display.append(postal_code)
                 if "country" in display_options:
@@ -636,7 +659,19 @@ class Places(Entity):
                 if "formatted_address" in display_options:
                     user_display.append(formatted_address)
 
-                if user_display == '':
+                if "do_not_reorder" in display_options:
+                    user_display = []
+                    display_options.remove("do_not_reorder")
+                    for option in display_options:
+                        if option == "state":
+                            target_option = "region"
+                        if option == "place_neighborhood":
+                            target_option = "place_neighbourhood"
+                        if option in locals():
+                            user_display.append(targetoption)
+                            
+
+                if not user_display:
                     user_display = self._devicetracker_zone
                     user_display.append(street)
                     user_display.append(city)
@@ -650,6 +685,7 @@ class Places(Entity):
             current_time = "%02d:%02d" % (now.hour, now.minute)
             
             if previous_state != new_state:
+                _LOGGER.info( "(" + self._name + ") New state built using options: " + self._options)
                 _LOGGER.debug( "(" + self._name + ") Building EventData for (" + new_state +")")
                 self._state = new_state + " (since " + current_time + ")"
                 event_data = {}
