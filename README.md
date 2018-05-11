@@ -53,6 +53,21 @@ Original Author:  Jim Thompson
            - latitude
            - longitude
          - Added Map_link option to generate a Google or Apple Maps link to the users current location
+20180509 - Updated to support new option value of "do_not_reorder" to disable the automatic ordered display of any specified options
+         - If "do_not_reorder" appears anywhere in the list of comma delimited options, the state display will be built 
+           using the order of options as they are specified in the options config value.
+           ie:  options: street, street_number, do_not_reorder, postal_code, city, country 
+           will result in a state comprised of: 
+                <street>, <street_number>, <postal_code>, <city>, <country> 
+           without the "do_not_reorder" option, it would be:
+                <street_number>, <street>, <postal_code>, <city>, <country>
+         - The following attributes can be specified in any order for building the display string manually:
+            - do_not_reorder
+            - place_type, place_name, place_category, place_neighbourhood, street_number, street, city,
+            - postal_town, state, region, county, country, postal_code, formatted_address
+            Notes:  All options must be specified in lower case.  
+                    State and Region return the same data (so only use one of them).
+         - Also added 'options' to the attribute list that gets populated by this sensor (to make it easier to see why a specific state is being generated)
 
  
 Description:
