@@ -221,6 +221,7 @@ To enable detailed logging for this component, add the following to your configu
 import logging, json, requests
 from datetime import datetime, timedelta
 from requests import get
+from math import radians, cos, sin, asin, sqrt
 
 import voluptuous as vol
 import homeassistant.helpers.location as location
@@ -431,6 +432,22 @@ class Places(Entity):
         """ Call the do_update function based on scan interval and throttle    """
         self.do_update("Scan Interval")
 
+    def haversine(lon1, lat1, lon2, lat2):
+        """
+        Calculate the great circle distance between two points 
+        on the earth (specified in decimal degrees)
+        """
+        # convert decimal degrees to radians 
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+        # haversine formula 
+        dlon = lon2 - lon1 
+        dlat = lat2 - lat1 
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a)) 
+        r = 6371 # Radius of earth in kilometers. Use 3956 for miles
+        return c * r
+
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
@@ -463,12 +480,13 @@ class Places(Entity):
             distance_km = round(distance_m / 1000, 2)
             distance_from_home = str(distance_km)+' km'
 
-            if last_distance_m > distance_m:
+            deviation = haversine(old_latitude, old_longitude, new_latitude, new_longitude)
+            if deviation <= '0.2': # in kilometers
+              direction = "stationary"
+            elif last_distance_m > distance_m:
               direction = "towards home"
             elif last_distance_m < distance_m:
               direction = "away from home"
-            else:
-              direction = "stationary"
 
             _LOGGER.debug( "(" + self._name + ") Previous Location: " + previous_location)
             _LOGGER.debug( "(" + self._name + ") Current Location : " + current_location)
