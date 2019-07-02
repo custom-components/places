@@ -1,0 +1,8 @@
+{
+  "domain": "places",
+  "name": "Places",
+  "documentation": "https://github.com/tenly2000/HomeAssistant-Places",
+  "dependencies": [],
+  "codeowners": ["@tenly2000"],
+  "requirements": []
+}
