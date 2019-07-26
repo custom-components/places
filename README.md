@@ -1,4 +1,4 @@
-# HomeAssistant-Places
+# Places
 A sensor custom_component for displaying Reverse Geocode (PLACE) details
 
 "Place" Support for OpenStreetMap Reverse Geocode sensors.
