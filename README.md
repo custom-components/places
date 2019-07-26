@@ -1,87 +1,84 @@
-# Places
-A sensor custom_component for displaying Reverse Geocode (PLACE) details
+# places
 
-"Place" Support for OpenStreetMap Reverse Geocode sensors.
 
-Create a directory named 'custom_components' in the same directory that stores your configuration.yaml file, then create a directory named 'sensors' in it.  Download the places.py file and place it in the sensors directory.
+[![GitHub Release][releases-shield]][releases]
+[![GitHub Activity][commits-shield]][commits]
+[![License][license-shield]](LICENSE.md)
 
-See below for instructions on how to enable it in your configuration.yaml file and how to create notifications with it.
+[![hacs][hacsbadge]](hacs)
 
-NOTE:  This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude co-ordinates (such as Owntracks or iCloud).
+[![Discord][discord-shield]][discord]
+[![Community Forum][forum-shield]][forum]
 
-Original Author:  Jim Thompson
-Current Version:  1.2
+_Component to integrate with OpenStreetMap Reverse Geocode (PLACE)_
+
+## Installation
+
+1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
+2. If you do not have a `custom_components` directory (folder) there, you need to create it.
+3. In the `custom_components` directory (folder) create a new folder called `places`.
+4. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository.
+5. Place the files you downloaded in the new directory (folder) you created.
+6. Add your configuration
+6. Restart Home Assistant
+
+Using your HA configuration directory (folder) as a starting point you should now also have this:
+
+```text
+custom_components/places/__init__.py
+custom_components/places/manifest.json
+custom_components/places/sensor.py
 ```
-20180330 - Initial Release
-         - Event driven and timed updates
-         - Subscribes to DeviceTracker state update events
-         - State display options are (default "zone, place"):
-           "zone, place, street_number, street, city, county, state, postal_code, country, formatted_address"
-         - If state display options are specified in the configuration.yaml file:
-           - The state display string begins as a null and appends the following in order:
-             - 'zone' - as defined in the device_tracker entity
-             - If 'place' is included in the options string, a concatenated string is created with the following attributes
-               - place_name, 
-               - place_category, 
-               - place_type, 
-               - place_neighbourhood, 
-               - street number, 
-               - street
-               - If 'street_number' and 'street' are also in the options string, they are ignored
-             - If 'place' is NOT included:
-               - If 'street_number' is included in the options string, the 'street number' will be appended to the display string
-               - If 'street' is included in the options string, the 'street name' will be appended to the display string
-            - If specified in the options string, the following attributes are also appended in order:
-              - "city"
-              - "county"
-              - "state'
-              - "postal_code"
-              - "country"
-              - "formatted_address"
-           - If for some reason the option string is null at this point, the following values are concatenated:
-             - "zone"
-             - "street"
-             - "city"
-         - Whenever the actual 'state' changes, this sensor fires a custom event named 'places_state_update' containing:
-           - entity
-           - to_state
-           - from_state
-           - place_name
-           - direction
-           - distance_from_home
-           - devicetracker_zone
-           - latitude
-           - longitude
-         - Added Map_link option to generate a Google or Apple Maps link to the users current location
-20180509 - Updated to support new option value of "do_not_reorder" to disable the automatic ordered display of any specified options
-         - If "do_not_reorder" appears anywhere in the list of comma delimited options, the state display will be built 
-           using the order of options as they are specified in the options config value.
-           ie:  options: street, street_number, do_not_reorder, postal_code, city, country 
-           will result in a state comprised of: 
-                <street>, <street_number>, <postal_code>, <city>, <country> 
-           without the "do_not_reorder" option, it would be:
-                <street_number>, <street>, <postal_code>, <city>, <country>
-         - The following attributes can be specified in any order for building the display string manually:
-            - do_not_reorder
-            - place_type, place_name, place_category, place_neighbourhood, street_number, street, city,
-            - postal_town, state, region, county, country, postal_code, formatted_address
-            Notes:  All options must be specified in lower case.  
-                    State and Region return the same data (so only use one of them).
-         - Also added 'options' to the attribute list that gets populated by this sensor (to make it easier to see why a specific state is being generated)
-20180510 - Fixed stupid bug introduced yesterday.  Converted display options from string to list.
 
+## Example configuration.yaml
 
- 
-Description:
-  Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
-  Optionally allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
-  The displayed state adds a time stamp "(since hh:mm)" so you can tell how long a person has been at a location.
-  Configuration Instructions are below - as well as sample automations for notifications.
+```yaml
+sensor places_jim:
+  - platform: places
+    name: jim
+    devicetracker_id: device_tracker.jim_iphone8
+    options: zone,place
+    map_provider: google
+    map_zoom: 19
+    home_zone: zone.jim_home
+    api_key: !secret email_jim
 
-  The display options I have set for Sharon are "zone, place" so her state is displayed as:
-  - not_home, Richmond Hill GO Station, building, building, Beverley Acres, 6, Newkirk Road (since 18:44)
-  There are a lot of additional attributes (beyond state) that are available which can be used in notifications, alerts, etc:
-  (The "home latitude/longitudes" below have been randomized to protect her privacy)
+sensor places_sharon:
+  - platform: places
+    name: sharon
+    devicetracker_id: device_tracker.sharon_iphone7
+    options: zone, place
+    map_provider: apple
+    map_zoom: 18
+    home_zone: zone.sharon_home
+    api_key: !secret email_sharon
+
+sensor places_aidan:
+  - platform: places
+    name: aidan
+    devicetracker_id: device_tracker.aidan_iphone7plus
+    options: place
+    map_provider: google
+    map_zoom: 17
+    home_zone: zone.aidan_home
+    api_key: !secret email_aidan
+```
+
+## Configuration options
+
+Key | Type | Required | Description | Default |
+-- | -- | -- | -- | --
+`platform` | `string` | `True` | `places` | None
+`devicetracker_id` | `string` | `True` | `entity_id` of the device you wish to track | None
+`name` | `string` | `False` | Friendly name of for the sensor | `places`
+`home_zone` | `string` | `False` | Calculates distance from home and direction of travel if set | `zone.home`
+`api_key` | `string` | `False` | OpenStreetMap API key (your email address). | `no key`
+`map_provider` | `string` | `False` | `google` or `apple` | `apple`
+`map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
+`option` | `string` | `False` | Display options: `zone, place, street_number, street, city, county, state, postal_code, country, formatted_address` | `zone, place`
+
+Sample attributes that can be used in notifications, alerts, automations, etc:
+```json
 {
   "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
   "friendly_name": "sharon",
@@ -115,45 +112,11 @@ Description:
   "city": "Richmond Hill",
   "home_zone": "zone.sharon_home"
 }
+```
 
-Note:  The Google Map Link for above location would have been:
-       https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query=43.874149009154095,-79.42642783709209
-
-Sample Configuration.yaml configurations:
-sensor places_jim:
-  - platform: places
-    name: jim
-    devicetracker_id: device_tracker.jim_iphone8
-    options: zone,place
-    display_zone: show
-    map_provider: google
-    map_zoom: 19
-    home_zone: zone.jim_home
-    api_key: !secret email_jim
-
-sensor places_sharon:
-  - platform: places
-    name: sharon
-    devicetracker_id: device_tracker.sharon_iphone7
-    options: zone, place
-    map_provider: apple
-    map_zoom: 18
-    home_zone: zone.sharon_home
-    api_key: !secret email_sharon
-
-sensor places_aidan:
-  - platform: places
-    name: aidan
-    devicetracker_id: device_tracker.aidan_iphone7plus
-    options: place
-    map_provider: google
-    map_zoom: 17
-    home_zone: zone.aidan_home
-    api_key: !secret email_aidan
-  
 Sample generic automations.yaml snippet to send an iOS notify on any device state change:
 (the only difference is the second one uses a condition to only trigger for a specific user)
-
+```yaml
 - alias: ReverseLocateEveryone
   initial_state: 'on'
   trigger:
@@ -194,33 +157,41 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
         attachment:
           url: '{{ trigger.event.data.map }}'
           hide_thumbnail: false
+```
 
+## Notes:
 
-Note:  The OpenStreetMap database is very flexible with regards to tag_names in their
-       database schema.  If you come across a set of co-ordinates that do not parse
-       properly, you can enable debug messages to see the actual JSON that is returned from the query.
-
-Note:  The OpenStreetMap API requests that you include your valid e-mail address in each API call
-       if you are making a large numbers of requests.  They say that this information will be kept
-       confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
-
-Configuration.yaml:
-  sensor places_jim:
-    - platform: Places
-      name: jim                                     (optional)
-      devicetracker_id: device_tracker.jim_iphone   (required)
-      home_zone: zone.home                          (optional)
-      api_key: <email_address>                      (optional)
-      map_provider: [google|apple]                  (optional)
-      map_zoom: <1-20>                              (optional)
-      option: <zone, place, street_number, street, city, county, state, postal_code, country, formatted_address>  (optional)
-      
-The map link that gets generated for Google maps has a push pin marking the users location.
-The map link for Apple maps is centered on the users location - but without any marker.
-      
-To enable detailed logging for this component, add the following to your configuration.yaml file
+* This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude co-ordinates (such as Owntracks or iCloud).
+* The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of co-ordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
+* The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
+* The map link that gets generated for Google maps has a push pin marking the users location.
+* The map link for Apple maps is centered on the users location - but without any marker.
+* To enable detailed logging for this component, add the following to your configuration.yaml file
+```yaml
   logger:
     default: warn
     logs:
       custom_components.sensor.places: debug  
 ```
+
+Original Author: [Jim Thompson](https://github.com/tenly2000)
+
+## Contributions are welcome!
+
+If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
+
+***
+
+[places]: https://github.com/custom-components/places
+[commits-shield]: https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge
+[commits]: https://github.com/custom-components/places/commits/master
+[hacs]: https://github.com/custom-components/hacs
+[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[discord]: https://discord.gg/Qa5fW2R
+[discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
+[forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
+[forum]: https://community.home-assistant.io/
+[license-shield]: https://img.shields.io/github/license/custom-components/places.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-Ian%20Richardson%20%40iantrich-blue.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/custom-components/places.svg?style=for-the-badge
+[releases]: https://github.com/custom-components/places/releases
