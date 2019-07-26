@@ -5,7 +5,7 @@
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)
 
-[![hacs][hacsbadge]](hacs)
+[![hacs][hacsbadge]][hacs]
 
 [![Discord][discord-shield]][discord]
 [![Community Forum][forum-shield]][forum]
