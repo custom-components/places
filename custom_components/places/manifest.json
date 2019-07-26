@@ -1,8 +1,8 @@
 {
   "domain": "places",
   "name": "Places",
-  "documentation": "https://github.com/tenly2000/HomeAssistant-Places",
+  "documentation": "https://github.com/custom_components/places",
   "dependencies": ["device_tracker"],
-  "codeowners": ["@tenly2000"],
+  "codeowners": ["@tenly2000","@iantrich"],
   "requirements": []
 }
