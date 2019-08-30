@@ -435,6 +435,8 @@ class Places(Entity):
         """Get the latest data and updates the states."""
 
         previous_state = self.state[:-14]
+        distance_traveled = 0
+        devicetracker_zone = None
 
         _LOGGER.info( "(" + self._name + ") Calling update due to " + reason )
         _LOGGER.info( "(" + self._name + ") Check if update req'd : " + self._devicetracker_id )
@@ -458,31 +460,32 @@ class Places(Entity):
             maplink_apple  = 'https://maps.apple.com/maps/?ll=' + current_location + '&z=' + self._map_zoom
             #maplink_google = 'https://www.google.com/maps/dir/?api=1&origin=' + current_location + '&destination=' + home_location + '&travelmode=driving&layer=traffic'
             maplink_google = 'https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query=' + current_location
+            if (new_latitude != 'None' and new_longitude != 'None' and
+                    home_latitude != 'None' and home_longitude != 'None'):
+              distance_m = distance(float(new_latitude), float(new_longitude), float(home_latitude), float(home_longitude))
+              distance_km = round(distance_m / 1000, 2)
+              distance_from_home = str(distance_km)+' km'
 
-            distance_m = distance(float(new_latitude), float(new_longitude), float(home_latitude), float(home_longitude))
-            distance_km = round(distance_m / 1000, 2)
-            distance_from_home = str(distance_km)+' km'
+              if last_distance_m > distance_m:
+                direction = "towards home"
+              elif last_distance_m < distance_m:
+                direction = "away from home"
+              else:
+                direction = "stationary"
 
-            if last_distance_m > distance_m:
-              direction = "towards home"
-            elif last_distance_m < distance_m:
-              direction = "away from home"
-            else:
-              direction = "stationary"
-
-            _LOGGER.debug( "(" + self._name + ") Previous Location: " + previous_location)
-            _LOGGER.debug( "(" + self._name + ") Current Location : " + current_location)
-            _LOGGER.debug( "(" + self._name + ") Home Location    : " + home_location)           
-            _LOGGER.info( "(" + self._name + ") Distance from home : (" + (self._home_zone).split(".")[1] + "): " + distance_from_home )
-            _LOGGER.info( "(" + self._name + ") Travel Direction   :(" + direction + ")" )
+              _LOGGER.debug( "(" + self._name + ") Previous Location: " + previous_location)
+              _LOGGER.debug( "(" + self._name + ") Current Location : " + current_location)
+              _LOGGER.debug( "(" + self._name + ") Home Location    : " + home_location)
+              _LOGGER.info( "(" + self._name + ") Distance from home : (" + (self._home_zone).split(".")[1] + "): " + distance_from_home )
+              _LOGGER.info( "(" + self._name + ") Travel Direction   :(" + direction + ")" )
            
-        """Update if location has changed."""
+              """Update if location has changed."""
 
-        devicetracker_zone = self.hass.states.get(self._devicetracker_id).state
-        distance_traveled = distance(float(new_latitude), float(new_longitude), float(old_latitude), float(old_longitude))
+              devicetracker_zone = self.hass.states.get(self._devicetracker_id).state
+              distance_traveled = distance(float(new_latitude), float(new_longitude), float(old_latitude), float(old_longitude))
 
-        _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (before update): " + devicetracker_zone )
-        _LOGGER.info( "(" + self._name + ") Meters traveled since last update: " + str(round(distance_traveled)) )
+              _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (before update): " + devicetracker_zone )
+              _LOGGER.info( "(" + self._name + ") Meters traveled since last update: " + str(round(distance_traveled)) )
 
         proceed_with_update = True
 
@@ -501,10 +504,10 @@ class Places(Entity):
             _LOGGER.debug( "(" + self._name + ") Peforming Initial Update for user at home..." )
             proceed_with_update = True
 
-        if proceed_with_update:   
+        if proceed_with_update and devicetracker_zone:
             _LOGGER.debug( "(" + self._name + ") Proceeding with update for " + self._devicetracker_id )
             self._devicetracker_zone = devicetracker_zone
-            _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (current) " + devicetracker_zone + " Skipped Updates: " + str(self._updateskipped))
+            _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (current) " + self._devicetracker_zone + " Skipped Updates: " + str(self._updateskipped))
 
             self._reset_attributes()
             
