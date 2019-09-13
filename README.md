@@ -70,7 +70,7 @@ Key | Type | Required | Description | Default |
 -- | -- | -- | -- | --
 `platform` | `string` | `True` | `places` | None
 `devicetracker_id` | `string` | `True` | `entity_id` of the device you wish to track | None
-`name` | `string` | `False` | Friendly name of for the sensor | `places`
+`name` | `string` | `False` | Friendly name of the sensor | `places`
 `home_zone` | `string` | `False` | Calculates distance from home and direction of travel if set | `zone.home`
 `api_key` | `string` | `False` | OpenStreetMap API key (your email address). | `no key`
 `map_provider` | `string` | `False` | `google` or `apple` | `apple`
