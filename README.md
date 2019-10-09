@@ -75,7 +75,7 @@ Key | Type | Required | Description | Default |
 `api_key` | `string` | `False` | OpenStreetMap API key (your email address). | `no key`
 `map_provider` | `string` | `False` | `google` or `apple` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
-`option` | `string` | `False` | Display options: `zone, place, street_number, street, city, county, state, postal_code, country, formatted_address` | `zone, place`
+`options` | `string` | `False` | Display options: `zone, place, street_number, street, city, county, state, postal_code, country, formatted_address` | `zone, place`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
 ```json
