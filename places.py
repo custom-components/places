@@ -221,6 +221,7 @@ To enable detailed logging for this component, add the following to your configu
 import logging, json, requests
 from datetime import datetime, timedelta
 from requests import get
+from math import radians, cos, sin, asin, sqrt
 
 import voluptuous as vol
 import homeassistant.helpers.location as location
@@ -431,7 +432,6 @@ class Places(Entity):
         """ Call the do_update function based on scan interval and throttle    """
         self.do_update("Scan Interval")
 
-<<<<<<< HEAD
     def haversine(self, lon1, lat1, lon2, lat2):
         """
         Calculate the great circle distance between two points 
@@ -448,8 +448,6 @@ class Places(Entity):
         r = 6371 # Radius of earth in kilometers. Use 3956 for miles
         return c * r
 
-=======
->>>>>>> parent of e763e1f... Add margin for GPS fluctuation
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
@@ -482,19 +480,13 @@ class Places(Entity):
             distance_km = round(distance_m / 1000, 2)
             distance_from_home = str(distance_km)+' km'
 
-<<<<<<< HEAD
             deviation = self.haversine(float(old_latitude), float(old_longitude), float(new_latitude), float(new_longitude))
             if deviation <= 0.2: # in kilometers
               direction = "stationary"
             elif last_distance_m > distance_m:
-=======
-            if last_distance_m > distance_m:
->>>>>>> parent of e763e1f... Add margin for GPS fluctuation
               direction = "towards home"
             elif last_distance_m < distance_m:
               direction = "away from home"
-            else:
-              direction = "stationary"
 
             _LOGGER.debug( "(" + self._name + ") Previous Location: " + previous_location)
             _LOGGER.debug( "(" + self._name + ") Current Location : " + current_location)
