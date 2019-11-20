@@ -432,9 +432,9 @@ class Places(Entity):
         """ Call the do_update function based on scan interval and throttle    """
         self.do_update("Scan Interval")
 
-		def haversine(lon1, lat1, lon2, lat2):
+    def haversine(self, lon1, lat1, lon2, lat2):
         """
-        Calculate the great circle distance between two points 
+        Calculate the great circle distance between two points
         on the earth (specified in decimal degrees)
         """
         # convert decimal degrees to radians 
@@ -483,11 +483,11 @@ class Places(Entity):
               distance_km = round(distance_m / 1000, 2)
               distance_from_home = str(distance_km)+' km'
 
-            deviation = haversine(old_latitude, old_longitude, new_latitude, new_longitude)
-            if deviation <= '0.2': # in kilometers
-              direction = "stationary"
-            elif last_distance_m > distance_m:
-			direction = "towards home"
+              deviation = self.haversine(float(old_latitude), float(old_longitude), float(new_latitude), float(new_longitude))
+              if deviation <= 0.2: # in kilometers
+                direction = "stationary"
+              elif last_distance_m > distance_m:
+                direction = "towards home"
               elif last_distance_m < distance_m:
                 direction = "away from home"
               else:
