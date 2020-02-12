@@ -654,7 +654,7 @@ class Places(Entity):
                     
                 user_display = []
 
-                if "zone" in display_options and ("do_not_show_not_home" not in display_options and self._devicetracker_zone != "not_home")
+                if "zone" in display_options and ("do_not_show_not_home" not in display_options and self._devicetracker_zone != "not_home"):
                     zone = self._devicetracker_zone
                     user_display.append(zone)
                 if "place" in display_options:
