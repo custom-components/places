@@ -579,6 +579,7 @@ class Places(Entity):
             country = '-'
             postal_code = ''
             formatted_address = ''
+            target_option = ''
             
             if "place" in self._options:
                 place_type = osm_decoded["type"]
@@ -605,6 +606,8 @@ class Places(Entity):
                 city = osm_decoded["address"]["city"]
             if "town" in osm_decoded["address"]:
                 city = osm_decoded["address"]["town"]
+            if "village" in osm_decoded["address"]:
+                city = osm_decoded["address"]["village"]
             if "city_district" in osm_decoded["address"]:
                 postal_town = osm_decoded["address"]["city_district"]
             if "suburb" in osm_decoded["address"]:
@@ -698,7 +701,7 @@ class Places(Entity):
                         if option == "place_neighborhood":
                             target_option = "place_neighbourhood"
                         if option in locals():
-                            user_display.append(targetoption)
+                            user_display.append(target_option)
                             
 
                 if not user_display:
