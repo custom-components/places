@@ -1,6 +1,7 @@
 {
   "domain": "places",
   "name": "Places",
+  "version":"1.9",
   "documentation": "https://github.com/custom_components/places",
   "dependencies": ["device_tracker"],
   "codeowners": ["@tenly2000","@iantrich"],
