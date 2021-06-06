@@ -3,7 +3,7 @@ Place Support for OpenStreetMap Geocode sensors.
 
 Original Author:  Jim Thompson
 
-Current Version:  1.2  20180510 - Jim Thompson
+Current Version:  1.8  20210125 - iantrich
 
 20180330 - Initial Release
          - Event driven and timed updates
@@ -244,6 +244,7 @@ CONF_HOME_ZONE = 'home_zone'
 CONF_OPTIONS = 'options'
 CONF_MAP_PROVIDER = 'map_provider'
 CONF_MAP_ZOOM = 'map_zoom'
+CONF_LANGUAGE = 'language'
 
 ATTR_OPTIONS = 'options'
 ATTR_STREET_NUMBER = 'street_number'
@@ -283,6 +284,7 @@ DEFAULT_HOME_ZONE = 'zone.home'
 DEFAULT_KEY = "no key"
 DEFAULT_MAP_PROVIDER = 'apple'
 DEFAULT_MAP_ZOOM = '18'
+DEFAULT_LANGUAGE = 'default'
 
 SCAN_INTERVAL = timedelta(seconds=30)
 THROTTLE_INTERVAL = timedelta(seconds=600)
@@ -295,6 +297,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
     vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
     vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.string,
+    vol.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): cv.string,
     vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
 })
 
@@ -309,14 +312,15 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     home_zone = config.get(CONF_HOME_ZONE)
     map_provider = config.get(CONF_MAP_PROVIDER)
     map_zoom = config.get(CONF_MAP_ZOOM)
+    language = config.get(CONF_LANGUAGE)
 
-    add_devices([Places(hass, devicetracker_id, name, api_key, options, home_zone, map_provider, map_zoom)])
+    add_devices([Places(hass, devicetracker_id, name, api_key, options, home_zone, map_provider, map_zoom, language)])
 
 
 class Places(Entity):
     """Representation of a Places Sensor."""
 
-    def __init__(self, hass, devicetracker_id, name, api_key, options, home_zone, map_provider, map_zoom):
+    def __init__(self, hass, devicetracker_id, name, api_key, options, home_zone, map_provider, map_zoom, language):
         """Initialize the sensor."""
         self._hass = hass
         self._name = name
@@ -326,6 +330,8 @@ class Places(Entity):
         self._home_zone = home_zone.lower()
         self._map_provider = map_provider.lower()
         self._map_zoom = map_zoom.lower()
+        self._language = language.lower()
+        self._language.replace(" ", "")
         self._state = "Initializing... (since 99:99)"
 
         home_latitude = str(hass.states.get(home_zone).attributes.get('latitude'))
@@ -551,10 +557,7 @@ class Places(Entity):
                 
             _LOGGER.debug( "(" + self._name + ") Map Link generated: " + self._map_link )
 
-            if self._api_key == 'no key':
-                osm_url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + self._latitude + "&lon=" + self._longitude + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
-            else:
-                osm_url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + self._latitude + "&lon=" + self._longitude + "&addressdetails=1&namedetails=1&zoom=18&limit=1&email=" + self._api_key
+            osm_url = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=" + self._latitude + "&lon=" + self._longitude + ("&accept-language=" + self._language if self._language != DEFAULT_LANGUAGE else "") + "&addressdetails=1&namedetails=1&zoom=18&limit=1" + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
 
             osm_decoded = {}
             _LOGGER.info( "(" + self._name + ") OpenStreetMap request sent with lat=" + self._latitude + " and lon=" + self._longitude)
@@ -593,6 +596,10 @@ class Places(Entity):
                         place_name = osm_decoded["address"][place_category]
                 if "name" in osm_decoded["namedetails"]:
                     place_name = osm_decoded["namedetails"]["name"]
+                for language in self._language.split(','):
+                    if "name:" + language in osm_decoded["namedetails"]:
+                        place_name = osm_decoded["namedetails"]["name:" + language]
+                        break
                 if "neighbourhood" in osm_decoded["address"]:
                     place_neighbourhood = osm_decoded["address"]["neighbourhood"]
                 if self._devicetracker_zone == 'not_home' and place_name != 'house':
@@ -662,6 +669,9 @@ class Places(Entity):
                 if "zone" in display_options and ("do_not_show_not_home" not in display_options and self._devicetracker_zone != "not_home"):
                     zone = self._devicetracker_zone
                     user_display.append(zone)
+                if "place_name" in display_options:
+                    if place_name != "-":
+                        user_display.append(place_name)
                 if "place" in display_options:
                     if place_name != "-":
                         user_display.append(place_name)
