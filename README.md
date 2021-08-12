@@ -50,6 +50,7 @@ sensor places_sharon:
     options: zone, place
     map_provider: apple
     map_zoom: 18
+    language: de
     home_zone: zone.sharon_home
     api_key: !secret email_sharon
 
@@ -60,6 +61,7 @@ sensor places_aidan:
     options: place
     map_provider: google
     map_zoom: 17
+    language: jp,en
     home_zone: zone.aidan_home
     api_key: !secret email_aidan
 ```
@@ -75,7 +77,8 @@ Key | Type | Required | Description | Default |
 `api_key` | `string` | `False` | OpenStreetMap API key (your email address). | `no key`
 `map_provider` | `string` | `False` | `google` or `apple` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
-`options` | `string` | `False` | Display options: `zone, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
+`language` | `string` | `False` | Requested* language(s) for state and attributes. Two-Letter language code(s). | *Refer to Notes
+`options` | `string` | `False` | Display options: `zone, place, place_name, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
 ```json
@@ -166,6 +169,8 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
 * The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
 * The map link that gets generated for Google maps has a push pin marking the users location.
 * The map link for Apple maps is centered on the users location - but without any marker.
+* When no `language` value is given, default language will be location's local language or English. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
+* Translations are partial in OpenStreetMap database. For each field, if a translation is missing in first requested language it will be resolved with a language following in the provided list, defaulting to local language if no matching translations were found for the list.
 * To enable detailed logging for this component, add the following to your configuration.yaml file
 ```yaml
   logger:
