@@ -480,7 +480,7 @@ class Places(Entity):
             home_location     = home_latitude + "," + home_longitude
             
             #maplink_google ='https://www.google.com/maps/@' + current_location+',' + self._map_zoom + 'z'
-            maplink_apple  = 'https://maps.apple.com/maps/?ll=' + current_location + '&z=' + self._map_zoom
+            maplink_apple  = 'https://maps.apple.com/maps/?q=' + current_location + '&z=' + self._map_zoom
             #maplink_google = 'https://www.google.com/maps/dir/?api=1&origin=' + current_location + '&destination=' + home_location + '&travelmode=driving&layer=traffic'
             maplink_google = 'https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query=' + current_location
             if (new_latitude != 'None' and new_longitude != 'None' and
