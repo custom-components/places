@@ -465,7 +465,7 @@ class Places(Entity):
         _LOGGER.info( "(" + self._name + ") Check if update req'd : " + self._devicetracker_id )
         _LOGGER.debug( "(" + self._name + ") Previous State        : " + previous_state )
 
-        if hasattr(self, '_devicetracker_id'):
+        if hasattr(self, '_devicetracker_id') and self.hass.states.get(self._devicetracker_id) is not None:
             now = datetime.now()
             old_latitude    = str(self._latitude)
             old_longitude   = str(self._longitude)
