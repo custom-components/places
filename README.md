@@ -190,7 +190,7 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [places]: https://github.com/custom-components/places
 [commits-shield]: https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge
 [commits]: https://github.com/custom-components/places/commits/master
-[hacs]: https://github.com/custom-components/hacs
+[hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [discord]: https://discord.gg/Qa5fW2R
 [discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
