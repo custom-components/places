@@ -1,6 +1,5 @@
 # places
 
-
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)
@@ -20,7 +19,7 @@ _Component to integrate with OpenStreetMap Reverse Geocode (PLACE)_
 4. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository.
 5. Place the files you downloaded in the new directory (folder) you created.
 6. Add your configuration
-6. Restart Home Assistant
+7. Restart Home Assistant
 
 Using your HA configuration directory (folder) as a starting point you should now also have this:
 
@@ -81,6 +80,7 @@ Key | Type | Required | Description | Default |
 `options` | `string` | `False` | Display options: `zone, place, place_name, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
+
 ```json
 {
   "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
@@ -119,6 +119,7 @@ Sample attributes that can be used in notifications, alerts, automations, etc:
 
 Sample generic automations.yaml snippet to send an iOS notify on any device state change:
 (the only difference is the second one uses a condition to only trigger for a specific user)
+
 ```yaml
 - alias: ReverseLocateEveryone
   initial_state: 'on'
@@ -130,7 +131,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
     data_template:
       title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
       message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
+        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
         {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
@@ -152,7 +153,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
     data_template:
       title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
       message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
+        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
         {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
@@ -172,11 +173,12 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
 * When no `language` value is given, default language will be location's local language or English. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
 * Translations are partial in OpenStreetMap database. For each field, if a translation is missing in first requested language it will be resolved with a language following in the provided list, defaulting to local language if no matching translations were found for the list.
 * To enable detailed logging for this component, add the following to your configuration.yaml file
+
 ```yaml
   logger:
     default: warn
     logs:
-      custom_components.sensor.places: debug  
+      custom_components.sensor.places: debug
 ```
 
 Original Author: [Jim Thompson](https://github.com/tenly2000)
