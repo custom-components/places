@@ -78,6 +78,7 @@ Key | Type | Required | Description | Default |
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
 `language` | `string` | `False` | Requested* language(s) for state and attributes. Two-Letter language code(s). | *Refer to Notes
 `options` | `string` | `False` | Display options: `zone, place, place_name, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
+`include_start_time_in_state` | `boolean` | `False` | Whether or not to include the timestamp "(since hh:mm)" in the state so you can tell how long a person has been at a location. Some users may prefer this to be `False` so that the state at the same location is consistent. | `True`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
 
