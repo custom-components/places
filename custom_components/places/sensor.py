@@ -14,11 +14,11 @@ Current Version:  1.8  20210125 - iantrich
            - The state display string begins as a null and appends the following in order:
              - 'zone' - as defined in the device_tracker entity
              - If 'place' is included in the options string, a concatenated string is created with the following attributes
-               - place_name, 
-               - place_category, 
-               - place_type, 
-               - place_neighbourhood, 
-               - street number, 
+               - place_name,
+               - place_category,
+               - place_type,
+               - place_neighbourhood,
+               - street number,
                - street
                - If 'street_number' and 'street' are also in the options string, they are ignored
              - If 'place' is NOT included:
@@ -47,29 +47,29 @@ Current Version:  1.8  20210125 - iantrich
            - longitude
          - Added Map_link option to generate a Google or Apple Maps link to the users current location
 20180509 - Updated to support new option value of "do_not_reorder" to disable the automatic ordered display of any specified options
-         - If "do_not_reorder" appears anywhere in the list of comma delimited options, the state display will be built 
+         - If "do_not_reorder" appears anywhere in the list of comma delimited options, the state display will be built
            using the order of options as they are specified in the options config value.
-           ie:  options: street, street_number, do_not_reorder, postal_code, city, country 
-           will result in a state comprised of: 
-                <street>, <street_number>, <postal_code>, <city>, <country> 
+           ie:  options: street, street_number, do_not_reorder, postal_code, city, country
+           will result in a state comprised of:
+                <street>, <street_number>, <postal_code>, <city>, <country>
            without the "do_not_reorder" option, it would be:
                 <street_number>, <street>, <postal_code>, <city>, <country>
          - The following attributes can be specified in any order for building the display string manually:
             - do_not_reorder
             - place_type, place_name, place_category, place_neighbourhood, street_number, street, city,
             - postal_town, state, region, county, country, postal_code, formatted_address
-            Notes:  All options must be specified in lower case.  
+            Notes:  All options must be specified in lower case.
                     State and Region return the same data (so only use one of them).
          - Also added 'options' to the attribute list that gets populated by this sensor (to make it easier to see why a specific state is being generated)
 20180510 - Fixed stupid bug introduced yesterday.  Converted display options from string to list.
 
-           
+
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
   Optionally allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
   The displayed state adds a time stamp "(since hh:mm)" so you can tell how long a person has been at a location.
   Configuration Instructions are below - as well as sample automations for notifications.
-  
+
   The display options I have set for Sharon are "zone, place" so her state is displayed as:
   - not_home, Richmond Hill GO Station, building, building, Beverley Acres, 6, Newkirk Road (since 18:44)
   There are a lot of additional attributes (beyond state) that are available which can be used in notifications, alerts, etc:
@@ -142,7 +142,7 @@ sensor places_aidan:
     map_zoom: 17
     home_zone: zone.aidan_home
     api_key: !secret email_aidan
-  
+
 Sample generic automations.yaml snippet to send an iOS notify on any device state change:
 (the only difference is the second one uses a condition to only trigger for a specific user)
 
@@ -156,7 +156,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
     data_template:
       title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
       message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
+        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
         {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
@@ -178,7 +178,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
     data_template:
       title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
       message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
+        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
         {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
@@ -206,15 +206,15 @@ Configuration.yaml:
       map_provider: [google|apple]                  (optional)
       map_zoom: <1-20>                              (optional)
       option: <zone, place, street_number, street, city, county, state, postal_code, country, formatted_address>  (optional)
-      
+
 The map link that gets generated for Google maps has a push pin marking the users location.
 The map link for Apple maps is centered on the users location - but without any marker.
-      
+
 To enable detailed logging for this component, add the following to your configuration.yaml file
   logger:
     default: warn
     logs:
-      custom_components.sensor.places: debug  
+      custom_components.sensor.places: debug
 
 """
 
