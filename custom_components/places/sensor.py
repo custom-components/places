@@ -937,9 +937,9 @@ class Places(Entity):
                     "(" + self._name + ") Building EventData for (" + new_state + ")"
                 )
                 self._state = new_state
-                self.state += (
+                self._state += (
                     " (since " + current_time + ")"
-                    if self._include_start_time_in_state
+                    if self._include_start_time_in_state == True
                     else ""
                 )
                 event_data = {}
