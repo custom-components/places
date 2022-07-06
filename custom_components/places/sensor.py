@@ -600,8 +600,6 @@ class Places(Entity):
                     if "name:" + language in osm_decoded["namedetails"]:
                         place_name = osm_decoded["namedetails"]["name:" + language]
                         break
-                if "neighbourhood" in osm_decoded["address"]:
-                    place_neighbourhood = osm_decoded["address"]["neighbourhood"]
                 if self._devicetracker_zone == 'not_home' and place_name != 'house':
                     new_state = place_name
                     
@@ -609,6 +607,12 @@ class Places(Entity):
                 street_number = osm_decoded["address"]["house_number"]
             if "road" in osm_decoded["address"]:
                 street = osm_decoded["address"]["road"]
+         
+            if "neighbourhood" in osm_decoded["address"]:
+                place_neighbourhood = osm_decoded["address"]["neighbourhood"]
+            elif "hamlet" in osm_decoded["address"]:
+                place_neighbourhood = osm_decoded["address"]["hamlet"]   
+         
             if "city" in osm_decoded["address"]:
                 city = osm_decoded["address"]["city"]
             if "town" in osm_decoded["address"]:
