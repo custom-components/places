@@ -253,6 +253,7 @@ ATTR_CITY = 'city'
 ATTR_POSTAL_TOWN = 'postal_town'
 ATTR_POSTAL_CODE = 'postal_code'
 ATTR_REGION = 'state_province'
+ATTR_STATE_ABBR = 'state_abbr'
 ATTR_COUNTRY = 'country'
 ATTR_COUNTY = 'county'
 ATTR_FORMATTED_ADDRESS = 'formatted_address'
@@ -344,6 +345,7 @@ class Places(Entity):
         self._postal_code = None
         self._city = None
         self._region = None
+        self._state_abbr = None
         self._country = None
         self._county = None
         self._formatted_address = None
@@ -401,6 +403,7 @@ class Places(Entity):
             ATTR_POSTAL_TOWN: self._postal_town,
             ATTR_POSTAL_CODE: self._postal_code,
             ATTR_REGION: self._region,
+            ATTR_STATE_ABBR: self._state_abbr
             ATTR_COUNTRY: self._country,
             ATTR_COUNTY: self._county,
             ATTR_FORMATTED_ADDRESS: self._formatted_address,
@@ -578,6 +581,7 @@ class Places(Entity):
             city = '-'
             postal_town = '-'
             region = '-'
+            state_abbr = '-'
             county = '-'
             country = '-'
             postal_code = ''
@@ -627,6 +631,8 @@ class Places(Entity):
                 postal_town = osm_decoded["address"]["suburb"]
             if "state" in osm_decoded["address"]:
                 region = osm_decoded["address"]["state"]
+            if "ISO3166-2-lvl4" in osm_decoded["address"]:
+                state_abbr = osm_decoded["address"]["ISO3166-2-lvl4"].split("-")[1].upper()
             if "county" in osm_decoded["address"]:
                 county = osm_decoded["address"]["county"]
             if "country" in osm_decoded["address"]:
@@ -646,6 +652,7 @@ class Places(Entity):
             self._city = city
             self._postal_town = postal_town
             self._region = region
+            self._state_abbr = state_abbr
             self._county = county
             self._country = country
             self._postal_code = postal_code
@@ -764,6 +771,7 @@ class Places(Entity):
         self._postal_town = None
         self._postal_code = None
         self._region = None
+        self._state_abbr = None
         self._country = None
         self._county = None
         self._formatted_address = None
