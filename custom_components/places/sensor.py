@@ -253,6 +253,7 @@ ATTR_CITY = 'city'
 ATTR_POSTAL_TOWN = 'postal_town'
 ATTR_POSTAL_CODE = 'postal_code'
 ATTR_REGION = 'state_province'
+ATTR_STATE_ABBR = 'state_abbr'
 ATTR_COUNTRY = 'country'
 ATTR_COUNTY = 'county'
 ATTR_FORMATTED_ADDRESS = 'formatted_address'
@@ -344,6 +345,7 @@ class Places(Entity):
         self._postal_code = None
         self._city = None
         self._region = None
+        self._state_abbr = None
         self._country = None
         self._county = None
         self._formatted_address = None
@@ -401,6 +403,7 @@ class Places(Entity):
             ATTR_POSTAL_TOWN: self._postal_town,
             ATTR_POSTAL_CODE: self._postal_code,
             ATTR_REGION: self._region,
+            ATTR_STATE_ABBR: self._state_abbr
             ATTR_COUNTRY: self._country,
             ATTR_COUNTY: self._county,
             ATTR_FORMATTED_ADDRESS: self._formatted_address,
@@ -578,6 +581,7 @@ class Places(Entity):
             city = '-'
             postal_town = '-'
             region = '-'
+            state_abbr = '-'
             county = '-'
             country = '-'
             postal_code = ''
@@ -607,24 +611,31 @@ class Places(Entity):
                 street_number = osm_decoded["address"]["house_number"]
             if "road" in osm_decoded["address"]:
                 street = osm_decoded["address"]["road"]
-         
+                
             if "neighbourhood" in osm_decoded["address"]:
                 place_neighbourhood = osm_decoded["address"]["neighbourhood"]
             elif "hamlet" in osm_decoded["address"]:
-                place_neighbourhood = osm_decoded["address"]["hamlet"]   
-         
+                place_neighbourhood = osm_decoded["address"]["hamlet"]
+                
             if "city" in osm_decoded["address"]:
                 city = osm_decoded["address"]["city"]
-            if "town" in osm_decoded["address"]:
+            elif "town" in osm_decoded["address"]:
                 city = osm_decoded["address"]["town"]
-            if "village" in osm_decoded["address"]:
+            elif "village" in osm_decoded["address"]:
                 city = osm_decoded["address"]["village"]
+            elif "township" in osm_decoded["address"]:
+                city = osm_decoded["address"]["township"]
+            elif "municipality" in osm_decoded["address"]:
+                city = osm_decoded["address"]["municipality"]
+
             if "city_district" in osm_decoded["address"]:
                 postal_town = osm_decoded["address"]["city_district"]
             if "suburb" in osm_decoded["address"]:
                 postal_town = osm_decoded["address"]["suburb"]
             if "state" in osm_decoded["address"]:
                 region = osm_decoded["address"]["state"]
+            if "ISO3166-2-lvl4" in osm_decoded["address"]:
+                state_abbr = osm_decoded["address"]["ISO3166-2-lvl4"].split("-")[1].upper()
             if "county" in osm_decoded["address"]:
                 county = osm_decoded["address"]["county"]
             if "country" in osm_decoded["address"]:
@@ -644,6 +655,7 @@ class Places(Entity):
             self._city = city
             self._postal_town = postal_town
             self._region = region
+            self._state_abbr = state_abbr
             self._county = county
             self._country = country
             self._postal_code = postal_code
@@ -734,6 +746,7 @@ class Places(Entity):
             if previous_state != new_state:
                 _LOGGER.info( "(" + self._name + ") New state built using options: " + self._options)
                 _LOGGER.debug( "(" + self._name + ") Building EventData for (" + new_state +")")
+                new_state = new_state[:(255-14)]
                 self._state = new_state + " (since " + current_time + ")"
                 event_data = {}
                 event_data['entity'] = self._name
@@ -762,6 +775,7 @@ class Places(Entity):
         self._postal_town = None
         self._postal_code = None
         self._region = None
+        self._state_abbr = None
         self._country = None
         self._county = None
         self._formatted_address = None
