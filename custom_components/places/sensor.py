@@ -403,7 +403,7 @@ class Places(Entity):
             ATTR_POSTAL_TOWN: self._postal_town,
             ATTR_POSTAL_CODE: self._postal_code,
             ATTR_REGION: self._region,
-            ATTR_STATE_ABBR: self._state_abbr
+            ATTR_STATE_ABBR: self._state_abbr,
             ATTR_COUNTRY: self._country,
             ATTR_COUNTY: self._county,
             ATTR_FORMATTED_ADDRESS: self._formatted_address,
