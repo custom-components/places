@@ -7,8 +7,8 @@
 
 [![hacs][hacsbadge]][hacs]
 
-[![Discord][discord-shield]][discord]
-[![Community Forum][forum-shield]][forum]
+<!--- [![Discord][discord-shield]][discord] -->
+<!--- [![Community Forum][forum-shield]][forum] -->
 
 _Component to integrate with OpenStreetMap Reverse Geocode (PLACE)_
 
