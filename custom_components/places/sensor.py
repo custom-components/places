@@ -328,7 +328,7 @@ class Places(Entity):
         self._api_key = api_key
         self._options = options.lower()
         self._devicetracker_id = devicetracker_id.lower()
-        self._home_zone = home_zone
+        self._home_zone = home_zone.lower()
         self._map_provider = map_provider.lower()
         self._map_zoom = map_zoom.lower()
         self._language = language.lower()
