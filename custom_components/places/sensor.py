@@ -677,32 +677,32 @@ class Places(Entity):
 
 # My Formatted Place
             my_formatted_place_array = []
-            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home"
-              if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' )
+            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home":
+              if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ):
                 my_formatted_place_array.append('Driving')
-              if self._place_name == '-'
-                if self._place_category == 'highway' and self._street == 'Unnamed Road'
-                  my_formatted_place_array.append(self._place_type|capitalize|replace("Proposed","")|replace("Construction","")|replace("-","")|trim+' '+self._place_category|capitalize|trim)
-                elif self._place_type == 'unclassified' or self._place_type == '-'
-                  if self._place_category != '-'
-                    my_formatted_place_array.append(self._place_category|capitalize|trim)
-                else
-                  my_formatted_place_array.append(self._place_type|capitalize|trim)
-                if self._street != 'Unnamed Road'
-                  my_formatted_place_array.append(self._street_number|replace("-","")|trim+' '+self._street|replace("-","")|trim)
-                elif self._place_neighbourhood != '-'
-                  my_formatted_place_array.append(self._place_neighbourhood|trim+' Neighborhood')
-              else
-                my_formatted_place_array.append(self._place_name|trim)
-              if self._city != '-'
-                my_formatted_place_array.append(self._city|replace(" Township","")|trim)
-              elif self._county != '-'
-                my_formatted_place_array.append(self._county|trim)
-              if self._region != '-'
+              if self._place_name == '-':
+                if self._place_category == 'highway' and self._street == 'Unnamed Road':
+                  my_formatted_place_array.append(self._place_type.title().replace("Proposed","").replace("Construction","").replace("-","").strip()+' '+self._place_category.title().strip())
+                elif self._place_type == 'unclassified' or self._place_type == '-':
+                  if self._place_category != '-':
+                    my_formatted_place_array.append(self._place_category.title().strip())
+                else:
+                  my_formatted_place_array.append(self._place_type.title().strip())
+                if self._street != 'Unnamed Road':
+                  my_formatted_place_array.append(self._street_number.replace("-","").strip()+' '+self._street.replace("-","").strip())
+                elif self._place_neighbourhood != '-':
+                  my_formatted_place_array.append(self._place_neighbourhood.strip()+' Neighborhood')
+              else:
+                my_formatted_place_array.append(self._place_name.strip())
+              if self._city != '-':
+                my_formatted_place_array.append(self._city.replace(" Township","").strip())
+              elif self._county != '-':
+                my_formatted_place_array.append(self._county.strip())
+              if self._region != '-':
                 my_formatted_place_array.append(self._state_abbr)
-            else
-              my_formatted_place_array.append(self._devicetracker_zone|trim)
-          my_formatted_place = (', '.join( item for item in my_formatted_place_array))|replace('\n',' ')|regex_replace('\s{2,}',' ')|trim
+            else:
+              my_formatted_place_array.append(self._devicetracker_zone.strip())
+          my_formatted_place = (', '.join( item for item in my_formatted_place_array)).replace('\n',' ').replace('  ',' ').strip()
           self._my_formatted_place = my_formatted_place
 
 # End My Formatted Place
