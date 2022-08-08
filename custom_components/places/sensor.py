@@ -702,8 +702,8 @@ class Places(Entity):
                 my_formatted_place_array.append(self._state_abbr)
             else:
               my_formatted_place_array.append(self._devicetracker_zone.strip())
-          my_formatted_place = (', '.join( item for item in my_formatted_place_array)).replace('\n',' ').replace('  ',' ').strip()
-          self._my_formatted_place = my_formatted_place
+            my_formatted_place = (', '.join( item for item in my_formatted_place_array)).replace('\n',' ').replace('  ',' ').strip()
+            self._my_formatted_place = my_formatted_place
 
 # End My Formatted Place
 
