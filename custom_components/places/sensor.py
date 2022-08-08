@@ -263,6 +263,7 @@ ATTR_PLACE_CATEGORY = 'place_category'
 ATTR_PLACE_NEIGHBOURHOOD = 'neighbourhood'
 ATTR_DEVICETRACKER_ID = 'devicetracker_entityid'
 ATTR_DEVICETRACKER_ZONE = 'devicetracker_zone'
+ATTR_DEVICETRACKER_ZONE_NAME = 'devicetracker_zone_name'
 ATTR_PICTURE = 'entity_picture'
 ATTR_LATITUDE_OLD = 'previous_latitude'
 ATTR_LONGITUDE_OLD = 'previous_longitude'
@@ -360,6 +361,7 @@ class Places(Entity):
         self._latitude = home_latitude
         self._longitude = home_longitude
         self._devicetracker_zone = 'Home'
+        self._devicetracker_zone_name = 'Home'
         self._mtime = str(datetime.now())
         self._distance_km = 0
         self._distance_m = 0
@@ -417,6 +419,7 @@ class Places(Entity):
             ATTR_LONGITUDE: self._longitude,
             ATTR_DEVICETRACKER_ID: self._devicetracker_id,
             ATTR_DEVICETRACKER_ZONE: self._devicetracker_zone,
+            ATTR_DEVICETRACKER_ZONE_NAME: self._devicetracker_zone_name,
             ATTR_HOME_ZONE: self._home_zone,
             ATTR_PICTURE: self._entity_picture,
             ATTR_DISTANCE_KM: self._distance_km,
@@ -511,9 +514,17 @@ class Places(Entity):
               """Update if location has changed."""
 
               devicetracker_zone = self.hass.states.get(self._devicetracker_id).state
+              _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (before update): " + devicetracker_zone )
+              
+              devicetracker_zone_id = self.hass.states.get(self._devicetracker_id).attributes.get('zone')
+              devicetracker_zone_id = 'zone.'+devicetracker_zone_id
+              _LOGGER.debug( "(" + self._name + ") DeviceTracker Zone ID (before update): " + devicetracker_zone_id )
+              
+              devicetracker_zone_name = self.hass.states.get(devicetracker_zone_id).name
+              _LOGGER.debug( "(" + self._name + ") DeviceTracker Zone Name (before update): " + devicetracker_zone_name )
+
               distance_traveled = distance(float(new_latitude), float(new_longitude), float(old_latitude), float(old_longitude))
 
-              _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (before update): " + devicetracker_zone )
               _LOGGER.info( "(" + self._name + ") Meters traveled since last update: " + str(round(distance_traveled)) )
 
         proceed_with_update = True
@@ -547,6 +558,7 @@ class Places(Entity):
             self._location_current = current_location
             self._location_previous = previous_location
             self._devicetracker_zone = devicetracker_zone
+            self._devicetracker_zone_name = devicetracker_zone_name
             self._distance_km = distance_from_home
             self._distance_m = distance_m
             self._direction = direction
@@ -756,6 +768,7 @@ class Places(Entity):
                 event_data['distance_from_home'] = distance_from_home
                 event_data['direction'] = direction
                 event_data['devicetracker_zone'] = devicetracker_zone
+                event_data['devicetracker_zone_name'] = devicetracker_zone_name
                 event_data['latitude'] = self._latitude
                 event_data['longitude'] = self._longitude
                 event_data['previous_latitude'] = self._latitude_old
