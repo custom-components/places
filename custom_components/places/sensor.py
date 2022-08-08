@@ -514,9 +514,17 @@ class Places(Entity):
               """Update if location has changed."""
 
               devicetracker_zone = self.hass.states.get(self._devicetracker_id).state
+              _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (before update): " + devicetracker_zone )
+              
+              devicetracker_zone_id = self.hass.states.get(self._devicetracker_id).attributes.get('zone')
+              devicetracker_zone_id = 'zone.'+devicetracker_zone_id
+              _LOGGER.debug( "(" + self._name + ") DeviceTracker Zone ID (before update): " + devicetracker_zone_id )
+              
+              devicetracker_zone_name = self.hass.states.get(devicetracker_zone_id).name
+              _LOGGER.debug( "(" + self._name + ") DeviceTracker Zone Name (before update): " + devicetracker_zone_name )
+              
               distance_traveled = distance(float(new_latitude), float(new_longitude), float(old_latitude), float(old_longitude))
 
-              _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (before update): " + devicetracker_zone )
               _LOGGER.info( "(" + self._name + ") Meters traveled since last update: " + str(round(distance_traveled)) )
 
         proceed_with_update = True
@@ -675,37 +683,6 @@ class Places(Entity):
                     if city == '-':
                         city = county
 
-# My Formatted Place
-            my_formatted_place_array = []
-            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home":
-              if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ):
-                my_formatted_place_array.append('Driving')
-              if self._place_name == '-':
-                if self._place_category == 'highway' and self._street == 'Unnamed Road':
-                  my_formatted_place_array.append(self._place_type.title().replace("Proposed","").replace("Construction","").replace("-","").strip()+' '+self._place_category.title().strip())
-                elif self._place_type == 'unclassified' or self._place_type == '-':
-                  if self._place_category != '-':
-                    my_formatted_place_array.append(self._place_category.title().strip())
-                else:
-                  my_formatted_place_array.append(self._place_type.title().strip())
-                if self._street != 'Unnamed Road':
-                  my_formatted_place_array.append(self._street_number.replace("-","").strip()+' '+self._street.replace("-","").strip())
-                elif self._place_neighbourhood != '-':
-                  my_formatted_place_array.append(self._place_neighbourhood.strip()+' Neighborhood')
-              else:
-                my_formatted_place_array.append(self._place_name.strip())
-              if self._city != '-':
-                my_formatted_place_array.append(self._city.replace(" Township","").strip())
-              elif self._county != '-':
-                my_formatted_place_array.append(self._county.strip())
-              if self._region != '-':
-                my_formatted_place_array.append(self._state_abbr)
-            else:
-              my_formatted_place_array.append(self._devicetracker_zone.strip())
-            my_formatted_place = (', '.join( item for item in my_formatted_place_array)).replace('\n',' ').replace('  ',' ').strip()
-            self._my_formatted_place = my_formatted_place
-
-# End My Formatted Place
 
                 # Options:  "zone, place, street_number, street, city, county, state, postal_code, country, formatted_address"
 
@@ -776,6 +753,43 @@ class Places(Entity):
             else:
                 new_state = devicetracker_zone
                 _LOGGER.debug( "(" + self._name + ") New State from DeviceTracker set to: " + new_state)
+
+            # My Formatted Place
+            my_formatted_place_array = []
+            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home":
+                if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ):
+                    my_formatted_place_array.append('Driving')
+                if self._place_name == '-':
+                    if self._place_category == 'highway' and self._street == 'Unnamed Road':
+                        my_formatted_place_array.append(self._place_type.title().replace("Proposed","").replace("Construction","").replace("-","").strip()+' '+self._place_category.title().strip())
+                    elif self._place_type == 'unclassified' or self._place_type == '-':
+                        if self._place_category != '-':
+                            my_formatted_place_array.append(self._place_category.title().strip())
+                    else:
+                        my_formatted_place_array.append(self._place_type.title().strip())
+                    if self._street != 'Unnamed Road':
+                        my_formatted_place_array.append(self._street_number.replace("-","").strip()+' '+self._street.replace("-","").strip())
+                    elif self._place_neighbourhood != '-':
+                        my_formatted_place_array.append(self._place_neighbourhood.strip()+' Neighborhood')
+                else:
+                    my_formatted_place_array.append(self._place_name.strip())
+                if self._city != '-':
+                    my_formatted_place_array.append(self._city.replace(" Township","").strip())
+                elif self._county != '-':
+                    my_formatted_place_array.append(self._county.strip())
+                if self._region != '-':
+                    my_formatted_place_array.append(self._state_abbr)
+            #elif self._devicetracker_zone == 'home':
+                #my_formatted_place_array.append(self._devicetracker_zone.title().strip())
+            else:
+                #my_formatted_place_array.append(self._devicetracker_zone.strip())
+                my_formatted_place_array.append(devicetracker_zone_name.strip())
+            my_formatted_place = ', '.join( item for item in my_formatted_place_array)
+            my_formatted_place = my_formatted_place.replace('\n',' ').replace('  ',' ').strip()
+            self._my_formatted_place = my_formatted_place
+
+            # End My Formatted Place
+
 
             current_time = "%02d:%02d" % (now.hour, now.minute)
             
