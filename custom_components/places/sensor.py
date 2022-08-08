@@ -278,6 +278,7 @@ ATTR_LOCATION_CURRENT = 'current_location'
 ATTR_LOCATION_PREVIOUS = 'previous_location'
 ATTR_DIRECTION_OF_TRAVEL = 'direction_of_travel'
 ATTR_MAP_LINK = 'map_link'
+ATTR_MY_FORMATTED_PLACE = 'my_formatted_place'
 
 DEFAULT_NAME = 'places'
 DEFAULT_OPTION = 'zone, place'
@@ -368,6 +369,7 @@ class Places(Entity):
         self._updateskipped = 0
         self._direction = 'stationary'
         self._map_link = None
+        self._my_formatted_place = None
         #'https://www.google.com/maps/@' + home_latitude + "," + home_longitude + ',19z'
 
         # Check if devicetracker_id was specified correctly
@@ -428,7 +430,8 @@ class Places(Entity):
             ATTR_HOME_LONGITUDE: self._home_longitude,
             ATTR_DIRECTION_OF_TRAVEL: self._direction,
             ATTR_MAP_LINK: self._map_link,
-            ATTR_OPTIONS: self._options
+            ATTR_OPTIONS: self._options,
+            ATTR_MY_FORMATTED_PLACE: self._my_formatted_place
         }
 
 
@@ -587,6 +590,7 @@ class Places(Entity):
             postal_code = ''
             formatted_address = ''
             target_option = ''
+            my_formatted_place = ''
             
             if "place" in self._options:
                 place_type = osm_decoded["type"]
@@ -670,6 +674,38 @@ class Places(Entity):
                     city = postal_town
                     if city == '-':
                         city = county
+
+# My Formatted Place
+            my_formatted_place_array = []
+            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home"
+              if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' )
+                my_formatted_place_array.append('Driving')
+              if self._place_name == '-'
+                if self._place_category == 'highway' and self._street == 'Unnamed Road'
+                  my_formatted_place_array.append(self._place_type|capitalize|replace("Proposed","")|replace("Construction","")|replace("-","")|trim+' '+self._place_category|capitalize|trim)
+                elif self._place_type == 'unclassified' or self._place_type == '-'
+                  if self._place_category != '-'
+                    my_formatted_place_array.append(self._place_category|capitalize|trim)
+                else
+                  my_formatted_place_array.append(self._place_type|capitalize|trim)
+                if self._street != 'Unnamed Road'
+                  my_formatted_place_array.append(self._street_number|replace("-","")|trim+' '+self._street|replace("-","")|trim)
+                elif self._place_neighbourhood != '-'
+                  my_formatted_place_array.append(self._place_neighbourhood|trim+' Neighborhood')
+              else
+                my_formatted_place_array.append(self._place_name|trim)
+              if self._city != '-'
+                my_formatted_place_array.append(self._city|replace(" Township","")|trim)
+              elif self._county != '-'
+                my_formatted_place_array.append(self._county|trim)
+              if self._region != '-'
+                my_formatted_place_array.append(self._state_abbr)
+            else
+              my_formatted_place_array.append(self._devicetracker_zone|trim)
+          my_formatted_place = (', '.join( item for item in my_formatted_place_array))|replace('\n',' ')|regex_replace('\s{2,}',' ')|trim
+          self._my_formatted_place = my_formatted_place
+
+# End My Formatted Place
 
                 # Options:  "zone, place, street_number, street, city, county, state, postal_code, country, formatted_address"
 
