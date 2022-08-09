@@ -682,7 +682,40 @@ class Places(Entity):
             self._postal_code = postal_code
             self._formatted_address = formatted_address
             self._mtime = str(datetime.now())
-            
+
+            # Formatted Place
+            formatted_place_array = []
+            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home":
+                if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ):
+                    formatted_place_array.append('Driving')
+                if self._place_name == '-':
+                    if self._place_category == 'highway' and self._street == 'Unnamed Road':
+                        formatted_place_array.append(self._place_type.title().replace("Proposed","").replace("Construction","").replace("-","").strip()+' '+self._place_category.title().strip())
+                    elif self._place_type == 'unclassified' or self._place_type == '-':
+                        if self._place_category != '-':
+                            formatted_place_array.append(self._place_category.title().strip())
+                    else:
+                        formatted_place_array.append(self._place_type.title().strip())
+                    if self._street != 'Unnamed Road':
+                        formatted_place_array.append(self._street_number.replace("-","").strip()+' '+self._street.replace("-","").strip())
+                    elif self._place_neighbourhood != '-':
+                        formatted_place_array.append(self._place_neighbourhood.strip()+' Neighborhood')
+                else:
+                    formatted_place_array.append(self._place_name.strip())
+                if self._city != '-':
+                    formatted_place_array.append(self._city.replace(" Township","").strip())
+                elif self._county != '-':
+                    formatted_place_array.append(self._county.strip())
+                if self._region != '-':
+                    formatted_place_array.append(self._state_abbr)
+            else:
+                formatted_place_array.append(devicetracker_zone_name.strip())
+            formatted_place = ', '.join( item for item in formatted_place_array)
+            formatted_place = formatted_place.replace('\n',' ').replace('  ',' ').strip()
+            self._formatted_place = formatted_place
+
+            # End Formatted Place
+
             if 'error_message' in osm_decoded:
                 new_state = osm_decoded['error_message']
                 _LOGGER.info( "(" + self._name + ") An error occurred contacting the web service")
@@ -691,7 +724,6 @@ class Places(Entity):
                     city = postal_town
                     if city == '-':
                         city = county
-
 
                 # Options:  "zone, place, street_number, street, city, county, state, postal_code, country, formatted_address"
 
@@ -762,42 +794,6 @@ class Places(Entity):
             else:
                 new_state = devicetracker_zone
                 _LOGGER.debug( "(" + self._name + ") New State from DeviceTracker set to: " + new_state)
-
-            # Formatted Place
-            formatted_place_array = []
-            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home":
-                if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ):
-                    formatted_place_array.append('Driving')
-                if self._place_name == '-':
-                    if self._place_category == 'highway' and self._street == 'Unnamed Road':
-                        formatted_place_array.append(self._place_type.title().replace("Proposed","").replace("Construction","").replace("-","").strip()+' '+self._place_category.title().strip())
-                    elif self._place_type == 'unclassified' or self._place_type == '-':
-                        if self._place_category != '-':
-                            formatted_place_array.append(self._place_category.title().strip())
-                    else:
-                        formatted_place_array.append(self._place_type.title().strip())
-                    if self._street != 'Unnamed Road':
-                        formatted_place_array.append(self._street_number.replace("-","").strip()+' '+self._street.replace("-","").strip())
-                    elif self._place_neighbourhood != '-':
-                        formatted_place_array.append(self._place_neighbourhood.strip()+' Neighborhood')
-                else:
-                    formatted_place_array.append(self._place_name.strip())
-                if self._city != '-':
-                    formatted_place_array.append(self._city.replace(" Township","").strip())
-                elif self._county != '-':
-                    formatted_place_array.append(self._county.strip())
-                if self._region != '-':
-                    formatted_place_array.append(self._state_abbr)
-            #elif self._devicetracker_zone == 'home':
-                #formatted_place_array.append(self._devicetracker_zone.title().strip())
-            else:
-                #formatted_place_array.append(self._devicetracker_zone.strip())
-                formatted_place_array.append(devicetracker_zone_name.strip())
-            formatted_place = ', '.join( item for item in formatted_place_array)
-            formatted_place = formatted_place.replace('\n',' ').replace('  ',' ').strip()
-            self._formatted_place = formatted_place
-
-            # End Formatted Place
 
 
             current_time = "%02d:%02d" % (now.hour, now.minute)
