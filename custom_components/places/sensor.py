@@ -516,6 +516,7 @@ class Places(Entity):
            
               """Update if location has changed."""
 
+
               devicetracker_zone = self.hass.states.get(self._devicetracker_id).state
               _LOGGER.info( "(" + self._name + ") DeviceTracker Zone (before update): " + devicetracker_zone )
               
@@ -529,7 +530,7 @@ class Places(Entity):
               else:
                   devicetracker_zone_name = devicetracker_zone
               _LOGGER.debug( "(" + self._name + ") DeviceTracker Zone Name (before update): " + devicetracker_zone_name )
-              
+
               distance_traveled = distance(float(new_latitude), float(new_longitude), float(old_latitude), float(old_longitude))
 
               _LOGGER.info( "(" + self._name + ") Meters traveled since last update: " + str(round(distance_traveled)) )
