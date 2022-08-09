@@ -805,8 +805,11 @@ class Places(Entity):
             if previous_state != new_state:
                 _LOGGER.info( "(" + self._name + ") New state built using options: " + self._options)
                 _LOGGER.debug( "(" + self._name + ") Building EventData for (" + new_state +")")
-                new_state = new_state[:(255-14)]
-                self._state = new_state + " (since " + current_time + ")"
+                if "time" in display_options:
+                    new_state = new_state[:(255-14)]
+                    self._state = new_state + " (since " + current_time + ")"
+                else:
+                	self._state = new_state
                 event_data = {}
                 event_data['entity'] = self._name
                 event_data['place_name'] = place_name
