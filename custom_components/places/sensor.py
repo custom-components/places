@@ -809,7 +809,7 @@ class Places(Entity):
                     new_state = new_state[:(255-14)]
                     self._state = new_state + " (since " + current_time + ")"
                 else:
-                	self._state = new_state
+                    self._state = new_state
                 event_data = {}
                 event_data['entity'] = self._name
                 event_data['place_name'] = place_name
