@@ -718,19 +718,21 @@ class Places(Entity):
 
             # End Formatted Place
 
+            display_options = []
+            options_array = self._options.split(',')
+            for option in options_array:
+                display_options.append(option.strip())
+
             if 'error_message' in osm_decoded:
                 new_state = osm_decoded['error_message']
                 _LOGGER.info( "(" + self._name + ") An error occurred contacting the web service")
+            elif "formatted_place" in display_options:
+                new_state = self._formatted_place
             elif self._devicetracker_zone == "not_home":
 
                 # Options:  "zone, place, street_number, street, city, county, state, postal_code, country, formatted_address"
 
                 _LOGGER.debug( "(" + self._name + ") Building State from Display Options: " + self._options)
-
-                display_options = []
-                options_array = self._options.split(',')
-                for option in options_array:
-                    display_options.append(option.strip())
                     
                 user_display = []
 
