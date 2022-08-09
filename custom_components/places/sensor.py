@@ -730,15 +730,19 @@ class Places(Entity):
                 new_state = self._formatted_place
             elif self._devicetracker_zone == "not_home":
 
-                # Options:  "zone, place, street_number, street, city, county, state, postal_code, country, formatted_address"
+                # Options:  "formatted_place, zone, zone_name, place, street_number, street, city, county, state, postal_code, country, formatted_address"
 
                 _LOGGER.debug( "(" + self._name + ") Building State from Display Options: " + self._options)
                     
                 user_display = []
 
-                if "zone" in display_options and ("do_not_show_not_home" not in display_options and self._devicetracker_zone != "not_home"):
+                if "zone_name" in display_options and "do_not_show_not_home" not in display_options:
                     zone = self._devicetracker_zone
-                    user_display.append(zone)
+                    user_display.append(self._devicetracker_zone_name)
+                elif "zone" in display_options and "do_not_show_not_home" not in display_options:
+                    zone = self._devicetracker_zone
+                    user_display.append(self._devicetracker_zone)
+
                 if "place_name" in display_options:
                     if place_name != "-":
                         user_display.append(place_name)
@@ -782,7 +786,6 @@ class Places(Entity):
                             target_option = "place_neighbourhood"
                         if option in locals():
                             user_display.append(target_option)
-                            
 
                 if not user_display:
                     user_display = self._devicetracker_zone
@@ -791,10 +794,12 @@ class Places(Entity):
 
                 new_state = ', '.join( item for item in user_display )
                 _LOGGER.debug( "(" + self._name + ") New State built from Display Options will be: " + new_state )
+            elif "zone_name" in display_options:
+                new_state = devicetracker_zone_name
+                _LOGGER.debug( "(" + self._name + ") New State from DeviceTracker set to: " + new_state)
             else:
                 new_state = devicetracker_zone
                 _LOGGER.debug( "(" + self._name + ") New State from DeviceTracker set to: " + new_state)
-
 
             current_time = "%02d:%02d" % (now.hour, now.minute)
             
