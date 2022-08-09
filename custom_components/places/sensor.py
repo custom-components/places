@@ -523,7 +523,11 @@ class Places(Entity):
               devicetracker_zone_id = 'zone.'+devicetracker_zone_id
               _LOGGER.debug( "(" + self._name + ") DeviceTracker Zone ID (before update): " + devicetracker_zone_id )
               
-              devicetracker_zone_name = self.hass.states.get(devicetracker_zone_id).name
+              devicetracker_zone_name_state = self.hass.states.get(devicetracker_zone_id)
+              if devicetracker_zone_name_state:
+                  devicetracker_zone_name = self.hass.states.get(devicetracker_zone_id).name
+              else:
+                  devicetracker_zone_name = devicetracker_zone
               _LOGGER.debug( "(" + self._name + ") DeviceTracker Zone Name (before update): " + devicetracker_zone_name )
               
               distance_traveled = distance(float(new_latitude), float(new_longitude), float(old_latitude), float(old_longitude))
