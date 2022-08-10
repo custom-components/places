@@ -78,7 +78,7 @@ Key | Type | Required | Description | Default |
 `map_provider` | `string` | `False` | `google` or `apple` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
 `language` | `string` | `False` | Requested* language(s) for state and attributes. Two-Letter language code(s). | *Refer to Notes
-`options` | `string` | `False` | Display options: `formaated_place (exclusive option), zone or zone_name, place, place_name, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
+`options` | `string` | `False` | Display options: `formatted_place (exclusive option), driving (can be used with formatted_place or other options), zone or zone_name, place, place_name, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
 ```json
@@ -180,6 +180,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
 ```
 
 Original Author: [Jim Thompson](https://github.com/tenly2000)
+Subsequent Author: [Ian Richardson](https://github.com/iantrich)
 
 ## Contributions are welcome!
 

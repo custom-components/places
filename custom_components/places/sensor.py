@@ -684,12 +684,20 @@ class Places(Entity):
             self._postal_code = postal_code
             self._formatted_address = formatted_address
             self._mtime = str(datetime.now())
+            
+            isDriving = False
+            
+            display_options = []
+            options_array = self._options.split(',')
+            for option in options_array:
+                display_options.append(option.strip()) 
 
             # Formatted Place
             formatted_place_array = []
             if "stationary" in self._devicetracker_zone.lower() or self._devicetracker_zone.lower() == "away" or self._devicetracker_zone.lower() == "not_home":
-                if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ):
+                if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ) and "driving" in display_options:
                     formatted_place_array.append('Driving')
+                    isDriving = True
                 if self._place_name == '-':
                     if self._place_category == 'highway' and self._street == 'Unnamed Road':
                         formatted_place_array.append(self._place_type.title().replace("Proposed","").replace("Construction","").replace("-","").strip()+' '+self._place_category.title().strip())
@@ -714,14 +722,7 @@ class Places(Entity):
                 formatted_place_array.append(devicetracker_zone_name.strip())
             formatted_place = ', '.join( item for item in formatted_place_array)
             formatted_place = formatted_place.replace('\n',' ').replace('  ',' ').strip()
-            self._formatted_place = formatted_place
-
-            # End Formatted Place
-
-            display_options = []
-            options_array = self._options.split(',')
-            for option in options_array:
-                display_options.append(option.strip())
+            self._formatted_place = formatted_place 
 
             if 'error_message' in osm_decoded:
                 new_state = osm_decoded['error_message']
@@ -735,6 +736,9 @@ class Places(Entity):
                 _LOGGER.debug( "(" + self._name + ") Building State from Display Options: " + self._options)
                     
                 user_display = []
+                
+                if "driving" in display_options and isDriving:
+                    user_display.append("Driving")
 
                 if "zone_name" in display_options and "do_not_show_not_home" not in display_options:
                     zone = self._devicetracker_zone
