@@ -3,7 +3,7 @@
 
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE.md)
+[![License][license-shield]](LICENSE)
 
 [![hacs][hacsbadge]][hacs]
 
@@ -179,8 +179,8 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       custom_components.sensor.places: debug  
 ```
 
-Original Author: [Jim Thompson](https://github.com/tenly2000)
-Subsequent Author: [Ian Richardson](https://github.com/iantrich)
+* Original Author: [Jim Thompson](https://github.com/tenly2000)
+* Subsequent Author: [Ian Richardson](https://github.com/iantrich)
 
 ## Contributions are welcome!
 
@@ -189,15 +189,15 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 ***
 
 [places]: https://github.com/Snuffy2/places
-[commits-shield]: https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge
+[commits-shield]: https://img.shields.io/github/commit-activity/y/Snuffy2/places?style=for-the-badge
 [commits]: https://github.com/Snuffy2/places/commits/newdev
-[hacs]: https://github.com/Snuffy2/places/hacs
+[hacs]: https://github.com/Snuffy2/hacs
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [discord]: https://discord.gg/Qa5fW2R
 [discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
 [forum]: https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component
-[license-shield]: https://img.shields.io/github/license/custom-components/places.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-Ian%20Richardson%20%40iantrich-blue.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/custom-components/places.svg?style=for-the-badge
+[license-shield]: https://img.shields.io/github/license/Snuffy2/places.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/v/release/Snuffy2/places?style=for-the-badge
 [releases]: https://github.com/Snuffy2/places/releases
+
