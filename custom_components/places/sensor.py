@@ -687,7 +687,7 @@ class Places(Entity):
 
             # Formatted Place
             formatted_place_array = []
-            if self._devicetracker_zone == "stationary" or self._devicetracker_zone == "away" or self._devicetracker_zone == "not_home":
+            if "stationary" in self._devicetracker_zone.lower() or self._devicetracker_zone.lower() == "away" or self._devicetracker_zone.lower() == "not_home":
                 if self._direction != 'stationary' and ( self._place_category == 'highway' or self._place_type == 'motorway' ):
                     formatted_place_array.append('Driving')
                 if self._place_name == '-':
@@ -728,7 +728,7 @@ class Places(Entity):
                 _LOGGER.info( "(" + self._name + ") An error occurred contacting the web service")
             elif "formatted_place" in display_options:
                 new_state = self._formatted_place
-            elif self._devicetracker_zone == "not_home":
+            elif self._devicetracker_zone.lower() == "not_home" or "stationary" in self._devicetracker_zone.lower():
 
                 # Options:  "formatted_place, zone, zone_name, place, street_number, street, city, county, state, postal_code, country, formatted_address"
 
