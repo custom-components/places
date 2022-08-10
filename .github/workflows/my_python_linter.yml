@@ -6,17 +6,16 @@ jobs:
   python_linter:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       #- name: Black Code Formatter
       #  uses: lgeiger/black-action@master
       #  with:
       #    args: ". --diff --color --check"
-      - uses: grantmcconnaughey/lintly-flake8-github-action@v1.0
-        if: github.event_name == 'pull_request'
+      - uses: sailingpalmtree/lint@latest
         with:
-          # The GitHub API token to create reviews with
-          token: ${{ secrets.REVIEWDOG_GITHUB_API_TOKEN }}
-          # Fail if "new" violations detected or "any", default "new"
-          failIf: any
-          # Additional arguments to pass to flake8, default "." (current directory)
-          args: "."
+          github_token: ${{ secrets.REVIEWDOG_GITHUB_API_TOKEN }}
+          # Change reviewdog reporter if you need [github-pr-check,github-check,github-pr-review].
+          reporter: github-pr-review
+          # Change reporter level if you need.
+          # GitHub Status Check won't become failure with warning.
+          level: warning
