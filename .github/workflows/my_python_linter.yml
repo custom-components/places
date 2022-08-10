@@ -1,0 +1,22 @@
+name: My Python Linter (autoflake, isort, black)
+
+on: [workflow_dispatch, pull_request]
+
+jobs:
+  python_linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Black Code Formatter
+        uses: lgeiger/black-action@master
+        with:
+          args: ". --diff --color --check"
+      - uses: grantmcconnaughey/lintly-flake8-github-action@v1.0
+        if: github.event_name == 'pull_request'
+        with:
+          # The GitHub API token to create reviews with
+          token: ${{ secrets.REVIEWDOG_GITHUB_API_TOKEN }}
+          # Fail if "new" violations detected or "any", default "new"
+          failIf: new
+          # Additional arguments to pass to flake8, default "." (current directory)
+          args: "."
