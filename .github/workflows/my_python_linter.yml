@@ -7,10 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - name: Black Code Formatter
-        uses: lgeiger/black-action@master
-        with:
-          args: ". --diff --color --check"
+      #- name: Black Code Formatter
+      #  uses: lgeiger/black-action@master
+      #  with:
+      #    args: ". --diff --color --check"
       - uses: grantmcconnaughey/lintly-flake8-github-action@v1.0
         if: github.event_name == 'pull_request'
         with:
