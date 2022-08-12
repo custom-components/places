@@ -279,6 +279,8 @@ ATTR_LOCATION_PREVIOUS = "previous_location"
 ATTR_DIRECTION_OF_TRAVEL = "direction_of_travel"
 ATTR_MAP_LINK = "map_link"
 ATTR_FORMATTED_PLACE = "formatted_place"
+ATTR_OSM_ID = "osm_id"
+ATTR_OSM_TYPE = "osm_type"
 
 DEFAULT_NAME = "places"
 DEFAULT_OPTION = "zone, place"
@@ -403,6 +405,8 @@ class Places(Entity):
         self._direction = "stationary"
         self._map_link = None
         self._formatted_place = None
+        self._osm_id = None
+        self._osm_type = None
         #'https://www.google.com/maps/@' + home_latitude + "," + home_longitude + ',19z'
 
         # Check if devicetracker_id was specified correctly
@@ -482,6 +486,8 @@ class Places(Entity):
             ATTR_MAP_LINK: self._map_link,
             ATTR_OPTIONS: self._options,
             ATTR_FORMATTED_PLACE: self._formatted_place,
+            ATTR_OSM_ID: self._osm_id,
+            ATTR_OSM_TYPE: self._osm_type,
         }
 
     def tsc_update(self, tscarg2, tsarg3, tsarg4):
@@ -855,6 +861,11 @@ class Places(Entity):
             if "display_name" in osm_decoded:
                 formatted_address = osm_decoded["display_name"]
 
+            if "osm_id" in osm_decoded:
+                osm_id = osm_decoded["osm_id"]
+            if "osm_type" in osm_decoded:
+                osm_type = osm_decoded["osm_type"]
+
             self._place_type = place_type
             self._place_category = place_category
             self._place_neighbourhood = place_neighbourhood
@@ -871,6 +882,8 @@ class Places(Entity):
             self._postal_code = postal_code
             self._formatted_address = formatted_address
             self._mtime = str(datetime.now())
+            self._osm_id = osm_id
+            self._osm_type = osm_type
 
             isDriving = False
 
@@ -1085,6 +1098,8 @@ class Places(Entity):
                 event_data["previous_longitude"] = self._longitude_old
                 event_data["map"] = self._map_link
                 event_data["mtime"] = current_time
+                event_data["osm_id"] = osm_id
+                event_data["osm_type"] = osm_type
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 # self._hass.bus.fire(DEFAULT_NAME+'_state_update', { 'entity': self._name, 'place_name': place_name, 'from_state': previous_state, 'to_state': new_state, 'distance_from_home': distance_from_home, 'direction': direction, 'devicetracker_zone': devicetracker_zone, 'mtime': current_time, 'latitude': self._latitude, 'longitude': self._longitude, 'map': self._map_link })
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
@@ -1105,4 +1120,6 @@ class Places(Entity):
         self._place_type = None
         self._place_name = None
         self._mtime = datetime.now()
+        self._osm_id = None
+        self._osm_type = None
         self._updateskipped = 0
