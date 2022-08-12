@@ -896,18 +896,34 @@ class Places(Entity):
                 ):
                     formatted_place_array.append("Driving")
                     isDriving = True
-                if self._place_name == '-':
-                    if self._place_neighbourhood != '-':
-                        formatted_place_array.append(self._place_neighbourhood.strip()+' Neighborhood')
-                    elif self._place_type != '-' and self._place_type.lower() != 'unclassified':
-                        formatted_place_array.append(self._place_type.title().replace("Proposed","").replace("Construction","").strip()+' '+self._place_category.title().strip())
-                    elif self._place_category != '-':
-                        formatted_place_array.append(self._place_category.title().strip())
-                    if self._street.lower() != 'unnamed road' and self._street != '-':
-                        if self._street_number == '-':
+                if self._place_name == "-":
+                    if self._place_neighbourhood != "-":
+                        formatted_place_array.append(
+                            self._place_neighbourhood.strip() + " Neighborhood"
+                        )
+                    elif (
+                        self._place_type != "-"
+                        and self._place_type.lower() != "unclassified"
+                    ):
+                        formatted_place_array.append(
+                            self._place_type.title()
+                            .replace("Proposed", "")
+                            .replace("Construction", "")
+                            .strip()
+                            + " "
+                            + self._place_category.title().strip()
+                        )
+                    elif self._place_category != "-":
+                        formatted_place_array.append(
+                            self._place_category.title().strip()
+                        )
+                    if self._street.lower() != "unnamed road" and self._street != "-":
+                        if self._street_number == "-":
                             formatted_place_array.append(self._street.strip())
                         else:
-                            formatted_place_array.append(self._street_number.strip()+' '+self._street.strip())
+                            formatted_place_array.append(
+                                self._street_number.strip() + " " + self._street.strip()
+                            )
                 else:
                     formatted_place_array.append(self._place_name.strip())
                 if self._city != "-":
