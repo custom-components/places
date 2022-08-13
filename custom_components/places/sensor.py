@@ -244,6 +244,7 @@ CONF_OPTIONS = "options"
 CONF_MAP_PROVIDER = "map_provider"
 CONF_MAP_ZOOM = "map_zoom"
 CONF_LANGUAGE = "language"
+CONF_EXTENDED_ATTR = "extended_attr"
 
 ATTR_OPTIONS = "options"
 ATTR_STREET_NUMBER = "street_number"
@@ -293,6 +294,7 @@ DEFAULT_KEY = "no key"
 DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = "18"
 DEFAULT_LANGUAGE = "default"
+DEFAULT_EXTENDED_ATTR = False
 
 SCAN_INTERVAL = timedelta(seconds=30)
 THROTTLE_INTERVAL = timedelta(seconds=600)
@@ -308,6 +310,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.string,
         vol.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): cv.string,
         vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
+        vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
     }
 )
 
@@ -324,6 +327,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     map_provider = config.get(CONF_MAP_PROVIDER)
     map_zoom = config.get(CONF_MAP_ZOOM)
     language = config.get(CONF_LANGUAGE)
+    extended_attr = config.get(CONF_EXTENDED_ATTR)
 
     add_devices(
         [
@@ -337,6 +341,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
                 map_provider,
                 map_zoom,
                 language,
+                extended_attr,
             )
         ]
     )
@@ -356,6 +361,7 @@ class Places(Entity):
         map_provider,
         map_zoom,
         language,
+        extended_attr,
     ):
         """Initialize the sensor."""
         self._hass = hass
@@ -368,6 +374,7 @@ class Places(Entity):
         self._map_zoom = map_zoom.lower()
         self._language = language.lower()
         self._language.replace(" ", "")
+        self._extended_attr = extended_attr
         self._state = "Initializing... (since 99:99)"
 
         home_latitude = str(hass.states.get(home_zone).attributes.get("latitude"))
@@ -1176,10 +1183,11 @@ class Places(Entity):
                 event_data["mtime"] = current_time
                 event_data["osm_id"] = osm_id
                 event_data["osm_type"] = osm_type
-                event_data["wikidata_id"] = wikidata_id
-                event_data["osm_dict"] = osm_dict
-                event_data["osm_details_dict"] = osm_details_dict
-                event_data["wikidata_dict"] = wikidata_dict
+                if self._extended_attr:
+                    event_data["wikidata_id"] = wikidata_id
+                    event_data["osm_dict"] = osm_dict
+                    event_data["osm_details_dict"] = osm_details_dict
+                    event_data["wikidata_dict"] = wikidata_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 # self._hass.bus.fire(DEFAULT_NAME+'_state_update', { 'entity': self._name, 'place_name': place_name, 'from_state': previous_state, 'to_state': new_state, 'distance_from_home': distance_from_home, 'direction': direction, 'devicetracker_zone': devicetracker_zone, 'mtime': current_time, 'latitude': self._latitude, 'longitude': self._longitude, 'map': self._map_link })
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
