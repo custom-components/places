@@ -281,6 +281,7 @@ ATTR_MAP_LINK = "map_link"
 ATTR_FORMATTED_PLACE = "formatted_place"
 ATTR_OSM_ID = "osm_id"
 ATTR_OSM_TYPE = "osm_type"
+ATTR_OSM_DETAILS_DICT ="osm_details_dict"
 
 DEFAULT_NAME = "places"
 DEFAULT_OPTION = "zone, place"
@@ -407,6 +408,7 @@ class Places(Entity):
         self._formatted_place = None
         self._osm_id = None
         self._osm_type = None
+        self._osm_details_dict = None
         #'https://www.google.com/maps/@' + home_latitude + "," + home_longitude + ',19z'
 
         # Check if devicetracker_id was specified correctly
@@ -488,6 +490,7 @@ class Places(Entity):
             ATTR_FORMATTED_PLACE: self._formatted_place,
             ATTR_OSM_ID: self._osm_id,
             ATTR_OSM_TYPE: self._osm_type,
+            ATTR_OSM_DETAILS_dict: self._osm_details_dict,
         }
 
     def tsc_update(self, tscarg2, tsarg3, tsarg4):
@@ -775,12 +778,12 @@ class Places(Entity):
                 + " and lon="
                 + self._longitude
             )
-            _LOGGER.debug("(" + self._name + ") url - " + osm_url)
+            _LOGGER.debug("(" + self._name + ") OSM URL - " + osm_url)
             osm_response = get(osm_url)
             osm_json_input = osm_response.text
-            _LOGGER.debug("(" + self._name + ") response - " + osm_json_input)
+            _LOGGER.debug("(" + self._name + ") OSM Response - " + osm_json_input)
             osm_decoded = json.loads(osm_json_input)
-            decoded = osm_decoded
+            #decoded = osm_decoded
 
             place_options = self._options.lower()
             place_type = "-"
@@ -862,7 +865,7 @@ class Places(Entity):
                 formatted_address = osm_decoded["display_name"]
 
             if "osm_id" in osm_decoded:
-                osm_id = osm_decoded["osm_id"]
+                osm_id = str(osm_decoded["osm_id"])
             if "osm_type" in osm_decoded:
                 osm_type = osm_decoded["osm_type"]
 
@@ -882,7 +885,7 @@ class Places(Entity):
             self._postal_code = postal_code
             self._formatted_address = formatted_address
             self._mtime = str(datetime.now())
-            self._osm_id = osm_id
+            self._osm_id = str(osm_id)
             self._osm_type = osm_type
 
             isDriving = False
@@ -1067,6 +1070,42 @@ class Places(Entity):
                     + new_state
                 )
 
+            osm_details_decoded = {}
+            if osm_id is not None and osm_type is not None:
+                if osm_type.lower() == 'node':
+                    osm_type_abbr = 'N'
+                elif osm_type.lower() == 'way':
+                    osm_type_abbr = 'W'
+                elif osm_type.lower() == 'relation':
+                    osm_type_abbr = 'R'
+
+                osm_details_url = (
+                    "https://nominatim.openstreetmap.org/details.php?osmtype="
+                    + osm_type_abbr
+                    + "&osmid="
+                    + osm_id
+                    + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
+                    + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
+                )
+
+                _LOGGER.info(
+                    "("
+                    + self._name
+                    + ") OpenStreetMap Details request sent with type="
+                    + osm_type
+                    + " ("
+                    + osm_type_abbr
+                    + ") and id="
+                    + str(osm_id)
+                )
+                _LOGGER.debug("(" + self._name + ") OSM Details URL - " + osm_details_url)
+                osm_details_response = get(osm_details_url)
+                osm_details_json_input = osm_details_response.text
+                osm_details_decoded = json.loads(osm_details_json_input)
+                _LOGGER.debug("(" + self._name + ") OSM Details JSON - " + osm_details_json_input)
+                #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_decoded))
+                self._osm_details_dict = osm_details_decoded
+
             current_time = "%02d:%02d" % (now.hour, now.minute)
 
             if previous_state != new_state:
@@ -1100,6 +1139,7 @@ class Places(Entity):
                 event_data["mtime"] = current_time
                 event_data["osm_id"] = osm_id
                 event_data["osm_type"] = osm_type
+                event_data["osm_details_dict"] = self._osm_details_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 # self._hass.bus.fire(DEFAULT_NAME+'_state_update', { 'entity': self._name, 'place_name': place_name, 'from_state': previous_state, 'to_state': new_state, 'distance_from_home': distance_from_home, 'direction': direction, 'devicetracker_zone': devicetracker_zone, 'mtime': current_time, 'latitude': self._latitude, 'longitude': self._longitude, 'map': self._map_link })
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
@@ -1122,4 +1162,5 @@ class Places(Entity):
         self._mtime = datetime.now()
         self._osm_id = None
         self._osm_type = None
+        self._osm_details_dict = None
         self._updateskipped = 0
