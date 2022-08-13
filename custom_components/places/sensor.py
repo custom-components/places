@@ -467,7 +467,7 @@ class Places(Entity):
     def extra_state_attributes(self):
         """Return the state attributes."""
         return_attr = {}
-        
+
         if self._street_number is not None:
             return_attr[ATTR_STREET_NUMBER] = self._street_number
         if self._street is not None:
@@ -548,7 +548,7 @@ class Places(Entity):
             return_attr[ATTR_OSM_DETAILS_DICT] = self._osm_details_dict
         if self._wikidata_dict is not None:
             return_attr[ATTR_WIKIDATA_DICT] = self._wikidata_dict
-        #_LOGGER.debug("(" + self._name + ") Extra State Attributes - " + return_attr)
+        # _LOGGER.debug("(" + self._name + ") Extra State Attributes - " + return_attr)
         return return_attr
 
     def tsc_update(self, tscarg2, tsarg3, tsarg4):
@@ -841,7 +841,7 @@ class Places(Entity):
             osm_json_input = osm_response.text
             _LOGGER.debug("(" + self._name + ") OSM Response - " + osm_json_input)
             osm_decoded = json.loads(osm_json_input)
-            #decoded = osm_decoded
+            # decoded = osm_decoded
 
             place_options = self._options.lower()
             place_type = "-"
@@ -1130,22 +1130,22 @@ class Places(Entity):
                     + ") New State from DeviceTracker set to: "
                     + new_state
                 )
-            
+
             if self._extended_attr:
                 self._osm_dict = osm_decoded
             current_time = "%02d:%02d" % (now.hour, now.minute)
 
             if previous_state != new_state:
-            
+
                 if self._extended_attr:
                     osm_details_dict = {}
                     if osm_id is not None and osm_type is not None:
-                        if osm_type.lower() == 'node':
-                            osm_type_abbr = 'N'
-                        elif osm_type.lower() == 'way':
-                            osm_type_abbr = 'W'
-                        elif osm_type.lower() == 'relation':
-                            osm_type_abbr = 'R'
+                        if osm_type.lower() == "node":
+                            osm_type_abbr = "N"
+                        elif osm_type.lower() == "way":
+                            osm_type_abbr = "W"
+                        elif osm_type.lower() == "relation":
+                            osm_type_abbr = "R"
 
                         osm_details_url = (
                             "https://nominatim.openstreetmap.org/details.php?osmtype="
@@ -1153,7 +1153,11 @@ class Places(Entity):
                             + "&osmid="
                             + osm_id
                             + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
-                            + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
+                            + (
+                                "&email=" + self._api_key
+                                if self._api_key != DEFAULT_KEY
+                                else ""
+                            )
                         )
 
                         _LOGGER.info(
@@ -1166,15 +1170,25 @@ class Places(Entity):
                             + ") and id="
                             + str(osm_id)
                         )
-                        _LOGGER.debug("(" + self._name + ") OSM Details URL - " + osm_details_url)
+                        _LOGGER.debug(
+                            "(" + self._name + ") OSM Details URL - " + osm_details_url
+                        )
                         osm_details_response = get(osm_details_url)
                         osm_details_json_input = osm_details_response.text
                         osm_details_dict = json.loads(osm_details_json_input)
-                        _LOGGER.debug("(" + self._name + ") OSM Details JSON - " + osm_details_json_input)
-                        #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
+                        _LOGGER.debug(
+                            "("
+                            + self._name
+                            + ") OSM Details JSON - "
+                            + osm_details_json_input
+                        )
+                        # _LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
                         self._osm_details_dict = osm_details_dict
-                
-                        if "extratags" in osm_details_dict and "wikidata" in osm_details_dict["extratags"]:
+
+                        if (
+                            "extratags" in osm_details_dict
+                            and "wikidata" in osm_details_dict["extratags"]
+                        ):
                             wikidata_id = osm_details_dict["extratags"]["wikidata"]
                         self._wikidata_id = wikidata_id
 
@@ -1192,12 +1206,24 @@ class Places(Entity):
                                 + ") Wikidata request sent with id="
                                 + wikidata_id
                             )
-                            _LOGGER.debug("(" + self._name + ") Wikidata URL - " + wikidata_url)
+                            _LOGGER.debug(
+                                "(" + self._name + ") Wikidata URL - " + wikidata_url
+                            )
                             wikidata_response = get(wikidata_url)
                             wikidata_json_input = wikidata_response.text
                             wikidata_dict = json.loads(wikidata_json_input)
-                            _LOGGER.debug("(" + self._name + ") Wikidata JSON - " + wikidata_json_input)
-                            _LOGGER.debug("(" + self._name + ") Wikidata Dict - " + str(wikidata_dict))
+                            _LOGGER.debug(
+                                "("
+                                + self._name
+                                + ") Wikidata JSON - "
+                                + wikidata_json_input
+                            )
+                            _LOGGER.debug(
+                                "("
+                                + self._name
+                                + ") Wikidata Dict - "
+                                + str(wikidata_dict)
+                            )
                             self._wikidata_dict = wikidata_dict
 
                 _LOGGER.info(
@@ -1217,7 +1243,7 @@ class Places(Entity):
                 event_data["entity"] = self._name
                 event_data["from_state"] = previous_state
                 event_data["to_state"] = new_state
-                
+
                 if place_name is not None:
                     event_data["place_name"] = place_name
                 if current_time is not None:
