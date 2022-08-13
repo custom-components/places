@@ -987,8 +987,6 @@ class Places(Entity):
                             .replace("Proposed", "")
                             .replace("Construction", "")
                             .strip()
-                            + " "
-                            + self._place_category.title().strip()
                         )
                     elif self._place_category != "-":
                         formatted_place_array.append(
