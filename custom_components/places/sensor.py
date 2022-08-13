@@ -1080,72 +1080,72 @@ class Places(Entity):
                 )
 
             self._osm_dict = osm_decoded
+            current_time = "%02d:%02d" % (now.hour, now.minute)
+
+            if previous_state != new_state:
             
-            osm_details_dict = {}
-            if osm_id is not None and osm_type is not None:
-                if osm_type.lower() == 'node':
-                    osm_type_abbr = 'N'
-                elif osm_type.lower() == 'way':
-                    osm_type_abbr = 'W'
-                elif osm_type.lower() == 'relation':
-                    osm_type_abbr = 'R'
+                osm_details_dict = {}
+                if osm_id is not None and osm_type is not None:
+                    if osm_type.lower() == 'node':
+                        osm_type_abbr = 'N'
+                    elif osm_type.lower() == 'way':
+                        osm_type_abbr = 'W'
+                    elif osm_type.lower() == 'relation':
+                        osm_type_abbr = 'R'
 
-                osm_details_url = (
-                    "https://nominatim.openstreetmap.org/details.php?osmtype="
-                    + osm_type_abbr
-                    + "&osmid="
-                    + osm_id
-                    + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
-                    + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
-                )
-
-                _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") OpenStreetMap Details request sent with type="
-                    + osm_type
-                    + " ("
-                    + osm_type_abbr
-                    + ") and id="
-                    + str(osm_id)
-                )
-                _LOGGER.debug("(" + self._name + ") OSM Details URL - " + osm_details_url)
-                osm_details_response = get(osm_details_url)
-                osm_details_json_input = osm_details_response.text
-                osm_details_dict = json.loads(osm_details_json_input)
-                _LOGGER.debug("(" + self._name + ") OSM Details JSON - " + osm_details_json_input)
-                #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
-                self._osm_details_dict = osm_details_dict
-                
-                #Make this work
-                wikidata_id = "Q178114"
-                self._wikidata_id = wikidata_id
-
-                wikidata_decoded = {}
-                if wikidata_id is not None:
-                    wikidata_url = (
-                        "https://www.wikidata.org/wiki/Special:EntityData/"
-                        + wikidata_id
-                        + ".json"
+                    osm_details_url = (
+                        "https://nominatim.openstreetmap.org/details.php?osmtype="
+                        + osm_type_abbr
+                        + "&osmid="
+                        + osm_id
+                        + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
+                        + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
                     )
 
                     _LOGGER.info(
                         "("
                         + self._name
-                        + ") Wikidata request sent with id="
-                        + wikidata_id
+                        + ") OpenStreetMap Details request sent with type="
+                        + osm_type
+                        + " ("
+                        + osm_type_abbr
+                        + ") and id="
+                        + str(osm_id)
                     )
-                    _LOGGER.debug("(" + self._name + ") Wikidata URL - " + wikidata_url)
-                    wikidata_response = get(wikidata_url)
-                    wikidata_json_input = wikidata_response.text
-                    wikidata_dict = json.loads(wikidata_json_input)
-                    _LOGGER.debug("(" + self._name + ") Wikidata JSON - " + wikidata_json_input)
-                    _LOGGER.debug("(" + self._name + ") Wikidata Dict - " + str(wikidata_dict))
-                    self._wikidata_dict = wikidata_dict
+                    _LOGGER.debug("(" + self._name + ") OSM Details URL - " + osm_details_url)
+                    osm_details_response = get(osm_details_url)
+                    osm_details_json_input = osm_details_response.text
+                    osm_details_dict = json.loads(osm_details_json_input)
+                    _LOGGER.debug("(" + self._name + ") OSM Details JSON - " + osm_details_json_input)
+                    #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
+                    self._osm_details_dict = osm_details_dict
+                
+                    #Make this work
+                    wikidata_id = "Q178114"
+                    self._wikidata_id = wikidata_id
 
-            current_time = "%02d:%02d" % (now.hour, now.minute)
+                    wikidata_decoded = {}
+                    if wikidata_id is not None:
+                        wikidata_url = (
+                            "https://www.wikidata.org/wiki/Special:EntityData/"
+                            + wikidata_id
+                            + ".json"
+                        )
 
-            if previous_state != new_state:
+                        _LOGGER.info(
+                            "("
+                            + self._name
+                            + ") Wikidata request sent with id="
+                            + wikidata_id
+                        )
+                        _LOGGER.debug("(" + self._name + ") Wikidata URL - " + wikidata_url)
+                        wikidata_response = get(wikidata_url)
+                        wikidata_json_input = wikidata_response.text
+                        wikidata_dict = json.loads(wikidata_json_input)
+                        _LOGGER.debug("(" + self._name + ") Wikidata JSON - " + wikidata_json_input)
+                        _LOGGER.debug("(" + self._name + ") Wikidata Dict - " + str(wikidata_dict))
+                        self._wikidata_dict = wikidata_dict
+
                 _LOGGER.info(
                     "("
                     + self._name
