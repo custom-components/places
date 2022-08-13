@@ -860,6 +860,9 @@ class Places(Entity):
             formatted_address = ""
             target_option = ""
             formatted_place = ""
+            osm_id = None
+            osm_type = None
+            wikidata_id = None
 
             if "place" in self._options:
                 place_type = osm_decoded["type"]
@@ -1171,11 +1174,11 @@ class Places(Entity):
                         #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
                         self._osm_details_dict = osm_details_dict
                 
-                        #Make this work
-                        wikidata_id = "Q178114"
+                        if "extratags" in osm_details_dict and "wikidata" in osm_details_dict["extratags"]:
+                            wikidata_id = osm_details_dict["extratags"]["wikidata"]
                         self._wikidata_id = wikidata_id
 
-                        wikidata_decoded = {}
+                        wikidata_dict = {}
                         if wikidata_id is not None:
                             wikidata_url = (
                                 "https://www.wikidata.org/wiki/Special:EntityData/"
