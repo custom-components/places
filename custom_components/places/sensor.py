@@ -281,7 +281,10 @@ ATTR_MAP_LINK = "map_link"
 ATTR_FORMATTED_PLACE = "formatted_place"
 ATTR_OSM_ID = "osm_id"
 ATTR_OSM_TYPE = "osm_type"
-ATTR_OSM_DETAILS_DICT ="osm_details_dict"
+ATTR_WIKIDATA_ID = "wikidata_id"
+ATTR_OSM_DICT = "osm_dict"
+ATTR_OSM_DETAILS_DICT = "osm_details_dict"
+ATTR_WIKIDATA_DICT = "wikidata_dict"
 
 DEFAULT_NAME = "places"
 DEFAULT_OPTION = "zone, place"
@@ -408,7 +411,10 @@ class Places(Entity):
         self._formatted_place = None
         self._osm_id = None
         self._osm_type = None
+        self._wikidata_id = None
+        self._osm_dict = None
         self._osm_details_dict = None
+        self._wikidata_dict = None
         #'https://www.google.com/maps/@' + home_latitude + "," + home_longitude + ',19z'
 
         # Check if devicetracker_id was specified correctly
@@ -490,7 +496,10 @@ class Places(Entity):
             ATTR_FORMATTED_PLACE: self._formatted_place,
             ATTR_OSM_ID: self._osm_id,
             ATTR_OSM_TYPE: self._osm_type,
-            ATTR_OSM_DETAILS_dict: self._osm_details_dict,
+            ATTR_WIKIDATA_ID: self._wikidata_id,
+            ATTR_OSM_DICT: self._osm_dict,
+            ATTR_OSM_DETAILS_DICT: self._osm_details_dict,
+            ATTR_WIKIDATA_DICT: self._wikidata_dict,
         }
 
     def tsc_update(self, tscarg2, tsarg3, tsarg4):
@@ -1070,7 +1079,9 @@ class Places(Entity):
                     + new_state
                 )
 
-            osm_details_decoded = {}
+            self._osm_dict = osm_decoded
+            
+            osm_details_dict = {}
             if osm_id is not None and osm_type is not None:
                 if osm_type.lower() == 'node':
                     osm_type_abbr = 'N'
@@ -1101,10 +1112,36 @@ class Places(Entity):
                 _LOGGER.debug("(" + self._name + ") OSM Details URL - " + osm_details_url)
                 osm_details_response = get(osm_details_url)
                 osm_details_json_input = osm_details_response.text
-                osm_details_decoded = json.loads(osm_details_json_input)
+                osm_details_dict = json.loads(osm_details_json_input)
                 _LOGGER.debug("(" + self._name + ") OSM Details JSON - " + osm_details_json_input)
-                #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_decoded))
-                self._osm_details_dict = osm_details_decoded
+                #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
+                self._osm_details_dict = osm_details_dict
+                
+                #Make this work
+                wikidata_id = "Q178114"
+                self._wikidata_id = wikidata_id
+
+                wikidata_decoded = {}
+                if wikidata_id is not None:
+                    wikidata_url = (
+                        "https://www.wikidata.org/wiki/Special:EntityData/"
+                        + wikidata_id
+                        + ".json"
+                    )
+
+                    _LOGGER.info(
+                        "("
+                        + self._name
+                        + ") Wikidata request sent with id="
+                        + wikidata_id
+                    )
+                    _LOGGER.debug("(" + self._name + ") Wikidata URL - " + wikidata_url)
+                    wikidata_response = get(wikidata_url)
+                    wikidata_json_input = wikidata_response.text
+                    wikidata_dict = json.loads(wikidata_json_input)
+                    _LOGGER.debug("(" + self._name + ") Wikidata JSON - " + wikidata_json_input)
+                    _LOGGER.debug("(" + self._name + ") Wikidata Dict - " + str(wikidata_dict))
+                    self._wikidata_dict = wikidata_dict
 
             current_time = "%02d:%02d" % (now.hour, now.minute)
 
@@ -1139,7 +1176,10 @@ class Places(Entity):
                 event_data["mtime"] = current_time
                 event_data["osm_id"] = osm_id
                 event_data["osm_type"] = osm_type
-                event_data["osm_details_dict"] = self._osm_details_dict
+                event_data["wikidata_id"] = wikidata_id
+                event_data["osm_dict"] = osm_dict
+                event_data["osm_details_dict"] = osm_details_dict
+                event_data["wikidata_dict"] = wikidata_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 # self._hass.bus.fire(DEFAULT_NAME+'_state_update', { 'entity': self._name, 'place_name': place_name, 'from_state': previous_state, 'to_state': new_state, 'distance_from_home': distance_from_home, 'direction': direction, 'devicetracker_zone': devicetracker_zone, 'mtime': current_time, 'latitude': self._latitude, 'longitude': self._longitude, 'map': self._map_link })
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
@@ -1162,5 +1202,8 @@ class Places(Entity):
         self._mtime = datetime.now()
         self._osm_id = None
         self._osm_type = None
+        self._wikidata_id = None
+        self._osm_dict = None
         self._osm_details_dict = None
+        self._wikidata_dict = None
         self._updateskipped = 0
