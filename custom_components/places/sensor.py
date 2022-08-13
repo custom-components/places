@@ -466,48 +466,90 @@ class Places(Entity):
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        return {
-            ATTR_STREET_NUMBER: self._street_number,
-            ATTR_STREET: self._street,
-            ATTR_CITY: self._city,
-            ATTR_POSTAL_TOWN: self._postal_town,
-            ATTR_POSTAL_CODE: self._postal_code,
-            ATTR_REGION: self._region,
-            ATTR_STATE_ABBR: self._state_abbr,
-            ATTR_COUNTRY: self._country,
-            ATTR_COUNTY: self._county,
-            ATTR_FORMATTED_ADDRESS: self._formatted_address,
-            ATTR_PLACE_TYPE: self._place_type,
-            ATTR_PLACE_NAME: self._place_name,
-            ATTR_PLACE_CATEGORY: self._place_category,
-            ATTR_PLACE_NEIGHBOURHOOD: self._place_neighbourhood,
-            ATTR_LATITUDE_OLD: self._latitude_old,
-            ATTR_LONGITUDE_OLD: self._longitude_old,
-            ATTR_LATITUDE: self._latitude,
-            ATTR_LONGITUDE: self._longitude,
-            ATTR_DEVICETRACKER_ID: self._devicetracker_id,
-            ATTR_DEVICETRACKER_ZONE: self._devicetracker_zone,
-            ATTR_DEVICETRACKER_ZONE_NAME: self._devicetracker_zone_name,
-            ATTR_HOME_ZONE: self._home_zone,
-            ATTR_PICTURE: self._entity_picture,
-            ATTR_DISTANCE_KM: self._distance_km,
-            ATTR_DISTANCE_M: self._distance_m,
-            ATTR_MTIME: self._mtime,
-            ATTR_LOCATION_CURRENT: self._location_current,
-            ATTR_LOCATION_PREVIOUS: self._location_previous,
-            ATTR_HOME_LATITUDE: self._home_latitude,
-            ATTR_HOME_LONGITUDE: self._home_longitude,
-            ATTR_DIRECTION_OF_TRAVEL: self._direction,
-            ATTR_MAP_LINK: self._map_link,
-            ATTR_OPTIONS: self._options,
-            ATTR_FORMATTED_PLACE: self._formatted_place,
-            ATTR_OSM_ID: self._osm_id,
-            ATTR_OSM_TYPE: self._osm_type,
-            ATTR_WIKIDATA_ID: self._wikidata_id,
-            ATTR_OSM_DICT: self._osm_dict,
-            ATTR_OSM_DETAILS_DICT: self._osm_details_dict,
-            ATTR_WIKIDATA_DICT: self._wikidata_dict,
-        }
+        return_attr = {}
+        
+        if self._street_number is not None:
+            return_attr[ATTR_STREET_NUMBER] = self._street_number
+        if self._street is not None:
+            return_attr[ATTR_STREET] = self._street
+        if self._city is not None:
+            return_attr[ATTR_CITY] = self._city
+        if self._postal_town is not None:
+            return_attr[ATTR_POSTAL_TOWN] = self._postal_town
+        if self._postal_code is not None:
+            return_attr[ATTR_POSTAL_CODE] = self._postal_code
+        if self._region is not None:
+            return_attr[ATTR_REGION] = self._region
+        if self._state_abbr is not None:
+            return_attr[ATTR_STATE_ABBR] = self._state_abbr
+        if self._country is not None:
+            return_attr[ATTR_COUNTRY] = self._country
+        if self._county is not None:
+            return_attr[ATTR_COUNTY] = self._county
+        if self._formatted_address is not None:
+            return_attr[ATTR_FORMATTED_ADDRESS] = self._formatted_address
+        if self._place_type is not None:
+            return_attr[ATTR_PLACE_TYPE] = self._place_type
+        if self._place_name is not None:
+            return_attr[ATTR_PLACE_NAME] = self._place_name
+        if self._place_category is not None:
+            return_attr[ATTR_PLACE_CATEGORY] = self._place_category
+        if self._place_neighbourhood is not None:
+            return_attr[ATTR_PLACE_NEIGHBOURHOOD] = self._place_neighbourhood
+        if self._formatted_place is not None:
+            return_attr[ATTR_FORMATTED_PLACE] = self._formatted_place
+        if self._latitude_old is not None:
+            return_attr[ATTR_LATITUDE_OLD] = self._latitude_old
+        if self._longitude_old is not None:
+            return_attr[ATTR_LONGITUDE_OLD] = self._longitude_old
+        if self._latitude is not None:
+            return_attr[ATTR_LATITUDE] = self._latitude
+        if self._longitude is not None:
+            return_attr[ATTR_LONGITUDE] = self._longitude
+        if self._devicetracker_id is not None:
+            return_attr[ATTR_DEVICETRACKER_ID] = self._devicetracker_id
+        if self._devicetracker_zone is not None:
+            return_attr[ATTR_DEVICETRACKER_ZONE] = self._devicetracker_zone
+        if self._devicetracker_zone_name is not None:
+            return_attr[ATTR_DEVICETRACKER_ZONE_NAME] = self._devicetracker_zone_name
+        if self._home_zone is not None:
+            return_attr[ATTR_HOME_ZONE] = self._home_zone
+        if self._entity_picture is not None:
+            return_attr[ATTR_PICTURE] = self._entity_picture
+        if self._distance_km is not None:
+            return_attr[ATTR_DISTANCE_KM] = self._distance_km
+        if self._distance_m is not None:
+            return_attr[ATTR_DISTANCE_M] = self._distance_m
+        if self._mtime is not None:
+            return_attr[ATTR_MTIME] = self._mtime
+        if self._location_current is not None:
+            return_attr[ATTR_LOCATION_CURRENT] = self._location_current
+        if self._location_previous is not None:
+            return_attr[ATTR_LOCATION_PREVIOUS] = self._location_previous
+        if self._home_latitude is not None:
+            return_attr[ATTR_HOME_LATITUDE] = self._home_latitude
+        if self._home_longitude is not None:
+            return_attr[ATTR_HOME_LONGITUDE] = self._home_longitude
+        if self._direction is not None:
+            return_attr[ATTR_DIRECTION_OF_TRAVEL] = self._direction
+        if self._map_link is not None:
+            return_attr[ATTR_MAP_LINK] = self._map_link
+        if self._options is not None:
+            return_attr[ATTR_OPTIONS] = self._options
+        if self._osm_id is not None:
+            return_attr[ATTR_OSM_ID] = self._osm_id
+        if self._osm_type is not None:
+            return_attr[ATTR_OSM_TYPE] = self._osm_type
+        if self._wikidata_id is not None:
+            return_attr[ATTR_WIKIDATA_ID] = self._wikidata_id
+        if self._osm_dict is not None:
+            return_attr[ATTR_OSM_DICT] = self._osm_dict
+        if self._osm_details_dict is not None:
+            return_attr[ATTR_OSM_DETAILS_DICT] = self._osm_details_dict
+        if self._wikidata_dict is not None:
+            return_attr[ATTR_WIKIDATA_DICT] = self._wikidata_dict
+        #_LOGGER.debug("(" + self._name + ") Extra State Attributes - " + return_attr)
+        return return_attr
 
     def tsc_update(self, tscarg2, tsarg3, tsarg4):
         """Call the do_update function based on the TSC (track state change) event"""
@@ -1085,73 +1127,75 @@ class Places(Entity):
                     + ") New State from DeviceTracker set to: "
                     + new_state
                 )
-
-            self._osm_dict = osm_decoded
+            
+            if self._extended_attr:
+                self._osm_dict = osm_decoded
             current_time = "%02d:%02d" % (now.hour, now.minute)
 
             if previous_state != new_state:
             
-                osm_details_dict = {}
-                if osm_id is not None and osm_type is not None:
-                    if osm_type.lower() == 'node':
-                        osm_type_abbr = 'N'
-                    elif osm_type.lower() == 'way':
-                        osm_type_abbr = 'W'
-                    elif osm_type.lower() == 'relation':
-                        osm_type_abbr = 'R'
+                if self._extended_attr:
+                    osm_details_dict = {}
+                    if osm_id is not None and osm_type is not None:
+                        if osm_type.lower() == 'node':
+                            osm_type_abbr = 'N'
+                        elif osm_type.lower() == 'way':
+                            osm_type_abbr = 'W'
+                        elif osm_type.lower() == 'relation':
+                            osm_type_abbr = 'R'
 
-                    osm_details_url = (
-                        "https://nominatim.openstreetmap.org/details.php?osmtype="
-                        + osm_type_abbr
-                        + "&osmid="
-                        + osm_id
-                        + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
-                        + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
-                    )
-
-                    _LOGGER.info(
-                        "("
-                        + self._name
-                        + ") OpenStreetMap Details request sent with type="
-                        + osm_type
-                        + " ("
-                        + osm_type_abbr
-                        + ") and id="
-                        + str(osm_id)
-                    )
-                    _LOGGER.debug("(" + self._name + ") OSM Details URL - " + osm_details_url)
-                    osm_details_response = get(osm_details_url)
-                    osm_details_json_input = osm_details_response.text
-                    osm_details_dict = json.loads(osm_details_json_input)
-                    _LOGGER.debug("(" + self._name + ") OSM Details JSON - " + osm_details_json_input)
-                    #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
-                    self._osm_details_dict = osm_details_dict
-                
-                    #Make this work
-                    wikidata_id = "Q178114"
-                    self._wikidata_id = wikidata_id
-
-                    wikidata_decoded = {}
-                    if wikidata_id is not None:
-                        wikidata_url = (
-                            "https://www.wikidata.org/wiki/Special:EntityData/"
-                            + wikidata_id
-                            + ".json"
+                        osm_details_url = (
+                            "https://nominatim.openstreetmap.org/details.php?osmtype="
+                            + osm_type_abbr
+                            + "&osmid="
+                            + osm_id
+                            + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
+                            + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
                         )
 
                         _LOGGER.info(
                             "("
                             + self._name
-                            + ") Wikidata request sent with id="
-                            + wikidata_id
+                            + ") OpenStreetMap Details request sent with type="
+                            + osm_type
+                            + " ("
+                            + osm_type_abbr
+                            + ") and id="
+                            + str(osm_id)
                         )
-                        _LOGGER.debug("(" + self._name + ") Wikidata URL - " + wikidata_url)
-                        wikidata_response = get(wikidata_url)
-                        wikidata_json_input = wikidata_response.text
-                        wikidata_dict = json.loads(wikidata_json_input)
-                        _LOGGER.debug("(" + self._name + ") Wikidata JSON - " + wikidata_json_input)
-                        _LOGGER.debug("(" + self._name + ") Wikidata Dict - " + str(wikidata_dict))
-                        self._wikidata_dict = wikidata_dict
+                        _LOGGER.debug("(" + self._name + ") OSM Details URL - " + osm_details_url)
+                        osm_details_response = get(osm_details_url)
+                        osm_details_json_input = osm_details_response.text
+                        osm_details_dict = json.loads(osm_details_json_input)
+                        _LOGGER.debug("(" + self._name + ") OSM Details JSON - " + osm_details_json_input)
+                        #_LOGGER.debug("(" + self._name + ") OSM Details Dict - " + str(osm_details_dict))
+                        self._osm_details_dict = osm_details_dict
+                
+                        #Make this work
+                        wikidata_id = "Q178114"
+                        self._wikidata_id = wikidata_id
+
+                        wikidata_decoded = {}
+                        if wikidata_id is not None:
+                            wikidata_url = (
+                                "https://www.wikidata.org/wiki/Special:EntityData/"
+                                + wikidata_id
+                                + ".json"
+                            )
+
+                            _LOGGER.info(
+                                "("
+                                + self._name
+                                + ") Wikidata request sent with id="
+                                + wikidata_id
+                            )
+                            _LOGGER.debug("(" + self._name + ") Wikidata URL - " + wikidata_url)
+                            wikidata_response = get(wikidata_url)
+                            wikidata_json_input = wikidata_response.text
+                            wikidata_dict = json.loads(wikidata_json_input)
+                            _LOGGER.debug("(" + self._name + ") Wikidata JSON - " + wikidata_json_input)
+                            _LOGGER.debug("(" + self._name + ") Wikidata Dict - " + str(wikidata_dict))
+                            self._wikidata_dict = wikidata_dict
 
                 _LOGGER.info(
                     "("
@@ -1168,26 +1212,44 @@ class Places(Entity):
                 self._state = new_state
                 event_data = {}
                 event_data["entity"] = self._name
-                event_data["place_name"] = place_name
                 event_data["from_state"] = previous_state
                 event_data["to_state"] = new_state
-                event_data["distance_from_home"] = distance_from_home
-                event_data["direction"] = direction
-                event_data["devicetracker_zone"] = devicetracker_zone
-                event_data["devicetracker_zone_name"] = devicetracker_zone_name
-                event_data["latitude"] = self._latitude
-                event_data["longitude"] = self._longitude
-                event_data["previous_latitude"] = self._latitude_old
-                event_data["previous_longitude"] = self._longitude_old
-                event_data["map"] = self._map_link
-                event_data["mtime"] = current_time
-                event_data["osm_id"] = osm_id
-                event_data["osm_type"] = osm_type
+                
+                if place_name is not None:
+                    event_data["place_name"] = place_name
+                if current_time is not None:
+                    event_data["mtime"] = current_time
+                if distance_from_home is not None:
+                    event_data["distance_from_home"] = distance_from_home
+                if direction is not None:
+                    event_data["direction"] = direction
+                if devicetracker_zone is not None:
+                    event_data["devicetracker_zone"] = devicetracker_zone
+                if devicetracker_zone_name is not None:
+                    event_data["devicetracker_zone_name"] = devicetracker_zone_name
+                if self._latitude is not None:
+                    event_data["latitude"] = self._latitude
+                if self._longitude is not None:
+                    event_data["longitude"] = self._longitude
+                if self._latitude_old is not None:
+                    event_data["previous_latitude"] = self._latitude_old
+                if self._longitude_old is not None:
+                    event_data["previous_longitude"] = self._longitude_old
+                if self._map_link is not None:
+                    event_data["map"] = self._map_link
+                if osm_id is not None:
+                    event_data["osm_id"] = osm_id
+                if osm_type is not None:
+                    event_data["osm_type"] = osm_type
                 if self._extended_attr:
-                    event_data["wikidata_id"] = wikidata_id
-                    event_data["osm_dict"] = osm_dict
-                    event_data["osm_details_dict"] = osm_details_dict
-                    event_data["wikidata_dict"] = wikidata_dict
+                    if wikidata_id is not None:
+                        event_data["wikidata_id"] = wikidata_id
+                    if osm_decoded is not None:
+                        event_data["osm_dict"] = osm_decoded
+                    if osm_details_dict is not None:
+                        event_data["osm_details_dict"] = osm_details_dict
+                    if wikidata_dict is not None:
+                        event_data["wikidata_dict"] = wikidata_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 # self._hass.bus.fire(DEFAULT_NAME+'_state_update', { 'entity': self._name, 'place_name': place_name, 'from_state': previous_state, 'to_state': new_state, 'distance_from_home': distance_from_home, 'direction': direction, 'devicetracker_zone': devicetracker_zone, 'mtime': current_time, 'latitude': self._latitude, 'longitude': self._longitude, 'map': self._map_link })
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
