@@ -14,13 +14,30 @@ _Component to integrate with OpenStreetMap Reverse Geocode (PLACE)_
 
 ## Installation
 
+### Installation via HACS
+
+Unless you have a good reason not to, you probably want to install this component via HACS(Home Assistant Community Store)
+1. Ensure that [HACS](https://hacs.xyz/) is installed.
+1. Navigate to HACS -> Integrations
+1. Open the three-dot menu and select 'Custom Repositories'
+1. Put 'https://github.com/Snuffy2/places' into the 'Repository' textbox.
+1. Select 'Integration' as the category
+1. Press 'Add'.
+1. Find the Places integration in the HACS integration list and install it
+1. Add your configuration
+1. Restart Home Assistant.
+
+### Manual Installation
+
+You probably do not want to do this! Use the HACS method above unless you have a very good reason why you are installing manually
+
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
-2. If you do not have a `custom_components` directory (folder) there, you need to create it.
-3. In the `custom_components` directory (folder) create a new folder called `places`.
-4. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository.
-5. Place the files you downloaded in the new directory (folder) you created.
-6. Add your configuration
-6. Restart Home Assistant
+1. If you do not have a `custom_components` directory (folder) there, you need to create it.
+1. In the `custom_components` directory (folder) create a new folder called `places`.
+1. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository.
+1. Place the files you downloaded in the new directory (folder) you created.
+1. Add your configuration
+1. Restart Home Assistant
 
 Using your HA configuration directory (folder) as a starting point you should now also have this:
 
@@ -177,9 +194,10 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
   logger:
     default: warn
     logs:
-      custom_components.sensor.places: debug  
+      custom_components.places: debug  
 ```
 
+## Prior Contributions:
 * Original Author: [Jim Thompson](https://github.com/tenly2000)
 * Subsequent Author: [Ian Richardson](https://github.com/iantrich)
 
@@ -192,7 +210,7 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [places]: https://github.com/Snuffy2/places
 [commits-shield]: https://img.shields.io/github/commit-activity/y/Snuffy2/places?style=for-the-badge
 [commits]: https://github.com/Snuffy2/places/commits/newdev
-[hacs]: https://github.com/Snuffy2/hacs
+[hacs]: https://github.com/hacs/integration
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [discord]: https://discord.gg/Qa5fW2R
 [discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
