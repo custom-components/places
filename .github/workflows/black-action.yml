@@ -1,0 +1,25 @@
+name: Black Code Formatter
+on: [workflow_dispatch, pull_request]
+jobs:
+  linter_name:
+    name: Black Code Formatter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check files using the Black Code Formatter
+        uses: rickstaa/action-black@v1
+        id: action_black
+        with:
+          black_args: "."
+      - name: Create Pull Request
+        if: steps.action_black.outputs.is_formatted == 'true'
+        uses: peter-evans/create-pull-request@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Format Python code with Black Code Formatter"
+          commit-message: ":art: Format Python code with Black Code Formatter"
+          body: |
+            There appear to be some python formatting errors in ${{ github.sha }}. This pull request
+            uses the [Black Code Formatter](https://github.com/psf/black) to fix these issues.
+          base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
+          branch: actions/black
