@@ -1,8 +1,8 @@
-name: Black Code Formatter Automerge
+name: Black Code Formatter
 on: [workflow_dispatch, pull_request]
 jobs:
   linter_name:
-    name: Black Code Formatter Automerge
+    name: Black Code Formatter
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -26,11 +26,3 @@ jobs:
           base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
           delete-branch: true
           branch: actions/black
-      - name: Merge Pull Request
-        if: steps.cpr.outputs.pull-request-operation == 'created'
-        uses: juliangruber/merge-pull-request-action@v1
-        with:
-          github-token: ${{ secrets.CPR }}
-          number: ${{ steps.cpr.outputs.pull-request-number }}
-          method: squash
-          repo: juliangruber/octokit-action
