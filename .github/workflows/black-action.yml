@@ -11,7 +11,7 @@ jobs:
         id: action_black
         with:
           black_args: "."
-          fail_on_error: true
+          fail_on_error: 'true'
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
         uses: peter-evans/create-pull-request@v3
