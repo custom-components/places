@@ -974,7 +974,7 @@ class Places(Entity):
                     formatted_place_array.append("Driving")
                     isDriving = True
                 if self._place_name == "-":
-                    elif (
+                    if (
                         self._place_type != "-"
                         and self._place_type.lower() != "unclassified"
                     ):
