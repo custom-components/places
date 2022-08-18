@@ -905,6 +905,8 @@ class Places(Entity):
                 city = osm_decoded["address"]["municipality"]
             elif "city_district" in osm_decoded["address"]:
                 city = osm_decoded["address"]["city_district"]
+            if city.startswith("City of"):
+                city = city[8:] + " City"
 
             if "city_district" in osm_decoded["address"]:
                 postal_town = osm_decoded["address"]["city_district"]
@@ -977,6 +979,7 @@ class Places(Entity):
                     if (
                         self._place_type != "-"
                         and self._place_type.lower() != "unclassified"
+                        and self._place_category.lower() != "highway"
                     ):
                         formatted_place_array.append(
                             self._place_type.title()
@@ -984,7 +987,10 @@ class Places(Entity):
                             .replace("Construction", "")
                             .strip()
                         )
-                    elif self._place_category != "-":
+                    elif (
+                        self._place_category != "-"
+                        and self._place_category.lower() != "highway"
+                    ):
                         formatted_place_array.append(
                             self._place_category.title().strip()
                         )
