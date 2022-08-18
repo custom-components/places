@@ -11,15 +11,18 @@ jobs:
         id: action_black
         with:
           black_args: "."
+          fail_on_error: 'true'
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
-        uses: peter-evans/create-pull-request@v3
+        id: cpr
+        uses: peter-evans/create-pull-request@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CPR }}
           title: "Format Python code with Black Code Formatter"
           commit-message: ":art: Format Python code with Black Code Formatter"
           body: |
             There appear to be some python formatting errors in ${{ github.sha }}. This pull request
             uses the [Black Code Formatter](https://github.com/psf/black) to fix these issues.
           base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
+          delete-branch: true
           branch: actions/black
