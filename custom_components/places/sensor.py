@@ -1143,7 +1143,12 @@ class Places(Entity):
                 self._osm_dict = osm_decoded
             current_time = "%02d:%02d" % (now.hour, now.minute)
 
-            if previous_state.lower().strip() != new_state.lower().strip() and previous_state.replace(' ','').lower().strip() != new_state.lower().strip() and previous_state.lower().strip() != devicetracker_zone.lower().strip():
+            if (
+                previous_state.lower().strip() != new_state.lower().strip()
+                and previous_state.replace(" ", "").lower().strip()
+                != new_state.lower().strip()
+                and previous_state.lower().strip() != devicetracker_zone.lower().strip()
+            ):
 
                 if self._extended_attr:
                     osm_details_dict = {}
