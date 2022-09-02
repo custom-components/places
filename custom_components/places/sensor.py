@@ -375,7 +375,7 @@ class Places(Entity):
         self._language = language.lower()
         self._language.replace(" ", "")
         self._extended_attr = extended_attr
-        self._state = "Initializing... (since 99:99)"
+        self._state = "Initializing..."
 
         home_latitude = str(hass.states.get(home_zone).attributes.get("latitude"))
         home_longitude = str(hass.states.get(home_zone).attributes.get("longitude"))
@@ -579,7 +579,8 @@ class Places(Entity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
-        previous_state = self.state[:-14]
+        #previous_state = self.state[:-14]
+        previous_state = self.state
         distance_traveled = 0
         devicetracker_zone = None
 
@@ -1125,7 +1126,7 @@ class Places(Entity):
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") New State from DeviceTracker set to: "
+                    + ") New State from DeviceTracker Zone Name set to: "
                     + new_state
                 )
             else:
@@ -1133,7 +1134,7 @@ class Places(Entity):
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") New State from DeviceTracker set to: "
+                    + ") New State from DeviceTracker Zone set to: "
                     + new_state
                 )
 
@@ -1142,10 +1143,11 @@ class Places(Entity):
             current_time = "%02d:%02d" % (now.hour, now.minute)
 
             if (
-                previous_state.lower().strip() != new_state.lower().strip()
+                (previous_state.lower().strip() != new_state.lower().strip()
                 and previous_state.replace(" ", "").lower().strip()
                 != new_state.lower().strip()
-                and previous_state.lower().strip() != devicetracker_zone.lower().strip()
+                and previous_state.lower().strip() != devicetracker_zone.lower().strip())
+                or previous_state.strip() == "Initializing..."
             ):
 
                 if self._extended_attr:
@@ -1240,8 +1242,10 @@ class Places(Entity):
                 _LOGGER.info(
                     "("
                     + self._name
-                    + ") New state built using options: "
+                    + ") New state built using options ["
                     + self._options
+                    + "]: "
+                    + new_state
                 )
                 _LOGGER.debug(
                     "(" + self._name + ") Building EventData for (" + new_state + ")"
