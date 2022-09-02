@@ -43,11 +43,10 @@ Report a bug by [opening a new issue](../../issues/new/choose); it's that easy!
 
 People *love* thorough bug reports. I'm not even kidding.
 
-
-**Enable debug logging in Home Assistant**
+## Enable debug logging in Home Assistant
 
 To enable, add this or modify the logging section of your Home Assistant configuration.yaml:
-```
+```yaml
 logger:
   default: warning
   logs:
