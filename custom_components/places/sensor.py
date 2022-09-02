@@ -425,10 +425,7 @@ class Places(Entity):
 
         # Check if devicetracker_id was specified correctly
         _LOGGER.info(
-            "("
-            + self._name
-            + ") DeviceTracker Entity ID: "
-            + devicetracker_id
+            "(" + self._name + ") DeviceTracker Entity ID: " + devicetracker_id
         )
 
         if devicetracker_id.split(".", 1)[0] in TRACKABLE_DOMAINS:
@@ -440,11 +437,7 @@ class Places(Entity):
                 from_state=None,
                 to_state=None,
             )
-            _LOGGER.info(
-                "("
-                + self._name
-                + ") Now subscribed to state change events"
-            )
+            _LOGGER.info("(" + self._name + ") Now subscribed to state change events")
 
     @property
     def name(self):
@@ -657,9 +650,7 @@ class Places(Entity):
                 _LOGGER.debug(
                     "(" + self._name + ") Current Location: " + current_location
                 )
-                _LOGGER.debug(
-                    "(" + self._name + ") Home Location: " + home_location
-                )
+                _LOGGER.debug("(" + self._name + ") Home Location: " + home_location)
                 _LOGGER.info(
                     "("
                     + self._name
@@ -668,18 +659,13 @@ class Places(Entity):
                     + "]: "
                     + distance_from_home
                 )
-                _LOGGER.info(
-                    "(" + self._name + ") Travel Direction: " + direction
-                )
+                _LOGGER.info("(" + self._name + ") Travel Direction: " + direction)
 
                 """Update if location has changed."""
 
                 devicetracker_zone = self.hass.states.get(self._devicetracker_id).state
                 _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") DeviceTracker Zone: "
-                    + devicetracker_zone
+                    "(" + self._name + ") DeviceTracker Zone: " + devicetracker_zone
                 )
 
                 devicetracker_zone_id = self.hass.states.get(
@@ -720,9 +706,7 @@ class Places(Entity):
 
         if current_location == previous_location:
             _LOGGER.debug(
-                "("
-                + self._name
-                + ") Skipping update because coordinates are identical"
+                "(" + self._name + ") Skipping update because coordinates are identical"
             )
             proceed_with_update = False
         elif int(distance_traveled) > 0 and self._updateskipped > 3:
@@ -746,17 +730,11 @@ class Places(Entity):
             proceed_with_update = False
 
         if previous_state == "Initializing...":
-            _LOGGER.debug(
-                "(" + self._name + ") Performing Initial Update for user..."
-            )
+            _LOGGER.debug("(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
 
         if proceed_with_update and devicetracker_zone:
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") Meets criteria, proceeding with update"
-            )
+            _LOGGER.debug("(" + self._name + ") Meets criteria, proceeding with update")
             self._devicetracker_zone = devicetracker_zone
             _LOGGER.info(
                 "("
@@ -785,12 +763,7 @@ class Places(Entity):
                 self._map_link = maplink_google
             else:
                 self._map_link = maplink_apple
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") Map Link Type: "
-                + self._map_provider
-            )
+            _LOGGER.debug("(" + self._name + ") Map Link Type: " + self._map_provider)
             _LOGGER.debug("(" + self._name + ") Map Link generated: " + self._map_link)
 
             osm_url = (
@@ -1012,10 +985,7 @@ class Places(Entity):
             elif "formatted_place" in display_options:
                 new_state = self._formatted_place
                 _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") New State using formatted_place: "
-                    + new_state
+                    "(" + self._name + ") New State using formatted_place: " + new_state
                 )
             elif (
                 self._devicetracker_zone.lower() == "not_home"
@@ -1100,10 +1070,7 @@ class Places(Entity):
 
                 new_state = ", ".join(item for item in user_display)
                 _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") New State from Display Options: "
-                    + new_state
+                    "(" + self._name + ") New State from Display Options: " + new_state
                 )
             elif "zone_name" in display_options:
                 new_state = devicetracker_zone_name
@@ -1127,12 +1094,11 @@ class Places(Entity):
             current_time = "%02d:%02d" % (now.hour, now.minute)
 
             if (
-                (previous_state.lower().strip() != new_state.lower().strip()
+                previous_state.lower().strip() != new_state.lower().strip()
                 and previous_state.replace(" ", "").lower().strip()
                 != new_state.lower().strip()
-                and previous_state.lower().strip() != devicetracker_zone.lower().strip())
-                or previous_state.strip() == "Initializing..."
-            ):
+                and previous_state.lower().strip() != devicetracker_zone.lower().strip()
+            ) or previous_state.strip() == "Initializing...":
 
                 if self._extended_attr:
                     osm_details_dict = {}
@@ -1222,8 +1188,7 @@ class Places(Entity):
                                 + str(wikidata_dict)
                             )
                             self._wikidata_dict = wikidata_dict
-                _LOGGER.debug(
-                    "(" + self._name + ") Building EventData" )
+                _LOGGER.debug("(" + self._name + ") Building EventData")
                 new_state = new_state[:255]
                 self._state = new_state
                 event_data = {}
@@ -1271,10 +1236,9 @@ class Places(Entity):
                 _LOGGER.debug("(" + self._name + ") EventData update complete")
             else:
                 _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") No update needed, Previous State = New State"
+                    "(" + self._name + ") No update needed, Previous State = New State"
                 )
+
     def _reset_attributes(self):
         """Resets attributes."""
         self._street = None
