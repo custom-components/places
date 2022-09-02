@@ -182,8 +182,8 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
 
 ## Notes:
 
-* This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude co-ordinates (such as Owntracks or iCloud).
-* The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of co-ordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
+* This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude coordinates (such as Owntracks or iCloud).
+* The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of coordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
 * The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
 * The map link that gets generated for Google and Apple has a push pin marking the users location. Note that when opening the Apple link on a non-Apple device, it will open in Google Maps.
 * When no `language` value is given, default language will be location's local language or English. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
@@ -191,7 +191,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
 * To enable detailed logging for this component, add the following to your configuration.yaml file
 ```yaml
   logger:
-    default: warn
+    default: warning
     logs:
       custom_components.places: debug  
 ```
