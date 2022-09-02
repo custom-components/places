@@ -1005,9 +1005,7 @@ class Places(Entity):
                         self._place_type.lower() == "house"
                         and self._place_neighbourhood != "-"
                     ):
-                        formatted_place_array.append(
-                            self._place_neighbourhood.strip()
-                        )
+                        formatted_place_array.append(self._place_neighbourhood.strip())
 
                 else:
                     formatted_place_array.append(self._place_name.strip())
