@@ -615,10 +615,10 @@ class Places(Entity):
                 + current_location
             )
             if (
-                new_latitude != "None"
-                and new_longitude != "None"
-                and home_latitude != "None"
-                and home_longitude != "None"
+                new_latitude is not None
+                and new_longitude is not None
+                and home_latitude is not None
+                and home_longitude is not None
             ):
                 distance_m = distance(
                     float(new_latitude),
@@ -700,6 +700,19 @@ class Places(Entity):
                     + self._name
                     + ") Meters traveled since last update: "
                     + str(round(distance_traveled))
+                )
+            else:
+                _LOGGER.error(
+                    "("
+                    + self._name
+                    + ") Problem with updated lat/long, this will likely error: new_latitude="
+                    + new_latitude
+                    + ", new_longitude="
+                    + new_longitude
+                    + ", home_latitude="
+                    + home_latitude
+                    + ", home_longitude="
+                    + home_longitude
                 )
 
         proceed_with_update = True
