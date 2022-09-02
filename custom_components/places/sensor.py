@@ -1006,7 +1006,7 @@ class Places(Entity):
                         and self._place_neighbourhood != "-"
                     ):
                         formatted_place_array.append(
-                            self._place_neighbourhood.strip() + " Neighborhood"
+                            self._place_neighbourhood.strip()
                         )
 
                 else:
