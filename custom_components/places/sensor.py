@@ -709,7 +709,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Meters traveled since last update: "
-                    + str(round(distance_traveled,1))
+                    + str(round(distance_traveled, 1))
                 )
             else:
                 _LOGGER.error(
@@ -749,7 +749,7 @@ class Places(Entity):
                 "("
                 + self._name
                 + ") Skipping update because location changed "
-                + str(round(distance_traveled,1))
+                + str(round(distance_traveled, 1))
                 + " < 10m  ("
                 + str(self._updateskipped)
                 + ")"
