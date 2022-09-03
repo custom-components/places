@@ -709,7 +709,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Meters traveled since last update: "
-                    + str(round(distance_traveled,1))
+                    + str(round(distance_traveled, 1))
                 )
             else:
                 _LOGGER.error(
@@ -749,7 +749,7 @@ class Places(Entity):
                 "("
                 + self._name
                 + ") Skipping update because location changed "
-                + str(round(distance_traveled,1))
+                + str(round(distance_traveled, 1))
                 + " < 10m  ("
                 + str(self._updateskipped)
                 + ")"
@@ -761,7 +761,11 @@ class Places(Entity):
             proceed_with_update = True
 
         if proceed_with_update and devicetracker_zone:
-            _LOGGER.debug("(" + self._name + ") Meets criteria, proceeding with OpenStreetMap query")
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Meets criteria, proceeding with OpenStreetMap query"
+            )
             self._devicetracker_zone = devicetracker_zone
             _LOGGER.info(
                 "("
@@ -1281,7 +1285,9 @@ class Places(Entity):
                 _LOGGER.debug("(" + self._name + ") EventData update complete")
             else:
                 _LOGGER.debug(
-                    "(" + self._name + ") No entity update needed, Previous State = New State"
+                    "("
+                    + self._name
+                    + ") No entity update needed, Previous State = New State"
                 )
 
     def _reset_attributes(self):
