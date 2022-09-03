@@ -1008,7 +1008,7 @@ class Places(Entity):
             if "error_message" in osm_decoded:
                 new_state = osm_decoded["error_message"]
                 _LOGGER.info(
-                    "(" + self._name + ") An error occurred contacting the web service"
+                    "(" + self._name + ") An error occurred contacting the web service for OpenStreetMap"
                 )
             elif "formatted_place" in display_options:
                 new_state = self._formatted_place
@@ -1165,57 +1165,69 @@ class Places(Entity):
                             "(" + self._name + ") OSM Details URL: " + osm_details_url
                         )
                         osm_details_response = get(osm_details_url)
-                        osm_details_json_input = osm_details_response.text
-                        osm_details_dict = json.loads(osm_details_json_input)
-                        _LOGGER.debug(
-                            "("
-                            + self._name
-                            + ") OSM Details JSON: "
-                            + osm_details_json_input
-                        )
-                        # _LOGGER.debug("(" + self._name + ") OSM Details Dict: " + str(osm_details_dict))
-                        self._osm_details_dict = osm_details_dict
-
-                        if (
-                            "extratags" in osm_details_dict
-                            and "wikidata" in osm_details_dict["extratags"]
-                        ):
-                            wikidata_id = osm_details_dict["extratags"]["wikidata"]
-                        self._wikidata_id = wikidata_id
-
-                        wikidata_dict = {}
-                        if wikidata_id is not None:
-                            wikidata_url = (
-                                "https://www.wikidata.org/wiki/Special:EntityData/"
-                                + wikidata_id
-                                + ".json"
-                            )
-
+                        if "error_message" in osm_details_response:
+                            osm_details_dict = osm_details_response["error_message"]
                             _LOGGER.info(
-                                "("
-                                + self._name
-                                + ") Wikidata Request: id="
-                                + wikidata_id
+                                "(" + self._name + ") An error occurred contacting the web service for OSM Details"
                             )
-                            _LOGGER.debug(
-                                "(" + self._name + ") Wikidata URL: " + wikidata_url
-                            )
-                            wikidata_response = get(wikidata_url)
-                            wikidata_json_input = wikidata_response.text
-                            wikidata_dict = json.loads(wikidata_json_input)
+                        else:
+                            osm_details_json_input = osm_details_response.text
+                            osm_details_dict = json.loads(osm_details_json_input)
                             _LOGGER.debug(
                                 "("
                                 + self._name
-                                + ") Wikidata JSON: "
-                                + wikidata_json_input
+                                + ") OSM Details JSON: "
+                                + osm_details_json_input
                             )
-                            _LOGGER.debug(
-                                "("
-                                + self._name
-                                + ") Wikidata Dict: "
-                                + str(wikidata_dict)
-                            )
-                            self._wikidata_dict = wikidata_dict
+                            # _LOGGER.debug("(" + self._name + ") OSM Details Dict: " + str(osm_details_dict))
+                            self._osm_details_dict = osm_details_dict
+
+                            if (
+                                "extratags" in osm_details_dict
+                                and "wikidata" in osm_details_dict["extratags"]
+                            ):
+                                wikidata_id = osm_details_dict["extratags"]["wikidata"]
+                            self._wikidata_id = wikidata_id
+
+                            wikidata_dict = {}
+                            if wikidata_id is not None:
+                                wikidata_url = (
+                                    "https://www.wikidata.org/wiki/Special:EntityData/"
+                                    + wikidata_id
+                                    + ".json"
+                                )
+
+                                _LOGGER.info(
+                                    "("
+                                    + self._name
+                                    + ") Wikidata Request: id="
+                                    + wikidata_id
+                                )
+                                _LOGGER.debug(
+                                    "(" + self._name + ") Wikidata URL: " + wikidata_url
+                                )
+                                wikidata_response = get(wikidata_url)
+                                if "error_message" in wikidata_response:
+                                    wikidata_dict = wikidata_response["error_message"]
+                                    _LOGGER.info(
+                                        "(" + self._name + ") An error occurred contacting the web service for Wikidata"
+                                    )
+                                else:
+                                    wikidata_json_input = wikidata_response.text
+                                    wikidata_dict = json.loads(wikidata_json_input)
+                                    _LOGGER.debug(
+                                        "("
+                                        + self._name
+                                        + ") Wikidata JSON: "
+                                        + wikidata_json_input
+                                    )
+                                    _LOGGER.debug(
+                                        "("
+                                        + self._name
+                                        + ") Wikidata Dict: "
+                                        + str(wikidata_dict)
+                                    )
+                                    self._wikidata_dict = wikidata_dict
                 _LOGGER.debug("(" + self._name + ") Building EventData")
                 new_state = new_state[:255]
                 self._state = new_state
