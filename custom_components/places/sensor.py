@@ -2,76 +2,15 @@
 Place Support for OpenStreetMap Geocode sensors.
 
 Original Author:  Jim Thompson
+Subsequent Author: Ian Richardson
 
-Current Version:  1.8  20210125 - iantrich
-
-20180330 - Initial Release
-         - Event driven and timed updates
-         - Subscribes to DeviceTracker state update events
-         - State display options are (default "zone, place"):
-           "zone, place, street_number, street, city, county, state, postal_code, country, formatted_address"
-         - If state display options are specified in the configuration.yaml file:
-           - The state display string begins as a null and appends the following in order:
-             - 'zone' - as defined in the device_tracker entity
-             - If 'place' is included in the options string, a concatenated string is created with the following attributes
-               - place_name, 
-               - place_category, 
-               - place_type, 
-               - place_neighbourhood, 
-               - street number, 
-               - street
-               - If 'street_number' and 'street' are also in the options string, they are ignored
-             - If 'place' is NOT included:
-               - If 'street_number' is included in the options string, the 'street number' will be appended to the display string
-               - If 'street' is included in the options string, the 'street name' will be appended to the display string
-            - If specified in the options string, the following attributes are also appended in order:
-              - "city"
-              - "county"
-              - "state'
-              - "postal_code"
-              - "country"
-              - "formatted_address"
-           - If for some reason the option string is null at this point, the following values are concatenated:
-             - "zone"
-             - "street"
-             - "city"
-         - Whenever the actual 'state' changes, this sensor fires a custom event named 'places_state_update' containing:
-           - entity
-           - to_state
-           - from_state
-           - place_name
-           - direction
-           - distance_from_home
-           - devicetracker_zone
-           - latitude
-           - longitude
-         - Added Map_link option to generate a Google or Apple Maps link to the users current location
-20180509 - Updated to support new option value of "do_not_reorder" to disable the automatic ordered display of any specified options
-         - If "do_not_reorder" appears anywhere in the list of comma delimited options, the state display will be built 
-           using the order of options as they are specified in the options config value.
-           ie:  options: street, street_number, do_not_reorder, postal_code, city, country 
-           will result in a state comprised of: 
-                <street>, <street_number>, <postal_code>, <city>, <country> 
-           without the "do_not_reorder" option, it would be:
-                <street_number>, <street>, <postal_code>, <city>, <country>
-         - The following attributes can be specified in any order for building the display string manually:
-            - do_not_reorder
-            - place_type, place_name, place_category, place_neighbourhood, street_number, street, city,
-            - postal_town, state, region, county, country, postal_code, formatted_address
-            Notes:  All options must be specified in lower case.  
-                    State and Region return the same data (so only use one of them).
-         - Also added 'options' to the attribute list that gets populated by this sensor (to make it easier to see why a specific state is being generated)
-20180510 - Fixed stupid bug introduced yesterday.  Converted display options from string to list.
-
-           
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
   Optionally allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
-  The displayed state adds a time stamp "(since hh:mm)" so you can tell how long a person has been at a location.
   Configuration Instructions are below - as well as sample automations for notifications.
   
   The display options I have set for Sharon are "zone, place" so her state is displayed as:
-  - not_home, Richmond Hill GO Station, building, building, Beverley Acres, 6, Newkirk Road (since 18:44)
+  - not_home, Richmond Hill GO Station, building, building, Beverley Acres, 6, Newkirk Road
   There are a lot of additional attributes (beyond state) that are available which can be used in notifications, alerts, etc:
   (The "home latitude/longitudes" below have been randomized to protect her privacy)
 {
@@ -188,13 +127,9 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
           hide_thumbnail: false
 
 
-Note:  The OpenStreetMap database is very flexible with regards to tag_names in their
-       database schema.  If you come across a set of co-ordinates that do not parse
-       properly, you can enable debug messages to see the actual JSON that is returned from the query.
+Note:  The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of co-ordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
 
-Note:  The OpenStreetMap API requests that you include your valid e-mail address in each API call
-       if you are making a large numbers of requests.  They say that this information will be kept
-       confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
+Note:  The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
 
 Configuration.yaml:
   sensor places_jim:
@@ -207,12 +142,11 @@ Configuration.yaml:
       map_zoom: <1-20>                              (optional)
       option: <zone, place, street_number, street, city, county, state, postal_code, country, formatted_address>  (optional)
       
-The map link that gets generated for Google maps has a push pin marking the users location.
-The map link for Apple maps is centered on the users location - but without any marker.
+The map link that gets generated for Google & Apple maps has a push pin marking the users location.
       
 To enable detailed logging for this component, add the following to your configuration.yaml file
   logger:
-    default: warn
+    default: warning
     logs:
       custom_components.sensor.places: debug  
 
@@ -573,6 +507,17 @@ class Places(Entity):
         previous_state = self.state
         distance_traveled = 0
         devicetracker_zone = None
+        devicetracker_zone_id = None
+        devicetracker_zone_name_state = None
+        home_latitude = None
+        home_longitude = None
+        last_distance_m = None
+        last_updated = None
+        current_location = None
+        previous_location = None
+        home_location = None
+        maplink_apple = None
+        maplink_google = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + reason)
         _LOGGER.info(
@@ -615,10 +560,10 @@ class Places(Entity):
                 + current_location
             )
             if (
-                new_latitude != "None"
-                and new_longitude != "None"
-                and home_latitude != "None"
-                and home_longitude != "None"
+                new_latitude is not None
+                and new_longitude is not None
+                and home_latitude is not None
+                and home_longitude is not None
             ):
                 distance_m = distance(
                     float(new_latitude),
@@ -671,14 +616,13 @@ class Places(Entity):
                 devicetracker_zone_id = self.hass.states.get(
                     self._devicetracker_id
                 ).attributes.get("zone")
-                devicetracker_zone_id = "zone." + devicetracker_zone_id
-                devicetracker_zone_name_state = self.hass.states.get(
-                    devicetracker_zone_id
-                )
-                if devicetracker_zone_name_state:
-                    devicetracker_zone_name = self.hass.states.get(
+                if devicetracker_zone_id is not None:
+                    devicetracker_zone_id = "zone." + devicetracker_zone_id
+                    devicetracker_zone_name_state = self.hass.states.get(
                         devicetracker_zone_id
-                    ).name
+                    )
+                if devicetracker_zone_name_state is not None:
+                    devicetracker_zone_name = devicetracker_zone_name_state.name
                 else:
                     devicetracker_zone_name = devicetracker_zone
                 _LOGGER.debug(
@@ -699,8 +643,25 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Meters traveled since last update: "
-                    + str(round(distance_traveled))
+                    + str(round(distance_traveled, 1))
                 )
+            else:
+                _LOGGER.error(
+                    "("
+                    + self._name
+                    + ") Problem with updated lat/long, this will likely error: new_latitude="
+                    + new_latitude
+                    + ", new_longitude="
+                    + new_longitude
+                    + ", home_latitude="
+                    + home_latitude
+                    + ", home_longitude="
+                    + home_longitude
+                )
+        else:
+            _LOGGER.error(
+                "(" + self._name + ") Missing _devicetracker_id, this will likely error"
+            )
 
         proceed_with_update = True
 
@@ -722,7 +683,7 @@ class Places(Entity):
                 "("
                 + self._name
                 + ") Skipping update because location changed "
-                + str(round(distance_traveled))
+                + str(round(distance_traveled, 1))
                 + " < 10m  ("
                 + str(self._updateskipped)
                 + ")"
@@ -734,7 +695,11 @@ class Places(Entity):
             proceed_with_update = True
 
         if proceed_with_update and devicetracker_zone:
-            _LOGGER.debug("(" + self._name + ") Meets criteria, proceeding with update")
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Meets criteria, proceeding with OpenStreetMap query"
+            )
             self._devicetracker_zone = devicetracker_zone
             _LOGGER.info(
                 "("
@@ -980,7 +945,9 @@ class Places(Entity):
             if "error_message" in osm_decoded:
                 new_state = osm_decoded["error_message"]
                 _LOGGER.info(
-                    "(" + self._name + ") An error occurred contacting the web service"
+                    "("
+                    + self._name
+                    + ") An error occurred contacting the web service for OpenStreetMap"
                 )
             elif "formatted_place" in display_options:
                 new_state = self._formatted_place
@@ -1137,57 +1104,73 @@ class Places(Entity):
                             "(" + self._name + ") OSM Details URL: " + osm_details_url
                         )
                         osm_details_response = get(osm_details_url)
-                        osm_details_json_input = osm_details_response.text
-                        osm_details_dict = json.loads(osm_details_json_input)
-                        _LOGGER.debug(
-                            "("
-                            + self._name
-                            + ") OSM Details JSON: "
-                            + osm_details_json_input
-                        )
-                        # _LOGGER.debug("(" + self._name + ") OSM Details Dict: " + str(osm_details_dict))
-                        self._osm_details_dict = osm_details_dict
-
-                        if (
-                            "extratags" in osm_details_dict
-                            and "wikidata" in osm_details_dict["extratags"]
-                        ):
-                            wikidata_id = osm_details_dict["extratags"]["wikidata"]
-                        self._wikidata_id = wikidata_id
-
-                        wikidata_dict = {}
-                        if wikidata_id is not None:
-                            wikidata_url = (
-                                "https://www.wikidata.org/wiki/Special:EntityData/"
-                                + wikidata_id
-                                + ".json"
-                            )
-
+                        if "error_message" in osm_details_response:
+                            osm_details_dict = osm_details_response["error_message"]
                             _LOGGER.info(
                                 "("
                                 + self._name
-                                + ") Wikidata Request: id="
-                                + wikidata_id
+                                + ") An error occurred contacting the web service for OSM Details"
                             )
-                            _LOGGER.debug(
-                                "(" + self._name + ") Wikidata URL: " + wikidata_url
-                            )
-                            wikidata_response = get(wikidata_url)
-                            wikidata_json_input = wikidata_response.text
-                            wikidata_dict = json.loads(wikidata_json_input)
+                        else:
+                            osm_details_json_input = osm_details_response.text
+                            osm_details_dict = json.loads(osm_details_json_input)
                             _LOGGER.debug(
                                 "("
                                 + self._name
-                                + ") Wikidata JSON: "
-                                + wikidata_json_input
+                                + ") OSM Details JSON: "
+                                + osm_details_json_input
                             )
-                            _LOGGER.debug(
-                                "("
-                                + self._name
-                                + ") Wikidata Dict: "
-                                + str(wikidata_dict)
-                            )
-                            self._wikidata_dict = wikidata_dict
+                            # _LOGGER.debug("(" + self._name + ") OSM Details Dict: " + str(osm_details_dict))
+                            self._osm_details_dict = osm_details_dict
+
+                            if (
+                                "extratags" in osm_details_dict
+                                and "wikidata" in osm_details_dict["extratags"]
+                            ):
+                                wikidata_id = osm_details_dict["extratags"]["wikidata"]
+                            self._wikidata_id = wikidata_id
+
+                            wikidata_dict = {}
+                            if wikidata_id is not None:
+                                wikidata_url = (
+                                    "https://www.wikidata.org/wiki/Special:EntityData/"
+                                    + wikidata_id
+                                    + ".json"
+                                )
+
+                                _LOGGER.info(
+                                    "("
+                                    + self._name
+                                    + ") Wikidata Request: id="
+                                    + wikidata_id
+                                )
+                                _LOGGER.debug(
+                                    "(" + self._name + ") Wikidata URL: " + wikidata_url
+                                )
+                                wikidata_response = get(wikidata_url)
+                                if "error_message" in wikidata_response:
+                                    wikidata_dict = wikidata_response["error_message"]
+                                    _LOGGER.info(
+                                        "("
+                                        + self._name
+                                        + ") An error occurred contacting the web service for Wikidata"
+                                    )
+                                else:
+                                    wikidata_json_input = wikidata_response.text
+                                    wikidata_dict = json.loads(wikidata_json_input)
+                                    _LOGGER.debug(
+                                        "("
+                                        + self._name
+                                        + ") Wikidata JSON: "
+                                        + wikidata_json_input
+                                    )
+                                    _LOGGER.debug(
+                                        "("
+                                        + self._name
+                                        + ") Wikidata Dict: "
+                                        + str(wikidata_dict)
+                                    )
+                                    self._wikidata_dict = wikidata_dict
                 _LOGGER.debug("(" + self._name + ") Building EventData")
                 new_state = new_state[:255]
                 self._state = new_state
@@ -1236,7 +1219,9 @@ class Places(Entity):
                 _LOGGER.debug("(" + self._name + ") EventData update complete")
             else:
                 _LOGGER.debug(
-                    "(" + self._name + ") No update needed, Previous State = New State"
+                    "("
+                    + self._name
+                    + ") No entity update needed, Previous State = New State"
                 )
 
     def _reset_attributes(self):
