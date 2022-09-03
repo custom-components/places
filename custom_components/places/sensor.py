@@ -726,9 +726,7 @@ class Places(Entity):
                 )
         else:
             _LOGGER.error(
-                "("
-                + self._name
-                + ") Missing _devicetracker_id, this will likely error"
+                "(" + self._name + ") Missing _devicetracker_id, this will likely error"
             )
 
         proceed_with_update = True
@@ -1009,7 +1007,9 @@ class Places(Entity):
             if "error_message" in osm_decoded:
                 new_state = osm_decoded["error_message"]
                 _LOGGER.info(
-                    "(" + self._name + ") An error occurred contacting the web service for OpenStreetMap"
+                    "("
+                    + self._name
+                    + ") An error occurred contacting the web service for OpenStreetMap"
                 )
             elif "formatted_place" in display_options:
                 new_state = self._formatted_place
@@ -1169,7 +1169,9 @@ class Places(Entity):
                         if "error_message" in osm_details_response:
                             osm_details_dict = osm_details_response["error_message"]
                             _LOGGER.info(
-                                "(" + self._name + ") An error occurred contacting the web service for OSM Details"
+                                "("
+                                + self._name
+                                + ") An error occurred contacting the web service for OSM Details"
                             )
                         else:
                             osm_details_json_input = osm_details_response.text
@@ -1211,7 +1213,9 @@ class Places(Entity):
                                 if "error_message" in wikidata_response:
                                     wikidata_dict = wikidata_response["error_message"]
                                     _LOGGER.info(
-                                        "(" + self._name + ") An error occurred contacting the web service for Wikidata"
+                                        "("
+                                        + self._name
+                                        + ") An error occurred contacting the web service for Wikidata"
                                     )
                                 else:
                                     wikidata_json_input = wikidata_response.text
