@@ -573,6 +573,15 @@ class Places(Entity):
         previous_state = self.state
         distance_traveled = 0
         devicetracker_zone = None
+        home_latitude = None
+        home_longitude = None
+        last_distance_m = None
+        last_updated = None
+        current_location = None
+        previous_location = None
+        home_location = None
+        maplink_apple = None
+        maplink_google = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + reason)
         _LOGGER.info(
