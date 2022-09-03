@@ -573,6 +573,8 @@ class Places(Entity):
         previous_state = self.state
         distance_traveled = 0
         devicetracker_zone = None
+        devicetracker_zone_id = None
+        devicetracker_zone_name_state = None
         home_latitude = None
         home_longitude = None
         last_distance_m = None
@@ -680,14 +682,13 @@ class Places(Entity):
                 devicetracker_zone_id = self.hass.states.get(
                     self._devicetracker_id
                 ).attributes.get("zone")
-                devicetracker_zone_id = "zone." + devicetracker_zone_id
-                devicetracker_zone_name_state = self.hass.states.get(
-                    devicetracker_zone_id
-                )
-                if devicetracker_zone_name_state:
-                    devicetracker_zone_name = self.hass.states.get(
+                if devicetracker_zone_id is not None:
+                    devicetracker_zone_id = "zone." + devicetracker_zone_id
+                    devicetracker_zone_name_state = self.hass.states.get(
                         devicetracker_zone_id
-                    ).name
+                    )
+                if devicetracker_zone_name_state is not None:
+                    devicetracker_zone_name = devicetracker_zone_name_state.name
                 else:
                     devicetracker_zone_name = devicetracker_zone
                 _LOGGER.debug(
