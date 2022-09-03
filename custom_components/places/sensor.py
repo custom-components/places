@@ -518,6 +518,7 @@ class Places(Entity):
         home_location = None
         maplink_apple = None
         maplink_google = None
+        maplink_osm = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + reason)
         _LOGGER.info(
