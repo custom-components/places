@@ -714,6 +714,12 @@ class Places(Entity):
                     + ", home_longitude="
                     + home_longitude
                 )
+        else:
+            _LOGGER.error(
+                "("
+                + self._name
+                + ") Missing _devicetracker_id, this will likely error"
+            )
 
         proceed_with_update = True
 
