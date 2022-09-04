@@ -220,6 +220,7 @@ ATTR_WIKIDATA_ID = "wikidata_id"
 ATTR_OSM_DICT = "osm_dict"
 ATTR_OSM_DETAILS_DICT = "osm_details_dict"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
+ATTR_LAST_PLACE_NAME = "last_place_name"
 
 DEFAULT_NAME = "places"
 DEFAULT_OPTION = "zone, place"
@@ -342,6 +343,7 @@ class Places(Entity):
         self._devicetracker_zone = "Home"
         self._devicetracker_zone_name = "Home"
         self._mtime = str(datetime.now())
+        self._last_place_name = None
         self._distance_km = 0
         self._distance_m = 0
         self._location_current = home_latitude + "," + home_longitude
@@ -447,6 +449,8 @@ class Places(Entity):
             return_attr[ATTR_DISTANCE_M] = self._distance_m
         if self._mtime is not None:
             return_attr[ATTR_MTIME] = self._mtime
+        if self._last_place_name is not None:
+            return_attr[ATTR_LAST_PLACE_NAME] = self._last_place_name
         if self._location_current is not None:
             return_attr[ATTR_LOCATION_CURRENT] = self._location_current
         if self._location_previous is not None:
@@ -519,6 +523,7 @@ class Places(Entity):
         maplink_apple = None
         maplink_google = None
         maplink_osm = None
+        last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + reason)
         _LOGGER.info(
@@ -548,6 +553,17 @@ class Places(Entity):
             current_location = new_latitude + "," + new_longitude
             previous_location = old_latitude + "," + old_longitude
             home_location = home_latitude + "," + home_longitude
+            if (
+                "stationary" in self._devicetracker_zone.lower()
+                or self._devicetracker_zone.lower() == "away"
+                or self._devicetracker_zone.lower() == "not_home"
+            ):
+                if self._place_name is not None:
+                    last_place_name = self._place_name
+                else:
+                    last_place_name = self._last_place_name
+            else:
+                last_place_name = self._devicetracker_zone_name
 
             maplink_apple = (
                 "https://maps.apple.com/maps/?q="
@@ -736,6 +752,7 @@ class Places(Entity):
             self._distance_km = distance_from_home
             self._distance_m = distance_m
             self._direction = direction
+            self._last_place_name = last_place_name
 
             if self._map_provider == "google":
                 self._map_link = maplink_google
@@ -1198,6 +1215,8 @@ class Places(Entity):
                     event_data["place_name"] = place_name
                 if current_time is not None:
                     event_data["mtime"] = current_time
+                if last_place_name is not None:
+                    event_data[ATTR_LAST_PLACE_NAME] = last_place_name
                 if distance_from_home is not None:
                     event_data["distance_from_home"] = distance_from_home
                 if direction is not None:
@@ -1254,6 +1273,7 @@ class Places(Entity):
         self._place_type = None
         self._place_name = None
         self._mtime = datetime.now()
+        self._last_place_name = None
         self._osm_id = None
         self._osm_type = None
         self._wikidata_id = None
