@@ -564,6 +564,9 @@ class Places(Entity):
                     last_place_name = self._last_place_name
             else:
                 last_place_name = self._devicetracker_zone_name
+            _LOGGER.debug(
+                "(" + self._name + ") Last Place Name: " + last_place_name
+                )
 
             maplink_apple = (
                 "https://maps.apple.com/maps/?q="
