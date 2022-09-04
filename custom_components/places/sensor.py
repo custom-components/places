@@ -1195,42 +1195,42 @@ class Places(Entity):
                 event_data["to_state"] = new_state
 
                 if place_name is not None:
-                    event_data["place_name"] = place_name
+                    event_data[ATTR_PLACE_NAME] = place_name
                 if current_time is not None:
-                    event_data["mtime"] = current_time
+                    event_data[ATTR_MTIME] = current_time
                 if distance_km is not None:
                     event_data[ATTR_DISTANCE_KM] = distance_km
                 if distance_m is not None:
-                    event_data[ATTR_DISTANCE_KM] = distance_m
+                    event_data[ATTR_DISTANCE_M] = distance_m
                 if direction is not None:
-                    event_data["direction"] = direction
+                    event_data[ATTR_DIRECTION_OF_TRAVEL] = direction
                 if devicetracker_zone is not None:
-                    event_data["devicetracker_zone"] = devicetracker_zone
+                    event_data[ATTR_DEVICETRACKER_ZONE] = devicetracker_zone
                 if devicetracker_zone_name is not None:
-                    event_data["devicetracker_zone_name"] = devicetracker_zone_name
+                    event_data[ATTR_DEVICETRACKER_ZONE_NAME] = devicetracker_zone_name
                 if self._latitude is not None:
-                    event_data["latitude"] = self._latitude
+                    event_data[ATTR_LATITUDE] = self._latitude
                 if self._longitude is not None:
-                    event_data["longitude"] = self._longitude
+                    event_data[ATTR_LONGITUDE] = self._longitude
                 if self._latitude_old is not None:
-                    event_data["previous_latitude"] = self._latitude_old
+                    event_data[ATTR_LATITUDE_OLD] = self._latitude_old
                 if self._longitude_old is not None:
-                    event_data["previous_longitude"] = self._longitude_old
+                    event_data[ATTR_LONGITUDE_OLD] = self._longitude_old
                 if self._map_link is not None:
-                    event_data["map"] = self._map_link
+                    event_data[ATTR_MAP_LINK] = self._map_link
                 if osm_id is not None:
-                    event_data["osm_id"] = osm_id
+                    event_data[ATTR_OSM_ID] = osm_id
                 if osm_type is not None:
-                    event_data["osm_type"] = osm_type
+                    event_data[ATTR_OSM_TYPE] = osm_type
                 if self._extended_attr:
                     if wikidata_id is not None:
-                        event_data["wikidata_id"] = wikidata_id
+                        event_data[ATTR_WIKIDATA_ID] = wikidata_id
                     if osm_decoded is not None:
-                        event_data["osm_dict"] = osm_decoded
+                        event_data[ATTR_OSM_DICT] = osm_decoded
                     if osm_details_dict is not None:
-                        event_data["osm_details_dict"] = osm_details_dict
+                        event_data[ATTR_OSM_DETAILS_DICT] = osm_details_dict
                     if wikidata_dict is not None:
-                        event_data["wikidata_dict"] = wikidata_dict
+                        event_data[ATTR_WIKIDATA_DICT] = wikidata_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
                 _LOGGER.debug("(" + self._name + ") EventData update complete")
