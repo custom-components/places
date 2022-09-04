@@ -553,16 +553,21 @@ class Places(Entity):
             current_location = new_latitude + "," + new_longitude
             previous_location = old_latitude + "," + old_longitude
             home_location = home_latitude + "," + home_longitude
+           
             if (
                 "stationary" in self._devicetracker_zone.lower()
                 or self._devicetracker_zone.lower() == "away"
                 or self._devicetracker_zone.lower() == "not_home"
             ):
+                 #Not in a Zone
                 if self._place_name is not None:
+                    #If place name is set
                     last_place_name = self._place_name
                 else:
+                    # If blank, keep previous last place name
                     last_place_name = self._last_place_name
             else:
+                # In a Zone
                 last_place_name = self._devicetracker_zone_name
             _LOGGER.debug(
                 "(" + self._name + ") Last Place Name: " + last_place_name
@@ -755,7 +760,6 @@ class Places(Entity):
             self._distance_km = distance_from_home
             self._distance_m = distance_m
             self._direction = direction
-            self._last_place_name = last_place_name
 
             if self._map_provider == "google":
                 self._map_link = maplink_google
@@ -902,6 +906,10 @@ class Places(Entity):
             self._mtime = str(datetime.now())
             self._osm_id = str(osm_id)
             self._osm_type = osm_type
+            if last_place_name == place_name or last_place_name == devicetracker_zone_name:
+                # If current place name/zone are the same as previous, keep older last place name
+                last_place_name = self._last_place_name
+            self._last_place_name = last_place_name
 
             isDriving = False
 
