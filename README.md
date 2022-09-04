@@ -92,11 +92,11 @@ Key | Type | Required | Description | Default |
 `name` | `string` | `False` | Friendly name of the sensor | `places`
 `home_zone` | `string` | `False` | Calculates distance from home and direction of travel if set | `zone.home`
 `api_key` | `string` | `False` | OpenStreetMap API key (your email address). | `no key`
-`map_provider` | `string` | `False` | `google` or `apple` | `apple`
+`map_provider` | `string` | `False` | `google`, `apple`, `osm` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
 `language` | `string` | `False` | Requested* language(s) for state and attributes. Two-Letter language code(s). | *Refer to Notes
-`extended_attr` | `boolean` | `False` | Show extended attributes: `wikidata_id, osm_dict, osm_details_dict, wikidata_dict` (if they exist). Provides many additional attributes for advanced logic. Warning, will make the attributes very long! | `False`
-`options` | `string` | `False` | Display options: `formatted_place (exclusive option), driving (can be used with formatted_place or other options), zone or zone_name, place, place_name, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
+`extended_attr` | `boolean` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, will make the attributes very long!** | `False`
+`options` | `string` | `False` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone`, `place`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
 ```json
