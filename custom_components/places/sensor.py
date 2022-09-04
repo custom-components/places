@@ -776,22 +776,22 @@ class Places(Entity):
             osm_decoded = json.loads(osm_json_input)
 
             place_options = self._options.lower()
-            place_type = "-"
-            place_name = "-"
-            place_category = "-"
-            place_neighbourhood = "-"
-            street_number = ""
-            street = "Unnamed Road"
-            city = "-"
-            postal_town = "-"
-            region = "-"
-            state_abbr = "-"
-            county = "-"
-            country = "-"
-            postal_code = ""
-            formatted_address = ""
-            target_option = ""
-            formatted_place = ""
+            place_type = None
+            place_name = None
+            place_category = None
+            place_neighbourhood = None
+            street_number = None
+            street = None
+            city = None
+            postal_town = None
+            region = None
+            state_abbr = None
+            county = None
+            country = None
+            postal_code = None
+            formatted_address = None
+            target_option = None
+            formatted_place = None
             osm_id = None
             osm_type = None
             wikidata_id = None
@@ -880,7 +880,8 @@ class Places(Entity):
             self._postal_code = postal_code
             self._formatted_address = formatted_address
             self._mtime = str(datetime.now())
-            self._osm_id = str(osm_id)
+            if osm_id is not None:
+                self._osm_id = str(osm_id)
             self._osm_type = osm_type
 
             isDriving = False
@@ -907,9 +908,9 @@ class Places(Entity):
                 ):
                     formatted_place_array.append("Driving")
                     isDriving = True
-                if self._place_name == "-":
+                if self._place_name is None:
                     if (
-                        self._place_type != "-"
+                        self._place_type is not None
                         and self._place_type.lower() != "unclassified"
                         and self._place_category.lower() != "highway"
                     ):
@@ -920,14 +921,14 @@ class Places(Entity):
                             .strip()
                         )
                     elif (
-                        self._place_category != "-"
+                        self._place_category is not None
                         and self._place_category.lower() != "highway"
                     ):
                         formatted_place_array.append(
                             self._place_category.title().strip()
                         )
-                    if self._street.lower() != "unnamed road" and self._street != "-":
-                        if self._street_number == "-":
+                    if self._street is not None:
+                        if self._street_number is None:
                             formatted_place_array.append(self._street.strip())
                         else:
                             formatted_place_array.append(
@@ -935,19 +936,19 @@ class Places(Entity):
                             )
                     if (
                         self._place_type.lower() == "house"
-                        and self._place_neighbourhood != "-"
+                        and self._place_neighbourhood is not None
                     ):
                         formatted_place_array.append(self._place_neighbourhood.strip())
 
                 else:
                     formatted_place_array.append(self._place_name.strip())
-                if self._city != "-":
+                if self._city is not None:
                     formatted_place_array.append(
                         self._city.replace(" Township", "").strip()
                     )
-                elif self._county != "-":
+                elif self._county is not None:
                     formatted_place_array.append(self._county.strip())
-                if self._region != "-":
+                if self._state_abbr is not None:
                     formatted_place_array.append(self._state_abbr)
             else:
                 formatted_place_array.append(devicetracker_zone_name.strip())
@@ -1002,10 +1003,10 @@ class Places(Entity):
                     user_display.append(self._devicetracker_zone)
 
                 if "place_name" in display_options:
-                    if place_name != "-":
+                    if place_name is not None:
                         user_display.append(place_name)
                 if "place" in display_options:
-                    if place_name != "-":
+                    if place_name is not None:
                         user_display.append(place_name)
                     if place_category.lower() != "place":
                         user_display.append(place_category)
