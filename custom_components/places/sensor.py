@@ -18,7 +18,7 @@ Description:
   "friendly_name": "sharon",
   "postal_town": "-",
   "current_latitude": "43.874149009154095",
-  "distance_from_home_km": "7.24 km",
+  "distance_from_home_km": 7.24,
   "country": "Canada",
   "postal_code": "L4C 1B3",
   "direction_of_travel": "towards home",
@@ -97,7 +97,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
+        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
       data:
         attachment:
@@ -119,7 +119,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
+        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
       data:
         attachment:
@@ -584,8 +584,7 @@ class Places(Entity):
                     float(home_latitude),
                     float(home_longitude),
                 )
-                distance_km = round(distance_m / 1000, 2)
-                distance_from_home = str(distance_km) + " km"
+                distance_km = round(distance_m / 1000, 3)
 
                 deviation = self.haversine(
                     float(old_latitude),
@@ -615,7 +614,8 @@ class Places(Entity):
                     + ") Distance from home ["
                     + (self._home_zone).split(".")[1]
                     + "]: "
-                    + distance_from_home
+                    + str(distance_km)
+                    + " km"
                 )
                 _LOGGER.info("(" + self._name + ") Travel Direction: " + direction)
 
@@ -733,7 +733,7 @@ class Places(Entity):
             self._location_previous = previous_location
             self._devicetracker_zone = devicetracker_zone
             self._devicetracker_zone_name = devicetracker_zone_name
-            self._distance_km = distance_from_home
+            self._distance_km = distance_km
             self._distance_m = distance_m
             self._direction = direction
 
@@ -1198,8 +1198,10 @@ class Places(Entity):
                     event_data[ATTR_PLACE_NAME] = place_name
                 if current_time is not None:
                     event_data[ATTR_MTIME] = current_time
-                if distance_from_home is not None:
-                    event_data["distance_from_home"] = distance_from_home
+                if distance_km is not None:
+                    event_data[ATTR_DISTANCE_KM] = distance_km
+                if distance_m is not None:
+                    event_data[ATTR_DISTANCE_M] = distance_m
                 if direction is not None:
                     event_data[ATTR_DIRECTION_OF_TRAVEL] = direction
                 if devicetracker_zone is not None:
