@@ -508,6 +508,9 @@ class Places(Entity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
+        _LOGGER.debug(
+            "(" + self._name + ") Starting Update..." + str(last_place_name)
+        )
         previous_state = self.state
         distance_traveled = 0
         devicetracker_zone = None
@@ -553,25 +556,29 @@ class Places(Entity):
             current_location = new_latitude + "," + new_longitude
             previous_location = old_latitude + "," + old_longitude
             home_location = home_latitude + "," + home_longitude
-           
+            _LOGGER.debug("(" + self._name + ") Previous last_place_name: " + str(self._last_place_name))
+
             if (
                 "stationary" in self._devicetracker_zone.lower()
                 or self._devicetracker_zone.lower() == "away"
                 or self._devicetracker_zone.lower() == "not_home"
             ):
                  #Not in a Zone
-                if self._place_name is not None:
+                if self._place_name is not None and self._place_name != "-":
                     #If place name is set
                     last_place_name = self._place_name
+                    _LOGGER.debug("(" + self._name + ") Previous Place Name is set: " + last_place_name + ", updating")
                 else:
                     # If blank, keep previous last place name
                     last_place_name = self._last_place_name
+                    _LOGGER.debug("(" + self._name + ") Previous Place Name is None or -, keeping prior")
             else:
                 # In a Zone
                 last_place_name = self._devicetracker_zone_name
+                _LOGGER.debug("(" + self._name + ") Previous Place is Zone: " + last_place_name + ", updating")
             _LOGGER.debug(
-                "(" + self._name + ") Last Place Name: " + last_place_name
-                )
+                "(" + self._name + ") Last Place Name (Initial): " + str(last_place_name)
+            )
 
             maplink_apple = (
                 "https://maps.apple.com/maps/?q="
@@ -909,7 +916,13 @@ class Places(Entity):
             if last_place_name == place_name or last_place_name == devicetracker_zone_name:
                 # If current place name/zone are the same as previous, keep older last place name
                 last_place_name = self._last_place_name
+                _LOGGER.debug("(" + self._name + ") Initial last_place_name is same as new: place_name=" + place_name + " or devicetracker_zone_name=" + devicetracker_zone_name+ ", keeping previous last_place_name")
+            else:
+                _LOGGER.debug("(" + self._name + ") Keeping initial last_place_name")
             self._last_place_name = last_place_name
+            _LOGGER.debug(
+                "(" + self._name + ") Last Place Name (Final): " + str(last_place_name)
+            )
 
             isDriving = False
 
@@ -1268,7 +1281,10 @@ class Places(Entity):
                     + self._name
                     + ") No entity update needed, Previous State = New State"
                 )
-
+        _LOGGER.debug(
+            "(" + self._name + ") End of Update" + str(last_place_name)
+        )
+        
     def _reset_attributes(self):
         """Resets attributes."""
         self._street = None
