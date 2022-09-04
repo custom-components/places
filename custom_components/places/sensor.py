@@ -562,7 +562,15 @@ class Places(Entity):
             )
             maplink_osm = (
                 "https://www.openstreetmap.org/?mlat="
-                + new_latitude + '&mlon=' + new_longitude + '#map=' + self._map_zoom + '/' + new_latitude[:8] + '/' + new_longitude[:9]
+                + new_latitude
+                + "&mlon="
+                + new_longitude
+                + "#map="
+                + self._map_zoom
+                + "/"
+                + new_latitude[:8]
+                + "/"
+                + new_longitude[:9]
             )
             if (
                 new_latitude is not None
@@ -731,7 +739,7 @@ class Places(Entity):
 
             if self._map_provider == "google":
                 self._map_link = maplink_google
-            elif self._map_provider == 'osm':
+            elif self._map_provider == "osm":
                 self._map_link = maplink_osm
             else:
                 self._map_link = maplink_apple
