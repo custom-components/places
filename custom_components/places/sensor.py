@@ -1303,7 +1303,7 @@ class Places(Entity):
         self._place_type = None
         self._place_name = None
         self._mtime = datetime.now()
-        self._last_place_name = None
+        #self._last_place_name = None
         self._osm_id = None
         self._osm_type = None
         self._wikidata_id = None
