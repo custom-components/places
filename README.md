@@ -16,7 +16,7 @@ _Component to integrate with OpenStreetMap Reverse Geocode (PLACE)_
 
 ### Installation via HACS
 
-Unless you have a good reason not to, you probably want to install this component via HACS(Home Assistant Community Store)
+Unless you have a good reason not to, you probably want to install this component via HACS (Home Assistant Community Store)
 1. Ensure that [HACS](https://hacs.xyz/) is installed.
 1. Navigate to HACS -> Integrations
 1. Open the three-dot menu and select 'Custom Repositories'
