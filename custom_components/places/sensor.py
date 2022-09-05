@@ -1288,9 +1288,6 @@ class Places(Entity):
                     and last_place_name != prev_last_place_name
                 ):
                     event_data[ATTR_LAST_PLACE_NAME] = last_place_name
-                if distance_from_home is not None:
-                    event_data["distance_from_home"] = distance_from_home
-
                 if distance_km is not None:
                     event_data[ATTR_DISTANCE_KM] = distance_km
                 if distance_m is not None:
