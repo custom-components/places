@@ -103,7 +103,6 @@ Sample attributes that can be used in notifications, alerts, automations, etc:
 {
   "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
   "friendly_name": "sharon",
-  "postal_town": "-",
   "current_latitude": "43.874149009154095",
   "distance_from_home_km": 7.24,
   "country": "Canada",
