@@ -509,8 +509,7 @@ class Places(Entity):
         """Get the latest data and updates the states."""
 
         _LOGGER.debug(
-            "(" + self._name + ") Starting Update..." + str(last_place_name)
-        )
+            "(" + self._name + ") Starting Update...")
         previous_state = self.state
         distance_traveled = 0
         devicetracker_zone = None
@@ -1287,8 +1286,7 @@ class Places(Entity):
                     + ") No entity update needed, Previous State = New State"
                 )
         _LOGGER.debug(
-            "(" + self._name + ") End of Update" + str(last_place_name)
-        )
+            "(" + self._name + ") End of Update")
         
     def _reset_attributes(self):
         """Resets attributes."""
