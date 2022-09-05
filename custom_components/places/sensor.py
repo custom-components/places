@@ -508,7 +508,7 @@ class Places(Entity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
-        _LOGGER.debug(
+        _LOGGER.info(
             "(" + self._name + ") Starting Update...")
         previous_state = self.state
         distance_traveled = 0
@@ -1280,14 +1280,14 @@ class Places(Entity):
                         event_data["wikidata_dict"] = wikidata_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
-                _LOGGER.debug("(" + self._name + ") EventData update complete")
+                _LOGGER.debug("(" + self._name + ") EventData updated: " + str(event_data))
             else:
                 _LOGGER.debug(
                     "("
                     + self._name
                     + ") No entity update needed, Previous State = New State"
                 )
-        _LOGGER.debug(
+        _LOGGER.info(
             "(" + self._name + ") End of Update")
         
     def _reset_attributes(self):
