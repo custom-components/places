@@ -956,9 +956,9 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Initial last_place_name is same as new: place_name="
-                    + place_name
+                    + str(place_name)
                     + " or devicetracker_zone_name="
-                    + devicetracker_zone_name
+                    + str(devicetracker_zone_name)
                     + ", keeping previous last_place_name"
                 )
             else:
