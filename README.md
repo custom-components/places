@@ -103,9 +103,8 @@ Sample attributes that can be used in notifications, alerts, automations, etc:
 {
   "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
   "friendly_name": "sharon",
-  "postal_town": "-",
   "current_latitude": "43.874149009154095",
-  "distance_from_home_km": "7.24 km",
+  "distance_from_home_km": 7.24,
   "country": "Canada",
   "postal_code": "L4C 1B3",
   "direction_of_travel": "towards home",
@@ -150,7 +149,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
+        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
       data:
         attachment:
@@ -172,7 +171,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
+        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
       data:
         attachment:

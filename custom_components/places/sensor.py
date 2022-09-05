@@ -16,9 +16,8 @@ Description:
 {
   "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
   "friendly_name": "sharon",
-  "postal_town": "-",
   "current_latitude": "43.874149009154095",
-  "distance_from_home_km": "7.24 km",
+  "distance_from_home_km": 7.24,
   "country": "Canada",
   "postal_code": "L4C 1B3",
   "direction_of_travel": "towards home",
@@ -97,7 +96,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
+        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
       data:
         attachment:
@@ -119,7 +118,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
+        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
       data:
         attachment:
@@ -616,8 +615,7 @@ class Places(Entity):
                     float(home_latitude),
                     float(home_longitude),
                 )
-                distance_km = round(distance_m / 1000, 2)
-                distance_from_home = str(distance_km) + " km"
+                distance_km = round(distance_m / 1000, 3)
 
                 deviation = self.haversine(
                     float(old_latitude),
@@ -647,7 +645,8 @@ class Places(Entity):
                     + ") Distance from home ["
                     + (self._home_zone).split(".")[1]
                     + "]: "
-                    + distance_from_home
+                    + str(distance_km)
+                    + " km"
                 )
                 _LOGGER.info("(" + self._name + ") Travel Direction: " + direction)
 
@@ -767,7 +766,7 @@ class Places(Entity):
             self._location_previous = previous_location
             self._devicetracker_zone = devicetracker_zone
             self._devicetracker_zone_name = devicetracker_zone_name
-            self._distance_km = distance_from_home
+            self._distance_km = distance_km
             self._distance_m = distance_m
             self._direction = direction
 
@@ -810,22 +809,22 @@ class Places(Entity):
             osm_decoded = json.loads(osm_json_input)
 
             place_options = self._options.lower()
-            place_type = "-"
-            place_name = "-"
-            place_category = "-"
-            place_neighbourhood = "-"
-            street_number = ""
-            street = "Unnamed Road"
-            city = "-"
-            postal_town = "-"
-            region = "-"
-            state_abbr = "-"
-            county = "-"
-            country = "-"
-            postal_code = ""
-            formatted_address = ""
-            target_option = ""
-            formatted_place = ""
+            place_type = None
+            place_name = None
+            place_category = None
+            place_neighbourhood = None
+            street_number = None
+            street = None
+            city = None
+            postal_town = None
+            region = None
+            state_abbr = None
+            county = None
+            country = None
+            postal_code = None
+            formatted_address = None
+            target_option = None
+            formatted_place = None
             osm_id = None
             osm_type = None
             wikidata_id = None
@@ -914,7 +913,8 @@ class Places(Entity):
             self._postal_code = postal_code
             self._formatted_address = formatted_address
             self._mtime = str(datetime.now())
-            self._osm_id = str(osm_id)
+            if osm_id is not None:
+                self._osm_id = str(osm_id)
             self._osm_type = osm_type
             if initial_update == True:
                 last_place_name = self._last_place_name
@@ -954,9 +954,9 @@ class Places(Entity):
                 ):
                     formatted_place_array.append("Driving")
                     isDriving = True
-                if self._place_name == "-":
+                if self._place_name is None:
                     if (
-                        self._place_type != "-"
+                        self._place_type is not None
                         and self._place_type.lower() != "unclassified"
                         and self._place_category.lower() != "highway"
                     ):
@@ -967,14 +967,14 @@ class Places(Entity):
                             .strip()
                         )
                     elif (
-                        self._place_category != "-"
+                        self._place_category is not None
                         and self._place_category.lower() != "highway"
                     ):
                         formatted_place_array.append(
                             self._place_category.title().strip()
                         )
-                    if self._street.lower() != "unnamed road" and self._street != "-":
-                        if self._street_number == "-":
+                    if self._street is not None:
+                        if self._street_number is None:
                             formatted_place_array.append(self._street.strip())
                         else:
                             formatted_place_array.append(
@@ -982,19 +982,19 @@ class Places(Entity):
                             )
                     if (
                         self._place_type.lower() == "house"
-                        and self._place_neighbourhood != "-"
+                        and self._place_neighbourhood is not None
                     ):
                         formatted_place_array.append(self._place_neighbourhood.strip())
 
                 else:
                     formatted_place_array.append(self._place_name.strip())
-                if self._city != "-":
+                if self._city is not None:
                     formatted_place_array.append(
                         self._city.replace(" Township", "").strip()
                     )
-                elif self._county != "-":
+                elif self._county is not None:
                     formatted_place_array.append(self._county.strip())
-                if self._region != "-":
+                if self._state_abbr is not None:
                     formatted_place_array.append(self._state_abbr)
             else:
                 formatted_place_array.append(devicetracker_zone_name.strip())
@@ -1049,10 +1049,10 @@ class Places(Entity):
                     user_display.append(self._devicetracker_zone)
 
                 if "place_name" in display_options:
-                    if place_name != "-":
+                    if place_name is not None:
                         user_display.append(place_name)
                 if "place" in display_options:
-                    if place_name != "-":
+                    if place_name is not None:
                         user_display.append(place_name)
                     if place_category.lower() != "place":
                         user_display.append(place_category)
@@ -1242,42 +1242,47 @@ class Places(Entity):
                 event_data["to_state"] = new_state
 
                 if place_name is not None:
-                    event_data["place_name"] = place_name
+                    event_data[ATTR_PLACE_NAME] = place_name
                 if current_time is not None:
-                    event_data["mtime"] = current_time
+                    event_data[ATTR_MTIME] = current_time
                 if last_place_name is not None and last_place_name != prev_last_place_name:
                     event_data[ATTR_LAST_PLACE_NAME] = last_place_name
                 if distance_from_home is not None:
                     event_data["distance_from_home"] = distance_from_home
+
+                if distance_km is not None:
+                    event_data[ATTR_DISTANCE_KM] = distance_km
+                if distance_m is not None:
+                    event_data[ATTR_DISTANCE_M] = distance_m
                 if direction is not None:
-                    event_data["direction"] = direction
+                    event_data[ATTR_DIRECTION_OF_TRAVEL] = direction
                 if devicetracker_zone is not None:
-                    event_data["devicetracker_zone"] = devicetracker_zone
+                    event_data[ATTR_DEVICETRACKER_ZONE] = devicetracker_zone
                 if devicetracker_zone_name is not None:
-                    event_data["devicetracker_zone_name"] = devicetracker_zone_name
+                    event_data[ATTR_DEVICETRACKER_ZONE_NAME] = devicetracker_zone_name
                 if self._latitude is not None:
-                    event_data["latitude"] = self._latitude
+                    event_data[ATTR_LATITUDE] = self._latitude
                 if self._longitude is not None:
-                    event_data["longitude"] = self._longitude
+                    event_data[ATTR_LONGITUDE] = self._longitude
                 if self._latitude_old is not None:
-                    event_data["previous_latitude"] = self._latitude_old
+                    event_data[ATTR_LATITUDE_OLD] = self._latitude_old
                 if self._longitude_old is not None:
-                    event_data["previous_longitude"] = self._longitude_old
+                    event_data[ATTR_LONGITUDE_OLD] = self._longitude_old
                 if self._map_link is not None:
-                    event_data["map"] = self._map_link
+                    event_data[ATTR_MAP_LINK] = self._map_link
                 if osm_id is not None:
-                    event_data["osm_id"] = osm_id
+                    event_data[ATTR_OSM_ID] = osm_id
                 if osm_type is not None:
-                    event_data["osm_type"] = osm_type
+                    event_data[ATTR_OSM_TYPE] = osm_type
                 if self._extended_attr:
                     if wikidata_id is not None:
-                        event_data["wikidata_id"] = wikidata_id
+                        event_data[ATTR_WIKIDATA_ID] = wikidata_id
                     if osm_decoded is not None:
-                        event_data["osm_dict"] = osm_decoded
+                        event_data[ATTR_OSM_DICT] = osm_decoded
                     if osm_details_dict is not None:
-                        event_data["osm_details_dict"] = osm_details_dict
+                        event_data[ATTR_OSM_DETAILS_DICT] = osm_details_dict
                     if wikidata_dict is not None:
-                        event_data["wikidata_dict"] = wikidata_dict
+                        event_data[ATTR_WIKIDATA_DICT] = wikidata_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
                 _LOGGER.debug("(" + self._name + ") EventData updated: " + str(event_data))
