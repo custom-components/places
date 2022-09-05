@@ -5,9 +5,9 @@ jobs:
     name: Black Code Formatter
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3.0.2
       - name: Check files using the Black Code Formatter
-        uses: rickstaa/action-black@v1
+        uses: rickstaa/action-black@v1.1.14
         id: action_black
         with:
           black_args: "."
@@ -15,7 +15,7 @@ jobs:
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
         id: cpr
-        uses: peter-evans/create-pull-request@v4
+        uses: peter-evans/create-pull-request@v4.1.1
         with:
           token: ${{ secrets.CPR }}
           title: "Format Python code with Black Code Formatter"
@@ -27,3 +27,15 @@ jobs:
           base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
           delete-branch: true
           branch: actions/black
+      - name: Auto Merge
+        if: ${{ steps.cpr.outputs.pull-request-number }}
+        id: automerge
+        uses: pascalgn/automerge-action@v0.15.3
+        env:
+          GITHUB_TOKEN: "${{ secrets.CPR }}"
+          MERGE_LABELS: "automerge"
+          MERGE_METHOD: "squash"
+          MERGE_REMOVE_LABELS: "automerge"
+          MERGE_DELETE_BRANCH: "true"
+          MERGE_ERROR_FAIL: "true" 
+          
