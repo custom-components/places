@@ -23,6 +23,7 @@ jobs:
           body: |
             There appear to be some python formatting errors in ${{ github.sha }}. This pull request
             uses the [Black Code Formatter](https://github.com/psf/black) to fix these issues.
+          labels: automerge
           base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
           delete-branch: true
           branch: actions/black
