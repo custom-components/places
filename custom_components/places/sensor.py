@@ -526,6 +526,7 @@ class Places(Entity):
         maplink_google = None
         maplink_osm = None
         last_place_name = None
+        prev_last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + reason)
         _LOGGER.info(
@@ -555,6 +556,7 @@ class Places(Entity):
             current_location = new_latitude + "," + new_longitude
             previous_location = old_latitude + "," + old_longitude
             home_location = home_latitude + "," + home_longitude
+            prev_last_place_name = self._last_place_name
             _LOGGER.debug("(" + self._name + ") Previous last_place_name: " + str(self._last_place_name))
 
             if (
@@ -1243,7 +1245,7 @@ class Places(Entity):
                     event_data["place_name"] = place_name
                 if current_time is not None:
                     event_data["mtime"] = current_time
-                if last_place_name is not None:
+                if last_place_name is not None and last_place_name != prev_last_place_name:
                     event_data[ATTR_LAST_PLACE_NAME] = last_place_name
                 if distance_from_home is not None:
                     event_data["distance_from_home"] = distance_from_home
