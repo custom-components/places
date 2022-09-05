@@ -708,6 +708,7 @@ class Places(Entity):
             )
 
         proceed_with_update = True
+        initial_update = False
 
         if current_location == previous_location:
             _LOGGER.debug(
@@ -737,6 +738,7 @@ class Places(Entity):
         if previous_state == "Initializing...":
             _LOGGER.debug("(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
+            initial_update = True
 
         if proceed_with_update and devicetracker_zone:
             _LOGGER.debug(
@@ -913,7 +915,10 @@ class Places(Entity):
             self._mtime = str(datetime.now())
             self._osm_id = str(osm_id)
             self._osm_type = osm_type
-            if last_place_name == place_name or last_place_name == devicetracker_zone_name:
+            if initial_update == True:
+                last_place_name = self._last_place_name
+                _LOGGER.debug("(" + self._name + ") Runnining initial update after load, using prior last_place_name")
+            elif last_place_name == place_name or last_place_name == devicetracker_zone_name:
                 # If current place name/zone are the same as previous, keep older last place name
                 last_place_name = self._last_place_name
                 _LOGGER.debug("(" + self._name + ") Initial last_place_name is same as new: place_name=" + place_name + " or devicetracker_zone_name=" + devicetracker_zone_name+ ", keeping previous last_place_name")
