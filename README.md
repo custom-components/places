@@ -149,11 +149,11 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
+        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:
-          url: '{{ trigger.event.data.map }}'
+          url: '{{ trigger.event.data.map_link }}'
           hide_thumbnail: false
 
 - alias: ReverseLocateAidan
@@ -171,11 +171,11 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
+        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:
-          url: '{{ trigger.event.data.map }}'
+          url: '{{ trigger.event.data.map_link }}'
           hide_thumbnail: false
 ```
 
