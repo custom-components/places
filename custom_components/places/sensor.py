@@ -219,6 +219,7 @@ ATTR_WIKIDATA_ID = "wikidata_id"
 ATTR_OSM_DICT = "osm_dict"
 ATTR_OSM_DETAILS_DICT = "osm_details_dict"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
+ATTR_LAST_PLACE_NAME = "last_place_name"
 
 DEFAULT_NAME = "places"
 DEFAULT_OPTION = "zone, place"
@@ -341,6 +342,7 @@ class Places(Entity):
         self._devicetracker_zone = "Home"
         self._devicetracker_zone_name = "Home"
         self._mtime = str(datetime.now())
+        self._last_place_name = None
         self._distance_km = 0
         self._distance_m = 0
         self._location_current = home_latitude + "," + home_longitude
@@ -446,6 +448,8 @@ class Places(Entity):
             return_attr[ATTR_DISTANCE_M] = self._distance_m
         if self._mtime is not None:
             return_attr[ATTR_MTIME] = self._mtime
+        if self._last_place_name is not None:
+            return_attr[ATTR_LAST_PLACE_NAME] = self._last_place_name
         if self._location_current is not None:
             return_attr[ATTR_LOCATION_CURRENT] = self._location_current
         if self._location_previous is not None:
@@ -503,6 +507,7 @@ class Places(Entity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
+        _LOGGER.info("(" + self._name + ") Starting Update...")
         previous_state = self.state
         distance_traveled = 0
         devicetracker_zone = None
@@ -518,6 +523,8 @@ class Places(Entity):
         maplink_apple = None
         maplink_google = None
         maplink_osm = None
+        last_place_name = None
+        prev_last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + reason)
         _LOGGER.info(
@@ -547,6 +554,54 @@ class Places(Entity):
             current_location = new_latitude + "," + new_longitude
             previous_location = old_latitude + "," + old_longitude
             home_location = home_latitude + "," + home_longitude
+            prev_last_place_name = self._last_place_name
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Previous last_place_name: "
+                + str(self._last_place_name)
+            )
+
+            if (
+                "stationary" in self._devicetracker_zone.lower()
+                or self._devicetracker_zone.lower() == "away"
+                or self._devicetracker_zone.lower() == "not_home"
+            ):
+                # Not in a Zone
+                if self._place_name is not None and self._place_name != "-":
+                    # If place name is set
+                    last_place_name = self._place_name
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") Previous Place Name is set: "
+                        + last_place_name
+                        + ", updating"
+                    )
+                else:
+                    # If blank, keep previous last place name
+                    last_place_name = self._last_place_name
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") Previous Place Name is None or -, keeping prior"
+                    )
+            else:
+                # In a Zone
+                last_place_name = self._devicetracker_zone_name
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Previous Place is Zone: "
+                    + last_place_name
+                    + ", updating"
+                )
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Last Place Name (Initial): "
+                + str(last_place_name)
+            )
 
             maplink_apple = (
                 "https://maps.apple.com/maps/?q="
@@ -676,6 +731,7 @@ class Places(Entity):
             )
 
         proceed_with_update = True
+        initial_update = False
 
         if current_location == previous_location:
             _LOGGER.debug(
@@ -705,6 +761,7 @@ class Places(Entity):
         if previous_state == "Initializing...":
             _LOGGER.debug("(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
+            initial_update = True
 
         if proceed_with_update and devicetracker_zone:
             _LOGGER.debug(
@@ -882,6 +939,34 @@ class Places(Entity):
             if osm_id is not None:
                 self._osm_id = str(osm_id)
             self._osm_type = osm_type
+            if initial_update == True:
+                last_place_name = self._last_place_name
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Runnining initial update after load, using prior last_place_name"
+                )
+            elif (
+                last_place_name == place_name
+                or last_place_name == devicetracker_zone_name
+            ):
+                # If current place name/zone are the same as previous, keep older last place name
+                last_place_name = self._last_place_name
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Initial last_place_name is same as new: place_name="
+                    + place_name
+                    + " or devicetracker_zone_name="
+                    + devicetracker_zone_name
+                    + ", keeping previous last_place_name"
+                )
+            else:
+                _LOGGER.debug("(" + self._name + ") Keeping initial last_place_name")
+            self._last_place_name = last_place_name
+            _LOGGER.debug(
+                "(" + self._name + ") Last Place Name (Final): " + str(last_place_name)
+            )
 
             isDriving = False
 
@@ -1198,6 +1283,14 @@ class Places(Entity):
                     event_data[ATTR_PLACE_NAME] = place_name
                 if current_time is not None:
                     event_data[ATTR_MTIME] = current_time
+                if (
+                    last_place_name is not None
+                    and last_place_name != prev_last_place_name
+                ):
+                    event_data[ATTR_LAST_PLACE_NAME] = last_place_name
+                if distance_from_home is not None:
+                    event_data["distance_from_home"] = distance_from_home
+
                 if distance_km is not None:
                     event_data[ATTR_DISTANCE_KM] = distance_km
                 if distance_m is not None:
@@ -1233,13 +1326,16 @@ class Places(Entity):
                         event_data[ATTR_WIKIDATA_DICT] = wikidata_dict
                 # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
                 self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
-                _LOGGER.debug("(" + self._name + ") EventData update complete")
+                _LOGGER.debug(
+                    "(" + self._name + ") EventData updated: " + str(event_data)
+                )
             else:
                 _LOGGER.debug(
                     "("
                     + self._name
                     + ") No entity update needed, Previous State = New State"
                 )
+        _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
         """Resets attributes."""
@@ -1256,6 +1352,7 @@ class Places(Entity):
         self._place_type = None
         self._place_name = None
         self._mtime = datetime.now()
+        # self._last_place_name = None
         self._osm_id = None
         self._osm_type = None
         self._wikidata_id = None
