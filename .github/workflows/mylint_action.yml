@@ -15,7 +15,7 @@ jobs:
       - name: Check code with isort
         uses: jamescurtin/isort-action@master
         with:
-          configuration: --force-single-line
+          configuration: --force-single-line --profile black
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
         id: cpr
@@ -26,7 +26,7 @@ jobs:
           commit-message: ":art: Format Python code with isort & Black Code Formatter"
           body: |
             There appear to be some python formatting errors in ${{ github.sha }}. This pull request
-            uses the [Black Code Formatter](https://github.com/psf/black) and isort to fix these issues.
+            uses the [Black Code Formatter](https://github.com/psf/black) and [isort](https://pycqa.github.io/isort) to fix these issues.
           labels: "automerge,black,isort"
           base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
           delete-branch: true
