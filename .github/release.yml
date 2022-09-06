@@ -3,3 +3,4 @@ changelog:
     labels:
       - ignore-for-release
       - black
+      - isort
