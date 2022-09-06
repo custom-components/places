@@ -18,14 +18,18 @@ jobs:
           fail_on_error: 'true'
       - name: Check code with isort
         uses: jamescurtin/isort-action@master
+        id: action_isort
         with:
           configuration: --force-single-line --profile black
-      - name: flake8 Lint
+      - name: Check code with flake8
         uses: reviewdog/action-flake8@v3
+        id: action_flake8
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: false
+          flake8-args: "--select=F,E7,E9,W1,W6"
       - name: Create Pull Request
-        if: steps.action_black.outputs.is_formatted == 'true'
+        if: github.event_name == 'pull_request' && (steps.action_black.outputs.is_formatted == 'true' || steps.action_isort.outputs.isort-result)
         id: cpr
         uses: peter-evans/create-pull-request@v4.1.1
         with:
