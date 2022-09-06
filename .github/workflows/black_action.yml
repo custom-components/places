@@ -6,12 +6,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.2
-      - name: Check files using the Black Code Formatter
+      - name: Check code with the Black Code Formatter
         uses: rickstaa/action-black@v1.1.14
         id: action_black
         with:
           black_args: "."
           fail_on_error: 'true'
+      - name: Check code with isort
+        uses: jamescurtin/isort-action@master
+        with:
+          configuration: --force-single-line
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
         id: cpr
