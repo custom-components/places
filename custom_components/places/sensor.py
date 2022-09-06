@@ -157,7 +157,6 @@ from requests import get
 from math import radians, cos, sin, asin, sqrt
 
 import voluptuous as vol
-import homeassistant.helpers.location as location
 import homeassistant.helpers.config_validation as cv
 
 from homeassistant.components.sensor import PLATFORM_SCHEMA
@@ -939,7 +938,7 @@ class Places(Entity):
             if osm_id is not None:
                 self._osm_id = str(osm_id)
             self._osm_type = osm_type
-            if initial_update == True:
+            if initial_update is True:
                 last_place_name = self._last_place_name
                 _LOGGER.debug(
                     "("
