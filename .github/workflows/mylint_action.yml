@@ -21,9 +21,9 @@ jobs:
         with:
           configuration: --force-single-line --profile black
       - name: flake8 Lint
-        uses: py-actions/flake8@v2.2.0
+        uses: reviewdog/action-flake8@v3
         with:
-          plugins: "flake8-black"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
         id: cpr
