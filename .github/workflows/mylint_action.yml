@@ -6,6 +6,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.2
+      - name: Set up Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
       - name: Check code with the Black Code Formatter
         uses: rickstaa/action-black@v1.1.14
         id: action_black
@@ -16,6 +20,11 @@ jobs:
         uses: jamescurtin/isort-action@master
         with:
           configuration: --force-single-line --profile black
+      - name: flake8 Lint
+        uses: py-actions/flake8@v2.2.0
+        with:
+          path: "src"
+          plugins: "flake8-black"
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
         id: cpr
