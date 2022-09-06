@@ -27,7 +27,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           fail_on_error: false
-          flake8-args: "--select=F,E7,E9,W1,W6"
+          flake8_args: "--select=F,E7,E9,W1,W6"
       - name: Create Pull Request
         if: github.event_name == 'pull_request' && (steps.action_black.outputs.is_formatted == 'true' || steps.action_isort.outputs.isort-result)
         id: cpr
