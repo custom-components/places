@@ -23,7 +23,6 @@ jobs:
       - name: flake8 Lint
         uses: py-actions/flake8@v2.2.0
         with:
-          path: "src"
           plugins: "flake8-black"
       - name: Create Pull Request
         if: steps.action_black.outputs.is_formatted == 'true'
