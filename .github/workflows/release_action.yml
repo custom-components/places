@@ -8,26 +8,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.2
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - name: Create new dev branch
+        id: action_create_branch
+        uses: peterjgrainger/action-create-branch@v2.2.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Optional. Commit message for the created commit.
-          # Defaults to "Apply automatic changes"
-          commit_message: Automated Change
-
-          # Optional. Local and remote branch name where commit is going to be pushed
-          #  to. Defaults to the current branch.
-          #  You might need to set `create_branch: true` if the branch does not exist.
-          branch: dev
-
-          # Optional. Options used by `git-commit`.
-          # See https://git-scm.com/docs/git-commit#_options
-          commit_options: '--allow-empty'
-
-          # Optional. Disable dirty check and always try to create a commit and push
-          skip_dirty_check: true
-          
-          # Optional. Create given branch name in local and remote repository.
-          create_branch: true
+          branch: "dev"
+      - name: Create empty commit
+        uses: velocibear/create-empty-commit@v1.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          email: Snuffy2@github.com
+          name: Snuffy2
+          message: Empty commit
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v4
