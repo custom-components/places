@@ -9,7 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3.0.2
       - name: Create Pull Request
-        if: ${{ steps.action_create_branch.outputs.created }}
         id: cpr
         uses: peter-evans/create-pull-request@v4
         with:
