@@ -7,21 +7,22 @@ jobs:
   new_release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3    
+      - uses: actions/checkout@v3.0.2
       - name: Create new dev branch
-        id: create_branch
+        id: action_create_branch
         uses: peterjgrainger/action-create-branch@v2.2.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          branch: 'dev'
+          branch: "dev"
       - name: Create Pull Request
-        if: ${{ steps.create_branch.outputs.created }}
+        if: ${{ steps.action_create_branch.outputs.created }}
         id: cpr
         uses: peter-evans/create-pull-request@v4
-        base: newdev
-        branch: dev
-        delete-branch: true
-        title: Development PR
-        labels: ignore-for-release
-        draft: true
+        with:
+          base: newdev
+          branch: dev
+          delete-branch: true
+          title: Development PR
+          labels: ignore-for-release
+          draft: true
