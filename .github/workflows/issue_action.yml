@@ -1,3 +1,4 @@
+name: Create Branch on Assigning Bug Issue
 on:
   issues:
     types: [ assigned ]
