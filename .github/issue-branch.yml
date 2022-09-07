@@ -1,0 +1,13 @@
+mode: auto
+silent: true
+branchName: full
+openDraftPR: true
+
+branches:
+  - label: bug
+    skip: false
+    prefix: bugfix/
+    name: dev
+    prTarget: dev
+  - label: '*'
+    skip: true
