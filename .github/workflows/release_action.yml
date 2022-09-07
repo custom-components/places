@@ -8,27 +8,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.2
-      - name: Create new dev branch
-        id: action_create_branch
-        uses: peterjgrainger/action-create-branch@v2.2.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          branch: "dev"
-      - name: Create empty commit
-        uses: velocibear/create-empty-commit@v1.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          email: Snuffy2@github.com
-          name: Snuffy2
-          message: Empty commit
-      - name: Create Pull Request
-        id: cpr
-        uses: peter-evans/create-pull-request@v4
-        with:
-          base: newdev
-          branch: dev
-          delete-branch: false
-          title: Development PR
-          labels: ignore-for-release
-          draft: true
+      - name: Create New Dev branch
+        run: git checkout -b dev
+      - name: Empty Commit
+        run: git commit --allow-empty -m "Empty commit"
+      #- name: Initialize mandatory git config
+      #  run: |
+      #    git config user.name "GitHub Actions"
+      #    git config user.email noreply@github.com
+      #- name: Create Pull Request
+      #  id: cpr
+      #  uses: peter-evans/create-pull-request@v4
+      #  with:
+      #    base: newdev
+      #    branch: dev
+      #    delete-branch: false
+      #    title: Development PR
+      #    labels: ignore-for-release
+      #    draft: true
