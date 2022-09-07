@@ -34,7 +34,7 @@ jobs:
         with:
           base: newdev
           branch: dev
-          delete-branch: true
+          delete-branch: false
           title: Development PR
           labels: ignore-for-release
           draft: true
