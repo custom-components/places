@@ -18,6 +18,8 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email noreply@github.com
+      - run: echo "commit_count="$(git rev-list --count origin..HEAD)
+      - run: echo "commit_count="$(git rev-list --count origin..HEAD) >> $GITHUB_ENV
       - name: Create Pull Request
         run: gh pr create -d -B dev -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}"
         env:
