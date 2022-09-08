@@ -19,12 +19,6 @@ jobs:
       - name: Push Commit
         run: git push --set-upstream origin dev
       - name: Create Pull Request
-        id: cpr
-        uses: peter-evans/create-pull-request@v4
-        with:
-          base: newdev
-          branch: dev
-          delete-branch: false
-          title: Development PR
-          labels: ignore-for-release
-          draft: true
+        run: gh pr create -d -B newdev -l ignore-for-release -b "Dev PR Release" -t "Dev PR Release"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
