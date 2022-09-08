@@ -318,10 +318,10 @@ class Places(Entity):
         self._state = "Initializing..."
 
         home_latitude = str(hass.states.get(home_zone).attributes.get("latitude"))
-        if (not self.is_float(home_latitude)):
+        if not self.is_float(home_latitude):
             home_latitude = None
         home_longitude = str(hass.states.get(home_zone).attributes.get("longitude"))
-        if (not self.is_float(home_longitude)):
+        if not self.is_float(home_longitude):
             home_longitude = None
         self._entity_picture = (
             hass.states.get(devicetracker_id).attributes.get("entity_picture")
@@ -514,12 +514,12 @@ class Places(Entity):
         r = 6371  # Radius of earth in kilometers. Use 3956 for miles
         return c * r
 
-    def is_float(self,value):
-      try:
-        float(value)
-        return True
-      except:
-        return False
+    def is_float(self, value):
+        try:
+            float(value)
+            return True
+        except:
+            return False
 
     def do_update(self, reason):
         """Get the latest data and updates the states."""
@@ -555,29 +555,29 @@ class Places(Entity):
         ):
             now = datetime.now()
             old_latitude = str(self._latitude)
-            if (not self.is_float(old_latitude)):
-              old_latitude = None
+            if not self.is_float(old_latitude):
+                old_latitude = None
             old_longitude = str(self._longitude)
-            if (not self.is_float(old_latitude)):
-              old_latitude = None
+            if not self.is_float(old_latitude):
+                old_latitude = None
             new_latitude = str(
                 self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
             )
-            if (not self.is_float(new_latitude)):
-              new_latitude = None
+            if not self.is_float(new_latitude):
+                new_latitude = None
             new_longitude = str(
                 self._hass.states.get(self._devicetracker_id).attributes.get(
                     "longitude"
                 )
             )
-            if (not self.is_float(new_longitude)):
-              new_longitude = None
+            if not self.is_float(new_longitude):
+                new_longitude = None
             home_latitude = str(self._home_latitude)
-            if (not self.is_float(home_latitude)):
-              home_latitude = None
+            if not self.is_float(home_latitude):
+                home_latitude = None
             home_longitude = str(self._home_longitude)
-            if (not self.is_float(home_longitude)):
-              home_longitude = None
+            if not self.is_float(home_longitude):
+                home_longitude = None
             last_distance_m = self._distance_m
             last_updated = self._mtime
             current_location = new_latitude + "," + new_longitude
