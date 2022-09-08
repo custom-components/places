@@ -899,7 +899,7 @@ class Places(Entity):
                 city = osm_decoded["address"]["municipality"]
             elif "city_district" in osm_decoded["address"]:
                 city = osm_decoded["address"]["city_district"]
-            if city.startswith("City of"):
+            if city is not None and city.startswith("City of"):
                 city = city[8:] + " City"
 
             if "city_district" in osm_decoded["address"]:
