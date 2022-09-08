@@ -18,13 +18,13 @@ jobs:
         run: git commit --allow-empty -m "Empty commit"
       - name: Push Commit
         run: git push --set-upstream origin dev
-      #- name: Create Pull Request
-      #  id: cpr
-      #  uses: peter-evans/create-pull-request@v4
-      #  with:
-      #    base: newdev
-      #    branch: dev
-      #    delete-branch: false
-      #    title: Development PR
-      #    labels: ignore-for-release
-      #    draft: true
+      - name: Create Pull Request
+        id: cpr
+        uses: peter-evans/create-pull-request@v4
+        with:
+          base: newdev
+          branch: dev
+          delete-branch: false
+          title: Development PR
+          labels: ignore-for-release
+          draft: true
