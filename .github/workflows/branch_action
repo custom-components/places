@@ -1,0 +1,13 @@
+name: Draft PR for New Branches
+on:
+  workflow_dispatch:
+  create:
+    ref_type: branch    
+    branches-ignore:
+      - dev
+      - newdev
+jobs:
+  new_branch_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo Hi
