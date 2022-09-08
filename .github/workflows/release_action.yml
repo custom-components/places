@@ -17,7 +17,7 @@ jobs:
       - name: Empty Commit
         run: git commit --allow-empty -m "Empty commit"
       - name: Push Commit
-        run: git push
+        run: git push --set-upstream origin dev
       #- name: Create Pull Request
       #  id: cpr
       #  uses: peter-evans/create-pull-request@v4
