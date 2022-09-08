@@ -318,10 +318,10 @@ class Places(Entity):
         self._state = "Initializing..."
 
         home_latitude = str(hass.states.get(home_zone).attributes.get("latitude"))
-        if (!self.is_float(home_latitude)):
+        if (not self.is_float(home_latitude)):
             home_latitude = None
         home_longitude = str(hass.states.get(home_zone).attributes.get("longitude"))
-        if (!self.is_float(home_longitude)):
+        if (not self.is_float(home_longitude)):
             home_longitude = None
         self._entity_picture = (
             hass.states.get(devicetracker_id).attributes.get("entity_picture")
@@ -555,28 +555,28 @@ class Places(Entity):
         ):
             now = datetime.now()
             old_latitude = str(self._latitude)
-            if (!self.is_float(old_latitude)):
+            if (not self.is_float(old_latitude)):
               old_latitude = None
             old_longitude = str(self._longitude)
-            if (!self.is_float(old_latitude)):
+            if (not self.is_float(old_latitude)):
               old_latitude = None
             new_latitude = str(
                 self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
             )
-            if (!self.is_float(new_latitude)):
+            if (not self.is_float(new_latitude)):
               new_latitude = None
             new_longitude = str(
                 self._hass.states.get(self._devicetracker_id).attributes.get(
                     "longitude"
                 )
             )
-            if (!self.is_float(new_longitude)):
+            if (not self.is_float(new_longitude)):
               new_longitude = None
             home_latitude = str(self._home_latitude)
-            if (!self.is_float(home_latitude)):
+            if (not self.is_float(home_latitude)):
               home_latitude = None
             home_longitude = str(self._home_longitude)
-            if (!self.is_float(home_longitude)):
+            if (not self.is_float(home_longitude)):
               home_longitude = None
             last_distance_m = self._distance_m
             last_updated = self._mtime
