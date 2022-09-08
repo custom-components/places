@@ -518,7 +518,7 @@ class Places(Entity):
         try:
             float(value)
             return True
-        except:
+        except ValueError:
             return False
 
     def do_update(self, reason):
