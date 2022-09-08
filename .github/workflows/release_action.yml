@@ -1,15 +1,17 @@
-name: Create new Branch and Release
+name: Create New Dev Branch and PR
 on:
   workflow_dispatch:
   release:
     types: [released]
 jobs:
-  new_release:
+  new_dev_release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.2
-      - name: Create New Dev branch
-        run: git checkout -b dev -track ${{ github.event.repository.default_branch }}
+      - name: Create and Checkout New Dev branch
+        run: | 
+          git branch dev -set-upstream-to=${{ github.event.repository.default_branch }}
+          git checkout dev
       - name: Initialize mandatory git config
         run: |
           git config user.name "GitHub Actions"
