@@ -10,7 +10,7 @@ jobs:
       - uses: actions/checkout@v3.0.2
       - name: Create and Checkout New Dev branch
         run: | 
-          git branch dev -set-upstream-to=${{ github.event.repository.default_branch }}
+          git branch dev --set-upstream-to=${{ github.event.repository.default_branch }}
           git checkout dev
       - name: Initialize mandatory git config
         run: |
