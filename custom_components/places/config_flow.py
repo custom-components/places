@@ -1,21 +1,26 @@
-from copy import deepcopy
 import logging
-from typing import Any, Dict, Optional
+from copy import deepcopy
+from typing import Any
+from typing import Dict
+from typing import Optional
 
+import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 from gidgethub import BadRequest
 from gidgethub.aiohttp import GitHubAPI
-from homeassistant import config_entries, core
-from homeassistant.const import CONF_ACCESS_TOKEN, CONF_NAME, CONF_PATH, CONF_URL
+from homeassistant import config_entries
+from homeassistant import core
+from homeassistant.const import CONF_ACCESS_TOKEN
+from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_PATH
+from homeassistant.const import CONF_URL
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.entity_registry import (
-    async_entries_for_config_entry,
-    async_get_registry,
-)
-import voluptuous as vol
+from homeassistant.helpers.entity_registry import async_entries_for_config_entry
+from homeassistant.helpers.entity_registry import async_get_registry
 
-from .const import CONF_REPOS, DOMAIN
+from .const import CONF_REPOS
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
