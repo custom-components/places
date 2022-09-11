@@ -66,4 +66,3 @@ ATTR_OSM_DICT = "osm_dict"
 ATTR_OSM_DETAILS_DICT = "osm_details_dict"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
 ATTR_LAST_PLACE_NAME = "last_place_name"
-

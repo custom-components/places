@@ -163,7 +163,6 @@ from math import sqrt
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from .const import *
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
@@ -173,6 +172,8 @@ from homeassistant.helpers.event import track_state_change
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
 from requests import get
+
+from .const import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -191,6 +192,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
     }
 )
+
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Setup the sensor platform."""
