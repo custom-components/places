@@ -163,7 +163,7 @@ from math import sqrt
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-import .const
+from .const import *
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
