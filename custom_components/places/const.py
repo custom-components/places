@@ -13,7 +13,6 @@ DEFAULT_EXTENDED_ATTR = False
 DOMAIN = "places"
 SCAN_INTERVAL = timedelta(seconds=30)
 THROTTLE_INTERVAL = timedelta(seconds=600)
-DEPENDENCIES = ["zone", "device_tracker"]
 TRACKABLE_DOMAINS = ["device_tracker"]
 
 # Config
