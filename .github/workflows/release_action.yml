@@ -22,3 +22,6 @@ jobs:
         run: gh pr create -d -B ${{ github.event.repository.default_branch }} -l ignore-for-release -b "Dev PR Release" -t "Dev PR Release"
         env:
           GITHUB_TOKEN: ${{ secrets.CPR }}
+          GH_TOKEN: ${{ secrets.CPR }}
+
+
