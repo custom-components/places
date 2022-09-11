@@ -150,9 +150,6 @@ To enable detailed logging for this component, add the following to your configu
       custom_components.sensor.places: debug  
 
 """
-SCAN_INTERVAL = timedelta(seconds=30)
-THROTTLE_INTERVAL = timedelta(seconds=600)
-TRACKABLE_DOMAINS = ["device_tracker"]
 
 import json
 import logging
@@ -178,6 +175,9 @@ from requests import get
 
 from .const import *
 
+SCAN_INTERVAL = timedelta(seconds=30)
+THROTTLE_INTERVAL = timedelta(seconds=600)
+TRACKABLE_DOMAINS = ["device_tracker"]
 _LOGGER = logging.getLogger(__name__)
 
 
