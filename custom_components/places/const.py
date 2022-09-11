@@ -10,6 +10,7 @@ DEFAULT_LANGUAGE = "default"
 DEFAULT_EXTENDED_ATTR = False
 
 # Settings
+DOMAIN = "places"
 SCAN_INTERVAL = timedelta(seconds=30)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 DEPENDENCIES = ["zone", "device_tracker"]
