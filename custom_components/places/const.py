@@ -1,3 +1,5 @@
+DOMAIN = "places"
+
 # Defaults
 DEFAULT_ICON = "mdi:map-marker-circle"
 DEFAULT_NAME = "places"
@@ -8,12 +10,6 @@ DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = "18"
 DEFAULT_LANGUAGE = "default"
 DEFAULT_EXTENDED_ATTR = False
-
-# Settings
-DOMAIN = "places"
-SCAN_INTERVAL = timedelta(seconds=30)
-THROTTLE_INTERVAL = timedelta(seconds=600)
-TRACKABLE_DOMAINS = ["device_tracker"]
 
 # Config
 CONF_DEVICETRACKER_ID = "devicetracker_id"
