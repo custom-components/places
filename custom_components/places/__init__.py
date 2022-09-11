@@ -1,9 +1,9 @@
-
 """GitHub Custom Component."""
 import asyncio
 import logging
 
-from homeassistant import config_entries, core
+from homeassistant import config_entries
+from homeassistant import core
 
 from .const import DOMAIN
 
