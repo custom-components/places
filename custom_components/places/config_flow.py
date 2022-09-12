@@ -1,208 +1,117 @@
+from __future__ import annotations
+
 import logging
-from copy import deepcopy
 from typing import Any
-from typing import Dict
-from typing import Optional
 
-import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from gidgethub import BadRequest
-from gidgethub.aiohttp import GitHubAPI
-from homeassistant import config_entries
-from homeassistant import core
-from homeassistant.const import CONF_ACCESS_TOKEN
-from homeassistant.const import CONF_NAME
-from homeassistant.const import CONF_PATH
-from homeassistant.const import CONF_URL
-from homeassistant.core import callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity_registry import async_entries_for_config_entry
-from homeassistant.helpers.entity_registry import async_get_registry
 
-from .const import CONF_REPOS
-from .const import DOMAIN
+from homeassistant import config_entries, exceptions
+from homeassistant.core import HomeAssistant
+
+from .const import DOMAIN  # pylint:disable=unused-import
+from .hub import Hub
 
 _LOGGER = logging.getLogger(__name__)
 
-AUTH_SCHEMA = vol.Schema(
-    {vol.Required(CONF_ACCESS_TOKEN): cv.string, vol.Optional(CONF_URL): cv.string}
-)
-REPO_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_PATH): cv.string,
-        vol.Optional(CONF_NAME): cv.string,
-        vol.Optional("add_another"): cv.boolean,
-    }
-)
+# This is the schema that used to display the UI to the user. This simple
+# schema has a single required host field, but it could include a number of fields
+# such as username, password etc. See other components in the HA core code for
+# further examples.
+# Note the input displayed to the user will be translated. See the
+# translations/<lang>.json file and strings.json. See here for further information:
+# https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
+# At the time of writing I found the translations created by the scaffold didn't
+# quite work as documented and always gave me the "Lokalise key references" string
+# (in square brackets), rather than the actual translated value. I did not attempt to
+# figure this out or look further into it.
+DATA_SCHEMA = vol.Schema({("host"): str})
 
-OPTIONS_SHCEMA = vol.Schema({vol.Optional(CONF_NAME, default="foo"): cv.string})
 
+async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
+    """Validate the user input allows us to connect.
 
-async def validate_path(path: str, access_token: str, hass: core.HassJob) -> None:
-    """Validates a GitHub repo path.
-
-    Raises a ValueError if the path is invalid.
+    Data has the keys from DATA_SCHEMA with values provided by the user.
     """
-    if len(path.split("/")) != 2:
-        raise ValueError
-    session = async_get_clientsession(hass)
-    gh = GitHubAPI(session, "requester", oauth_token=access_token)
-    try:
-        await gh.getitem(f"repos/{path}")
-    except BadRequest:
-        raise ValueError
+    # Validate the data can be used to set up a connection.
+
+    # This is a simple example to show an error in the UI for a short hostname
+    # The exceptions are defined at the end of this file, and are used in the
+    # `async_step_user` method below.
+    if len(data["host"]) < 3:
+        raise InvalidHost
+
+    hub = Hub(hass, data["host"])
+    # The dummy hub provides a `test_connection` method to ensure it's working
+    # as expected
+    result = await hub.test_connection()
+    if not result:
+        # If there is an error, raise an exception to notify HA that there was a
+        # problem. The UI will also show there was a problem
+        raise CannotConnect
+
+    # If your PyPI package is not built with async, pass your methods
+    # to the executor:
+    # await hass.async_add_executor_job(
+    #     your_validate_func, data["username"], data["password"]
+    # )
+
+    # If you cannot connect:
+    # throw CannotConnect
+    # If the authentication is wrong:
+    # InvalidAuth
+
+    # Return info that you want to store in the config entry.
+    # "Title" is what is displayed to the user for this hub device
+    # It is stored internally in HA as part of the device config.
+    # See `async_step_user` below for how this is used
+    return {"title": data["host"]}
 
 
-async def validate_auth(access_token: str, hass: core.HomeAssistant) -> None:
-    """Validates a GitHub access token.
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Hello World."""
 
-    Raises a ValueError if the auth token is invalid.
-    """
-    session = async_get_clientsession(hass)
-    gh = GitHubAPI(session, "requester", oauth_token=access_token)
-    try:
-        await gh.getitem("repos/home-assistant/core")
-    except BadRequest:
-        raise ValueError
+    VERSION = 1
+    # Pick one of the available connection classes in homeassistant/config_entries.py
+    # This tells HA if it should be asking for updates, or it'll be notified of updates
+    # automatically. This example uses PUSH, as the dummy hub will notify HA of
+    # changes.
+    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
-
-class GithubCustomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Github Custom config flow."""
-
-    data: Optional[Dict[str, Any]]
-
-    async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
-        """Invoked when a user initiates a flow via the user interface."""
-        errors: Dict[str, str] = {}
+    async def async_step_user(self, user_input=None):
+        """Handle the initial step."""
+        # This goes through the steps to take the user through the setup process.
+        # Using this it is possible to update the UI and prompt for additional
+        # information. This example provides a single form (built from `DATA_SCHEMA`),
+        # and when that has some validated input, it calls `async_create_entry` to
+        # actually create the HA config entry. Note the "title" value is returned by
+        # `validate_input` above.
+        errors = {}
         if user_input is not None:
             try:
-                await validate_auth(user_input[CONF_ACCESS_TOKEN], self.hass)
-            except ValueError:
-                errors["base"] = "auth"
-            if not errors:
-                # Input is valid, set data.
-                self.data = user_input
-                self.data[CONF_REPOS] = []
-                # Return the form of the next step.
-                return await self.async_step_repo()
+                info = await validate_input(self.hass, user_input)
 
+                return self.async_create_entry(title=info["title"], data=user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except InvalidHost:
+                # The error string is set here, and should be translated.
+                # This example does not currently cover translations, see the
+                # comments on `DATA_SCHEMA` for further details.
+                # Set the error on the `host` field, not the entire form.
+                errors["host"] = "cannot_connect"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+
+        # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
-            step_id="user", data_schema=AUTH_SCHEMA, errors=errors
+            step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
 
-    async def async_step_repo(self, user_input: Optional[Dict[str, Any]] = None):
-        """Second step in config flow to add a repo to watch."""
-        errors: Dict[str, str] = {}
-        if user_input is not None:
-            # Validate the path.
-            try:
-                await validate_path(
-                    user_input[CONF_PATH], self.data[CONF_ACCESS_TOKEN], self.hass
-                )
-            except ValueError:
-                errors["base"] = "invalid_path"
 
-            if not errors:
-                # Input is valid, set data.
-                self.data[CONF_REPOS].append(
-                    {
-                        "path": user_input[CONF_PATH],
-                        "name": user_input.get(CONF_NAME, user_input[CONF_PATH]),
-                    }
-                )
-                # If user ticked the box show this form again so they can add an
-                # additional repo.
-                if user_input.get("add_another", False):
-                    return await self.async_step_repo()
-
-                # User is done adding repos, create the config entry.
-                return self.async_create_entry(title="GitHub Custom", data=self.data)
-
-        return self.async_show_form(
-            step_id="repo", data_schema=REPO_SCHEMA, errors=errors
-        )
-
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
-        return OptionsFlowHandler(config_entry)
+class CannotConnect(exceptions.HomeAssistantError):
+    """Error to indicate we cannot connect."""
 
 
-class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handles options flow for the component."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
-
-    async def async_step_init(
-        self, user_input: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
-        """Manage the options for the custom component."""
-        errors: Dict[str, str] = {}
-        # Grab all configured repos from the entity registry so we can populate the
-        # multi-select dropdown that will allow a user to remove a repo.
-        entity_registry = await async_get_registry(self.hass)
-        entries = async_entries_for_config_entry(
-            entity_registry, self.config_entry.entry_id
-        )
-        # Default value for our multi-select.
-        all_repos = {e.entity_id: e.original_name for e in entries}
-        repo_map = {e.entity_id: e for e in entries}
-
-        if user_input is not None:
-            updated_repos = deepcopy(self.config_entry.data[CONF_REPOS])
-
-            # Remove any unchecked repos.
-            removed_entities = [
-                entity_id
-                for entity_id in repo_map.keys()
-                if entity_id not in user_input["repos"]
-            ]
-            for entity_id in removed_entities:
-                # Unregister from HA
-                entity_registry.async_remove(entity_id)
-                # Remove from our configured repos.
-                entry = repo_map[entity_id]
-                entry_path = entry.unique_id
-                updated_repos = [e for e in updated_repos if e["path"] != entry_path]
-
-            if user_input.get(CONF_PATH):
-                # Validate the path.
-                access_token = self.hass.data[DOMAIN][self.config_entry.entry_id][
-                    CONF_ACCESS_TOKEN
-                ]
-                try:
-                    await validate_path(user_input[CONF_PATH], access_token, self.hass)
-                except ValueError:
-                    errors["base"] = "invalid_path"
-
-                if not errors:
-                    # Add the new repo.
-                    updated_repos.append(
-                        {
-                            "path": user_input[CONF_PATH],
-                            "name": user_input.get(CONF_NAME, user_input[CONF_PATH]),
-                        }
-                    )
-
-            if not errors:
-                # Value of data will be set on the options property of our config_entry
-                # instance.
-                return self.async_create_entry(
-                    title="",
-                    data={CONF_REPOS: updated_repos},
-                )
-
-        options_schema = vol.Schema(
-            {
-                vol.Optional("repos", default=list(all_repos.keys())): cv.multi_select(
-                    all_repos
-                ),
-                vol.Optional(CONF_PATH): cv.string,
-                vol.Optional(CONF_NAME): cv.string,
-            }
-        )
-        return self.async_show_form(
-            step_id="init", data_schema=options_schema, errors=errors
-        )
+class InvalidHost(exceptions.HomeAssistantError):
+    """Error to indicate there is an invalid hostname."""
