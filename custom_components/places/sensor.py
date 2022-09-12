@@ -153,13 +153,20 @@ To enable detailed logging for this component, add the following to your configu
 
 import json
 import logging
-from datetime import datetime, timedelta
-from math import asin, cos, radians, sin, sqrt
+from datetime import datetime
+from datetime import timedelta
+from math import asin
+from math import cos
+from math import radians
+from math import sin
+from math import sqrt
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import CONF_API_KEY, CONF_NAME, CONF_SCAN_INTERVAL
+from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import track_state_change
 from homeassistant.util import Throttle
