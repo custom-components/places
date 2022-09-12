@@ -4,8 +4,8 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
-from homeassistant import config_entries, exceptions
+from homeassistant import config_entries
+from homeassistant import exceptions
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN  # pylint:disable=unused-import
