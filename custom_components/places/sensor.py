@@ -168,6 +168,7 @@ from requests import get
 
 from .const import *
 
+
 SCAN_INTERVAL = timedelta(seconds=30)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 TRACKABLE_DOMAINS = ["device_tracker"]
