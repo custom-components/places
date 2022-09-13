@@ -230,7 +230,6 @@ from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_NAME
 from .const import DEFAULT_OPTION
 
-
 THROTTLE_INTERVAL = timedelta(seconds=600)
 TRACKABLE_DOMAINS = ["device_tracker"]
 _LOGGER = logging.getLogger(__name__)
