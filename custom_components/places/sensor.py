@@ -160,9 +160,7 @@ from math import cos
 from math import radians
 from math import sin
 from math import sqrt
-from typing import Any
 from typing import Callable
-from typing import Dict
 from typing import Optional
 
 import homeassistant.helpers.config_validation as cv
