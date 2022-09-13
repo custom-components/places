@@ -51,7 +51,7 @@ DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): str,
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): str,
         vol.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): str,
-        #vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
+        # vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): bool,
     }
 )
