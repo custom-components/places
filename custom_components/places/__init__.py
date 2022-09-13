@@ -3,7 +3,7 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-#from . import hub
+# from . import hub
 from .const import DOMAIN
 
 # List of platforms to support. There should be a matching .py file for each,
