@@ -43,11 +43,11 @@ _LOGGER = logging.getLogger(__name__)
 # figure this out or look further into it.
 DATA_SCHEMA = vol.Schema(
     {
+        vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
         vol.Required(CONF_DEVICETRACKER_ID): str,
         vol.Optional(CONF_API_KEY, default=DEFAULT_KEY): str,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): str,
         vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): str,
-        vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): str,
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): str,
         vol.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): str,

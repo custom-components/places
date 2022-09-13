@@ -11,6 +11,7 @@
 					"options": "Display Options",
 					"map_provider": "Map Provider",
 					"map_zoom": "Map Zoom",
+					"api_key": "[%key:common::config_flow::data::api_key%]",
 					"language": "Language",
 					"extended_attr": "Extended Attributes"
                 },
