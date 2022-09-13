@@ -275,7 +275,22 @@ async def async_setup_platform(
     language = config.get(CONF_LANGUAGE)
     extended_attr = config.get(CONF_EXTENDED_ATTR)
 
-    async_add_entities([Places()])
+    async_add_entities(
+        [
+            Places(
+                hass,
+                devicetracker_id,
+                name,
+                api_key,
+                options,
+                home_zone,
+                map_provider,
+                map_zoom,
+                language,
+                extended_attr,
+            )
+        ]
+    )
 
 
 class Places(Entity):
