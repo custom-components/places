@@ -160,7 +160,10 @@ from math import cos
 from math import radians
 from math import sin
 from math import sqrt
-from typing import Any, Callable, Dict, Optional
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Optional
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -170,6 +173,9 @@ from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import track_state_change
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers.typing import DiscoveryInfoType
+from homeassistant.helpers.typing import HomeAssistantType
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
 from requests import get
@@ -231,11 +237,6 @@ from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_NAME
 from .const import DEFAULT_OPTION
 from .const import SCAN_INTERVAL
-from homeassistant.helpers.typing import (
-    ConfigType,
-    DiscoveryInfoType,
-    HomeAssistantType,
-)
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
 TRACKABLE_DOMAINS = ["device_tracker"]

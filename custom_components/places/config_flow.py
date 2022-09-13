@@ -27,9 +27,8 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_NAME
 from .const import DEFAULT_OPTION
-from .const import SCAN_INTERVAL
-
 from .const import DOMAIN  # pylint:disable=unused-import
+from .const import SCAN_INTERVAL
 
 # from .hub import Hub
 
