@@ -160,6 +160,7 @@ from math import cos
 from math import radians
 from math import sin
 from math import sqrt
+from typing import Any, Callable, Dict, Optional
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -229,6 +230,12 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_NAME
 from .const import DEFAULT_OPTION
+from .const import SCAN_INTERVAL
+from homeassistant.helpers.typing import (
+    ConfigType,
+    DiscoveryInfoType,
+    HomeAssistantType,
+)
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
 TRACKABLE_DOMAINS = ["device_tracker"]
