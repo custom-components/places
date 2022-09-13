@@ -1,1 +1,22 @@
-
+{
+    "title": "Places",
+    "config": {
+	    "step": {
+            "user": {
+                "title": "Setup OpenStreetMap Sensor",
+                "data": {
+                    "name": "[%key:common::config_flow::data::name%]",
+                    "devicetracker_id": "DeviceTracker ID",
+					"home_zone": "Home Zone",
+					"options": "Display Options",
+					"map_provider": "Map Provider",
+					"map_zoom": "Map Zoom",
+					"api_key": "[%key:common::config_flow::data::api_key%]",
+					"language": "Language",
+					"extended_attr": "Extended Attributes"
+                },
+                "description": "Complete the following fields."
+            }
+        }
+    }
+}
