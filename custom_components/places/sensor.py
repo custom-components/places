@@ -252,7 +252,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 
-#def setup_platform(hass, config, add_devices, discovery_info=None):
+# def setup_platform(hass, config, add_devices, discovery_info=None):
 async def async_setup_platform(
     hass: HomeAssistantType,
     config: ConfigType,

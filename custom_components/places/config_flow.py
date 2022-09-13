@@ -8,13 +8,13 @@ from homeassistant import config_entries
 from homeassistant import exceptions
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN  # pylint:disable=unused-import
 from .const import CONF_DEVICETRACKER_ID
 from .const import CONF_EXTENDED_ATTR
 from .const import CONF_HOME_ZONE
 from .const import CONF_LANGUAGE
 from .const import CONF_MAP_PROVIDER
 from .const import CONF_MAP_ZOOM
+from .const import CONF_NAME
 from .const import CONF_OPTIONS
 from .const import DEFAULT_EXTENDED_ATTR
 from .const import DEFAULT_HOME_ZONE
@@ -24,8 +24,9 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_NAME
 from .const import DEFAULT_OPTION
-from .const import CONF_NAME
-#from .hub import Hub
+from .const import DOMAIN  # pylint:disable=unused-import
+
+# from .hub import Hub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ DATA_SCHEMA = vol.Schema(
     }
 )
 
+
 async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     """Validate the user input allows us to connect.
 
@@ -69,9 +71,9 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     # as expected
     ##result = await hub.test_connection()
     ##if not result:
-        # If there is an error, raise an exception to notify HA that there was a
-        # problem. The UI will also show there was a problem
-        ##raise CannotConnect
+    # If there is an error, raise an exception to notify HA that there was a
+    # problem. The UI will also show there was a problem
+    ##raise CannotConnect
 
     # If your PyPI package is not built with async, pass your methods
     # to the executor:
