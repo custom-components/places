@@ -5,13 +5,15 @@ from typing import Any
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-#from homeassistant import config_entries
-#from homeassistant import exceptions
-from homeassistant import config_entries, core, exceptions
+
+# from homeassistant import config_entries
+# from homeassistant import exceptions
+from homeassistant import config_entries
+from homeassistant import core
+from homeassistant import exceptions
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
-#from homeassistant.core import HomeAssistant
 
 from .const import CONF_DEVICETRACKER_ID
 from .const import CONF_EXTENDED_ATTR
@@ -31,10 +33,13 @@ from .const import DEFAULT_OPTION
 from .const import DOMAIN  # pylint:disable=unused-import
 from .const import SCAN_INTERVAL
 
+# from homeassistant.core import HomeAssistant
+
+
 # from .hub import Hub
 
 _LOGGER = logging.getLogger(__name__)
-MAP_PROVIDER_OPTIONS = ["apple","google","osm"]
+MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 
 # Note the input displayed to the user will be translated. See the
 # translations/<lang>.json file and strings.json. See here for further information:
@@ -50,8 +55,12 @@ DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_API_KEY): str,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): str,
         vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): str,
-        vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): vol.In(MAP_PROVIDER_OPTIONS),
-        vol.Optional(CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)): vol.All(vol.Coerce(int), vol.Range(min=1, max=20)),
+        vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): vol.In(
+            MAP_PROVIDER_OPTIONS
+        ),
+        vol.Optional(CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=20)
+        ),
         vol.Optional(CONF_LANGUAGE): str,
         # vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): bool,
