@@ -252,7 +252,13 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 )
 
 
-def setup_platform(hass, config, add_devices, discovery_info=None):
+#def setup_platform(hass, config, add_devices, discovery_info=None):
+async def async_setup_platform(
+    hass: HomeAssistantType,
+    config: ConfigType,
+    async_add_entities: Callable,
+    discovery_info: Optional[DiscoveryInfoType] = None,
+) -> None:
     """Setup the sensor platform."""
     name = config.get(CONF_NAME)
     api_key = config.get(CONF_API_KEY)
@@ -264,22 +270,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     language = config.get(CONF_LANGUAGE)
     extended_attr = config.get(CONF_EXTENDED_ATTR)
 
-    add_devices(
-        [
-            Places(
-                hass,
-                devicetracker_id,
-                name,
-                api_key,
-                options,
-                home_zone,
-                map_provider,
-                map_zoom,
-                language,
-                extended_attr,
-            )
-        ]
-    )
+    async_add_entities([Places()])
 
 
 class Places(Entity):
@@ -489,9 +480,9 @@ class Places(Entity):
         self.do_update("Track State Change")
 
     @Throttle(THROTTLE_INTERVAL)
-    def update(self):
+    async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
-        self.do_update("Scan Interval")
+        await self.do_update("Scan Interval")
 
     def haversine(self, lon1, lat1, lon2, lat2):
         """

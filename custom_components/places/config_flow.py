@@ -9,14 +9,26 @@ from homeassistant import exceptions
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN  # pylint:disable=unused-import
-from .hub import Hub
+from .const import CONF_DEVICETRACKER_ID
+from .const import CONF_EXTENDED_ATTR
+from .const import CONF_HOME_ZONE
+from .const import CONF_LANGUAGE
+from .const import CONF_MAP_PROVIDER
+from .const import CONF_MAP_ZOOM
+from .const import CONF_OPTIONS
+from .const import DEFAULT_EXTENDED_ATTR
+from .const import DEFAULT_HOME_ZONE
+from .const import DEFAULT_KEY
+from .const import DEFAULT_LANGUAGE
+from .const import DEFAULT_MAP_PROVIDER
+from .const import DEFAULT_MAP_ZOOM
+from .const import DEFAULT_NAME
+from .const import DEFAULT_OPTION
+from .const import CONF_NAME
+#from .hub import Hub
 
 _LOGGER = logging.getLogger(__name__)
 
-# This is the schema that used to display the UI to the user. This simple
-# schema has a single required host field, but it could include a number of fields
-# such as username, password etc. See other components in the HA core code for
-# further examples.
 # Note the input displayed to the user will be translated. See the
 # translations/<lang>.json file and strings.json. See here for further information:
 # https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
@@ -24,8 +36,20 @@ _LOGGER = logging.getLogger(__name__)
 # quite work as documented and always gave me the "Lokalise key references" string
 # (in square brackets), rather than the actual translated value. I did not attempt to
 # figure this out or look further into it.
-DATA_SCHEMA = vol.Schema({("host"): str})
-
+DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_DEVICETRACKER_ID): cv.string,
+        vol.Optional(CONF_API_KEY, default=DEFAULT_KEY): cv.string,
+        vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): cv.string,
+        vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): cv.string,
+        vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+        vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
+        vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.string,
+        vol.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): cv.string,
+        vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
+        vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
+    }
+)
 
 async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     """Validate the user input allows us to connect.
@@ -37,17 +61,17 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     # This is a simple example to show an error in the UI for a short hostname
     # The exceptions are defined at the end of this file, and are used in the
     # `async_step_user` method below.
-    if len(data["host"]) < 3:
-        raise InvalidHost
+    ##if len(data["host"]) < 3:
+    ##    raise InvalidHost
 
-    hub = Hub(hass, data["host"])
+    ##hub = Hub(hass, data["host"])
     # The dummy hub provides a `test_connection` method to ensure it's working
     # as expected
-    result = await hub.test_connection()
-    if not result:
+    ##result = await hub.test_connection()
+    ##if not result:
         # If there is an error, raise an exception to notify HA that there was a
         # problem. The UI will also show there was a problem
-        raise CannotConnect
+        ##raise CannotConnect
 
     # If your PyPI package is not built with async, pass your methods
     # to the executor:
@@ -64,18 +88,17 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     # "Title" is what is displayed to the user for this hub device
     # It is stored internally in HA as part of the device config.
     # See `async_step_user` below for how this is used
-    return {"title": data["host"]}
+    return {"title": data[CONF_NAME]}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Hello World."""
 
     VERSION = 1
     # Pick one of the available connection classes in homeassistant/config_entries.py
     # This tells HA if it should be asking for updates, or it'll be notified of updates
     # automatically. This example uses PUSH, as the dummy hub will notify HA of
     # changes.
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
+    ##CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
