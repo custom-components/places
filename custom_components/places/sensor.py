@@ -32,6 +32,10 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import Platform
+from homeassistant.const import (
+    CONF_ENTITY_ID,
+    CONF_FRIENDLY_NAME,
+)
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.util import Throttle
@@ -131,7 +135,7 @@ async def async_setup_entry(
     _LOGGER.debug("[async_setup_entry] config: " + str(config))
     ###
     _LOGGER.debug("(" + str(name) + ") [Init] Platform Type: " + str(type(Platform)))
-    _LOGGER.debug("(" + str(name) + ") [Init] Platform: " + str(Platform))
+    _LOGGER.debug("(" + str(name) + ") [Init] Platform: " + str(list(Platform)))
     ###
     async_add_entities([Places(hass, config, name, unique_id)], update_before_add=True)
 
@@ -479,20 +483,19 @@ class Places(Entity):
         _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
         if hasattr(self, "entity_id") and self.entity_id is not None:
             _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") Entity Data: "
-                + str(self._hass.states.get(str(self.entity_id)))
-            )
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") Entity Friendly Name: "
-                + str(hass.states.get(str(self.entity_id)).attributes.get("friendly_name"))
-            ) 
-        else:
-            _LOGGER.debug("(" + self._name + ") Entity ID: not defined")
+            #_LOGGER.debug(
+            #    "("
+            #    + self._name
+            #    + ") Entity Data: "
+            #    + str(self._hass.states.get(str(self.entity_id)))
+            #)
+            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get("friendly_name"):
+                _LOGGER.debug("("
+                    + self._name
+                    + ") Updating Name to: "
+                    + str(self._hass.states.get(str(self.entity_id)).attributes.get("friendly_name"))
+                ) 
+                self._name = self._hass.states.get(str(self.entity_id)).attributes.get("friendly_name")
         _LOGGER.info(
             "(" + self._name + ") Check if update req'd: " + str(self._devicetracker_id)
         )
