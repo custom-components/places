@@ -536,8 +536,14 @@ class Places(Entity):
         )
         _LOGGER.debug("(" + self._name + ") Previous State: " + previous_state)
 
-        _LOGGER.info(
+        _LOGGER.debug(
             "(" + self._name + ") DeviceTracker Entity ID: " + self._devicetracker_id
+        )
+        _LOGGER.debug(
+            "(" + self._name + ") DeviceTracker Attribute: " + str(hasattr(self, "_devicetracker_id"))
+        )
+        _LOGGER.debug(
+            "(" + self._name + ") DeviceTracker Entity: " + str(self._hass.states.get(self._devicetracker_id))
         )
 
         if (
@@ -586,6 +592,7 @@ class Places(Entity):
                 "stationary" in self._devicetracker_zone.lower()
                 or self._devicetracker_zone.lower() == "away"
                 or self._devicetracker_zone.lower() == "not_home"
+                or self._devicetracker_zone.lower() == "notset"
             ):
                 # Not in a Zone
                 if self._place_name is not None and self._place_name != "-":
@@ -888,7 +895,11 @@ class Places(Entity):
                     if "name:" + language in osm_decoded["namedetails"]:
                         place_name = osm_decoded["namedetails"]["name:" + language]
                         break
-                if self._devicetracker_zone == "not_home" and place_name != "house":
+                if ("stationary" in self._devicetracker_zone.lower()
+                or self._devicetracker_zone.lower() == "away"
+                or self._devicetracker_zone.lower() == "not_home"
+                or self._devicetracker_zone.lower() == "notset")
+                and place_name != "house":
                     new_state = place_name
 
             if "house_number" in osm_decoded["address"]:
@@ -1001,6 +1012,7 @@ class Places(Entity):
                 "stationary" in self._devicetracker_zone.lower()
                 or self._devicetracker_zone.lower() == "away"
                 or self._devicetracker_zone.lower() == "not_home"
+                or self._devicetracker_zone.lower() == "notset"
             ):
                 if (
                     self._direction != "stationary"
@@ -1075,8 +1087,10 @@ class Places(Entity):
                     "(" + self._name + ") New State using formatted_place: " + new_state
                 )
             elif (
-                self._devicetracker_zone.lower() == "not_home"
-                or "stationary" in self._devicetracker_zone.lower()
+                "stationary" in self._devicetracker_zone.lower()
+                or self._devicetracker_zone.lower() == "away"
+                or self._devicetracker_zone.lower() == "not_home"
+                or self._devicetracker_zone.lower() == "notset"
             ):
 
                 # Options:  "formatted_place, zone, zone_name, place, street_number, street, city, county, state, postal_code, country, formatted_address"
