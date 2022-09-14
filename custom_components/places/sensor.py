@@ -254,6 +254,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+
 async def async_setup_entry(
     hass: core.HomeAssistant,
     config_entry: config_entries.ConfigEntry,
@@ -285,11 +286,15 @@ class Places(Entity):
         self._options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
         self._devicetracker_id = config.get(CONF_DEVICETRACKER_ID).lower()
         self._home_zone = config.setdefault(CONF_HOME_ZONE, DEFAULT_HOME_ZONE).lower()
-        self._map_provider = config.setdefault(CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER).lower()
+        self._map_provider = config.setdefault(
+            CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER
+        ).lower()
         self._map_zoom = config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM)
         self._language = config.setdefault(CONF_LANGUAGE, DEFAULT_LANGUAGE).lower()
         self._language.replace(" ", "")
-        self._extended_attr = config.setdefault(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR)
+        self._extended_attr = config.setdefault(
+            CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
+        )
         self._state = "Initializing..."
 
         home_latitude = str(hass.states.get(home_zone).attributes.get("latitude"))
@@ -528,7 +533,7 @@ class Places(Entity):
             "(" + self._name + ") Check if update req'd: " + self._devicetracker_id
         )
         _LOGGER.debug("(" + self._name + ") Previous State: " + previous_state)
-        
+
         _LOGGER.info(
             "(" + self._name + ") DeviceTracker Entity ID: " + self._devicetracker_id
         )
