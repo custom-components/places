@@ -292,15 +292,15 @@ class Places(Entity):
         self._extended_attr = config.setdefault(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR)
         self._state = "Initializing..."
 
-        home_latitude = str(hass.states.get(home_zone).attributes.get("latitude"))
+        home_latitude = str(hass.states.get(self._home_zone).attributes.get("latitude"))
         if not self.is_float(home_latitude):
             home_latitude = None
-        home_longitude = str(hass.states.get(home_zone).attributes.get("longitude"))
+        home_longitude = str(hass.states.get(self._home_zone).attributes.get("longitude"))
         if not self.is_float(home_longitude):
             home_longitude = None
         self._entity_picture = (
-            hass.states.get(devicetracker_id).attributes.get("entity_picture")
-            if hass.states.get(devicetracker_id)
+            hass.states.get(self._devicetracker_id).attributes.get("entity_picture")
+            if hass.states.get(self._devicetracker_id)
             else None
         )
         self._street_number = None
