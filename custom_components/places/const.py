@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 DOMAIN = "placesv2dev"
 
 # Defaults
@@ -12,7 +10,6 @@ DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
 DEFAULT_LANGUAGE = "en"
 DEFAULT_EXTENDED_ATTR = False
-SCAN_INTERVAL = timedelta(seconds=30)
 
 # Config
 CONF_DEVICETRACKER_ID = "devicetracker_id"

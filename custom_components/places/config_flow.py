@@ -48,7 +48,6 @@ DATA_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1, max=20)
         ),
         vol.Optional(CONF_LANGUAGE): str,
-        # vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): bool,
     }
 )

@@ -31,6 +31,7 @@ from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
+from homeassistant.const import Platform
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.util import Throttle
@@ -91,13 +92,13 @@ from .const import DEFAULT_KEY
 from .const import DEFAULT_LANGUAGE
 from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
-from .const import DEFAULT_NAME
 from .const import DEFAULT_OPTION
 from .const import DOMAIN
-from .const import SCAN_INTERVAL
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
-TRACKABLE_DOMAINS = ["device_tracker"]
+TRACKING_DOMAIN = "device_tracker"
+HOME_LOCATION_DOMAIN = ""
+SCAN_INTERVAL = timedelta(seconds=30)
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -128,7 +129,10 @@ async def async_setup_entry(
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
     _LOGGER.debug("[async_setup_entry] config: " + str(config))
-
+    ###
+    _LOGGER.debug("(" + str(name) + ") [Init] Platform Type: " + str(type(Platform)))
+    _LOGGER.debug("(" + str(name) + ") [Init] Platform: " + str(Platform))
+    ###
     async_add_entities([Places(hass, config, name, unique_id)], update_before_add=True)
 
 
@@ -140,24 +144,6 @@ class Places(Entity):
         _LOGGER.debug("[Init] New places sensor: " + str(name))
         _LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
         _LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
-        if hasattr(self, "entity_id"):
-            _LOGGER.debug(
-                "(" + str(name) + ") [Init] Entity ID: " + str(self.entity_id)
-            )
-            _LOGGER.debug(
-                "("
-                + str(name)
-                + ") [Init] Entity ID Type: "
-                + str(type(self.entity_id))
-            )
-            _LOGGER.debug(
-                "("
-                + str(name)
-                + ") [Init] Entity Data: "
-                + str(hass.states.get(str(self.entity_id)))
-            )
-        else:
-            _LOGGER.debug("(" + str(name) + ") [Init] Entity ID: not defined")
 
         self._hass = hass
         self._name = name
@@ -491,17 +477,20 @@ class Places(Entity):
         prev_last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
-        if hasattr(self, "entity_id"):
+        if hasattr(self, "entity_id") and self.entity_id is not None:
             _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
-            _LOGGER.debug(
-                "(" + self._name + ") Entity ID Type: " + str(type(self.entity_id))
-            )
             _LOGGER.debug(
                 "("
                 + self._name
                 + ") Entity Data: "
                 + str(self._hass.states.get(str(self.entity_id)))
             )
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Entity Friendly Name: "
+                + str(hass.states.get(str(self.entity_id)).attributes.get("friendly_name"))
+            ) 
         else:
             _LOGGER.debug("(" + self._name + ") Entity ID: not defined")
         _LOGGER.info(
