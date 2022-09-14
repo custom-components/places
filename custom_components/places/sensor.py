@@ -540,10 +540,16 @@ class Places(Entity):
             "(" + self._name + ") DeviceTracker Entity ID: " + self._devicetracker_id
         )
         _LOGGER.debug(
-            "(" + self._name + ") DeviceTracker Attribute: " + str(hasattr(self, "_devicetracker_id"))
+            "("
+            + self._name
+            + ") DeviceTracker Attribute: "
+            + str(hasattr(self, "_devicetracker_id"))
         )
         _LOGGER.debug(
-            "(" + self._name + ") DeviceTracker Entity: " + str(self._hass.states.get(self._devicetracker_id))
+            "("
+            + self._name
+            + ") DeviceTracker Entity: "
+            + str(self._hass.states.get(self._devicetracker_id))
         )
 
         if (
