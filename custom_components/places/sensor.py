@@ -254,94 +254,42 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
-
-# def setup_platform(hass, config, add_devices, discovery_info=None):
 async def async_setup_entry(
     hass: core.HomeAssistant,
     config_entry: config_entries.ConfigEntry,
     async_add_entities,
 ) -> None:
     """Setup the sensor platform."""
-    # _LOGGER.debug("config_entry: " + str(config_entry))
+
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
-    # _LOGGER.debug("config type: " + str(type(config)))
     _LOGGER.debug("config: " + str(config))
 
-    # name = config.get(CONF_NAME)
-    # api_key = config.get(CONF_API_KEY)
-    # devicetracker_id = config.get(CONF_DEVICETRACKER_ID)
-    # options = config.get(CONF_OPTIONS)
-    # home_zone = config.get(CONF_HOME_ZONE)
-    # map_provider = config.get(CONF_MAP_PROVIDER)
-    # map_zoom = config.get(CONF_MAP_ZOOM)
-    # language = config.get(CONF_LANGUAGE)
-    # extended_attr = config.get(CONF_EXTENDED_ATTR)
-
-    # async_add_entities(
-    #    [
-    #        Places(
-    #            hass,
-    #            devicetracker_id,
-    #            name,
-    #            api_key,
-    #            options,
-    #            home_zone,
-    #            map_provider,
-    #            map_zoom,
-    #            language,
-    #            extended_attr,
-    #        )
-    #    ]
-    # )
     async_add_entities([Places(hass, config, name, unique_id)], update_before_add=True)
 
 
 class Places(Entity):
     """Representation of a Places Sensor."""
 
-    # def __init__(
-    #    self,
-    #    hass,
-    #    devicetracker_id,
-    #    name,
-    #    api_key,
-    #    options,
-    #    home_zone,
-    #    map_provider,
-    #    map_zoom,
-    #    language,
-    #    extended_attr,
-    # ):
     def __init__(self, hass, config, name, unique_id):
         """Initialize the sensor."""
-        # _LOGGER.debug("config type: " + str(type(config)))
-        # _LOGGER.debug("self type: " + str(type(self)))
         _LOGGER.debug("New places sensor: " + str(name))
         _LOGGER.debug("(" + str(name) + ") unique_id: " + str(unique_id))
         _LOGGER.debug("(" + str(name) + ") config: " + str(config))
-        # name = config.get(CONF_NAME)
-        devicetracker_id = config.get(CONF_DEVICETRACKER_ID)
-        api_key = config.setdefault(CONF_API_KEY, DEFAULT_KEY)
-        options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION)
-        home_zone = config.setdefault(CONF_HOME_ZONE, DEFAULT_HOME_ZONE)
-        map_provider = config.setdefault(CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER)
-        map_zoom = config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM)
-        language = config.setdefault(CONF_LANGUAGE, DEFAULT_LANGUAGE)
-        extended_attr = config.setdefault(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR)
+
         self._hass = hass
         self._name = name
         self._unique_id = unique_id
-        self._api_key = api_key
-        self._options = options.lower()
-        self._devicetracker_id = devicetracker_id.lower()
-        self._home_zone = home_zone.lower()
-        self._map_provider = map_provider.lower()
-        self._map_zoom = map_zoom
-        self._language = language.lower()
+        self._api_key = config.setdefault(CONF_API_KEY, DEFAULT_KEY)
+        self._options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
+        self._devicetracker_id = config.get(CONF_DEVICETRACKER_ID).lower()
+        self._home_zone = config.setdefault(CONF_HOME_ZONE, DEFAULT_HOME_ZONE).lower()
+        self._map_provider = config.setdefault(CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER).lower()
+        self._map_zoom = config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM)
+        self._language = config.setdefault(CONF_LANGUAGE, DEFAULT_LANGUAGE).lower()
         self._language.replace(" ", "")
-        self._extended_attr = extended_attr
+        self._extended_attr = config.setdefault(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR)
         self._state = "Initializing..."
 
         home_latitude = str(hass.states.get(home_zone).attributes.get("latitude"))
@@ -394,11 +342,6 @@ class Places(Entity):
         self._osm_dict = None
         self._osm_details_dict = None
         self._wikidata_dict = None
-
-        # _LOGGER.debug("config type: " + str(type(config)))
-        # _LOGGER.debug("config: " + str(config))
-        # _LOGGER.debug("self type: " + str(type(self)))
-        # _LOGGER.debug("self: " + str(self))
 
         # Check if devicetracker_id was specified correctly
         _LOGGER.info(
@@ -585,6 +528,10 @@ class Places(Entity):
             "(" + self._name + ") Check if update req'd: " + self._devicetracker_id
         )
         _LOGGER.debug("(" + self._name + ") Previous State: " + previous_state)
+        
+        _LOGGER.info(
+            "(" + self._name + ") DeviceTracker Entity ID: " + self._devicetracker_id
+        )
 
         if (
             hasattr(self, "_devicetracker_id")
