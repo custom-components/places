@@ -895,11 +895,12 @@ class Places(Entity):
                     if "name:" + language in osm_decoded["namedetails"]:
                         place_name = osm_decoded["namedetails"]["name:" + language]
                         break
-                if ("stationary" in self._devicetracker_zone.lower()
-                or self._devicetracker_zone.lower() == "away"
-                or self._devicetracker_zone.lower() == "not_home"
-                or self._devicetracker_zone.lower() == "notset")
-                and place_name != "house":
+                if (
+                    "stationary" in self._devicetracker_zone.lower()
+                    or self._devicetracker_zone.lower() == "away"
+                    or self._devicetracker_zone.lower() == "not_home"
+                    or self._devicetracker_zone.lower() == "notset"
+                ) and place_name != "house":
                     new_state = place_name
 
             if "house_number" in osm_decoded["address"]:
