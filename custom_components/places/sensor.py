@@ -3,152 +3,14 @@ Place Support for OpenStreetMap Geocode sensors.
 
 Original Author:  Jim Thompson
 Subsequent Author: Ian Richardson
+Current Author: Snuffy2
 
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
   Optionally allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
-  Configuration Instructions are below - as well as sample automations for notifications.
+  Configuration Instructions are on GitHub.
   
-  The display options I have set for Sharon are "zone, place" so her state is displayed as:
-  - not_home, Richmond Hill GO Station, building, building, Beverley Acres, 6, Newkirk Road
-  There are a lot of additional attributes (beyond state) that are available which can be used in notifications, alerts, etc:
-  (The "home latitude/longitudes" below have been randomized to protect her privacy)
-{
-  "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
-  "friendly_name": "sharon",
-  "current_latitude": "43.874149009154095",
-  "distance_from_home_km": 7.24,
-  "country": "Canada",
-  "postal_code": "L4C 1B3",
-  "direction_of_travel": "towards home",
-  "neighbourhood": "Beverley Acres",
-  "entity_picture": "/local/sharon.png",
-  "street_number": "6",
-  "devicetracker_entityid": "device_tracker.sharon_iphone7",
-  "home_longitude": "-79.7323453871",
-  "devicetracker_zone": "not_home",
-  "distance_from_home_m": 17239.053,
-  "home_latitude": "43.983234888",
-  "previous_location": "43.86684124904056,-79.4253896502715",
-  "previous_longitude": "-79.4253896502715",
-  "place_category": "building",
-  "map_link": "https://maps.apple.com/maps/?ll=43.874149009154095,-79.42642783709209&z=18",
-  "last_changed": "2018-05-02 13:44:51.019837",
-  "state_province": "Ontario",
-  "county": "York Region",
-  "current_longitude": "-79.42642783709209",
-  "current_location": "43.874149009154095,-79.42642783709209",
-  "place_type": "building",
-  "previous_latitude": "43.86684124904056",
-  "place_name": "Richmond Hill GO Station",
-  "street": "Newkirk Road",
-  "city": "Richmond Hill",
-  "home_zone": "zone.sharon_home"
-}
-
-Note:  The Google Map Link for above location would have been:
-       https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query=43.874149009154095,-79.42642783709209
-
-Sample Configuration.yaml configurations:
-sensor places_jim:
-  - platform: places
-    name: jim
-    devicetracker_id: device_tracker.jim_iphone8
-    options: zone,place
-    display_zone: show
-    map_provider: google
-    map_zoom: 19
-    home_zone: zone.jim_home
-    api_key: !secret email_jim
-
-sensor places_sharon:
-  - platform: places
-    name: sharon
-    devicetracker_id: device_tracker.sharon_iphone7
-    options: zone, place
-    map_provider: apple
-    map_zoom: 18
-    home_zone: zone.sharon_home
-    api_key: !secret email_sharon
-
-sensor places_aidan:
-  - platform: places
-    name: aidan
-    devicetracker_id: device_tracker.aidan_iphone7plus
-    options: place
-    map_provider: google
-    map_zoom: 17
-    home_zone: zone.aidan_home
-    api_key: !secret email_aidan
-  
-Sample generic automations.yaml snippet to send an iOS notify on any device state change:
-(the only difference is the second one uses a condition to only trigger for a specific user)
-
-- alias: ReverseLocateEveryone
-  initial_state: 'on'
-  trigger:
-    platform: event
-    event_type: places_state_update
-  action:
-  - service: notify.ios_jim_iphone8
-    data_template:
-      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
-      message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
-        {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
-      data:
-        attachment:
-          url: '{{ trigger.event.data.map }}'
-          hide_thumbnail: false
-
-- alias: ReverseLocateAidan
-  initial_state: 'on'
-  trigger:
-    platform: event
-    event_type: places_state_update
-  condition:
-    condition: template
-    value_template: '{{ trigger.event.data.entity == "aidan" }}'
-  action:
-  - service: notify.ios_jim_iphone8
-    data_template:
-      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
-      message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
-        {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} from home and traveling {{ trigger.event.data.direction }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
-      data:
-        attachment:
-          url: '{{ trigger.event.data.map }}'
-          hide_thumbnail: false
-
-
-Note:  The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of co-ordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
-
-Note:  The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
-
-Configuration.yaml:
-  sensor places_jim:
-    - platform: Places
-      name: jim                                     (optional)
-      devicetracker_id: device_tracker.jim_iphone   (required)
-      home_zone: zone.home                          (optional)
-      api_key: <email_address>                      (optional)
-      map_provider: [google|apple]                  (optional)
-      map_zoom: <1-20>                              (optional)
-      option: <zone, place, street_number, street, city, county, state, postal_code, country, formatted_address>  (optional)
-      
-The map link that gets generated for Google & Apple maps has a push pin marking the users location.
-      
-To enable detailed logging for this component, add the following to your configuration.yaml file
-  logger:
-    default: warning
-    logs:
-      custom_components.sensor.places: debug  
-
+GitHub: https://github.com/Snuffy2/places
 """
 
 import json
@@ -245,7 +107,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_API_KEY, default=DEFAULT_KEY): cv.string,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): cv.string,
         vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): cv.string,
-        vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+        vol.Optional(CONF_NAME): cv.string,
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
         vol.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): cv.string,
@@ -265,7 +127,7 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
-    _LOGGER.debug("config: " + str(config))
+    _LOGGER.debug("[async_setup_entry] config: " + str(config))
 
     async_add_entities([Places(hass, config, name, unique_id)], update_before_add=True)
 
@@ -275,9 +137,15 @@ class Places(Entity):
 
     def __init__(self, hass, config, name, unique_id):
         """Initialize the sensor."""
-        _LOGGER.debug("New places sensor: " + str(name))
-        _LOGGER.debug("(" + str(name) + ") unique_id: " + str(unique_id))
-        _LOGGER.debug("(" + str(name) + ") config: " + str(config))
+        _LOGGER.debug("[Init] New places sensor: " + str(name))
+        _LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
+        _LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
+        if hasattr(self,"entity_id"):
+            _LOGGER.debug("(" + str(name) + ") [Init] Entity ID: " + str(self.entity_id))
+            _LOGGER.debug("(" + str(name) + ") [Init] Entity ID Type: " + str(type(self.entity_id)))
+            _LOGGER.debug("(" + str(name) + ") [Init] Entity Data: " + str(hass.states.get(str(self.entity_id))))
+        else:
+            _LOGGER.debug("(" + str(name) + ") [Init] Entity ID: not defined")
 
         self._hass = hass
         self._name = name
@@ -352,7 +220,7 @@ class Places(Entity):
 
         # Check if devicetracker_id was specified correctly
         _LOGGER.info(
-            "(" + self._name + ") DeviceTracker Entity ID: " + self._devicetracker_id
+            "(" + self._name + ") [Init] DeviceTracker Entity ID: " + self._devicetracker_id
         )
 
         # if devicetracker_id.split(".", 1)[0] in TRACKABLE_DOMAINS:
@@ -364,7 +232,7 @@ class Places(Entity):
             from_state=None,
             to_state=None,
         )
-        _LOGGER.info("(" + self._name + ") Now subscribed to state change events")
+        _LOGGER.info("(" + self._name + ") [Init] Subscribed to DeviceTracker state change events")
 
     @property
     def name(self):
@@ -476,14 +344,55 @@ class Places(Entity):
         # _LOGGER.debug("(" + self._name + ") Extra State Attributes - " + return_attr)
         return return_attr
 
+    def is_devicetracker_set(self):
+        #_LOGGER.debug(
+        #    "(" + self._name + ") DeviceTracker Entity ID: " + self._devicetracker_id
+        #)
+        #_LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") DeviceTracker Attribute Exists: "
+        #    + str(hasattr(self, "_devicetracker_id"))
+        #)
+        #_LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") DeviceTracker Entity: "
+        #    + str(self._hass.states.get(self._devicetracker_id))
+        #)
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") [is_devicetracker_set] DeviceTracker State: "
+            + str(self._hass.states.get(self._devicetracker_id).state if self._hass.states.get(self._devicetracker_id) is not None else None)
+        )
+        
+        if (
+            hasattr(self, "_devicetracker_id")
+            and self._hass.states.get(self._devicetracker_id) is not None
+            and self._hass.states.get(self._devicetracker_id).state.lower() != "notset"
+        ):
+            return True
+        else:
+            return False
+
     def tsc_update(self, tscarg2, tsarg3, tsarg4):
         """Call the do_update function based on the TSC (track state change) event"""
-        self.do_update("Track State Change")
+        if self.is_devicetracker_set():
+            _LOGGER.debug("(" + self._name + ") [TSC Update] Running Update - Devicetracker is set")
+            self.do_update("Track State Change")
+        else:
+            _LOGGER.debug("(" + self._name + ") [TSC Update] Not Running Update - Devicetracker is not set")
 
     @Throttle(THROTTLE_INTERVAL)
     async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
-        await self._hass.async_add_executor_job(self.do_update("Scan Interval"))
+        if self.is_devicetracker_set():
+            _LOGGER.debug("(" + self._name + ") [Async Update] Running Update - Devicetracker is set")
+            #await self._hass.async_add_executor_job(self.do_update("Scan Interval"))
+            self.do_update("Scan Interval")
+        else:
+            _LOGGER.debug("(" + self._name + ") [Async Update] Not Running Update - Devicetracker is not set")
 
     def haversine(self, lon1, lat1, lon2, lat2):
         """
@@ -507,12 +416,24 @@ class Places(Entity):
             return True
         except ValueError:
             return False
+            
+    def in_zone(self):
+        if (
+            "stationary" in self._devicetracker_zone.lower()
+            or self._devicetracker_zone.lower() == "away"
+            or self._devicetracker_zone.lower() == "not_home"
+            or self._devicetracker_zone.lower() == "notset"
+        ):
+            return False
+        else:
+            return True
 
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
         _LOGGER.info("(" + self._name + ") Starting Update...")
-        previous_state = self.state
+        previous_state = self._state
+        new_state = None
         distance_traveled = 0
         devicetracker_zone = None
         devicetracker_zone_id = None
@@ -530,28 +451,19 @@ class Places(Entity):
         last_place_name = None
         prev_last_place_name = None
 
-        _LOGGER.info("(" + self._name + ") Calling update due to " + reason)
+        _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
+        if hasattr(self,"entity_id"):
+            _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
+            _LOGGER.debug("(" + self._name + ") Entity ID Type: " + str(type(self.entity_id)))
+            _LOGGER.debug("(" + self._name + ") Entity Data: " + str(self._hass.states.get(str(self.entity_id))))
+        else:
+            _LOGGER.debug("(" + self._name + ") Entity ID: not defined")
         _LOGGER.info(
-            "(" + self._name + ") Check if update req'd: " + self._devicetracker_id
+            "(" + self._name + ") Check if update req'd: " + str(self._devicetracker_id)
         )
-        _LOGGER.debug("(" + self._name + ") Previous State: " + previous_state)
+        _LOGGER.debug("(" + self._name + ") Previous State: " + str(previous_state))
 
-        _LOGGER.debug(
-            "(" + self._name + ") DeviceTracker Entity ID: " + self._devicetracker_id
-        )
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") DeviceTracker Attribute: "
-            + str(hasattr(self, "_devicetracker_id"))
-        )
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") DeviceTracker Entity: "
-            + str(self._hass.states.get(self._devicetracker_id))
-        )
-
+        #Can remove this 'if' now since we are checking before calling do_update
         if (
             hasattr(self, "_devicetracker_id")
             and self._hass.states.get(self._devicetracker_id) is not None
@@ -594,12 +506,7 @@ class Places(Entity):
                 + str(self._last_place_name)
             )
 
-            if (
-                "stationary" in self._devicetracker_zone.lower()
-                or self._devicetracker_zone.lower() == "away"
-                or self._devicetracker_zone.lower() == "not_home"
-                or self._devicetracker_zone.lower() == "notset"
-            ):
+            if not self.in_zone():
                 # Not in a Zone
                 if self._place_name is not None and self._place_name != "-":
                     # If place name is set
@@ -608,8 +515,7 @@ class Places(Entity):
                         "("
                         + self._name
                         + ") Previous Place Name is set: "
-                        + last_place_name
-                        + ", updating"
+                        + str(last_place_name)
                     )
                 else:
                     # If blank, keep previous last place name
@@ -617,7 +523,7 @@ class Places(Entity):
                     _LOGGER.debug(
                         "("
                         + self._name
-                        + ") Previous Place Name is None or -, keeping prior"
+                        + ") Previous Place Name is None, keeping prior"
                     )
             else:
                 # In a Zone
@@ -626,8 +532,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Previous Place is Zone: "
-                    + last_place_name
-                    + ", updating"
+                    + str(last_place_name)
                 )
             _LOGGER.debug(
                 "("
@@ -638,26 +543,26 @@ class Places(Entity):
 
             maplink_apple = (
                 "https://maps.apple.com/maps/?q="
-                + current_location
+                + str(current_location)
                 + "&z="
                 + str(self._map_zoom)
             )
             # maplink_google = 'https://www.google.com/maps/dir/?api=1&origin=' + current_location + '&destination=' + home_location + '&travelmode=driving&layer=traffic'
             maplink_google = (
                 "https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query="
-                + current_location
+                + str(current_location)
             )
             maplink_osm = (
                 "https://www.openstreetmap.org/?mlat="
-                + new_latitude
+                + str(new_latitude)
                 + "&mlon="
-                + new_longitude
+                + str(new_longitude)
                 + "#map="
                 + str(self._map_zoom)
                 + "/"
-                + new_latitude[:8]
+                + str(new_latitude)[:8]
                 + "/"
-                + new_longitude[:9]
+                + str(new_longitude)[:9]
             )
             if (
                 new_latitude is not None
@@ -689,12 +594,12 @@ class Places(Entity):
                     direction = "stationary"
 
                 _LOGGER.debug(
-                    "(" + self._name + ") Previous Location: " + previous_location
+                    "(" + self._name + ") Previous Location: " + str(previous_location)
                 )
                 _LOGGER.debug(
-                    "(" + self._name + ") Current Location: " + current_location
+                    "(" + self._name + ") Current Location: " + str(current_location)
                 )
-                _LOGGER.debug("(" + self._name + ") Home Location: " + home_location)
+                _LOGGER.debug("(" + self._name + ") Home Location: " + str(home_location))
                 _LOGGER.info(
                     "("
                     + self._name
@@ -704,20 +609,20 @@ class Places(Entity):
                     + str(distance_km)
                     + " km"
                 )
-                _LOGGER.info("(" + self._name + ") Travel Direction: " + direction)
+                _LOGGER.info("(" + self._name + ") Travel Direction: " + str(direction))
 
                 """Update if location has changed."""
 
                 devicetracker_zone = self._hass.states.get(self._devicetracker_id).state
                 _LOGGER.info(
-                    "(" + self._name + ") DeviceTracker Zone: " + devicetracker_zone
+                    "(" + self._name + ") DeviceTracker Zone: " + str(devicetracker_zone)
                 )
 
                 devicetracker_zone_id = self._hass.states.get(
                     self._devicetracker_id
                 ).attributes.get("zone")
                 if devicetracker_zone_id is not None:
-                    devicetracker_zone_id = "zone." + devicetracker_zone_id
+                    devicetracker_zone_id = "zone." + str(devicetracker_zone_id)
                     devicetracker_zone_name_state = self._hass.states.get(
                         devicetracker_zone_id
                     )
@@ -729,7 +634,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") DeviceTracker Zone Name: "
-                    + devicetracker_zone_name
+                    + str(devicetracker_zone_name)
                 )
 
                 distance_traveled = distance(
@@ -750,13 +655,13 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Problem with updated lat/long, this will likely error: new_latitude="
-                    + new_latitude
+                    + str(new_latitude)
                     + ", new_longitude="
-                    + new_longitude
+                    + str(new_longitude)
                     + ", home_latitude="
-                    + home_latitude
+                    + str(home_latitude)
                     + ", home_longitude="
-                    + home_longitude
+                    + str(home_longitude)
                 )
         else:
             _LOGGER.error(
@@ -807,7 +712,7 @@ class Places(Entity):
                 "("
                 + self._name
                 + ") DeviceTracker Zone (current): "
-                + self._devicetracker_zone
+                + str(self._devicetracker_zone)
                 + " / Skipped Updates: "
                 + str(self._updateskipped)
             )
@@ -832,21 +737,22 @@ class Places(Entity):
                 self._map_link = maplink_osm
             else:
                 self._map_link = maplink_apple
-            _LOGGER.debug("(" + self._name + ") Map Link Type: " + self._map_provider)
-            _LOGGER.debug("(" + self._name + ") Map Link generated: " + self._map_link)
+            _LOGGER.debug("(" + self._name + ") Map Link Type: " + str(self._map_provider))
+            _LOGGER.debug("(" + self._name + ") Map Link generated: " + str(self._map_link))
 
+            # Change logic and default_key for api-Key
             osm_url = (
                 "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="
-                + self._latitude
+                + str(self._latitude)
                 + "&lon="
-                + self._longitude
+                + str(self._longitude)
                 + (
-                    "&accept-language=" + self._language
+                    "&accept-language=" + str(self._language)
                     if self._language != DEFAULT_LANGUAGE
                     else ""
                 )
                 + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
-                + ("&email=" + self._api_key if self._api_key != DEFAULT_KEY else "")
+                + ("&email=" + str(self._api_key) if self._api_key != DEFAULT_KEY else "")
             )
 
             osm_decoded = {}
@@ -854,11 +760,11 @@ class Places(Entity):
                 "("
                 + self._name
                 + ") OpenStreetMap Request: lat="
-                + self._latitude
+                + str(self._latitude)
                 + " and lon="
-                + self._longitude
+                + str(self._longitude)
             )
-            _LOGGER.debug("(" + self._name + ") OSM URL: " + osm_url)
+            _LOGGER.debug("(" + self._name + ") OSM URL: " + str(osm_url))
             osm_response = get(osm_url)
             osm_json_input = osm_response.text
             _LOGGER.debug("(" + self._name + ") OSM Response: " + osm_json_input)
@@ -901,12 +807,7 @@ class Places(Entity):
                     if "name:" + language in osm_decoded["namedetails"]:
                         place_name = osm_decoded["namedetails"]["name:" + language]
                         break
-                if (
-                    "stationary" in self._devicetracker_zone.lower()
-                    or self._devicetracker_zone.lower() == "away"
-                    or self._devicetracker_zone.lower() == "not_home"
-                    or self._devicetracker_zone.lower() == "notset"
-                ) and place_name != "house":
+                if not self.in_zone() and place_name != "house":
                     new_state = place_name
 
             if "house_number" in osm_decoded["address"]:
@@ -1015,12 +916,7 @@ class Places(Entity):
 
             # Formatted Place
             formatted_place_array = []
-            if (
-                "stationary" in self._devicetracker_zone.lower()
-                or self._devicetracker_zone.lower() == "away"
-                or self._devicetracker_zone.lower() == "not_home"
-                or self._devicetracker_zone.lower() == "notset"
-            ):
+            if not self.in_zone():
                 if (
                     self._direction != "stationary"
                     and (
@@ -1083,7 +979,7 @@ class Places(Entity):
 
             if "error_message" in osm_decoded:
                 new_state = osm_decoded["error_message"]
-                _LOGGER.info(
+                _LOGGER.warning(
                     "("
                     + self._name
                     + ") An error occurred contacting the web service for OpenStreetMap"
@@ -1091,14 +987,9 @@ class Places(Entity):
             elif "formatted_place" in display_options:
                 new_state = self._formatted_place
                 _LOGGER.info(
-                    "(" + self._name + ") New State using formatted_place: " + new_state
+                    "(" + self._name + ") New State using formatted_place: " + str(new_state)
                 )
-            elif (
-                "stationary" in self._devicetracker_zone.lower()
-                or self._devicetracker_zone.lower() == "away"
-                or self._devicetracker_zone.lower() == "not_home"
-                or self._devicetracker_zone.lower() == "notset"
-            ):
+            elif not self.in_zone():
 
                 # Options:  "formatted_place, zone, zone_name, place, street_number, street, city, county, state, postal_code, country, formatted_address"
 
@@ -1106,7 +997,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Building State from Display Options: "
-                    + self._options
+                    + str(self._options)
                 )
 
                 user_display = []
@@ -1117,48 +1008,52 @@ class Places(Entity):
                 if (
                     "zone_name" in display_options
                     and "do_not_show_not_home" not in display_options
+                    and self._devicetracker_zone_name is not None
                 ):
-                    zone = self._devicetracker_zone
+                    #zone = self._devicetracker_zone
                     user_display.append(self._devicetracker_zone_name)
                 elif (
                     "zone" in display_options
                     and "do_not_show_not_home" not in display_options
+                    and self._devicetracker_zone is not None
                 ):
-                    zone = self._devicetracker_zone
+                    #zone = self._devicetracker_zone
                     user_display.append(self._devicetracker_zone)
 
-                if "place_name" in display_options:
-                    if place_name is not None:
+                if "place_name" in display_options and place_name is not None:
                         user_display.append(place_name)
                 if "place" in display_options:
                     if place_name is not None:
                         user_display.append(place_name)
-                    if place_category.lower() != "place":
+                    if place_category is not None and place_category.lower() != "place":
                         user_display.append(place_category)
-                    if place_type.lower() != "yes":
+                    if place_type is not None and place_type.lower() != "yes":
                         user_display.append(place_type)
-                    user_display.append(place_neighbourhood)
-                    user_display.append(street_number)
-                    user_display.append(street)
-                else:
-                    if "street_number" in display_options:
+                    if place_neighbourhood is not None:
+                        user_display.append(place_neighbourhood)
+                    if street_number is not None:
                         user_display.append(street_number)
-                    if "street" in display_options:
+                    if street is not None:
                         user_display.append(street)
-                if "city" in display_options:
-                    user_display.append(city)
-                if "county" in display_options:
-                    user_display.append(county)
-                if "state" in display_options:
-                    user_display.append(region)
-                elif "region" in display_options:
-                    user_display.append(region)
-                if "postal_code" in display_options:
-                    user_display.append(postal_code)
-                if "country" in display_options:
-                    user_display.append(country)
-                if "formatted_address" in display_options:
-                    user_display.append(formatted_address)
+                else:
+                    if "street_number" in display_options and street_number is not None:
+                        user_display.append(street_number)
+                    if "street" in display_options and street is not None:
+                        user_display.append(street)
+                if "city" in display_options and self._city is not None:
+                    user_display.append(self._city)
+                if "county" in display_options and self._county is not None:
+                    user_display.append(self._county)
+                if "state" in display_options and self._region is not None:
+                    user_display.append(self._region)
+                elif "region" in display_options and self._region is not None:
+                    user_display.append(self._region)
+                if "postal_code" in display_options and self._postal_code is not None:
+                    user_display.append(self._postal_code)
+                if "country" in display_options and self._country is not None:
+                    user_display.append(self._country)
+                if "formatted_address" in display_options and self._formatted_address is not None:
+                    user_display.append(self._formatted_address)
 
                 if "do_not_reorder" in display_options:
                     user_display = []
@@ -1171,31 +1066,28 @@ class Places(Entity):
                         if option in locals():
                             user_display.append(target_option)
 
-                if not user_display:
-                    user_display = self._devicetracker_zone
-                    user_display.append(street)
-                    user_display.append(city)
-
-                new_state = ", ".join(item for item in user_display)
+                if user_display:
+                    new_state = ", ".join(item for item in user_display)
                 _LOGGER.debug(
-                    "(" + self._name + ") New State from Display Options: " + new_state
+                    "(" + self._name + ") New State from Display Options: " + str(new_state)
                 )
-            elif "zone_name" in display_options:
-                new_state = devicetracker_zone_name
+            elif "zone_name" in display_options and self._devicetracker_zone_name is not None:
+                new_state = self._devicetracker_zone_name
                 _LOGGER.debug(
                     "("
                     + self._name
                     + ") New State from DeviceTracker Zone Name: "
-                    + new_state
+                    + str(new_state)
                 )
-            else:
+            elif self._devicetracker_zone is not None:
                 new_state = devicetracker_zone
                 _LOGGER.debug(
                     "("
                     + self._name
                     + ") New State from DeviceTracker Zone: "
-                    + new_state
+                    + str(new_state)
                 )
+
 
             if self._extended_attr:
                 self._osm_dict = osm_decoded
@@ -1220,12 +1112,12 @@ class Places(Entity):
 
                         osm_details_url = (
                             "https://nominatim.openstreetmap.org/details.php?osmtype="
-                            + osm_type_abbr
+                            + str(osm_type_abbr)
                             + "&osmid="
-                            + osm_id
+                            + str(osm_id)
                             + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
                             + (
-                                "&email=" + self._api_key
+                                "&email=" + str(self._api_key)
                                 if self._api_key != DEFAULT_KEY
                                 else ""
                             )
@@ -1235,14 +1127,14 @@ class Places(Entity):
                             "("
                             + self._name
                             + ") OpenStreetMap Details Request: type="
-                            + osm_type
+                            + str(osm_type)
                             + " ("
-                            + osm_type_abbr
+                            + str(osm_type_abbr)
                             + ") and id="
                             + str(osm_id)
                         )
                         _LOGGER.debug(
-                            "(" + self._name + ") OSM Details URL: " + osm_details_url
+                            "(" + self._name + ") OSM Details URL: " + str(osm_details_url)
                         )
                         osm_details_response = get(osm_details_url)
                         if "error_message" in osm_details_response:
@@ -1275,7 +1167,7 @@ class Places(Entity):
                             if wikidata_id is not None:
                                 wikidata_url = (
                                     "https://www.wikidata.org/wiki/Special:EntityData/"
-                                    + wikidata_id
+                                    + str(wikidata_id)
                                     + ".json"
                                 )
 
@@ -1283,10 +1175,10 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Wikidata Request: id="
-                                    + wikidata_id
+                                    + str(wikidata_id)
                                 )
                                 _LOGGER.debug(
-                                    "(" + self._name + ") Wikidata URL: " + wikidata_url
+                                    "(" + self._name + ") Wikidata URL: " + str(wikidata_url)
                                 )
                                 wikidata_response = get(wikidata_url)
                                 if "error_message" in wikidata_response:
@@ -1305,16 +1197,25 @@ class Places(Entity):
                                         + ") Wikidata JSON: "
                                         + wikidata_json_input
                                     )
-                                    _LOGGER.debug(
-                                        "("
-                                        + self._name
-                                        + ") Wikidata Dict: "
-                                        + str(wikidata_dict)
-                                    )
+                                    #_LOGGER.debug(
+                                    #    "("
+                                    #    + self._name
+                                    #    + ") Wikidata Dict: "
+                                    #    + str(wikidata_dict)
+                                    #)
                                     self._wikidata_dict = wikidata_dict
+                if new_state is not None:
+                    _LOGGER.debug("(" + self._name + ") New State (Final): " + str(new_state))
+                    self._state = new_state[:255]
+                else:
+                    self._state = "<Unknown>"
+                    _LOGGER.warning(
+                        "("
+                        + self._name
+                        + ") New State is None, setting to: "
+                        + str(self._state)
+                    )
                 _LOGGER.debug("(" + self._name + ") Building EventData")
-                new_state = new_state[:255]
-                self._state = new_state
                 event_data = {}
                 event_data["entity"] = self._name
                 event_data["from_state"] = previous_state
@@ -1362,10 +1263,9 @@ class Places(Entity):
                         event_data[ATTR_OSM_DETAILS_DICT] = osm_details_dict
                     if wikidata_dict is not None:
                         event_data[ATTR_WIKIDATA_DICT] = wikidata_dict
-                # _LOGGER.debug( "(" + self._name + ") Event Data: " + event_data )
-                self._hass.bus.fire(DEFAULT_NAME + "_state_update", event_data)
+                self._hass.bus.fire(DOMAIN + "_state_update", event_data)
                 _LOGGER.debug(
-                    "(" + self._name + ") EventData updated: " + str(event_data)
+                    "(" + self._name + ") Event Fired [event_type: " + DOMAIN + "_state_update]: " + str(event_data)
                 )
             else:
                 _LOGGER.debug(
