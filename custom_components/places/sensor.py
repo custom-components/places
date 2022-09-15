@@ -32,6 +32,7 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import Platform
+from homeassistant.const import CONF_ZONE
 from homeassistant.const import (
     CONF_ENTITY_ID,
     CONF_FRIENDLY_NAME,
@@ -100,8 +101,8 @@ from .const import DEFAULT_OPTION
 from .const import DOMAIN
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
-TRACKING_DOMAIN = "device_tracker"
-HOME_LOCATION_DOMAIN = ""
+TRACKING_DOMAIN = Platform.DEVICE_TRACKER
+HOME_LOCATION_DOMAIN = CONF_ZONE
 SCAN_INTERVAL = timedelta(seconds=30)
 _LOGGER = logging.getLogger(__name__)
 
@@ -482,20 +483,20 @@ class Places(Entity):
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
         if hasattr(self, "entity_id") and self.entity_id is not None:
-            _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
+            #_LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
             #_LOGGER.debug(
             #    "("
             #    + self._name
             #    + ") Entity Data: "
             #    + str(self._hass.states.get(str(self.entity_id)))
             #)
-            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get("friendly_name"):
+            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME):
                 _LOGGER.debug("("
                     + self._name
                     + ") Updating Name to: "
-                    + str(self._hass.states.get(str(self.entity_id)).attributes.get("friendly_name"))
+                    + str(self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME))
                 ) 
-                self._name = self._hass.states.get(str(self.entity_id)).attributes.get("friendly_name")
+                self._name = self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME)
         _LOGGER.info(
             "(" + self._name + ") Check if update req'd: " + str(self._devicetracker_id)
         )
@@ -716,7 +717,7 @@ class Places(Entity):
 
         if current_location == previous_location:
             _LOGGER.debug(
-                "(" + self._name + ") Skipping update because coordinates are identical"
+                "(" + self._name + ") Stopping update because coordinates are identical"
             )
             proceed_with_update = False
         elif int(distance_traveled) > 0 and self._updateskipped > 3:
@@ -731,7 +732,7 @@ class Places(Entity):
             _LOGGER.debug(
                 "("
                 + self._name
-                + ") Skipping update because location changed "
+                + ") Stopping update because location changed "
                 + str(round(distance_traveled, 1))
                 + " < 10m  ("
                 + str(self._updateskipped)

@@ -2,6 +2,7 @@ import logging
 
 from homeassistant import config_entries
 from homeassistant import core
+from homeassistant.const import Platform
 
 from .const import DOMAIN
 
@@ -15,7 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # List of platforms to support. There should be a matching .py file for each,
 # eg <cover.py> and <sensor.py>
-PLATFORMS: list[str] = ["sensor"]
+PLATFORMS: list[str] = [Platform.SENSOR]
 
 
 async def async_setup_entry(
