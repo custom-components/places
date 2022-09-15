@@ -98,7 +98,7 @@ from .const import DEFAULT_OPTION
 from .const import DOMAIN
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
-TRACKING_DOMAIN = Platform.DEVICE_TRACKER
+TRACKING_DOMAIN = str(Platform.DEVICE_TRACKER)
 HOME_LOCATION_DOMAIN = CONF_ZONE
 SCAN_INTERVAL = timedelta(seconds=30)
 _LOGGER = logging.getLogger(__name__)
@@ -142,6 +142,8 @@ class Places(Entity):
         _LOGGER.debug("[Init] New places sensor: " + str(name))
         _LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
         _LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
+        #_LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor Type: " + str(type(hass.data[TRACKING_DOMAIN])))
+        #_LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor: " + list(hass.data[TRACKING_DOMAIN]))
 
         self._config = config
         self._hass = hass
@@ -504,8 +506,22 @@ class Places(Entity):
                 self._name = self._hass.states.get(str(self.entity_id)).attributes.get(
                     CONF_FRIENDLY_NAME
                 )
-            if self._name != self._config[CONF_NAME]:
+            if self._name != self._hass.data[DOMAIN][self._unique_id][CONF_NAME]:
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Updating Hass Data Name - Old: "
+                    + str(self._hass.data[DOMAIN][self._unique_id][CONF_NAME])
+                )
+                self._hass.data[DOMAIN][self._unique_id][CONF_NAME] = self._name
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Updating Hass Data Name - New: "
+                    + str(self._hass.data[DOMAIN][self._unique_id][CONF_NAME])
+                )
 
+            if self._name != self._config[CONF_NAME]:
                 _LOGGER.debug(
                     "("
                     + self._name
