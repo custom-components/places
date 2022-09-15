@@ -33,9 +33,6 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_FRIENDLY_NAME
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
-from homeassistant.const import CONF_ZONE
-from homeassistant.const import Platform
-from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
@@ -99,19 +96,12 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_OPTION
 from .const import DOMAIN
+from .const import TRACKING_DOMAIN
+from .const import HOME_LOCATION_DOMAIN
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
-TRACKING_DOMAIN = str(Platform.DEVICE_TRACKER)
-HOME_LOCATION_DOMAIN = CONF_ZONE
 SCAN_INTERVAL = timedelta(seconds=30)
 _LOGGER = logging.getLogger(__name__)
-
-####
-full_domain_list = []
-zone_list = []
-device_tracker_list = []
-my_entity_id = None
-my_entity_domain = None
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -177,41 +167,6 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
-    # _LOGGER.debug("[async_setup_entry] config: " + str(config))
-    # _LOGGER.debug("[async_setup_entry] hass: " + str(hass))
-    # _LOGGER.debug("[async_setup_entry] hass data type: " + str(type(hass.data)))
-    # _LOGGER.debug("[async_setup_entry] hass data: " + str(hass.data))
-    # _LOGGER.debug("[async_setup_entry] hass states: " + str(hass.states))
-    # _LOGGER.debug("[async_setup_entry] hass states entity_ids: " + str(hass.states.async_entity_ids()))
-    _LOGGER.debug(
-        "[async_setup_entry] hass states device_tracker entity_ids: "
-        + str(hass.states.async_entity_ids("device_tracker"))
-    )
-    _LOGGER.debug(
-        "[async_setup_entry] hass states zone entity_ids: "
-        + str(hass.states.async_entity_ids("zone"))
-    )
-    # _LOGGER.debug("[async_setup_entry] hass components: " + str(hass.components))
-    # _LOGGER.debug("[async_setup_entry] hass components type: " + str(type(hass.components)))
-    # _LOGGER.debug("[async_setup_entry] hass components device_tracker: " + str(hass.components.device_tracker))
-    # _LOGGER.debug("[async_setup_entry] hass components zone: " + str(hass.components.zone))
-
-    # compdict = [ s.component for s in hass.states.async_all() ]
-    # _LOGGER.debug("[async_setup_entry] hass components full list: " + str(compdict))
-    # compdict = list(dict.fromkeys(compdict))
-    # cnt = len(domains)
-    # compdict.sort()
-
-    # compdict = []
-
-    # for component in hass.components:
-    #    if component.count('.') == 0 and component not in compdict:
-    #        compdict[component] = []
-    #    if component.count('.') == 1:
-    #        domain, subdomain = component.split('.')
-    #        compdict[domain].append(subdomain)
-    #
-    # _LOGGER.debug("[async_setup_entry] hass components domains list: " + str(compdict))
 
     async_add_entities(
         [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
@@ -224,10 +179,6 @@ class Places(Entity):
     def __init__(self, hass, config, config_entry, name, unique_id):
         """Initialize the sensor."""
         _LOGGER.debug("[Init] New places sensor: " + str(name))
-        # _LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
-        # _LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
-        # _LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor Type: " + str(type(hass.data[TRACKING_DOMAIN])))
-        # _LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor: " + list(hass.data[TRACKING_DOMAIN]))
 
         self._config = config
         self._config_entry = config_entry
@@ -548,7 +499,7 @@ class Places(Entity):
         prev_last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
-        _LOGGER.debug(" config_entry: " + str(self._config_entry.data))
+        #_LOGGER.debug(" config_entry: " + str(self._config_entry.data))
         if hasattr(self, "entity_id") and self.entity_id is not None:
             # _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
             # _LOGGER.debug(
@@ -612,11 +563,6 @@ class Places(Entity):
         )
         _LOGGER.debug("(" + self._name + ") Previous State: " + str(previous_state))
 
-        # Can remove this 'if' now since we are checking before calling do_update
-        # if (
-        #    hasattr(self, "_devicetracker_id")
-        #    and self._hass.states.get(self._devicetracker_id) is not None
-        # ):
         now = datetime.now()
         old_latitude = str(self._latitude)
         if not self.is_float(old_latitude):
@@ -686,7 +632,7 @@ class Places(Entity):
             + "&z="
             + str(self._map_zoom)
         )
-        # maplink_google = 'https://www.google.com/maps/dir/?api=1&origin=' + current_location + '&destination=' + home_location + '&travelmode=driving&layer=traffic'
+
         maplink_google = (
             "https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query="
             + str(current_location)

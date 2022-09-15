@@ -23,6 +23,10 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_OPTION
 from .const import DOMAIN  # pylint:disable=unused-import
+from .const import TRACKING_DOMAIN
+from .const import HOME_LOCATION_DOMAIN
+
+from homeassistant.helpers import selector
 
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
@@ -37,18 +41,15 @@ MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): str,
-        vol.Required(CONF_DEVICETRACKER_ID): str,
+        vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)),
         vol.Optional(CONF_API_KEY): str,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): str,
-        vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): str,
-        vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): vol.In(
-            MAP_PROVIDER_OPTIONS
-        ),
-        vol.Optional(CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=20)
-        ),
+        vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): selector.EntitySelector(selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)),
+        vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): selector.SelectSelector(selector.SelectSelectorConfig(options=MAP_PROVIDER_OPTIONS, multiple=False, custom_value=False, mode=selector.SelectSelectorMode.DROPDOWN)),
+        #vol.In(MAP_PROVIDER_OPTIONS),
+        vol.Optional(CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=20, mode=selector.NumberSelectorMode.BOX)),
         vol.Optional(CONF_LANGUAGE): str,
-        vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): bool,
+        vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): selector.BooleanSelector(selector.BooleanSelectorConfig()),
     }
 )
 
@@ -112,6 +113,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # `validate_input` above.
         errors = {}
         if user_input is not None:
+        	_LOGGER.debug("[config_flow] user_input: " + str(user_input))
             try:
                 info = await validate_input(self.hass, user_input)
 
