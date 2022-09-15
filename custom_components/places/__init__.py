@@ -26,6 +26,7 @@ async def async_setup_entry(
     # Store an instance of the "connecting" class that does the work of speaking
     # with your actual devices.
     ##hass.data.setdefault(DOMAIN, {})[entry.entry_id] = hub.Hub(hass, entry.data["host"])
+    _LOGGER.debug("[init async_setup_entry] entry: " + str(entry.data))
     hass.data.setdefault(DOMAIN, {})
     hass_data = dict(entry.data)
     hass.data[DOMAIN][entry.entry_id] = hass_data
