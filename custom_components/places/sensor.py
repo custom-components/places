@@ -409,8 +409,8 @@ class Places(Entity):
                 + self._name
                 + ") [Async Update] Running Update - Devicetracker is set"
             )
-            await self._hass.async_add_executor_job(self.do_update,"Scan Interval")
-            #self.do_update("Scan Interval")
+            await self._hass.async_add_executor_job(self.do_update, "Scan Interval")
+            # self.do_update("Scan Interval")
         else:
             _LOGGER.debug(
                 "("
