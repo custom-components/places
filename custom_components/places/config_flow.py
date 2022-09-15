@@ -9,6 +9,7 @@ from homeassistant import core
 from homeassistant import exceptions
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
+from homeassistant.helpers import selector
 
 from .const import CONF_DEVICETRACKER_ID
 from .const import CONF_EXTENDED_ATTR
@@ -23,10 +24,8 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_OPTION
 from .const import DOMAIN  # pylint:disable=unused-import
-from .const import TRACKING_DOMAIN
 from .const import HOME_LOCATION_DOMAIN
-
-from homeassistant.helpers import selector
+from .const import TRACKING_DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
@@ -41,15 +40,38 @@ MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): str,
-        vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)),
+        vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(
+            selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
+        ),
         vol.Optional(CONF_API_KEY): str,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): str,
-        vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): selector.EntitySelector(selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)),
-        vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): selector.SelectSelector(selector.SelectSelectorConfig(options=MAP_PROVIDER_OPTIONS, multiple=False, custom_value=False, mode=selector.SelectSelectorMode.DROPDOWN)),
-        #vol.In(MAP_PROVIDER_OPTIONS),
-        vol.Optional(CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)): selector.NumberSelector(selector.NumberSelectorConfig(min=1, max=20, mode=selector.NumberSelectorMode.BOX)),
+        vol.Optional(
+            CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
+        ): selector.EntitySelector(
+            selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
+        ),
+        vol.Optional(
+            CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=MAP_PROVIDER_OPTIONS,
+                multiple=False,
+                custom_value=False,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
+        # vol.In(MAP_PROVIDER_OPTIONS),
+        vol.Optional(
+            CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=1, max=20, mode=selector.NumberSelectorMode.BOX
+            )
+        ),
         vol.Optional(CONF_LANGUAGE): str,
-        vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+        vol.Optional(
+            CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
+        ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
     }
 )
 

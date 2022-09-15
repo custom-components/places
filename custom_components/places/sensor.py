@@ -96,8 +96,8 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_OPTION
 from .const import DOMAIN
-from .const import TRACKING_DOMAIN
 from .const import HOME_LOCATION_DOMAIN
+from .const import TRACKING_DOMAIN
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -499,7 +499,7 @@ class Places(Entity):
         prev_last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
-        #_LOGGER.debug(" config_entry: " + str(self._config_entry.data))
+        # _LOGGER.debug(" config_entry: " + str(self._config_entry.data))
         if hasattr(self, "entity_id") and self.entity_id is not None:
             # _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
             # _LOGGER.debug(
