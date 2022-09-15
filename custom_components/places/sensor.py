@@ -142,8 +142,8 @@ class Places(Entity):
         _LOGGER.debug("[Init] New places sensor: " + str(name))
         _LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
         _LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
-        #_LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor Type: " + str(type(hass.data[TRACKING_DOMAIN])))
-        #_LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor: " + list(hass.data[TRACKING_DOMAIN]))
+        # _LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor Type: " + str(type(hass.data[TRACKING_DOMAIN])))
+        # _LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor: " + list(hass.data[TRACKING_DOMAIN]))
 
         self._config = config
         self._hass = hass
