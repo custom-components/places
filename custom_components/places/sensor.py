@@ -33,8 +33,8 @@ from homeassistant.const import CONF_ENTITY_ID
 from homeassistant.const import CONF_FRIENDLY_NAME
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
-from homeassistant.const import Platform
 from homeassistant.const import CONF_ZONE
+from homeassistant.const import Platform
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.util import Throttle
@@ -481,20 +481,29 @@ class Places(Entity):
 
         _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
         if hasattr(self, "entity_id") and self.entity_id is not None:
-            #_LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
+            # _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
             # _LOGGER.debug(
             #    "("
             #    + self._name
             #    + ") Entity Data: "
             #    + str(self._hass.states.get(str(self.entity_id)))
-            #)
-            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME):
-                _LOGGER.debug("("
+            # )
+            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get(
+                CONF_FRIENDLY_NAME
+            ):
+                _LOGGER.debug(
+                    "("
                     + self._name
                     + ") Updating Name to: "
-                    + str(self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME))
-                ) 
-                self._name = self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME)
+                    + str(
+                        self._hass.states.get(str(self.entity_id)).attributes.get(
+                            CONF_FRIENDLY_NAME
+                        )
+                    )
+                )
+                self._name = self._hass.states.get(str(self.entity_id)).attributes.get(
+                    CONF_FRIENDLY_NAME
+                )
             if self._name != self._hass.states.get(str(self.entity_id)).attributes.get(
                 "friendly_name"
             ):
