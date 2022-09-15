@@ -47,7 +47,7 @@ DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_API_KEY): str,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): selector.SelectSelector(
             selector.SelectSelectorConfig(
-                options=MAP_PROVIDER_OPTIONS,
+                options=STATE_OPTIONS,
                 multiple=False,
                 custom_value=True,
                 mode=selector.SelectSelectorMode.DROPDOWN,
