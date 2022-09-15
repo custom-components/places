@@ -409,8 +409,8 @@ class Places(Entity):
                 + self._name
                 + ") [Async Update] Running Update - Devicetracker is set"
             )
-            # await self._hass.async_add_executor_job(self.do_update("Scan Interval"))
-            self.do_update("Scan Interval")
+            await self._hass.async_add_executor_job(self.do_update,"Scan Interval")
+            #self.do_update("Scan Interval")
         else:
             _LOGGER.debug(
                 "("
@@ -509,12 +509,16 @@ class Places(Entity):
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") Updating Config Name: Old: "
+                    + ") Updating Config Name - Old: "
                     + str(self._config[CONF_NAME])
-                    + ", New: "
-                    + self._name
                 )
                 self._config[CONF_NAME] = self._name
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Updating Config Name - New: "
+                    + str(self._config[CONF_NAME])
+                )
 
         _LOGGER.info(
             "(" + self._name + ") Check if update req'd: " + str(self._devicetracker_id)
@@ -821,7 +825,7 @@ class Places(Entity):
                 + str(self._longitude)
             )
             _LOGGER.debug("(" + self._name + ") OSM URL: " + str(osm_url))
-            osm_response = await self._hass.async_add_executor_job(get, osm_url)
+            osm_response = get(osm_url)
             osm_json_input = osm_response.text
             _LOGGER.debug("(" + self._name + ") OSM Response: " + osm_json_input)
             osm_decoded = json.loads(osm_json_input)
