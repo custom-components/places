@@ -113,7 +113,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # `validate_input` above.
         errors = {}
         if user_input is not None:
-        	_LOGGER.debug("[config_flow] user_input: " + str(user_input))
+            _LOGGER.debug("[config_flow] user_input: " + str(user_input))
             try:
                 info = await validate_input(self.hass, user_input)
 
