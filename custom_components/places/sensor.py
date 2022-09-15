@@ -29,7 +29,6 @@ from homeassistant import config_entries
 from homeassistant import core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_API_KEY
-from homeassistant.const import CONF_ENTITY_ID
 from homeassistant.const import CONF_FRIENDLY_NAME
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
@@ -132,10 +131,6 @@ async def async_setup_entry(
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
     _LOGGER.debug("[async_setup_entry] config: " + str(config))
-    ###
-    _LOGGER.debug("(" + str(name) + ") [Init] Platform Type: " + str(type(Platform)))
-    _LOGGER.debug("(" + str(name) + ") [Init] Platform: " + str(list(Platform)))
-    ###
     async_add_entities([Places(hass, config, name, unique_id)], update_before_add=True)
 
 
@@ -148,6 +143,7 @@ class Places(Entity):
         _LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
         _LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
 
+        self._config = config
         self._hass = hass
         self._name = name
         self._unique_id = unique_id
@@ -488,9 +484,7 @@ class Places(Entity):
             #    + ") Entity Data: "
             #    + str(self._hass.states.get(str(self.entity_id)))
             # )
-            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get(
-                CONF_FRIENDLY_NAME
-            ):
+            if self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME) is not None and self._name != self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME):
                 _LOGGER.debug(
                     "("
                     + self._name
@@ -504,236 +498,232 @@ class Places(Entity):
                 self._name = self._hass.states.get(str(self.entity_id)).attributes.get(
                     CONF_FRIENDLY_NAME
                 )
-            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get(
-                "friendly_name"
-            ):
+            if self._name != self._config[CONF_NAME]:
+                
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") Updating Name to: "
-                    + str(
-                        self._hass.states.get(str(self.entity_id)).attributes.get(
-                            "friendly_name"
-                        )
-                    )
+                    + ") Updating Config Name: Old: "
+                    + str(self._config[CONF_NAME])
+                    + ", New: "
+                    + self._name
                 )
-                self._name = self._hass.states.get(str(self.entity_id)).attributes.get(
-                    "friendly_name"
-                )
+                self._config[CONF_NAME] = self._name
+
         _LOGGER.info(
             "(" + self._name + ") Check if update req'd: " + str(self._devicetracker_id)
         )
         _LOGGER.debug("(" + self._name + ") Previous State: " + str(previous_state))
 
         # Can remove this 'if' now since we are checking before calling do_update
-        if (
-            hasattr(self, "_devicetracker_id")
-            and self._hass.states.get(self._devicetracker_id) is not None
-        ):
-            now = datetime.now()
-            old_latitude = str(self._latitude)
-            if not self.is_float(old_latitude):
-                old_latitude = None
-            old_longitude = str(self._longitude)
-            if not self.is_float(old_latitude):
-                old_latitude = None
-            new_latitude = str(
-                self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
+        #if (
+        #    hasattr(self, "_devicetracker_id")
+        #    and self._hass.states.get(self._devicetracker_id) is not None
+        #):
+        now = datetime.now()
+        old_latitude = str(self._latitude)
+        if not self.is_float(old_latitude):
+            old_latitude = None
+        old_longitude = str(self._longitude)
+        if not self.is_float(old_latitude):
+            old_latitude = None
+        new_latitude = str(
+            self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
+        )
+        if not self.is_float(new_latitude):
+            new_latitude = None
+        new_longitude = str(
+            self._hass.states.get(self._devicetracker_id).attributes.get(
+                "longitude"
             )
-            if not self.is_float(new_latitude):
-                new_latitude = None
-            new_longitude = str(
-                self._hass.states.get(self._devicetracker_id).attributes.get(
-                    "longitude"
-                )
-            )
-            if not self.is_float(new_longitude):
-                new_longitude = None
-            home_latitude = str(self._home_latitude)
-            if not self.is_float(home_latitude):
-                home_latitude = None
-            home_longitude = str(self._home_longitude)
-            if not self.is_float(home_longitude):
-                home_longitude = None
-            last_distance_m = self._distance_m
-            last_updated = self._mtime
-            current_location = new_latitude + "," + new_longitude
-            previous_location = old_latitude + "," + old_longitude
-            home_location = home_latitude + "," + home_longitude
-            prev_last_place_name = self._last_place_name
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") Previous last_place_name: "
-                + str(self._last_place_name)
-            )
+        )
+        if not self.is_float(new_longitude):
+            new_longitude = None
+        home_latitude = str(self._home_latitude)
+        if not self.is_float(home_latitude):
+            home_latitude = None
+        home_longitude = str(self._home_longitude)
+        if not self.is_float(home_longitude):
+            home_longitude = None
+        last_distance_m = self._distance_m
+        last_updated = self._mtime
+        current_location = new_latitude + "," + new_longitude
+        previous_location = old_latitude + "," + old_longitude
+        home_location = home_latitude + "," + home_longitude
+        prev_last_place_name = self._last_place_name
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") Previous last_place_name: "
+            + str(self._last_place_name)
+        )
 
-            if not self.in_zone():
-                # Not in a Zone
-                if self._place_name is not None and self._place_name != "-":
-                    # If place name is set
-                    last_place_name = self._place_name
-                    _LOGGER.debug(
-                        "("
-                        + self._name
-                        + ") Previous Place Name is set: "
-                        + str(last_place_name)
-                    )
-                else:
-                    # If blank, keep previous last place name
-                    last_place_name = self._last_place_name
-                    _LOGGER.debug(
-                        "("
-                        + self._name
-                        + ") Previous Place Name is None, keeping prior"
-                    )
-            else:
-                # In a Zone
-                last_place_name = self._devicetracker_zone_name
+        if not self.in_zone():
+            # Not in a Zone
+            if self._place_name is not None and self._place_name != "-":
+                # If place name is set
+                last_place_name = self._place_name
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") Previous Place is Zone: "
+                    + ") Previous Place Name is set: "
                     + str(last_place_name)
                 )
+            else:
+                # If blank, keep previous last place name
+                last_place_name = self._last_place_name
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Previous Place Name is None, keeping prior"
+                )
+        else:
+            # In a Zone
+            last_place_name = self._devicetracker_zone_name
             _LOGGER.debug(
                 "("
                 + self._name
-                + ") Last Place Name (Initial): "
+                + ") Previous Place is Zone: "
                 + str(last_place_name)
             )
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") Last Place Name (Initial): "
+            + str(last_place_name)
+        )
 
-            maplink_apple = (
-                "https://maps.apple.com/maps/?q="
-                + str(current_location)
-                + "&z="
-                + str(self._map_zoom)
+        maplink_apple = (
+            "https://maps.apple.com/maps/?q="
+            + str(current_location)
+            + "&z="
+            + str(self._map_zoom)
+        )
+        # maplink_google = 'https://www.google.com/maps/dir/?api=1&origin=' + current_location + '&destination=' + home_location + '&travelmode=driving&layer=traffic'
+        maplink_google = (
+            "https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query="
+            + str(current_location)
+        )
+        maplink_osm = (
+            "https://www.openstreetmap.org/?mlat="
+            + str(new_latitude)
+            + "&mlon="
+            + str(new_longitude)
+            + "#map="
+            + str(self._map_zoom)
+            + "/"
+            + str(new_latitude)[:8]
+            + "/"
+            + str(new_longitude)[:9]
+        )
+        if (
+            new_latitude is not None
+            and new_longitude is not None
+            and home_latitude is not None
+            and home_longitude is not None
+        ):
+            distance_m = distance(
+                float(new_latitude),
+                float(new_longitude),
+                float(home_latitude),
+                float(home_longitude),
             )
-            # maplink_google = 'https://www.google.com/maps/dir/?api=1&origin=' + current_location + '&destination=' + home_location + '&travelmode=driving&layer=traffic'
-            maplink_google = (
-                "https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query="
-                + str(current_location)
+            distance_km = round(distance_m / 1000, 3)
+
+            deviation = self.haversine(
+                float(old_latitude),
+                float(old_longitude),
+                float(new_latitude),
+                float(new_longitude),
             )
-            maplink_osm = (
-                "https://www.openstreetmap.org/?mlat="
-                + str(new_latitude)
-                + "&mlon="
-                + str(new_longitude)
-                + "#map="
-                + str(self._map_zoom)
-                + "/"
-                + str(new_latitude)[:8]
-                + "/"
-                + str(new_longitude)[:9]
-            )
-            if (
-                new_latitude is not None
-                and new_longitude is not None
-                and home_latitude is not None
-                and home_longitude is not None
-            ):
-                distance_m = distance(
-                    float(new_latitude),
-                    float(new_longitude),
-                    float(home_latitude),
-                    float(home_longitude),
-                )
-                distance_km = round(distance_m / 1000, 3)
-
-                deviation = self.haversine(
-                    float(old_latitude),
-                    float(old_longitude),
-                    float(new_latitude),
-                    float(new_longitude),
-                )
-                if deviation <= 0.2:  # in kilometers
-                    direction = "stationary"
-                elif last_distance_m > distance_m:
-                    direction = "towards home"
-                elif last_distance_m < distance_m:
-                    direction = "away from home"
-                else:
-                    direction = "stationary"
-
-                _LOGGER.debug(
-                    "(" + self._name + ") Previous Location: " + str(previous_location)
-                )
-                _LOGGER.debug(
-                    "(" + self._name + ") Current Location: " + str(current_location)
-                )
-                _LOGGER.debug(
-                    "(" + self._name + ") Home Location: " + str(home_location)
-                )
-                _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") Distance from home ["
-                    + (self._home_zone).split(".")[1]
-                    + "]: "
-                    + str(distance_km)
-                    + " km"
-                )
-                _LOGGER.info("(" + self._name + ") Travel Direction: " + str(direction))
-
-                """Update if location has changed."""
-
-                devicetracker_zone = self._hass.states.get(self._devicetracker_id).state
-                _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") DeviceTracker Zone: "
-                    + str(devicetracker_zone)
-                )
-
-                devicetracker_zone_id = self._hass.states.get(
-                    self._devicetracker_id
-                ).attributes.get("zone")
-                if devicetracker_zone_id is not None:
-                    devicetracker_zone_id = "zone." + str(devicetracker_zone_id)
-                    devicetracker_zone_name_state = self._hass.states.get(
-                        devicetracker_zone_id
-                    )
-                if devicetracker_zone_name_state is not None:
-                    devicetracker_zone_name = devicetracker_zone_name_state.name
-                else:
-                    devicetracker_zone_name = devicetracker_zone
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") DeviceTracker Zone Name: "
-                    + str(devicetracker_zone_name)
-                )
-
-                distance_traveled = distance(
-                    float(new_latitude),
-                    float(new_longitude),
-                    float(old_latitude),
-                    float(old_longitude),
-                )
-
-                _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") Meters traveled since last update: "
-                    + str(round(distance_traveled, 1))
-                )
+            if deviation <= 0.2:  # in kilometers
+                direction = "stationary"
+            elif last_distance_m > distance_m:
+                direction = "towards home"
+            elif last_distance_m < distance_m:
+                direction = "away from home"
             else:
-                _LOGGER.error(
-                    "("
-                    + self._name
-                    + ") Problem with updated lat/long, this will likely error: new_latitude="
-                    + str(new_latitude)
-                    + ", new_longitude="
-                    + str(new_longitude)
-                    + ", home_latitude="
-                    + str(home_latitude)
-                    + ", home_longitude="
-                    + str(home_longitude)
+                direction = "stationary"
+
+            _LOGGER.debug(
+                "(" + self._name + ") Previous Location: " + str(previous_location)
+            )
+            _LOGGER.debug(
+                "(" + self._name + ") Current Location: " + str(current_location)
+            )
+            _LOGGER.debug(
+                "(" + self._name + ") Home Location: " + str(home_location)
+            )
+            _LOGGER.info(
+                "("
+                + self._name
+                + ") Distance from home ["
+                + (self._home_zone).split(".")[1]
+                + "]: "
+                + str(distance_km)
+                + " km"
+            )
+            _LOGGER.info("(" + self._name + ") Travel Direction: " + str(direction))
+
+            """Update if location has changed."""
+
+            devicetracker_zone = self._hass.states.get(self._devicetracker_id).state
+            _LOGGER.info(
+                "("
+                + self._name
+                + ") DeviceTracker Zone: "
+                + str(devicetracker_zone)
+            )
+
+            devicetracker_zone_id = self._hass.states.get(
+                self._devicetracker_id
+            ).attributes.get("zone")
+            if devicetracker_zone_id is not None:
+                devicetracker_zone_id = "zone." + str(devicetracker_zone_id)
+                devicetracker_zone_name_state = self._hass.states.get(
+                    devicetracker_zone_id
                 )
+            if devicetracker_zone_name_state is not None:
+                devicetracker_zone_name = devicetracker_zone_name_state.name
+            else:
+                devicetracker_zone_name = devicetracker_zone
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") DeviceTracker Zone Name: "
+                + str(devicetracker_zone_name)
+            )
+
+            distance_traveled = distance(
+                float(new_latitude),
+                float(new_longitude),
+                float(old_latitude),
+                float(old_longitude),
+            )
+
+            _LOGGER.info(
+                "("
+                + self._name
+                + ") Meters traveled since last update: "
+                + str(round(distance_traveled, 1))
+            )
         else:
             _LOGGER.error(
-                "(" + self._name + ") Missing _devicetracker_id, this will likely error"
+                "("
+                + self._name
+                + ") Problem with updated lat/long, this will likely error: new_latitude="
+                + str(new_latitude)
+                + ", new_longitude="
+                + str(new_longitude)
+                + ", home_latitude="
+                + str(home_latitude)
+                + ", home_longitude="
+                + str(home_longitude)
             )
+        #else:
+        #    _LOGGER.error(
+        #        "(" + self._name + ") Missing _devicetracker_id, this will likely error"
+        #    )
 
         proceed_with_update = True
         initial_update = False
