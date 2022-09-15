@@ -96,8 +96,6 @@ from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_OPTION
 from .const import DOMAIN
-from .const import HOME_LOCATION_DOMAIN
-from .const import TRACKING_DOMAIN
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -117,45 +115,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
     }
 )
-
-
-# From: core/homeassistant/components/homekit/config_flow.py
-def _exclude_by_entity_registry(
-    ent_reg: entity_registry.EntityRegistry,
-    entity_id: str,
-    include_entity_category: bool,
-    include_hidden: bool,
-) -> bool:
-    """Filter out hidden entities and ones with entity category (unless specified)."""
-    return bool(
-        (entry := ent_reg.async_get(entity_id))
-        and (
-            (not include_hidden and entry.hidden_by is not None)
-            or (not include_entity_category and entry.entity_category is not None)
-        )
-    )
-
-
-# From: core/homeassistant/components/homekit/config_flow.py
-def _async_get_matching_entities(
-    hass: core.HomeAssistant,
-    domains: list[str] | None = None,
-    include_entity_category: bool = False,
-    include_hidden: bool = False,
-) -> dict[str, str]:
-    """Fetch all entities or entities in the given domains."""
-    ent_reg = entity_registry.async_get(hass)
-    return {
-        state.entity_id: f"{state.attributes.get(ATTR_FRIENDLY_NAME, state.entity_id)} ({state.entity_id})"
-        for state in sorted(
-            hass.states.async_all(domains and set(domains)),
-            key=lambda item: item.entity_id,
-        )
-        if not _exclude_by_entity_registry(
-            ent_reg, state.entity_id, include_entity_category, include_hidden
-        )
-    }
-
 
 async def async_setup_entry(
     hass: core.HomeAssistant,

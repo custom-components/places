@@ -29,6 +29,7 @@ from .const import TRACKING_DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
+STATE_OPTIONS = ["zone, place", "formatted_place", "zone_name, place"]
 
 # Note the input displayed to the user will be translated. See the
 # translations/<lang>.json file and strings.json. See here for further information:
@@ -44,7 +45,14 @@ DATA_SCHEMA = vol.Schema(
             selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
         ),
         vol.Optional(CONF_API_KEY): str,
-        vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): str,
+        vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=MAP_PROVIDER_OPTIONS,
+                multiple=False,
+                custom_value=True,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
         vol.Optional(
             CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
         ): selector.EntitySelector(
@@ -60,7 +68,6 @@ DATA_SCHEMA = vol.Schema(
                 mode=selector.SelectSelectorMode.DROPDOWN,
             )
         ),
-        # vol.In(MAP_PROVIDER_OPTIONS),
         vol.Optional(
             CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)
         ): selector.NumberSelector(
@@ -82,7 +89,7 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
     # Validate the data can be used to set up a connection.
-
+    _LOGGER.debug("[config_flow validate_input] data: " + str(data))
     # This is a simple example to show an error in the UI for a short hostname
     # The exceptions are defined at the end of this file, and are used in the
     # `async_step_user` method below.
