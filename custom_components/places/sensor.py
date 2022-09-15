@@ -30,10 +30,8 @@ from homeassistant import core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.const import CONF_API_KEY
-from homeassistant.const import CONF_FRIENDLY_NAME
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
-from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.util import Throttle
@@ -469,11 +467,11 @@ class Places(Entity):
             #    + str(self._hass.states.get(str(self.entity_id)))
             # )
             if self._hass.states.get(str(self.entity_id)).attributes.get(
-                CONF_FRIENDLY_NAME
+                ATTR_FRIENDLY_NAME
             ) is not None and self._name != self._hass.states.get(
                 str(self.entity_id)
             ).attributes.get(
-                CONF_FRIENDLY_NAME
+                ATTR_FRIENDLY_NAME
             ):
                 _LOGGER.debug(
                     "("
@@ -481,12 +479,12 @@ class Places(Entity):
                     + ") Updating Name to: "
                     + str(
                         self._hass.states.get(str(self.entity_id)).attributes.get(
-                            CONF_FRIENDLY_NAME
+                            ATTR_FRIENDLY_NAME
                         )
                     )
                 )
                 self._name = self._hass.states.get(str(self.entity_id)).attributes.get(
-                    CONF_FRIENDLY_NAME
+                    ATTR_FRIENDLY_NAME
                 )
             if self._name != self._hass.data[DOMAIN][self._unique_id][CONF_NAME]:
                 _LOGGER.debug(
