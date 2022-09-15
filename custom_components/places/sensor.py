@@ -821,7 +821,7 @@ class Places(Entity):
                 + str(self._longitude)
             )
             _LOGGER.debug("(" + self._name + ") OSM URL: " + str(osm_url))
-            osm_response = await self._hass.async_add_executor_job(get,osm_url)
+            osm_response = await self._hass.async_add_executor_job(get, osm_url)
             osm_json_input = osm_response.text
             _LOGGER.debug("(" + self._name + ") OSM Response: " + osm_json_input)
             osm_decoded = json.loads(osm_json_input)
