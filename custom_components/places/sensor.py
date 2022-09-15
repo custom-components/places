@@ -28,18 +28,19 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant import core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_FRIENDLY_NAME
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import CONF_ZONE
 from homeassistant.const import Platform
+from homeassistant.helpers import device_registry
+from homeassistant.helpers import entity_registry
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
-from homeassistant.helpers import device_registry, entity_registry
-from homeassistant.const import ATTR_FRIENDLY_NAME
 from requests import get
 
 from .const import ATTR_CITY
@@ -144,6 +145,7 @@ def _exclude_by_entity_registry(
         )
     )
 
+
 # From: core/homeassistant/components/homekit/config_flow.py
 def _async_get_matching_entities(
     hass: core.HomeAssistant,
@@ -164,6 +166,7 @@ def _async_get_matching_entities(
         )
     }
 
+
 async def async_setup_entry(
     hass: core.HomeAssistant,
     config_entry: config_entries.ConfigEntry,
@@ -174,38 +177,45 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
-    #_LOGGER.debug("[async_setup_entry] config: " + str(config))
-    #_LOGGER.debug("[async_setup_entry] hass: " + str(hass))
-    #_LOGGER.debug("[async_setup_entry] hass data type: " + str(type(hass.data)))
-    #_LOGGER.debug("[async_setup_entry] hass data: " + str(hass.data))
-    #_LOGGER.debug("[async_setup_entry] hass states: " + str(hass.states))
-    #_LOGGER.debug("[async_setup_entry] hass states entity_ids: " + str(hass.states.async_entity_ids()))
-    _LOGGER.debug("[async_setup_entry] hass states device_tracker entity_ids: " + str(hass.states.async_entity_ids('device_tracker')))
-    _LOGGER.debug("[async_setup_entry] hass states zone entity_ids: " + str(hass.states.async_entity_ids('zone')))
-    #_LOGGER.debug("[async_setup_entry] hass components: " + str(hass.components))
-    #_LOGGER.debug("[async_setup_entry] hass components type: " + str(type(hass.components)))
-    #_LOGGER.debug("[async_setup_entry] hass components device_tracker: " + str(hass.components.device_tracker))
-    #_LOGGER.debug("[async_setup_entry] hass components zone: " + str(hass.components.zone))
+    # _LOGGER.debug("[async_setup_entry] config: " + str(config))
+    # _LOGGER.debug("[async_setup_entry] hass: " + str(hass))
+    # _LOGGER.debug("[async_setup_entry] hass data type: " + str(type(hass.data)))
+    # _LOGGER.debug("[async_setup_entry] hass data: " + str(hass.data))
+    # _LOGGER.debug("[async_setup_entry] hass states: " + str(hass.states))
+    # _LOGGER.debug("[async_setup_entry] hass states entity_ids: " + str(hass.states.async_entity_ids()))
+    _LOGGER.debug(
+        "[async_setup_entry] hass states device_tracker entity_ids: "
+        + str(hass.states.async_entity_ids("device_tracker"))
+    )
+    _LOGGER.debug(
+        "[async_setup_entry] hass states zone entity_ids: "
+        + str(hass.states.async_entity_ids("zone"))
+    )
+    # _LOGGER.debug("[async_setup_entry] hass components: " + str(hass.components))
+    # _LOGGER.debug("[async_setup_entry] hass components type: " + str(type(hass.components)))
+    # _LOGGER.debug("[async_setup_entry] hass components device_tracker: " + str(hass.components.device_tracker))
+    # _LOGGER.debug("[async_setup_entry] hass components zone: " + str(hass.components.zone))
 
+    # compdict = [ s.component for s in hass.states.async_all() ]
+    # _LOGGER.debug("[async_setup_entry] hass components full list: " + str(compdict))
+    # compdict = list(dict.fromkeys(compdict))
+    # cnt = len(domains)
+    # compdict.sort()
 
-    #compdict = [ s.component for s in hass.states.async_all() ]
-    #_LOGGER.debug("[async_setup_entry] hass components full list: " + str(compdict))
-    #compdict = list(dict.fromkeys(compdict))
-    #cnt = len(domains)
-    #compdict.sort()
-    
-    #compdict = []
-    
-    #for component in hass.components:
+    # compdict = []
+
+    # for component in hass.components:
     #    if component.count('.') == 0 and component not in compdict:
     #        compdict[component] = []
     #    if component.count('.') == 1:
     #        domain, subdomain = component.split('.')
     #        compdict[domain].append(subdomain)
-    #        
-    #_LOGGER.debug("[async_setup_entry] hass components domains list: " + str(compdict))
+    #
+    # _LOGGER.debug("[async_setup_entry] hass components domains list: " + str(compdict))
 
-    async_add_entities([Places(hass, config, config_entry, name, unique_id)], update_before_add=True)
+    async_add_entities(
+        [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
+    )
 
 
 class Places(Entity):
@@ -214,8 +224,8 @@ class Places(Entity):
     def __init__(self, hass, config, config_entry, name, unique_id):
         """Initialize the sensor."""
         _LOGGER.debug("[Init] New places sensor: " + str(name))
-        #_LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
-        #_LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
+        # _LOGGER.debug("(" + str(name) + ") [Init] unique_id: " + str(unique_id))
+        # _LOGGER.debug("(" + str(name) + ") [Init] config: " + str(config))
         # _LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor Type: " + str(type(hass.data[TRACKING_DOMAIN])))
         # _LOGGER.debug("(" + str(name) + ") [Init] Hass Sensor: " + list(hass.data[TRACKING_DOMAIN]))
 
@@ -426,7 +436,7 @@ class Places(Entity):
         return return_attr
 
     def is_devicetracker_set(self):
-        #_LOGGER.debug(
+        # _LOGGER.debug(
         #    "("
         #    + self._name
         #    + ") [is_devicetracker_set] DeviceTracker State: "
@@ -435,7 +445,7 @@ class Places(Entity):
         #        if self._hass.states.get(self._devicetracker_id) is not None
         #        else None
         #    )
-        #)
+        # )
 
         if (
             hasattr(self, "_devicetracker_id")
@@ -449,13 +459,13 @@ class Places(Entity):
     def tsc_update(self, tscarg2, tsarg3, tsarg4):
         """Call the do_update function based on the TSC (track state change) event"""
         if self.is_devicetracker_set():
-        #    _LOGGER.debug(
-        #        "("
-        #        + self._name
-        #        + ") [TSC Update] Running Update - Devicetracker is set"
-        #    )
+            #    _LOGGER.debug(
+            #        "("
+            #        + self._name
+            #        + ") [TSC Update] Running Update - Devicetracker is set"
+            #    )
             self.do_update("Track State Change")
-        #else:
+        # else:
         #    _LOGGER.debug(
         #        "("
         #        + self._name
@@ -466,14 +476,14 @@ class Places(Entity):
     async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
         if self.is_devicetracker_set():
-        #    _LOGGER.debug(
-        #        "("
-        #        + self._name
-        #        + ") [Async Update] Running Update - Devicetracker is set"
-        #    )
+            #    _LOGGER.debug(
+            #        "("
+            #        + self._name
+            #        + ") [Async Update] Running Update - Devicetracker is set"
+            #    )
             await self._hass.async_add_executor_job(self.do_update, "Scan Interval")
             # self.do_update("Scan Interval")
-        #else:
+        # else:
         #    _LOGGER.debug(
         #        "("
         #        + self._name
