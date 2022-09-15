@@ -484,7 +484,13 @@ class Places(Entity):
             #    + ") Entity Data: "
             #    + str(self._hass.states.get(str(self.entity_id)))
             # )
-            if self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME) is not None and self._name != self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME):
+            if self._hass.states.get(str(self.entity_id)).attributes.get(
+                CONF_FRIENDLY_NAME
+            ) is not None and self._name != self._hass.states.get(
+                str(self.entity_id)
+            ).attributes.get(
+                CONF_FRIENDLY_NAME
+            ):
                 _LOGGER.debug(
                     "("
                     + self._name
@@ -499,7 +505,7 @@ class Places(Entity):
                     CONF_FRIENDLY_NAME
                 )
             if self._name != self._config[CONF_NAME]:
-                
+
                 _LOGGER.debug(
                     "("
                     + self._name
@@ -516,10 +522,10 @@ class Places(Entity):
         _LOGGER.debug("(" + self._name + ") Previous State: " + str(previous_state))
 
         # Can remove this 'if' now since we are checking before calling do_update
-        #if (
+        # if (
         #    hasattr(self, "_devicetracker_id")
         #    and self._hass.states.get(self._devicetracker_id) is not None
-        #):
+        # ):
         now = datetime.now()
         old_latitude = str(self._latitude)
         if not self.is_float(old_latitude):
@@ -533,9 +539,7 @@ class Places(Entity):
         if not self.is_float(new_latitude):
             new_latitude = None
         new_longitude = str(
-            self._hass.states.get(self._devicetracker_id).attributes.get(
-                "longitude"
-            )
+            self._hass.states.get(self._devicetracker_id).attributes.get("longitude")
         )
         if not self.is_float(new_longitude):
             new_longitude = None
@@ -573,24 +577,16 @@ class Places(Entity):
                 # If blank, keep previous last place name
                 last_place_name = self._last_place_name
                 _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Previous Place Name is None, keeping prior"
+                    "(" + self._name + ") Previous Place Name is None, keeping prior"
                 )
         else:
             # In a Zone
             last_place_name = self._devicetracker_zone_name
             _LOGGER.debug(
-                "("
-                + self._name
-                + ") Previous Place is Zone: "
-                + str(last_place_name)
+                "(" + self._name + ") Previous Place is Zone: " + str(last_place_name)
             )
         _LOGGER.debug(
-            "("
-            + self._name
-            + ") Last Place Name (Initial): "
-            + str(last_place_name)
+            "(" + self._name + ") Last Place Name (Initial): " + str(last_place_name)
         )
 
         maplink_apple = (
@@ -651,9 +647,7 @@ class Places(Entity):
             _LOGGER.debug(
                 "(" + self._name + ") Current Location: " + str(current_location)
             )
-            _LOGGER.debug(
-                "(" + self._name + ") Home Location: " + str(home_location)
-            )
+            _LOGGER.debug("(" + self._name + ") Home Location: " + str(home_location))
             _LOGGER.info(
                 "("
                 + self._name
@@ -669,10 +663,7 @@ class Places(Entity):
 
             devicetracker_zone = self._hass.states.get(self._devicetracker_id).state
             _LOGGER.info(
-                "("
-                + self._name
-                + ") DeviceTracker Zone: "
-                + str(devicetracker_zone)
+                "(" + self._name + ") DeviceTracker Zone: " + str(devicetracker_zone)
             )
 
             devicetracker_zone_id = self._hass.states.get(
@@ -720,7 +711,7 @@ class Places(Entity):
                 + ", home_longitude="
                 + str(home_longitude)
             )
-        #else:
+        # else:
         #    _LOGGER.error(
         #        "(" + self._name + ") Missing _devicetracker_id, this will likely error"
         #    )
