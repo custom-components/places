@@ -29,14 +29,12 @@ from homeassistant import config_entries
 from homeassistant import core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_ENTITY_ID
+from homeassistant.const import CONF_FRIENDLY_NAME
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import Platform
 from homeassistant.const import CONF_ZONE
-from homeassistant.const import (
-    CONF_ENTITY_ID,
-    CONF_FRIENDLY_NAME,
-)
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.util import Throttle
@@ -484,7 +482,7 @@ class Places(Entity):
         _LOGGER.info("(" + self._name + ") Calling update due to " + str(reason))
         if hasattr(self, "entity_id") and self.entity_id is not None:
             #_LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
-            #_LOGGER.debug(
+            # _LOGGER.debug(
             #    "("
             #    + self._name
             #    + ") Entity Data: "
@@ -497,6 +495,22 @@ class Places(Entity):
                     + str(self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME))
                 ) 
                 self._name = self._hass.states.get(str(self.entity_id)).attributes.get(CONF_FRIENDLY_NAME)
+            if self._name != self._hass.states.get(str(self.entity_id)).attributes.get(
+                "friendly_name"
+            ):
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Updating Name to: "
+                    + str(
+                        self._hass.states.get(str(self.entity_id)).attributes.get(
+                            "friendly_name"
+                        )
+                    )
+                )
+                self._name = self._hass.states.get(str(self.entity_id)).attributes.get(
+                    "friendly_name"
+                )
         _LOGGER.info(
             "(" + self._name + ") Check if update req'd: " + str(self._devicetracker_id)
         )
