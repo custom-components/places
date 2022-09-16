@@ -90,6 +90,8 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
     """
     # Validate the data can be used to set up a connection.
     _LOGGER.debug("[config_flow validate_input] data: " + str(data))
+    #if hasattr(data,CONF_MAP_ZOOM) and data[CONF_MAP_ZOOM] is not None:
+    #    data[CONF_MAP_ZOOM] = int(data[CONF_MAP_ZOOM])
     # This is a simple example to show an error in the UI for a short hostname
     # The exceptions are defined at the end of this file, and are used in the
     # `async_step_user` method below.
@@ -142,10 +144,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # `validate_input` above.
         errors = {}
         if user_input is not None:
-            _LOGGER.debug("[config_flow] user_input: " + str(user_input))
+            
             try:
                 info = await validate_input(self.hass, user_input)
-
+                _LOGGER.debug("[config_flow] user_input: " + str(user_input))
                 return self.async_create_entry(title=info["title"], data=user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"

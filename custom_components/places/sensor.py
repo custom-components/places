@@ -150,7 +150,7 @@ class Places(Entity):
         self._map_provider = config.setdefault(
             CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER
         ).lower()
-        self._map_zoom = config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM)
+        self._map_zoom = int(config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM))
         self._language = config.setdefault(CONF_LANGUAGE, DEFAULT_LANGUAGE).lower()
         self._language.replace(" ", "")
         self._extended_attr = config.setdefault(
