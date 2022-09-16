@@ -6,12 +6,6 @@ from homeassistant.const import Platform
 
 from .const import DOMAIN
 
-# from __future__ import annotations
-# from homeassistant.config_entries import ConfigEntry
-# from homeassistant.core import HomeAssistant
-# from . import hub
-
-
 _LOGGER = logging.getLogger(__name__)
 
 # List of platforms to support. There should be a matching .py file for each,
@@ -23,9 +17,7 @@ async def async_setup_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
 ) -> bool:
     """Set up from a config entry."""
-    # Store an instance of the "connecting" class that does the work of speaking
-    # with your actual devices.
-    ##hass.data.setdefault(DOMAIN, {})[entry.entry_id] = hub.Hub(hass, entry.data["host"])
+
     _LOGGER.debug("[init async_setup_entry] entry: " + str(entry.data))
     hass.data.setdefault(DOMAIN, {})
     hass_data = dict(entry.data)
