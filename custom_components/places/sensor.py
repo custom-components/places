@@ -32,10 +32,14 @@ from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
+from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_state_change
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from requests import get
 
 from .const import ATTR_CITY
@@ -116,19 +120,19 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 
 async def async_setup_platform(
-    hass: HomeAssistant,
+    hass: core.HomeAssistant,
     config: ConfigType,
     async_add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Set up places sensor from YAML."""
 
-    @callback
+    @core.callback
     def schedule_import(_):
         """Schedule delayed import after HA is fully started."""
         async_call_later(hass, 10, do_import)
 
-    @callback
+    @core.callback
     def do_import(_):
         """Process YAML import."""
         hass.async_create_task(

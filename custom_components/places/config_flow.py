@@ -6,7 +6,6 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant import core
-from homeassistant import exceptions
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
 from homeassistant.data_entry_flow import FlowResult
