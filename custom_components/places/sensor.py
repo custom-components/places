@@ -34,12 +34,13 @@ from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.event import async_track_state_change
-from homeassistant.util import Throttle
-from homeassistant.util.location import distance
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers.typing import DiscoveryInfoType
+from homeassistant.util import Throttle
+from homeassistant.util.location import distance
 from requests import get
 
 from .const import ATTR_CITY
