@@ -26,6 +26,7 @@ CONF_MAP_PROVIDER = "map_provider"
 CONF_MAP_ZOOM = "map_zoom"
 CONF_LANGUAGE = "language"
 CONF_EXTENDED_ATTR = "extended_attr"
+CONF_YAML_HASH = "yaml_hash"
 
 # Attributes
 ATTR_OPTIONS = "options"

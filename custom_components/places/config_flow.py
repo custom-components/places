@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant import core
+from homeassistant import exceptions
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_SCAN_INTERVAL
+from homeassistant.const import CONF_PLATFORM
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -18,6 +22,7 @@ from .const import CONF_LANGUAGE
 from .const import CONF_MAP_PROVIDER
 from .const import CONF_MAP_ZOOM
 from .const import CONF_OPTIONS
+from .const import CONF_YAML_HASH
 from .const import DEFAULT_EXTENDED_ATTR
 from .const import DEFAULT_HOME_ZONE
 from .const import DEFAULT_MAP_PROVIDER
@@ -88,18 +93,22 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
 
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
-    # Validate the data can be used to set up a connection.
-    _LOGGER.debug("[config_flow validate_input] data: " + str(data))
-    # if hasattr(data,CONF_MAP_ZOOM) and data[CONF_MAP_ZOOM] is not None:
-    #    data[CONF_MAP_ZOOM] = int(data[CONF_MAP_ZOOM])
-    # This is a simple example to show an error in the UI for a short hostname
-    # The exceptions are defined at the end of this file, and are used in the
-    # `async_step_user` method below.
 
-    # Return info that you want to store in the config entry.
-    # "Title" is what is displayed to the user for this hub device
-    # It is stored internally in HA as part of the device config.
-    # See `async_step_user` below for how this is used
+    _LOGGER.debug("[config_flow validate_input] data: " + str(data))
+    
+    # If a YAML Import, use MD5 Hash to see if it aready exists
+    #if CONF_YAML_HASH in data:
+    #    all_yaml_hashes = []
+    #    for m in list(hass.data[DOMAIN].values()):
+    #        if CONF_YAML_HASH in m:
+    #            all_yaml_hashes.append(m[CONF_YAML_HASH])
+
+        #_LOGGER.debug("[config_flow validate_input] importing yaml hash: " + str(data.get(CONF_YAML_HASH)))
+        #_LOGGER.debug("[config_flow validate_input] existing places data: " + str(hass.data[DOMAIN]))
+        #_LOGGER.debug("[config_flow validate_input] All yaml hashes: " + str(all_yaml_hashes))
+    #    if data[CONF_YAML_HASH] in all_yaml_hashes:
+    #        #_LOGGER.debug("[config_flow validate_input] yaml import is duplicate, not importing")
+    #        raise YamlAlreadyImported
     return {"title": data[CONF_NAME]}
 
 
@@ -125,10 +134,13 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 info = await validate_input(self.hass, user_input)
-                _LOGGER.debug("[config_flow] user_input: " + str(user_input))
+                _LOGGER.debug("[config_flow async_step_user] user_input: " + str(user_input))
                 return self.async_create_entry(title=info["title"], data=user_input)
-            except Exception:  # pylint: disable=broad-except
-                _LOGGER.exception("Unexpected exception")
+            except YamlAlreadyImported:
+                # YAML Already imported, ignore
+                _LOGGER.debug("[config_flow async_step_user] yaml import is duplicate, not importing")
+            except Exception as err:  # pylint: disable=broad-except
+                _LOGGER.exception("[config_flow async_step_user] Unexpected exception:" + str(err))
                 errors["base"] = "unknown"
 
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
@@ -136,22 +148,35 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
 
-        # this is run to import the configuration.yaml parameters
-
+    # this is run to import the configuration.yaml parameters\
     async def async_step_import(self, import_config=None) -> FlowResult:
         """Import a config entry from configuration.yaml."""
         _LOGGER.debug(
             "[async_step_import] initial import_config: " + str(import_config)
         )
+        
+        #try:
+            #import_config.pop(CONF_PLATFORM,1)
+            #import_config.pop(CONF_SCAN_INTERVAL,1)
+            
+            # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
+            #string_to_hash=import_config.get(CONF_NAME)+import_config.get(CONF_DEVICETRACKER_ID)+import_config.get(CONF_HOME_ZONE)
+            #_LOGGER.debug(
+            #    "[async_step_import] string_to_hash: " + str(string_to_hash)
+            #)
+            #yaml_hash_object = hashlib.md5(string_to_hash.encode())
+            #yaml_hash = yaml_hash_object.hexdigest()
+            #_LOGGER.debug(
+            #    "[async_step_import] yaml_hash: " + str(yaml_hash)
+            #)
+            #import_config.setdefault(CONF_YAML_HASH,yaml_hash)
+        #except Exception as err:
+        #    _LOGGER.warning("[async_step_import] Import error: " + str(err))
+        #    return self.async_abort(reason="settings_missing")
+        _LOGGER.debug("[async_step_import] final import_config: " + str(import_config))
 
-        data = {}
-        try:
-            for item in import_config:
-                if item not in ["platform", "scan_interval"]:
-                    data[item] = import_config.get(item)
-        except Exception as err:
-            _LOGGER.warning("[async_step_import] Import error: " + str(err))
-            return self.async_abort(reason="settings_missing")
-        _LOGGER.debug("[async_step_import] final import_config: " + str(data))
+        return await self.async_step_user(import_config)
 
-        return await self.async_step_user(data)
+
+class YamlAlreadyImported(exceptions.HomeAssistantError):
+    """Error to indicate that YAML sensor is already imported."""

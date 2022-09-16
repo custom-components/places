@@ -13,6 +13,7 @@ Description:
 GitHub: https://github.com/Snuffy2/places
 """
 
+import hashlib
 import json
 import logging
 from datetime import datetime
@@ -31,6 +32,7 @@ from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_PLATFORM
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.helpers.entity import Entity
@@ -90,6 +92,7 @@ from .const import CONF_HOME_ZONE
 from .const import CONF_LANGUAGE
 from .const import CONF_MAP_PROVIDER
 from .const import CONF_MAP_ZOOM
+from .const import CONF_YAML_HASH
 from .const import CONF_OPTIONS
 from .const import DEFAULT_EXTENDED_ATTR
 from .const import DEFAULT_HOME_ZONE
@@ -140,12 +143,41 @@ async def async_setup_platform(
             hass.config_entries.flow.async_init(
                 DOMAIN,
                 context={"source": config_entries.SOURCE_IMPORT},
-                data=dict(config),
+                #data=dict(config),
+                data=import_config,
             )
         )
 
-    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
-
+    import_config = dict(config)
+    _LOGGER.debug("[async_setup_platform] initial import_config: " + str(import_config))
+    import_config.pop(CONF_PLATFORM,1)
+    import_config.pop(CONF_SCAN_INTERVAL,1)
+            
+    # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
+    string_to_hash=import_config.get(CONF_NAME)+import_config.get(CONF_DEVICETRACKER_ID)+import_config.get(CONF_HOME_ZONE)
+    #_LOGGER.debug(
+    #    "[async_setup_platform] string_to_hash: " + str(string_to_hash)
+    #)
+    yaml_hash_object = hashlib.md5(string_to_hash.encode())
+    yaml_hash = yaml_hash_object.hexdigest()
+    #_LOGGER.debug(
+    #    "[async_setup_platform] yaml_hash: " + str(yaml_hash)
+    #)
+    import_config.setdefault(CONF_YAML_HASH,yaml_hash)
+    _LOGGER.debug("[async_setup_platform] final import_config: " + str(import_config))
+    
+    all_yaml_hashes = []
+    for m in list(hass.data[DOMAIN].values()):
+        if CONF_YAML_HASH in m:
+            all_yaml_hashes.append(m[CONF_YAML_HASH])
+    
+    #_LOGGER.debug("[async_setup_platform] New yaml hash: " + str(data.get(CONF_YAML_HASH)))
+    #_LOGGER.debug("[async_setup_platform] All yaml hashes: " + str(all_yaml_hashes))
+    if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
+        _LOGGER.debug("[async_setup_platform] New yaml sensor, importing")
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
+    else:
+        _LOGGER.debug("[async_setup_platform] Yaml sensor already imported, ignoring")
 
 async def async_setup_entry(
     hass: core.HomeAssistant,
@@ -495,7 +527,7 @@ class Places(Entity):
             #    + ") Entity Data: "
             #    + str(self._hass.states.get(str(self.entity_id)))
             # )
-            if self._hass.states.get(str(self.entity_id)).attributes.get(
+            if self._hass.states.get(str(self.entity_id)) is not None and self._hass.states.get(str(self.entity_id)).attributes.get(
                 ATTR_FRIENDLY_NAME
             ) is not None and self._name != self._hass.states.get(
                 str(self.entity_id)
