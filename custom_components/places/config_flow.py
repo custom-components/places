@@ -140,29 +140,16 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, import_config=None) -> FlowResult:
         """Import a config entry from configuration.yaml."""
-        _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
+        _LOGGER.debug("[async_step_import] initial import_config: " + str(import_config))
 
-        # data = {}
-        # try:
-        # for k in import_config:
-        #    if k == CONF_DEVICE:
-        #        # flatten out the structure so the data variable is a simple dictionary
-        #        device_type = import_config.get(CONF_DEVICE)
-        #        if device_type[CONF_DEVICE_TYPE] == "ethernet":
-        #            data[CONF_DEVICE_TYPE] = "ethernet"
-        #            data[CONF_HOST] = device_type[CONF_HOST]
-        #            data[CONF_PORT] = device_type[CONF_PORT]
-        #        elif device_type[CONF_DEVICE_TYPE] == "usb":
-        #            data[CONF_DEVICE_TYPE] = "usb"
-        #            data[CONF_PATH] = device_type[CONF_PATH]
-        #            if CONF_DEVICE_BAUD in device_type:
-        #                data[CONF_DEVICE_BAUD] = device_type[CONF_DEVICE_BAUD]
-        #            else:
-        #                data[CONF_DEVICE_BAUD] = int(9600)
-        #    else:
-        #        data[k] = import_config.get(k)
-        # except Exception as err:
-        # _LOGGER.warning("[async_step_import] Import error: " + str(err))
-        # return self.async_abort(reason="settings_missing")
+        data = {}
+        try:
+            for item in import_config:
+                if item not in ["platform","scan_interval"]:
+                    data[item] = import_config.get(item)
+        except Exception as err:
+            _LOGGER.warning("[async_step_import] Import error: " + str(err))
+            return self.async_abort(reason="settings_missing")
+        _LOGGER.debug("[async_step_import] final import_config: " + str(data))
 
-        # return await self.async_step_user(import_config)
+        return await self.async_step_user(data)
