@@ -39,7 +39,8 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.event import async_track_state_change
-from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
+from homeassistant.helpers.issue_registry import IssueSeverity
+from homeassistant.helpers.issue_registry import async_create_issue
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.typing import DiscoveryInfoType
 from homeassistant.util import Throttle
@@ -153,7 +154,7 @@ async def async_setup_platform(
     _LOGGER.debug("[async_setup_platform] initial import_config: " + str(import_config))
     import_config.pop(CONF_PLATFORM, 1)
     import_config.pop(CONF_SCAN_INTERVAL, 1)
-    
+
     if import_config is not None:
         async_create_issue(
             hass,
