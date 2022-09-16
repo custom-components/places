@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import logging
 from typing import Any
 
@@ -10,8 +9,6 @@ from homeassistant import core
 from homeassistant import exceptions
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
-from homeassistant.const import CONF_PLATFORM
-from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -22,7 +19,6 @@ from .const import CONF_LANGUAGE
 from .const import CONF_MAP_PROVIDER
 from .const import CONF_MAP_ZOOM
 from .const import CONF_OPTIONS
-from .const import CONF_YAML_HASH
 from .const import DEFAULT_EXTENDED_ATTR
 from .const import DEFAULT_HOME_ZONE
 from .const import DEFAULT_MAP_PROVIDER
