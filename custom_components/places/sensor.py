@@ -243,7 +243,6 @@ class Places(Entity):
         self._osm_details_dict = None
         self._wikidata_dict = None
 
-        # Check if devicetracker_id was specified correctly
         _LOGGER.info(
             "("
             + self._name
@@ -251,8 +250,6 @@ class Places(Entity):
             + self._devicetracker_id
         )
 
-        # if devicetracker_id.split(".", 1)[0] in TRACKABLE_DOMAINS:
-        # self._devicetracker_id = devicetracker_id
         async_track_state_change(
             hass,
             self._devicetracker_id,
