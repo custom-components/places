@@ -114,13 +114,37 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+async def async_setup_platform(
+    hass: HomeAssistant,
+    config: ConfigType,
+    async_add_entities: AddEntitiesCallback,
+    discovery_info: DiscoveryInfoType | None = None,
+) -> None:
+    """Set up places sensor from YAML."""
+
+    @callback
+    def schedule_import(_):
+        """Schedule delayed import after HA is fully started."""
+        async_call_later(hass, 10, do_import)
+
+    @callback
+    def do_import(_):
+        """Process YAML import."""
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": config_entries.SOURCE_IMPORT}, data=dict(config)
+            )
+        )
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
+
 
 async def async_setup_entry(
     hass: core.HomeAssistant,
     config_entry: config_entries.ConfigEntry,
     async_add_entities,
 ) -> None:
-    """Setup the sensor platform."""
+    """Setup the sensor platform with a config_entry (config_flow)."""
 
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id

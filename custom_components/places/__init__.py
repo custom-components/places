@@ -18,7 +18,6 @@ _LOGGER = logging.getLogger(__name__)
 # eg <cover.py> and <sensor.py>
 PLATFORMS: list[str] = [Platform.SENSOR]
 
-
 async def async_setup_entry(
     hass: core.HomeAssistant, entry: config_entries.ConfigEntry
 ) -> bool:

@@ -10,6 +10,7 @@ from homeassistant import exceptions
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
 from homeassistant.helpers import selector
+from homeassistant.data_entry_flow import FlowResult
 
 from .const import CONF_DEVICETRACKER_ID
 from .const import CONF_EXTENDED_ATTR
@@ -95,28 +96,6 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
     # This is a simple example to show an error in the UI for a short hostname
     # The exceptions are defined at the end of this file, and are used in the
     # `async_step_user` method below.
-    ##if len(data["host"]) < 3:
-    ##    raise InvalidHost
-
-    ##hub = Hub(hass, data["host"])
-    # The dummy hub provides a `test_connection` method to ensure it's working
-    # as expected
-    ##result = await hub.test_connection()
-    ##if not result:
-    # If there is an error, raise an exception to notify HA that there was a
-    # problem. The UI will also show there was a problem
-    ##raise CannotConnect
-
-    # If your PyPI package is not built with async, pass your methods
-    # to the executor:
-    # await hass.async_add_executor_job(
-    #     your_validate_func, data["username"], data["password"]
-    # )
-
-    # If you cannot connect:
-    # throw CannotConnect
-    # If the authentication is wrong:
-    # InvalidAuth
 
     # Return info that you want to store in the config entry.
     # "Title" is what is displayed to the user for this hub device
@@ -125,7 +104,7 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
     return {"title": data[CONF_NAME]}
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
     # Pick one of the available connection classes in homeassistant/config_entries.py
@@ -134,7 +113,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # changes.
     ##CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input=None) -> FlowResult:
         """Handle the initial step."""
         # This goes through the steps to take the user through the setup process.
         # Using this it is possible to update the UI and prompt for additional
@@ -149,14 +128,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await validate_input(self.hass, user_input)
                 _LOGGER.debug("[config_flow] user_input: " + str(user_input))
                 return self.async_create_entry(title=info["title"], data=user_input)
-            except CannotConnect:
-                errors["base"] = "cannot_connect"
-            except InvalidHost:
-                # The error string is set here, and should be translated.
-                # This example does not currently cover translations, see the
-                # comments on `DATA_SCHEMA` for further details.
-                # Set the error on the `host` field, not the entire form.
-                errors["host"] = "cannot_connect"
             except Exception:  # pylint: disable=broad-except
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -165,11 +136,33 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
+        
+            # this is run to import the configuration.yaml parameters
+    async def async_step_import(self, import_config=None) -> FlowResult:
+        """Import a config entry from configuration.yaml."""
+        _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
 
+        #data = {}
+        #try:
+            #for k in import_config:
+            #    if k == CONF_DEVICE:
+            #        # flatten out the structure so the data variable is a simple dictionary
+            #        device_type = import_config.get(CONF_DEVICE)
+            #        if device_type[CONF_DEVICE_TYPE] == "ethernet":
+            #            data[CONF_DEVICE_TYPE] = "ethernet"
+            #            data[CONF_HOST] = device_type[CONF_HOST]
+            #            data[CONF_PORT] = device_type[CONF_PORT]
+            #        elif device_type[CONF_DEVICE_TYPE] == "usb":
+            #            data[CONF_DEVICE_TYPE] = "usb"
+            #            data[CONF_PATH] = device_type[CONF_PATH]
+            #            if CONF_DEVICE_BAUD in device_type:
+            #                data[CONF_DEVICE_BAUD] = device_type[CONF_DEVICE_BAUD]
+            #            else:
+            #                data[CONF_DEVICE_BAUD] = int(9600)
+            #    else:
+            #        data[k] = import_config.get(k)
+        #except Exception as err:
+            #_LOGGER.warning("[async_step_import] Import error: " + str(err))
+            #return self.async_abort(reason="settings_missing")
 
-class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidHost(exceptions.HomeAssistantError):
-    """Error to indicate there is an invalid hostname."""
+        #return await self.async_step_user(import_config)
