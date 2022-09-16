@@ -9,8 +9,8 @@ from homeassistant import core
 from homeassistant import exceptions
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
-from homeassistant.helpers import selector
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import selector
 
 from .const import CONF_DEVICETRACKER_ID
 from .const import CONF_EXTENDED_ATTR
@@ -136,33 +136,34 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
-        
-            # this is run to import the configuration.yaml parameters
+
+        # this is run to import the configuration.yaml parameters
+
     async def async_step_import(self, import_config=None) -> FlowResult:
         """Import a config entry from configuration.yaml."""
         _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
 
-        #data = {}
-        #try:
-            #for k in import_config:
-            #    if k == CONF_DEVICE:
-            #        # flatten out the structure so the data variable is a simple dictionary
-            #        device_type = import_config.get(CONF_DEVICE)
-            #        if device_type[CONF_DEVICE_TYPE] == "ethernet":
-            #            data[CONF_DEVICE_TYPE] = "ethernet"
-            #            data[CONF_HOST] = device_type[CONF_HOST]
-            #            data[CONF_PORT] = device_type[CONF_PORT]
-            #        elif device_type[CONF_DEVICE_TYPE] == "usb":
-            #            data[CONF_DEVICE_TYPE] = "usb"
-            #            data[CONF_PATH] = device_type[CONF_PATH]
-            #            if CONF_DEVICE_BAUD in device_type:
-            #                data[CONF_DEVICE_BAUD] = device_type[CONF_DEVICE_BAUD]
-            #            else:
-            #                data[CONF_DEVICE_BAUD] = int(9600)
-            #    else:
-            #        data[k] = import_config.get(k)
-        #except Exception as err:
-            #_LOGGER.warning("[async_step_import] Import error: " + str(err))
-            #return self.async_abort(reason="settings_missing")
+        # data = {}
+        # try:
+        # for k in import_config:
+        #    if k == CONF_DEVICE:
+        #        # flatten out the structure so the data variable is a simple dictionary
+        #        device_type = import_config.get(CONF_DEVICE)
+        #        if device_type[CONF_DEVICE_TYPE] == "ethernet":
+        #            data[CONF_DEVICE_TYPE] = "ethernet"
+        #            data[CONF_HOST] = device_type[CONF_HOST]
+        #            data[CONF_PORT] = device_type[CONF_PORT]
+        #        elif device_type[CONF_DEVICE_TYPE] == "usb":
+        #            data[CONF_DEVICE_TYPE] = "usb"
+        #            data[CONF_PATH] = device_type[CONF_PATH]
+        #            if CONF_DEVICE_BAUD in device_type:
+        #                data[CONF_DEVICE_BAUD] = device_type[CONF_DEVICE_BAUD]
+        #            else:
+        #                data[CONF_DEVICE_BAUD] = int(9600)
+        #    else:
+        #        data[k] = import_config.get(k)
+        # except Exception as err:
+        # _LOGGER.warning("[async_step_import] Import error: " + str(err))
+        # return self.async_abort(reason="settings_missing")
 
-        #return await self.async_step_user(import_config)
+        # return await self.async_step_user(import_config)

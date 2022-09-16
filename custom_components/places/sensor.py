@@ -114,6 +114,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+
 async def async_setup_platform(
     hass: HomeAssistant,
     config: ConfigType,
@@ -132,7 +133,9 @@ async def async_setup_platform(
         """Process YAML import."""
         hass.async_create_task(
             hass.config_entries.flow.async_init(
-                DOMAIN, context={"source": config_entries.SOURCE_IMPORT}, data=dict(config)
+                DOMAIN,
+                context={"source": config_entries.SOURCE_IMPORT},
+                data=dict(config),
             )
         )
 
