@@ -140,12 +140,14 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, import_config=None) -> FlowResult:
         """Import a config entry from configuration.yaml."""
-        _LOGGER.debug("[async_step_import] initial import_config: " + str(import_config))
+        _LOGGER.debug(
+            "[async_step_import] initial import_config: " + str(import_config)
+        )
 
         data = {}
         try:
             for item in import_config:
-                if item not in ["platform","scan_interval"]:
+                if item not in ["platform", "scan_interval"]:
                     data[item] = import_config.get(item)
         except Exception as err:
             _LOGGER.warning("[async_step_import] Import error: " + str(err))
