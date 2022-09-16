@@ -190,10 +190,16 @@ async def async_setup_platform(
     # _LOGGER.debug("[async_setup_platform] New yaml hash: " + str(data.get(CONF_YAML_HASH)))
     # _LOGGER.debug("[async_setup_platform] All yaml hashes: " + str(all_yaml_hashes))
     if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
-        _LOGGER.debug("[async_setup_platform] New YAML sensor, importing: " + str(import_config.get(CONF_NAME)))
+        _LOGGER.debug(
+            "[async_setup_platform] New YAML sensor, importing: "
+            + str(import_config.get(CONF_NAME))
+        )
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
     else:
-        _LOGGER.debug("[async_setup_platform] YAML sensor already imported, ignoring: " + str(import_config.get(CONF_NAME)))
+        _LOGGER.debug(
+            "[async_setup_platform] YAML sensor already imported, ignoring: "
+            + str(import_config.get(CONF_NAME))
+        )
 
 
 async def async_setup_entry(
