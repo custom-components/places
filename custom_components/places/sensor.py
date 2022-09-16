@@ -39,6 +39,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.typing import DiscoveryInfoType
 from homeassistant.util import Throttle
@@ -152,6 +153,16 @@ async def async_setup_platform(
     _LOGGER.debug("[async_setup_platform] initial import_config: " + str(import_config))
     import_config.pop(CONF_PLATFORM, 1)
     import_config.pop(CONF_SCAN_INTERVAL, 1)
+    
+    if import_config is not None:
+        async_create_issue(
+            hass,
+            DOMAIN,
+            "deprecated_yaml",
+            is_fixable=False,
+            severity=IssueSeverity.WARNING,
+            translation_key="deprecated_yaml",
+        )
 
     # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
     string_to_hash = (
@@ -181,7 +192,7 @@ async def async_setup_platform(
         _LOGGER.debug("[async_setup_platform] New yaml sensor, importing")
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
     else:
-        _LOGGER.debug("[async_setup_platform] Yaml sensor already imported, ignoring")
+        _LOGGER.debug("[async_setup_platform] YAML sensor already imported, ignoring")
 
 
 async def async_setup_entry(
