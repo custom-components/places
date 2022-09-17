@@ -220,7 +220,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_MAP_ZOOM, default=self.config_entry.data[CONF_MAP_ZOOM]
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=MAP_ZOOM_MIN, max=MAP_ZOOM_MAX, mode=selector.NumberSelectorMode.BOX
+                            min=MAP_ZOOM_MIN,
+                            max=MAP_ZOOM_MAX,
+                            mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
                     vol.Optional(
