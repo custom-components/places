@@ -51,9 +51,9 @@ custom_components/places/sensor.py
 
 Key | Type | Required | Description | Default |
 -- | -- | -- | -- | --
-`devicetracker_id` | `string` | `True` | `entity_id` of the device you wish to track | None
-`name` | `string` | `True` | Friendly name of the sensor | None
-`home_zone` | `string` | `False` | Used to calculate distance from home and direction of travel | `zone.home`
+`devicetracker_id` | `entity_id` | `True` | The location device to track | None
+`name` | `string` | `True` | Friendly name of the places sensor | None
+`home_zone` | `entity_id` | `False` | Used to calculate distance from home and direction of travel | `zone.home`
 `api_key` | `string` | `False` | OpenStreetMap API key (your email address). | None
 `map_provider` | `string` | `False` | `google`, `apple`, `osm` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
