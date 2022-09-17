@@ -573,7 +573,11 @@ class Places(Entity):
                     + ") Updated Config Name: "
                     + str(self._config[CONF_NAME])
                 )
-                self._hass.config_entries.async_update_entry(self._config_entry, data=self._config, options=self._config_entry.options)
+                self._hass.config_entries.async_update_entry(
+                    self._config_entry,
+                    data=self._config,
+                    options=self._config_entry.options,
+                )
                 _LOGGER.debug(
                     "("
                     + self._name
