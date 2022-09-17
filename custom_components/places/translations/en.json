@@ -33,7 +33,7 @@
                     "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes"
                 },
-                "description": "**Updating sensor:{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+                "description": "**Updating sensor: {sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }
         }
     },
