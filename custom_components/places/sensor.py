@@ -98,7 +98,6 @@ from .const import CONF_OPTIONS
 from .const import CONF_YAML_HASH
 from .const import DEFAULT_EXTENDED_ATTR
 from .const import DEFAULT_HOME_ZONE
-from .const import DEFAULT_LANGUAGE
 from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_OPTION
@@ -117,7 +116,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_NAME): cv.string,
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
-        vol.Optional(CONF_LANGUAGE, default=DEFAULT_LANGUAGE): cv.string,
+        vol.Optional(CONF_LANGUAGE): cv.string,
         # vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
     }
@@ -236,8 +235,8 @@ class Places(Entity):
             CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER
         ).lower()
         self._map_zoom = int(config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM))
-        self._language = config.setdefault(CONF_LANGUAGE, DEFAULT_LANGUAGE).lower()
-        self._language.replace(" ", "")
+        self._language = config.setdefault(CONF_LANGUAGE)
+        self._language = (self._language.replace(" ", "").strip() if self._language is not None else None)
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
@@ -852,7 +851,7 @@ class Places(Entity):
                 "(" + self._name + ") Map Link Type: " + str(self._map_provider)
             )
             _LOGGER.debug(
-                "(" + self._name + ") Map Link generated: " + str(self._map_link)
+                "(" + self._name + ") Map Link URL: " + str(self._map_link)
             )
 
             osm_url = (
@@ -860,8 +859,7 @@ class Places(Entity):
                 + str(self._latitude)
                 + "&lon="
                 + str(self._longitude)
-                + "&accept-language="
-                + str(self._language)
+                + ("&accept-language=" + str(self._language) if self._language is not None else "")
                 + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
                 + ("&email=" + str(self._api_key) if self._api_key is not None else "")
             )
@@ -914,10 +912,11 @@ class Places(Entity):
                         place_name = osm_decoded["address"][place_category]
                 if "name" in osm_decoded["namedetails"]:
                     place_name = osm_decoded["namedetails"]["name"]
-                for language in self._language.split(","):
-                    if "name:" + language in osm_decoded["namedetails"]:
-                        place_name = osm_decoded["namedetails"]["name:" + language]
-                        break
+                if self._language is not None:
+                    for language in self._language.split(","):
+                        if "name:" + language in osm_decoded["namedetails"]:
+                            place_name = osm_decoded["namedetails"]["name:" + language]
+                            break
                 if not self.in_zone() and place_name != "house":
                     new_state = place_name
 
@@ -1243,8 +1242,7 @@ class Places(Entity):
                                 if self._api_key is not None
                                 else ""
                             )
-                            + "&accept-language="
-                            + str(self._language)
+                            + ("&accept-language=" + str(self._language) if self._language is not None else "")
                         )
 
                         _LOGGER.info(
@@ -1427,7 +1425,6 @@ class Places(Entity):
         self._place_type = None
         self._place_name = None
         self._mtime = datetime.now()
-        # self._last_place_name = None
         self._osm_id = None
         self._osm_type = None
         self._wikidata_id = None

@@ -9,7 +9,6 @@ DEFAULT_OPTION = "zone, place"
 DEFAULT_HOME_ZONE = "zone.home"
 DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
-DEFAULT_LANGUAGE = "en"
 DEFAULT_EXTENDED_ATTR = False
 
 # Settings
