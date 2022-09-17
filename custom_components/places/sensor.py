@@ -98,7 +98,6 @@ from .const import CONF_OPTIONS
 from .const import CONF_YAML_HASH
 from .const import DEFAULT_EXTENDED_ATTR
 from .const import DEFAULT_HOME_ZONE
-from .const import DEFAULT_KEY
 from .const import DEFAULT_LANGUAGE
 from .const import DEFAULT_MAP_PROVIDER
 from .const import DEFAULT_MAP_ZOOM
@@ -112,7 +111,7 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_DEVICETRACKER_ID): cv.string,
-        vol.Optional(CONF_API_KEY, default=DEFAULT_KEY): cv.string,
+        vol.Optional(CONF_API_KEY): cv.string,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): cv.string,
         vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): cv.string,
         vol.Optional(CONF_NAME): cv.string,
@@ -229,7 +228,7 @@ class Places(Entity):
         self._hass = hass
         self._name = name
         self._unique_id = unique_id
-        self._api_key = config.setdefault(CONF_API_KEY, DEFAULT_KEY)
+        self._api_key = config.setdefault(CONF_API_KEY)
         self._options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
         self._devicetracker_id = config.get(CONF_DEVICETRACKER_ID).lower()
         self._home_zone = config.setdefault(CONF_HOME_ZONE, DEFAULT_HOME_ZONE).lower()
@@ -856,21 +855,16 @@ class Places(Entity):
                 "(" + self._name + ") Map Link generated: " + str(self._map_link)
             )
 
-            # Change logic and default_key for api-Key
             osm_url = (
                 "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="
                 + str(self._latitude)
                 + "&lon="
                 + str(self._longitude)
-                + (
-                    "&accept-language=" + str(self._language)
-                    if self._language != DEFAULT_LANGUAGE
-                    else ""
-                )
+                + "&accept-language=" + str(self._language)
                 + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
                 + (
                     "&email=" + str(self._api_key)
-                    if self._api_key != DEFAULT_KEY
+                    if self._api_key is not None
                     else ""
                 )
             )
@@ -1249,9 +1243,11 @@ class Places(Entity):
                             + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
                             + (
                                 "&email=" + str(self._api_key)
-                                if self._api_key != DEFAULT_KEY
+                                if self._api_key is not None
                                 else ""
                             )
+                            + "&accept-language=" + str(self._language)
+
                         )
 
                         _LOGGER.info(
