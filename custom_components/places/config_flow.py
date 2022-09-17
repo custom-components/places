@@ -86,7 +86,7 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
 
-    #_LOGGER.debug("[config_flow validate_input] data: " + str(data))
+    # _LOGGER.debug("[config_flow validate_input] data: " + str(data))
 
     return {"title": data[CONF_NAME]}
 
@@ -132,5 +132,5 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_import(self, import_config=None) -> FlowResult:
         """Import a config entry from configuration.yaml."""
 
-        #_LOGGER.debug("[async_step_import] import_config: " + str(import_config))
+        # _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
         return await self.async_step_user(import_config)

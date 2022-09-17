@@ -150,7 +150,7 @@ async def async_setup_platform(
         )
 
     import_config = dict(config)
-    #_LOGGER.debug("[async_setup_platform] initial import_config: " + str(import_config))
+    # _LOGGER.debug("[async_setup_platform] initial import_config: " + str(import_config))
     import_config.pop(CONF_PLATFORM, 1)
     import_config.pop(CONF_SCAN_INTERVAL, 1)
 
@@ -179,7 +179,7 @@ async def async_setup_platform(
     #    "[async_setup_platform] yaml_hash: " + str(yaml_hash)
     # )
     import_config.setdefault(CONF_YAML_HASH, yaml_hash)
-    #_LOGGER.debug("[async_setup_platform] final import_config: " + str(import_config))
+    # _LOGGER.debug("[async_setup_platform] final import_config: " + str(import_config))
 
     all_yaml_hashes = []
     for m in list(hass.data[DOMAIN].values()):
@@ -222,9 +222,7 @@ class Places(Entity):
 
     def __init__(self, hass, config, config_entry, name, unique_id):
         """Initialize the sensor."""
-        _LOGGER.debug("("
-            + str(name)
-            + ") [Init] Places sensor: " + str(name))
+        _LOGGER.debug("(" + str(name) + ") [Init] Places sensor: " + str(name))
 
         self._config = config
         self._config_entry = config_entry
@@ -542,7 +540,9 @@ class Places(Entity):
         prev_last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to: " + str(reason))
-        _LOGGER.debug("(" + self._name + ") config_entry: " + str(self._config_entry.data))
+        _LOGGER.debug(
+            "(" + self._name + ") config_entry: " + str(self._config_entry.data)
+        )
         if hasattr(self, "entity_id") and self.entity_id is not None:
             # _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
             # _LOGGER.debug(
