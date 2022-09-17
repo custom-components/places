@@ -11,8 +11,8 @@
                     "options": "Display Options",
                     "map_provider": "Map Provider",
                     "map_zoom": "Map Zoom",
-                    "api_key": "[%key:common::config_flow::data::api_key%]",
-                    "language": "Language",
+                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
+                    "language": "Language (optional)",
                     "extended_attr": "Extended Attributes"
                 },
                 "description": "Create a new sensor"
@@ -29,8 +29,8 @@
                     "options": "Display Options",
                     "map_provider": "Map Provider",
                     "map_zoom": "Map Zoom",
-                    "api_key": "[%key:common::config_flow::data::api_key%]",
-                    "language": "Language",
+                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
+                    "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes"
                 },
                 "description": "Update existing sensor"

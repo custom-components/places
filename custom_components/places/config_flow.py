@@ -30,6 +30,8 @@ from .const import TRACKING_DOMAIN
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 STATE_OPTIONS = ["zone, place", "formatted_place", "zone_name, place"]
+MAP_ZOOM_MIN = 1
+MAP_ZOOM_MAX = 20
 COMPONENT_CONFIG_URL = "https://github.com/Snuffy2/places#configuration-options"
 
 # Note the input displayed to the user will be translated. See the
@@ -70,7 +72,7 @@ DATA_SCHEMA = vol.Schema(
             CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)
         ): selector.NumberSelector(
             selector.NumberSelectorConfig(
-                min=1, max=20, mode=selector.NumberSelectorMode.BOX
+                min=MAP_ZOOM_MIN, max=MAP_ZOOM_MAX, mode=selector.NumberSelectorMode.BOX
             )
         ),
         vol.Optional(CONF_LANGUAGE): str,
@@ -173,7 +175,6 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
             return self.async_create_entry(title="", data={})
-            # return self.async_create_entry(title=DOMAIN, data=user_input)
 
         return self.async_show_form(
             step_id="init",
@@ -219,7 +220,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_MAP_ZOOM, default=self.config_entry.data[CONF_MAP_ZOOM]
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=1, max=20, mode=selector.NumberSelectorMode.BOX
+                            min=MAP_ZOOM_MIN, max=MAP_ZOOM_MAX, mode=selector.NumberSelectorMode.BOX
                         )
                     ),
                     vol.Optional(
@@ -233,5 +234,6 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             ),
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
+                "sensor_name": self.config_entry.data[CONF_NAME],
             },
         )

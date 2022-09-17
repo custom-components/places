@@ -11,8 +11,8 @@
                     "options": "Display Options",
                     "map_provider": "Map Provider",
                     "map_zoom": "Map Zoom",
-                    "api_key": "Email",
-                    "language": "Language",
+                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
+                    "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes"
                 },
                 "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
@@ -29,11 +29,11 @@
                     "options": "Display Options",
                     "map_provider": "Map Provider",
                     "map_zoom": "Map Zoom",
-                    "api_key": "Email",
-                    "language": "Language",
+                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
+                    "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes"
                 },
-                "description": "Update existing sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+                "description": "**Updating sensor:{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }
         }
     },
