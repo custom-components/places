@@ -122,7 +122,10 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors, description_placeholders={
+            step_id="user",
+            data_schema=DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
             },
         )
@@ -227,7 +230,8 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         default=self.config_entry.data[CONF_EXTENDED_ATTR],
                     ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 }
-            ), description_placeholders={
+            ),
+            description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
             },
         )
