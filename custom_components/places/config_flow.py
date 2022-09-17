@@ -175,7 +175,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
                     ),
                     vol.Optional(
-                        CONF_API_KEY, default=self.config_entry.data[CONF_APP_KEY]
+                        CONF_API_KEY, default=self.config_entry.data[CONF_API_KEY]
                     ): str,
                     vol.Optional(
                         CONF_OPTIONS, default=self.config_entry.data[CONF_OPTIONS]
