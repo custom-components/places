@@ -5,7 +5,6 @@ DOMAIN = "placesv2dev"
 
 # Defaults
 DEFAULT_ICON = "mdi:map-marker-circle"
-DEFAULT_NAME = "placesv2dev"
 DEFAULT_OPTION = "zone, place"
 DEFAULT_HOME_ZONE = "zone.home"
 DEFAULT_MAP_PROVIDER = "apple"
