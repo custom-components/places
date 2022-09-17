@@ -131,7 +131,6 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
         return await self.async_step_user(import_config)
 
-
     @staticmethod
     @core.callback
     def async_get_options_flow(
@@ -151,9 +150,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
-            #if CONF_HOST in self.config_entry.data:
+            # if CONF_HOST in self.config_entry.data:
             #    user_input[CONF_HOST] = self.config_entry.data[CONF_HOST]
-            #if CONF_EMAIL in self.config_entry.data:
+            # if CONF_EMAIL in self.config_entry.data:
             #    user_input[CONF_EMAIL] = self.config_entry.data[CONF_EMAIL]
             for m in dict(self.config_entry.data).keys():
                 user_input.setdefault(m, self.config_entry.data[m])
@@ -161,19 +160,26 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
             return self.async_create_entry(title="", data={})
-            #return self.async_create_entry(title=DOMAIN, data=user_input)
+            # return self.async_create_entry(title=DOMAIN, data=user_input)
 
         return self.async_show_form(
             step_id="opts",
             data_schema=vol.Schema(
                 {
-                    #vol.Required(CONF_NAME): str,
-                    #default=self.config_entry.data[CONF_APP_ID]
-                    vol.Required(CONF_DEVICETRACKER_ID, default=self.config_entry.data[CONF_DEVICETRACKER_ID]): selector.EntitySelector(
+                    # vol.Required(CONF_NAME): str,
+                    # default=self.config_entry.data[CONF_APP_ID]
+                    vol.Required(
+                        CONF_DEVICETRACKER_ID,
+                        default=self.config_entry.data[CONF_DEVICETRACKER_ID],
+                    ): selector.EntitySelector(
                         selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
                     ),
-                    vol.Optional(CONF_API_KEY, default=self.config_entry.data[CONF_APP_KEY]): str,
-                    vol.Optional(CONF_OPTIONS, default=self.config_entry.data[CONF_OPTIONS]): selector.SelectSelector(
+                    vol.Optional(
+                        CONF_API_KEY, default=self.config_entry.data[CONF_APP_KEY]
+                    ): str,
+                    vol.Optional(
+                        CONF_OPTIONS, default=self.config_entry.data[CONF_OPTIONS]
+                    ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=STATE_OPTIONS,
                             multiple=False,
@@ -187,7 +193,8 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
                     ),
                     vol.Optional(
-                        CONF_MAP_PROVIDER, default=self.config_entry.data[CONF_MAP_PROVIDER]
+                        CONF_MAP_PROVIDER,
+                        default=self.config_entry.data[CONF_MAP_PROVIDER],
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=MAP_PROVIDER_OPTIONS,
@@ -203,7 +210,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                             min=1, max=20, mode=selector.NumberSelectorMode.BOX
                         )
                     ),
-                    vol.Optional(CONF_LANGUAGE, default=self.config_entry.data[CONF_LANGUAGE]): str,
+                    vol.Optional(
+                        CONF_LANGUAGE, default=self.config_entry.data[CONF_LANGUAGE]
+                    ): str,
                     vol.Optional(
                         CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
                     ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
