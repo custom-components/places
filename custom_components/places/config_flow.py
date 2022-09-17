@@ -173,7 +173,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME]): str,
+                    #vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME]): str,
                     vol.Required(
                         CONF_DEVICETRACKER_ID,
                         default=self.config_entry.data[CONF_DEVICETRACKER_ID]
