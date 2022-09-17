@@ -18,7 +18,7 @@ async def async_setup_entry(
 ) -> bool:
     """Set up from a config entry."""
 
-    #_LOGGER.debug("[init async_setup_entry] entry: " + str(entry.data))
+    # _LOGGER.debug("[init async_setup_entry] entry: " + str(entry.data))
     hass.data.setdefault(DOMAIN, {})
     hass_data = dict(entry.data)
     hass.data[DOMAIN][entry.entry_id] = hass_data
