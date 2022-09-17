@@ -860,13 +860,10 @@ class Places(Entity):
                 + str(self._latitude)
                 + "&lon="
                 + str(self._longitude)
-                + "&accept-language=" + str(self._language)
+                + "&accept-language="
+                + str(self._language)
                 + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
-                + (
-                    "&email=" + str(self._api_key)
-                    if self._api_key is not None
-                    else ""
-                )
+                + ("&email=" + str(self._api_key) if self._api_key is not None else "")
             )
 
             osm_decoded = {}
@@ -1246,8 +1243,8 @@ class Places(Entity):
                                 if self._api_key is not None
                                 else ""
                             )
-                            + "&accept-language=" + str(self._language)
-
+                            + "&accept-language="
+                            + str(self._language)
                         )
 
                         _LOGGER.info(

@@ -173,10 +173,10 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    #vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME]): str,
+                    # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME]): str,
                     vol.Required(
                         CONF_DEVICETRACKER_ID,
-                        default=self.config_entry.data[CONF_DEVICETRACKER_ID]
+                        default=self.config_entry.data[CONF_DEVICETRACKER_ID],
                     ): selector.EntitySelector(
                         selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
                     ),
@@ -220,7 +220,8 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_LANGUAGE, default=self.config_entry.data[CONF_LANGUAGE]
                     ): str,
                     vol.Optional(
-                        CONF_EXTENDED_ATTR, default=self.config_entry.data[CONF_EXTENDED_ATTR]
+                        CONF_EXTENDED_ATTR,
+                        default=self.config_entry.data[CONF_EXTENDED_ATTR],
                     ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 }
             ),
