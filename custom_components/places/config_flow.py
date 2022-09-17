@@ -30,6 +30,7 @@ from .const import TRACKING_DOMAIN
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 STATE_OPTIONS = ["zone, place", "formatted_place", "zone_name, place"]
+COMPONENT_CONFIG_URL = "https://github.com/Snuffy2/places#configuration-options"
 
 # Note the input displayed to the user will be translated. See the
 # translations/<lang>.json file and strings.json. See here for further information:
@@ -121,7 +122,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors
+            step_id="user", data_schema=DATA_SCHEMA, errors=errors, description_placeholders={
+                "component_config_url": COMPONENT_CONFIG_URL,
+            },
         )
 
     # this is run to import the configuration.yaml parameters\
@@ -224,5 +227,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         default=self.config_entry.data[CONF_EXTENDED_ATTR],
                     ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 }
-            ),
+            ), description_placeholders={
+                "component_config_url": COMPONENT_CONFIG_URL,
+            },
         )

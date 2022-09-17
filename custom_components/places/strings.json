@@ -1,9 +1,9 @@
 {
-    "title": "Places",
+    "title": "Places: OpenStreetMap Sensor",
     "config": {
         "step": {
             "user": {
-                "title": "Setup OpenStreetMap Sensor",
+                "title": "Places: OpenStreetMap Sensor",
                 "data": {
                     "name": "[%key:common::config_flow::data::name%]",
                     "devicetracker_id": "DeviceTracker ID",
@@ -15,14 +15,14 @@
                     "language": "Language",
                     "extended_attr": "Extended Attributes"
                 },
-                "description": "Complete the following fields."
+                "description": "Create a new sensor"
             }
         }
     },
     "options": {
         "step": {
             "init": {
-                "title": "Change OpenStreetMap Sensor Options",
+                "title": "Places: OpenStreetMap Sensor",
                 "data": {
                     "devicetracker_id": "DeviceTracker ID",
                     "home_zone": "Home Zone",
@@ -31,9 +31,9 @@
                     "map_zoom": "Map Zoom",
                     "api_key": "[%key:common::config_flow::data::api_key%]",
                     "language": "Language",
-                    "extended_attr": "Extended Attributes"
+                    "extended_attr": "Enable Extended Attributes"
                 },
-                "description": "Complete the following fields."
+                "description": "Update existing sensor"
             }
         }
     },
