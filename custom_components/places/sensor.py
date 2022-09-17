@@ -540,17 +540,8 @@ class Places(Entity):
         prev_last_place_name = None
 
         _LOGGER.info("(" + self._name + ") Calling update due to: " + str(reason))
-        _LOGGER.debug(
-            "(" + self._name + ") config_entry: " + str(self._config_entry.data)
-        )
         if hasattr(self, "entity_id") and self.entity_id is not None:
             # _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
-            # _LOGGER.debug(
-            #    "("
-            #    + self._name
-            #    + ") Entity Data: "
-            #    + str(self._hass.states.get(str(self.entity_id)))
-            # )
             if (
                 self._hass.states.get(str(self.entity_id)) is not None
                 and self._hass.states.get(str(self.entity_id)).attributes.get(
@@ -565,7 +556,7 @@ class Places(Entity):
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") Updating Name to: "
+                    + ") Sensor Name Changed. Updating Name to: "
                     + str(
                         self._hass.states.get(str(self.entity_id)).attributes.get(
                             ATTR_FRIENDLY_NAME
@@ -575,34 +566,19 @@ class Places(Entity):
                 self._name = self._hass.states.get(str(self.entity_id)).attributes.get(
                     ATTR_FRIENDLY_NAME
                 )
-            if self._name != self._hass.data[DOMAIN][self._unique_id][CONF_NAME]:
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Updating Hass Data Name - Old: "
-                    + str(self._hass.data[DOMAIN][self._unique_id][CONF_NAME])
-                )
-                self._hass.data[DOMAIN][self._unique_id][CONF_NAME] = self._name
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Updating Hass Data Name - New: "
-                    + str(self._hass.data[DOMAIN][self._unique_id][CONF_NAME])
-                )
-
-            if self._name != self._config[CONF_NAME]:
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Updating Config Name - Old: "
-                    + str(self._config[CONF_NAME])
-                )
                 self._config[CONF_NAME] = self._name
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") Updating Config Name - New: "
+                    + ") Updated Config Name: "
                     + str(self._config[CONF_NAME])
+                )
+                self._hass.config_entries.async_update_entry(self._config_entry, data=self._config, options=self._config_entry.options)
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Updated ConfigEntry Name: "
+                    + str(self._config_entry.data[CONF_NAME])
                 )
 
         _LOGGER.info(
