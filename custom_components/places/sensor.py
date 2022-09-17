@@ -236,7 +236,11 @@ class Places(Entity):
         ).lower()
         self._map_zoom = int(config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM))
         self._language = config.setdefault(CONF_LANGUAGE)
-        self._language = (self._language.replace(" ", "").strip() if self._language is not None else None)
+        self._language = (
+            self._language.replace(" ", "").strip()
+            if self._language is not None
+            else None
+        )
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
@@ -850,16 +854,18 @@ class Places(Entity):
             _LOGGER.debug(
                 "(" + self._name + ") Map Link Type: " + str(self._map_provider)
             )
-            _LOGGER.debug(
-                "(" + self._name + ") Map Link URL: " + str(self._map_link)
-            )
+            _LOGGER.debug("(" + self._name + ") Map Link URL: " + str(self._map_link))
 
             osm_url = (
                 "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="
                 + str(self._latitude)
                 + "&lon="
                 + str(self._longitude)
-                + ("&accept-language=" + str(self._language) if self._language is not None else "")
+                + (
+                    "&accept-language=" + str(self._language)
+                    if self._language is not None
+                    else ""
+                )
                 + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
                 + ("&email=" + str(self._api_key) if self._api_key is not None else "")
             )
@@ -1242,7 +1248,11 @@ class Places(Entity):
                                 if self._api_key is not None
                                 else ""
                             )
-                            + ("&accept-language=" + str(self._language) if self._language is not None else "")
+                            + (
+                                "&accept-language=" + str(self._language)
+                                if self._language is not None
+                                else ""
+                            )
                         )
 
                         _LOGGER.info(
