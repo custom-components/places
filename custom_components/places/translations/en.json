@@ -1,5 +1,5 @@
 {
-    "title": "Places v2-dev",
+    "title": "Places",
     "config": {
         "step": {
             "user": {
@@ -14,6 +14,24 @@
                     "api_key": "Email",
                     "language": "Language",
                     "extended_attr": "Enable Extended Attributes"
+                },
+                "description": "Complete the following fields."
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Change OpenStreetMap Sensor Options",
+                "data": {
+                    "devicetracker_id": "DeviceTracker ID",
+                    "home_zone": "Home Zone",
+                    "options": "Display Options",
+                    "map_provider": "Map Provider",
+                    "map_zoom": "Map Zoom",
+                    "api_key": "Email",
+                    "language": "Language",
+                    "extended_attr": "Extended Attributes"
                 },
                 "description": "Complete the following fields."
             }

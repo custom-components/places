@@ -150,12 +150,19 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
+            _LOGGER.debug(
+                "[options_flow async_step_init] user_input initial: " + str(user_input)
+            )
             # if CONF_HOST in self.config_entry.data:
             #    user_input[CONF_HOST] = self.config_entry.data[CONF_HOST]
             # if CONF_EMAIL in self.config_entry.data:
             #    user_input[CONF_EMAIL] = self.config_entry.data[CONF_EMAIL]
             for m in dict(self.config_entry.data).keys():
                 user_input.setdefault(m, self.config_entry.data[m])
+            _LOGGER.debug(
+                "[options_flow async_step_init] user_input final: " + str(user_input)
+            )
+
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
@@ -163,14 +170,13 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             # return self.async_create_entry(title=DOMAIN, data=user_input)
 
         return self.async_show_form(
-            step_id="opts",
+            step_id="init",
             data_schema=vol.Schema(
                 {
-                    # vol.Required(CONF_NAME): str,
-                    # default=self.config_entry.data[CONF_APP_ID]
+                    vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME]): str,
                     vol.Required(
                         CONF_DEVICETRACKER_ID,
-                        default=self.config_entry.data[CONF_DEVICETRACKER_ID],
+                        default=self.config_entry.data[CONF_DEVICETRACKER_ID]
                     ): selector.EntitySelector(
                         selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
                     ),
@@ -214,7 +220,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_LANGUAGE, default=self.config_entry.data[CONF_LANGUAGE]
                     ): str,
                     vol.Optional(
-                        CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
+                        CONF_EXTENDED_ATTR, default=self.config_entry.data[CONF_EXTENDED_ATTR]
                     ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 }
             ),
