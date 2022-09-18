@@ -38,7 +38,8 @@ from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
-from homeassistant.helpers.event import async_track_state_change, async_track_state_change_event
+from homeassistant.helpers.event import async_track_state_change
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.issue_registry import IssueSeverity
 from homeassistant.helpers.issue_registry import async_create_issue
 from homeassistant.helpers.typing import ConfigType
@@ -180,7 +181,11 @@ async def async_setup_platform(
     # _LOGGER.debug("[async_setup_platform] final import_config: " + str(import_config))
 
     all_yaml_hashes = []
-    if DOMAIN in hass.data and hass.data[DOMAIN] is not None and hass.data[DOMAIN].values() is not None:
+    if (
+        DOMAIN in hass.data
+        and hass.data[DOMAIN] is not None
+        and hass.data[DOMAIN].values() is not None
+    ):
         for m in list(hass.data[DOMAIN].values()):
             if CONF_YAML_HASH in m:
                 all_yaml_hashes.append(m[CONF_YAML_HASH])
@@ -307,13 +312,13 @@ class Places(Entity):
             + self._devicetracker_id
         )
 
-        #async_track_state_change(
+        # async_track_state_change(
         #    hass,
         #    self._devicetracker_id,
         #    self.tsc_update,
         #    from_state=None,
         #    to_state=None,
-        #)
+        # )
         async_track_state_change_event(
             hass,
             self._devicetracker_id,
@@ -455,7 +460,8 @@ class Places(Entity):
             return True
         else:
             return False
-    #def tsc_update(self, tscarg2, tsarg3, tsarg4):
+
+    # def tsc_update(self, tscarg2, tsarg3, tsarg4):
     def tsc_update(self, tscarg=None):
         """Call the do_update function based on the TSC (track state change) event"""
         if self.is_devicetracker_set():
