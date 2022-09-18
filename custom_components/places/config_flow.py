@@ -180,18 +180,18 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME]): str,
+                    # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
                     vol.Required(
                         CONF_DEVICETRACKER_ID,
-                        default=self.config_entry.data[CONF_DEVICETRACKER_ID],
+                        default=(self.config_entry.data[CONF_DEVICETRACKER_ID] if CONF_DEVICETRACKER_ID in self.config_entry.data else None)
                     ): selector.EntitySelector(
                         selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
                     ),
                     vol.Optional(
-                        CONF_API_KEY, default=self.config_entry.data[CONF_API_KEY]
+                        CONF_API_KEY, default=(self.config_entry.data[CONF_API_KEY] if CONF_API_KEY in self.config_entry.data else None)
                     ): str,
                     vol.Optional(
-                        CONF_OPTIONS, default=self.config_entry.data[CONF_OPTIONS]
+                        CONF_OPTIONS, default=(self.config_entry.data[CONF_OPTIONS] if CONF_OPTIONS in self.config_entry.data else None)
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=STATE_OPTIONS,
@@ -201,13 +201,13 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         )
                     ),
                     vol.Optional(
-                        CONF_HOME_ZONE, default=self.config_entry.data[CONF_HOME_ZONE]
+                        CONF_HOME_ZONE, default=(self.config_entry.data[CONF_HOME_ZONE] if CONF_HOME_ZONE in self.config_entry.data else None)
                     ): selector.EntitySelector(
                         selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
                     ),
                     vol.Optional(
                         CONF_MAP_PROVIDER,
-                        default=self.config_entry.data[CONF_MAP_PROVIDER],
+                        default=(self.config_entry.data[CONF_MAP_PROVIDER] if CONF_MAP_PROVIDER in self.config_entry.data else None)
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=MAP_PROVIDER_OPTIONS,
@@ -217,7 +217,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         )
                     ),
                     vol.Optional(
-                        CONF_MAP_ZOOM, default=self.config_entry.data[CONF_MAP_ZOOM]
+                        CONF_MAP_ZOOM, default=(self.config_entry.data[CONF_MAP_ZOOM] if CONF_MAP_ZOOM in self.config_entry.data else None)
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=MAP_ZOOM_MIN,
@@ -226,11 +226,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         )
                     ),
                     vol.Optional(
-                        CONF_LANGUAGE, default=self.config_entry.data[CONF_LANGUAGE]
+                        CONF_LANGUAGE, default=(self.config_entry.data[CONF_LANGUAGE] if CONF_LANGUAGE in self.config_entry.data else None)
                     ): str,
                     vol.Optional(
                         CONF_EXTENDED_ATTR,
-                        default=self.config_entry.data[CONF_EXTENDED_ATTR],
+                        default=(self.config_entry.data[CONF_EXTENDED_ATTR] if CONF_EXTENDED_ATTR in self.config_entry.data else None)
                     ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 }
             ),
