@@ -1,0 +1,30 @@
+name: Draft PR for New Branches
+on:
+  workflow_dispatch:
+  create:
+    ref_type: branch    
+    branches-ignore:
+      - dev
+      - newdev
+jobs:
+  new_branch_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.0.2
+      - name: Show Branch Name
+        run: echo Branch ${GITHUB_REF##*/}
+      - name: Create and Checkout New Dev branch
+        run: git checkout ${GITHUB_REF##*/}
+      - name: Initialize mandatory git config
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email noreply@github.com
+      - name: Create Empty Commit
+        run: git commit --allow-empty -m "Empty commit"
+      #- run: echo "commit_count="$(git rev-list --count origin..HEAD)
+      #- run: echo "commit_count="$(git rev-list --count origin..HEAD) >> $GITHUB_ENV
+      - name: Create Pull Request
+        run: gh pr create -d -B dev -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}" --head "${GITHUB_REF##*/}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.CPR }}
+          GH_TOKEN: ${{ secrets.CPR }}

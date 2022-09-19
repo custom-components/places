@@ -1,0 +1,58 @@
+name: MyLint Code Updater (black, isort, flake8)
+on: [workflow_dispatch, pull_request]
+jobs:
+  mylint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3.0.2
+      - name: Set up Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+      - name: Check code with the Black Code Formatter
+        uses: rickstaa/action-black@v1.1.14
+        id: action_black
+        with:
+          black_args: "."
+          fail_on_error: 'true'
+      - name: Check code with isort
+        uses: jamescurtin/isort-action@master
+        id: action_isort
+        with:
+          configuration: --force-single-line --profile black
+      - name: Check code with flake8
+        uses: reviewdog/action-flake8@v3
+        id: action_flake8
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: false
+          filter_mode: "nofilter"
+          flake8_args: "--select=F,E7,E9,W1,W6"
+      - name: Create Pull Request
+        if: github.event_name == 'pull_request' && (steps.action_black.outputs.is_formatted == 'true' || steps.action_isort.outputs.isort-result)
+        id: cpr
+        uses: peter-evans/create-pull-request@v4.1.1
+        with:
+          token: ${{ secrets.CPR }}
+          title: "Format Python code with isort & Black Code Formatter"
+          commit-message: ":art: Format Python code with isort & Black Code Formatter"
+          body: |
+            There appear to be some python formatting errors in ${{ github.sha }}. This pull request
+            uses the [Black Code Formatter](https://github.com/psf/black) and [isort](https://pycqa.github.io/isort) to fix these issues.
+          labels: "automerge,black,isort"
+          base: ${{ github.head_ref }} # Creates pull request onto pull request or commit branch
+          delete-branch: true
+          branch: actions/mylint
+      - name: Auto Merge
+        if: ${{ steps.cpr.outputs.pull-request-number }}
+        id: automerge
+        uses: pascalgn/automerge-action@v0.15.3
+        env:
+          GITHUB_TOKEN: "${{ secrets.CPR }}"
+          PULL_REQUEST: "${{ steps.cpr.outputs.pull-request-number }}"
+          MERGE_LABELS: "automerge"
+          MERGE_METHOD: "squash"
+          MERGE_REMOVE_LABELS: "automerge"
+          MERGE_DELETE_BRANCH: "true"
+          MERGE_ERROR_FAIL: "true" 
+          
