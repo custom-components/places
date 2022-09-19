@@ -7,7 +7,7 @@ Current Author: Snuffy2
 
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
-  Optionally allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
+  Allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
   Configuration Instructions are on GitHub.
   
 GitHub: https://github.com/Snuffy2/places
@@ -38,7 +38,6 @@ from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-# from homeassistant.helpers.event import async_track_state_change
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.issue_registry import IssueSeverity
@@ -119,7 +118,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
         vol.Optional(CONF_LANGUAGE): cv.string,
-        # vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
     }
 )
@@ -220,13 +218,12 @@ async def async_setup_entry(
         [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
     )
 
-
 class Places(Entity):
     """Representation of a Places Sensor."""
 
     def __init__(self, hass, config, config_entry, name, unique_id):
         """Initialize the sensor."""
-        _LOGGER.debug("(" + str(name) + ") [Init] Places sensor: " + str(name))
+        _LOGGER.info("(" + str(name) + ") [Init] Places sensor: " + str(name))
 
         self._config = config
         self._config_entry = config_entry
@@ -461,7 +458,6 @@ class Places(Entity):
         else:
             return False
 
-    # def tsc_update(self, tscarg2, tsarg3, tsarg4):
     def tsc_update(self, tscarg=None):
         """Call the do_update function based on the TSC (track state change) event"""
         if self.is_devicetracker_set():
@@ -488,7 +484,6 @@ class Places(Entity):
             #        + ") [Async Update] Running Update - Devicetracker is set"
             #    )
             await self._hass.async_add_executor_job(self.do_update, "Scan Interval")
-            # self.do_update("Scan Interval")
         # else:
         #    _LOGGER.debug(
         #        "("
@@ -740,7 +735,7 @@ class Places(Entity):
             """Update if location has changed."""
 
             devicetracker_zone = self._hass.states.get(self._devicetracker_id).state
-            _LOGGER.info(
+            _LOGGER.debug(
                 "(" + self._name + ") DeviceTracker Zone: " + str(devicetracker_zone)
             )
 
@@ -789,10 +784,6 @@ class Places(Entity):
                 + ", home_longitude="
                 + str(home_longitude)
             )
-        # else:
-        #    _LOGGER.error(
-        #        "(" + self._name + ") Missing _devicetracker_id, this will likely error"
-        #    )
 
         proceed_with_update = True
         initial_update = False
@@ -828,7 +819,7 @@ class Places(Entity):
             initial_update = True
 
         if proceed_with_update and devicetracker_zone:
-            _LOGGER.debug(
+            _LOGGER.info(
                 "("
                 + self._name
                 + ") Meets criteria, proceeding with OpenStreetMap query"
@@ -837,7 +828,7 @@ class Places(Entity):
             _LOGGER.info(
                 "("
                 + self._name
-                + ") DeviceTracker Zone (current): "
+                + ") DeviceTracker Zone: "
                 + str(self._devicetracker_zone)
                 + " / Skipped Updates: "
                 + str(self._updateskipped)
@@ -1031,8 +1022,8 @@ class Places(Entity):
             else:
                 _LOGGER.debug("(" + self._name + ") Keeping initial last_place_name")
             self._last_place_name = last_place_name
-            _LOGGER.debug(
-                "(" + self._name + ") Last Place Name (Final): " + str(last_place_name)
+            _LOGGER.info(
+                "(" + self._name + ") Last Place Name: " + str(last_place_name)
             )
 
             isDriving = False
@@ -1114,7 +1105,7 @@ class Places(Entity):
                 )
             elif "formatted_place" in display_options:
                 new_state = self._formatted_place
-                _LOGGER.info(
+                _LOGGER.debug(
                     "("
                     + self._name
                     + ") New State using formatted_place: "
@@ -1122,7 +1113,7 @@ class Places(Entity):
                 )
             elif not self.in_zone():
 
-                # Options:  "formatted_place, zone, zone_name, place, street_number, street, city, county, state, postal_code, country, formatted_address"
+                # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
 
                 _LOGGER.debug(
                     "("
@@ -1141,14 +1132,12 @@ class Places(Entity):
                     and "do_not_show_not_home" not in display_options
                     and self._devicetracker_zone_name is not None
                 ):
-                    # zone = self._devicetracker_zone
                     user_display.append(self._devicetracker_zone_name)
                 elif (
                     "zone" in display_options
                     and "do_not_show_not_home" not in display_options
                     and self._devicetracker_zone is not None
                 ):
-                    # zone = self._devicetracker_zone
                     user_display.append(self._devicetracker_zone)
 
                 if "place_name" in display_options and place_name is not None:
@@ -1355,10 +1344,10 @@ class Places(Entity):
                                     # )
                                     self._wikidata_dict = wikidata_dict
                 if new_state is not None:
-                    _LOGGER.debug(
-                        "(" + self._name + ") New State (Final): " + str(new_state)
-                    )
                     self._state = new_state[:255]
+                    _LOGGER.info(
+                        "(" + self._name + ") New State: " + str(self._state)
+                    )
                 else:
                     self._state = "<Unknown>"
                     _LOGGER.warning(
@@ -1367,7 +1356,7 @@ class Places(Entity):
                         + ") New State is None, setting to: "
                         + str(self._state)
                     )
-                _LOGGER.debug("(" + self._name + ") Building EventData")
+                _LOGGER.debug("(" + self._name + ") Building Event Data")
                 event_data = {}
                 event_data["entity"] = self._name
                 event_data["from_state"] = previous_state
@@ -1419,13 +1408,21 @@ class Places(Entity):
                 _LOGGER.debug(
                     "("
                     + self._name
-                    + ") Event Fired [event_type: "
+                    + ") Event Details [event_type: "
                     + DOMAIN
                     + "_state_update]: "
                     + str(event_data)
                 )
+                _LOGGER.info(
+                    "("
+                    + self._name
+                    + ") Event Fired [event_type: "
+                    + DOMAIN
+                    + "_state_update]"
+                )
+
             else:
-                _LOGGER.debug(
+                _LOGGER.info(
                     "("
                     + self._name
                     + ") No entity update needed, Previous State = New State"
