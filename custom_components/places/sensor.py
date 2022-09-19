@@ -321,7 +321,7 @@ class Places(Entity):
             self._devicetracker_id,
             self.tsc_update,
         )
-        _LOGGER.info(
+        _LOGGER.debug(
             "("
             + self._name
             + ") [Init] Subscribed to DeviceTracker state change events"
