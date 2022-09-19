@@ -20,7 +20,7 @@ Unless you have a good reason not to, you probably want to install this componen
 1. Ensure that [HACS](https://hacs.xyz/) is installed
 1. Navigate to HACS -> Integrations
 1. Open the three-dot menu and select 'Custom Repositories'
-1. Put 'https://github.com/Snuffy2/places' into the 'Repository' textbox.
+1. Put '(/../../)' into the 'Repository' textbox.
 1. Select 'Integration' as the category
 1. Press 'Add'.
 1. Find the Places integration in the HACS integration list and install it
