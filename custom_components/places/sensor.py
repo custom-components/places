@@ -789,20 +789,20 @@ class Places(Entity):
         initial_update = False
 
         if current_location == previous_location:
-            _LOGGER.debug(
+            _LOGGER.info(
                 "(" + self._name + ") Stopping update because coordinates are identical"
             )
             proceed_with_update = False
         elif int(distance_traveled) > 0 and self._updateskipped > 3:
             proceed_with_update = True
-            _LOGGER.debug(
+            _LOGGER.info(
                 "("
                 + self._name
                 + ") Allowing update after 3 skips even with distance traveled < 10m"
             )
         elif int(distance_traveled) < 10:
             self._updateskipped = self._updateskipped + 1
-            _LOGGER.debug(
+            _LOGGER.info(
                 "("
                 + self._name
                 + ") Stopping update because location changed "
@@ -814,7 +814,7 @@ class Places(Entity):
             proceed_with_update = False
 
         if previous_state == "Initializing...":
-            _LOGGER.debug("(" + self._name + ") Performing Initial Update for user...")
+            _LOGGER.info("(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
             initial_update = True
 
