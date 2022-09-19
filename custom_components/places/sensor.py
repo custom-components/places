@@ -37,7 +37,6 @@ from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import EVENT_HOMEASSISTANT_START
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.issue_registry import IssueSeverity
@@ -217,6 +216,7 @@ async def async_setup_entry(
     async_add_entities(
         [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
     )
+
 
 class Places(Entity):
     """Representation of a Places Sensor."""
@@ -1345,9 +1345,7 @@ class Places(Entity):
                                     self._wikidata_dict = wikidata_dict
                 if new_state is not None:
                     self._state = new_state[:255]
-                    _LOGGER.info(
-                        "(" + self._name + ") New State: " + str(self._state)
-                    )
+                    _LOGGER.info("(" + self._name + ") New State: " + str(self._state))
                 else:
                     self._state = "<Unknown>"
                     _LOGGER.warning(
