@@ -20,7 +20,7 @@ Unless you have a good reason not to, you probably want to install this componen
 1. Ensure that [HACS](https://hacs.xyz/) is installed
 1. Navigate to HACS -> Integrations
 1. Open the three-dot menu and select 'Custom Repositories'
-1. Put 'https://github.com/Snuffy2/places' into the 'Repository' textbox.
+1. Put 'https://github.com/custom-components/places' into the 'Repository' textbox.
 1. Select 'Integration' as the category
 1. Press 'Add'.
 1. Find the Places integration in the HACS integration list and install it
@@ -57,7 +57,7 @@ Key | Type | Required | Description | Default |
 `api_key` | `string` | `False` | OpenStreetMap API key (your email address). | None
 `map_provider` | `string` | `False` | `google`, `apple`, `osm` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
-`language` | `string` | `False` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br><sup>\*</sup>Refer to [Notes](https://github.com/Snuffy2/places#notes) | location's local language
+`language` | `string` | `False` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br><sup>\*</sup>Refer to [Notes](#notes) | location's local language
 `extended_attr` | `boolean` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, will make the attributes very long!** | `False`
 `options` | `string` | `False` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone`, `place`
 
@@ -160,7 +160,7 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
 
 ## Prior Contributions:
 * Original Author: [Jim Thompson](https://github.com/tenly2000)
-* Subsequent Author: [Ian Richardson](https://github.com/iantrich)
+* Subsequent Authors: [Ian Richardson](https://github.com/iantrich) & [Snuffy2](https://github.com/Snuffy2)
 
 ## Contributions are welcome!
 
@@ -168,16 +168,16 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 
 ***
 
-[places]: https://github.com/Snuffy2/places
-[commits-shield]: https://img.shields.io/github/commit-activity/y/Snuffy2/places?style=for-the-badge
-[commits]: https://github.com/Snuffy2/places/commits/newdev
-[hacs]: https://github.com/hacs/integration
+[places]: https://github.com/custom-components/places
+[commits-shield]: https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge
+[commits]: https://github.com/custom-components/places/commits/master
+[hacs]: https://github.com/custom-components/hacs
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [discord]: https://discord.gg/Qa5fW2R
 [discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
 [forum]: https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component
-[license-shield]: https://img.shields.io/github/license/Snuffy2/places.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/v/release/Snuffy2/places?style=for-the-badge
-[releases]: https://github.com/Snuffy2/places/releases
-
+[license-shield]: https://img.shields.io/github/license/custom-components/places.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-Ian%20Richardson%20%40iantrich-blue.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/custom-components/places.svg?style=for-the-badge
+[releases]: https://github.com/custom-components/places/releases

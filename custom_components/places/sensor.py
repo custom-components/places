@@ -2,15 +2,14 @@
 Place Support for OpenStreetMap Geocode sensors.
 
 Original Author:  Jim Thompson
-Subsequent Author: Ian Richardson
-Current Author: Snuffy2
+Subsequent Authors: Ian Richardson & Snuffy2
 
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
   Allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
   Configuration Instructions are on GitHub.
   
-GitHub: https://github.com/Snuffy2/places
+GitHub: https://github.com/custom-components/places
 """
 
 import hashlib
