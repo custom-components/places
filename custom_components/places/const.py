@@ -1,7 +1,7 @@
 from homeassistant.const import CONF_ZONE
 from homeassistant.const import Platform
 
-DOMAIN = "placesv2dev"
+DOMAIN = "places"
 
 # Defaults
 DEFAULT_ICON = "mdi:map-marker-circle"

@@ -1,6 +1,6 @@
 {
-  "domain": "placesv2dev",
-  "name": "Places v2-dev",
+  "domain": "places",
+  "name": "Places",
   "version":"2",
   "config_flow": true,
   "documentation": "https://github.com/Snuffy2/places",
