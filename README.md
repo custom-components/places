@@ -3,24 +3,41 @@
 
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE.md)
+[![License][license-shield]](LICENSE)
 
 [![hacs][hacsbadge]][hacs]
 
-[![Discord][discord-shield]][discord]
-[![Community Forum][forum-shield]][forum]
+<!--- [![Discord][discord-shield]][discord] -->
+<!--- [![Community Forum][forum-shield]][forum] -->
 
-_Component to integrate with OpenStreetMap Reverse Geocode (PLACE)_
+_Component to integrate with OpenStreetMap Reverse Geocode_
 
 ## Installation
 
-1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`).
-2. If you do not have a `custom_components` directory (folder) there, you need to create it.
-3. In the `custom_components` directory (folder) create a new folder called `places`.
-4. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository.
-5. Place the files you downloaded in the new directory (folder) you created.
-6. Add your configuration
-6. Restart Home Assistant
+### Installation via HACS
+
+Unless you have a good reason not to, you probably want to install this component via HACS (Home Assistant Community Store)
+1. Ensure that [HACS](https://hacs.xyz/) is installed
+1. Navigate to HACS -> Integrations
+1. Open the three-dot menu and select 'Custom Repositories'
+1. Put 'https://github.com/custom-components/places' into the 'Repository' textbox.
+1. Select 'Integration' as the category
+1. Press 'Add'.
+1. Find the Places integration in the HACS integration list and install it
+1. Add your configuration
+1. Restart Home Assistant
+
+### Manual Installation
+
+You probably do not want to do this! Use the HACS method above unless you have a very good reason why you are installing manually
+
+1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`)
+1. If you do not have a `custom_components` directory (folder) there, you need to create it
+1. In the `custom_components` directory (folder) create a new folder called `places`
+1. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository
+1. Place the files you downloaded in the new directory (folder) you created
+1. Add your configuration
+1. Restart Home Assistant
 
 Using your HA configuration directory (folder) as a starting point you should now also have this:
 
@@ -30,64 +47,27 @@ custom_components/places/manifest.json
 custom_components/places/sensor.py
 ```
 
-## Example configuration.yaml
-
-```yaml
-sensor places_jim:
-  - platform: places
-    name: jim
-    devicetracker_id: device_tracker.jim_iphone8
-    options: zone,place
-    map_provider: google
-    map_zoom: 19
-    home_zone: zone.jim_home
-    api_key: !secret email_jim
-
-sensor places_sharon:
-  - platform: places
-    name: sharon
-    devicetracker_id: device_tracker.sharon_iphone7
-    options: zone, place
-    map_provider: apple
-    map_zoom: 18
-    language: de
-    home_zone: zone.sharon_home
-    api_key: !secret email_sharon
-
-sensor places_aidan:
-  - platform: places
-    name: aidan
-    devicetracker_id: device_tracker.aidan_iphone7plus
-    options: place
-    map_provider: google
-    map_zoom: 17
-    language: jp,en
-    home_zone: zone.aidan_home
-    api_key: !secret email_aidan
-```
-
 ## Configuration options
 
 Key | Type | Required | Description | Default |
 -- | -- | -- | -- | --
-`platform` | `string` | `True` | `places` | None
-`devicetracker_id` | `string` | `True` | `entity_id` of the device you wish to track | None
-`name` | `string` | `False` | Friendly name of the sensor | `places`
-`home_zone` | `string` | `False` | Calculates distance from home and direction of travel if set | `zone.home`
-`api_key` | `string` | `False` | OpenStreetMap API key (your email address). | `no key`
-`map_provider` | `string` | `False` | `google` or `apple` | `apple`
+`devicetracker_id` | `entity_id` | `True` | The location device to track | None
+`name` | `string` | `True` | Friendly name of the places sensor | None
+`home_zone` | `entity_id` | `False` | Used to calculate distance from home and direction of travel | `zone.home`
+`api_key` | `string` | `False` | OpenStreetMap API key (your email address). | None
+`map_provider` | `string` | `False` | `google`, `apple`, `osm` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
-`language` | `string` | `False` | Requested* language(s) for state and attributes. Two-Letter language code(s). | *Refer to Notes
-`options` | `string` | `False` | Display options: `zone, place, place_name, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home` | `zone, place`
+`language` | `string` | `False` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br><sup>\*</sup>Refer to [Notes](#notes) | location's local language
+`extended_attr` | `boolean` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, will make the attributes very long!** | `False`
+`options` | `string` | `False` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone`, `place`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
 ```json
 {
   "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
   "friendly_name": "sharon",
-  "postal_town": "-",
   "current_latitude": "43.874149009154095",
-  "distance_from_home_km": "7.24 km",
+  "distance_from_home_km": 7.24,
   "country": "Canada",
   "postal_code": "L4C 1B3",
   "direction_of_travel": "towards home",
@@ -132,11 +112,11 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
+        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:
-          url: '{{ trigger.event.data.map }}'
+          url: '{{ trigger.event.data.map_link }}'
           hide_thumbnail: false
 
 - alias: ReverseLocateAidan
@@ -154,32 +134,33 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) 
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} from home and traveling {{ trigger.event.data.direction }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.mtime }})
+        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:
-          url: '{{ trigger.event.data.map }}'
+          url: '{{ trigger.event.data.map_link }}'
           hide_thumbnail: false
 ```
 
 ## Notes:
 
-* This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude co-ordinates (such as Owntracks or iCloud).
-* The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of co-ordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
+* This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude coordinates (such as Owntracks or iCloud).
+* The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of coordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
 * The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
-* The map link that gets generated for Google maps has a push pin marking the users location.
-* The map link for Apple maps is centered on the users location - but without any marker.
-* When no `language` value is given, default language will be location's local language or English. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
+* The map link that gets generated for Google, Apple or OpenStreetMaps has a push pin marking the users location. Note that when opening the Apple link on a non-Apple device, it will open in Google Maps.
+* When no `language` value is given, default language will be location's local language. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
 * Translations are partial in OpenStreetMap database. For each field, if a translation is missing in first requested language it will be resolved with a language following in the provided list, defaulting to local language if no matching translations were found for the list.
 * To enable detailed logging for this component, add the following to your configuration.yaml file
 ```yaml
   logger:
-    default: warn
+    default: warning
     logs:
-      custom_components.sensor.places: debug  
+      custom_components.places: debug  
 ```
 
-Original Author: [Jim Thompson](https://github.com/tenly2000)
+## Prior Contributions:
+* Original Author: [Jim Thompson](https://github.com/tenly2000)
+* Subsequent Authors: [Ian Richardson](https://github.com/iantrich) & [Snuffy2](https://github.com/Snuffy2)
 
 ## Contributions are welcome!
 
