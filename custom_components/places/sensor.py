@@ -195,8 +195,7 @@ async def async_setup_platform(
     # _LOGGER.debug("[async_setup_platform] All yaml hashes: " + str(all_yaml_hashes))
     if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
         _LOGGER.warning(
-            "New YAML sensor, importing: "
-            + str(import_config.get(CONF_NAME))
+            "New YAML sensor, importing: " + str(import_config.get(CONF_NAME))
         )
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
     else:
