@@ -167,7 +167,7 @@ async def async_setup_platform(
         ERROR = "devicetracker_id: " + import_config[CONF_DEVICETRACKER_ID] + " is not one of the supported types: " + str(list(TRACKING_DOMAINS))
         _LOGGER.error(ERROR)
         return
-    elif not hass.states.get(import_config[CONF_DEVICETRACKER_ID])
+    elif not hass.states.get(import_config[CONF_DEVICETRACKER_ID]):
         #entity doesn't exist
         ERROR = "devicetracker_id: " + import_config[CONF_DEVICETRACKER_ID] + " doesn't exist"
         _LOGGER.error(ERROR)
