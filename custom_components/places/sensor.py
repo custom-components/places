@@ -172,7 +172,7 @@ async def async_setup_platform(
         ERROR = "devicetracker_id: " + import_config[CONF_DEVICETRACKER_ID] + " doesn't exist"
         _LOGGER.error(ERROR)
         return
-    elif not (hasattr(hass.states.get(import_config[CONF_DEVICETRACKER_ID]),CONF_LATITUDE) and hasattr(hass.states.get(import_config[CONF_DEVICETRACKER_ID]),CONF_LONGITUDE))
+    elif not (hasattr(hass.states.get(import_config[CONF_DEVICETRACKER_ID]),CONF_LATITUDE) and hasattr(hass.states.get(import_config[CONF_DEVICETRACKER_ID]),CONF_LONGITUDE)):
         #entity doesn't have lat/long attr
         ERROR = "devicetracker_id: " + import_config[CONF_DEVICETRACKER_ID] + " doesnt have latitude/longitude as attributes"
         _LOGGER.error(ERROR)
