@@ -290,7 +290,7 @@ class Places(Entity):
         self._distance_m = 0
         if home_latitude is not None and home_longitude is not None:
             self._location_current = str(home_latitude) + "," + str(home_longitude)
-            self._location_previous = home_latitude + "," + home_longitude
+            self._location_previous = str(home_latitude) + "," + str(home_longitude)
         else:
             self._location_current = None
             self._location_previous = None
