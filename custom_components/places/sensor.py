@@ -288,8 +288,12 @@ class Places(Entity):
         self._last_place_name = None
         self._distance_km = 0
         self._distance_m = 0
-        self._location_current = home_latitude + "," + home_longitude
-        self._location_previous = home_latitude + "," + home_longitude
+        if home_latitude is not None and home_longitude is not None:
+            self._location_current = str(home_latitude) + "," + str(home_longitude)
+            self._location_previous = home_latitude + "," + home_longitude
+        else:
+            self._location_current = None
+            self._location_previous = None
         self._updateskipped = 0
         self._direction = "stationary"
         self._map_link = None
@@ -605,19 +609,13 @@ class Places(Entity):
             old_latitude = str(self._latitude)
         if self.is_float(self._longitude):
             old_longitude = str(self._longitude)
-        if self.is_float(
-            self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
-        ):
+        if self.is_float(self._hass.states.get(self._devicetracker_id).attributes.get("latitude")):
             new_latitude = str(
                 self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
             )
-        if self.is_float(
-            self._hass.states.get(self._devicetracker_id).attributes.get("longitude")
-        ):
+        if self.is_float(self._hass.states.get(self._devicetracker_id).attributes.get("longitude")):
             new_longitude = str(
-                self._hass.states.get(self._devicetracker_id).attributes.get(
-                    "longitude"
-                )
+                self._hass.states.get(self._devicetracker_id).attributes.get("longitude")
             )
         if self.is_float(self._home_latitude):
             home_latitude = str(self._home_latitude)
