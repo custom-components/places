@@ -32,7 +32,9 @@ MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 STATE_OPTIONS = ["zone, place", "formatted_place", "zone_name, place"]
 MAP_ZOOM_MIN = 1
 MAP_ZOOM_MAX = 20
-COMPONENT_CONFIG_URL = "https://github.com/custom-components/places#configuration-options"
+COMPONENT_CONFIG_URL = (
+    "https://github.com/custom-components/places#configuration-options"
+)
 
 # Note the input displayed to the user will be translated. See the
 # translations/<lang>.json file and strings.json. See here for further information:

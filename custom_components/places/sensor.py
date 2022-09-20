@@ -605,13 +605,19 @@ class Places(Entity):
             old_latitude = str(self._latitude)
         if self.is_float(self._longitude):
             old_longitude = str(self._longitude)
-        if self.is_float(self._hass.states.get(self._devicetracker_id).attributes.get("latitude")):
+        if self.is_float(
+            self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
+        ):
             new_latitude = str(
                 self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
             )
-        if self.is_float(self._hass.states.get(self._devicetracker_id).attributes.get("longitude")):
+        if self.is_float(
+            self._hass.states.get(self._devicetracker_id).attributes.get("longitude")
+        ):
             new_longitude = str(
-                self._hass.states.get(self._devicetracker_id).attributes.get("longitude")
+                self._hass.states.get(self._devicetracker_id).attributes.get(
+                    "longitude"
+                )
             )
         if self.is_float(self._home_latitude):
             home_latitude = str(self._home_latitude)
