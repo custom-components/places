@@ -25,7 +25,7 @@ from .const import DEFAULT_MAP_ZOOM
 from .const import DEFAULT_OPTION
 from .const import DOMAIN  # pylint:disable=unused-import
 from .const import HOME_LOCATION_DOMAIN
-from .const import TRACKING_DOMAIN
+from .const import TRACKING_DOMAINS
 
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
@@ -42,7 +42,7 @@ DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME): str,
         vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(
-            selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
+            selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
         ),
         vol.Optional(CONF_API_KEY): str,
         vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): selector.SelectSelector(
@@ -189,7 +189,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                             else None
                         ),
                     ): selector.EntitySelector(
-                        selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAIN)
+                        selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
                     ),
                     vol.Optional(
                         CONF_API_KEY,
