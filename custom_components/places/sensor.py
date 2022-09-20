@@ -152,7 +152,7 @@ async def async_setup_platform(
     import_config.pop(CONF_PLATFORM, 1)
     import_config.pop(CONF_SCAN_INTERVAL, 1)
     
-    if (CONF_DEVICETRACKER_ID not in import_config:
+    if CONF_DEVICETRACKER_ID not in import_config:
         #device_tracker not defined in config
         ERROR = "devicetracker_id not defined in the YAML places sensor definition"
         _LOGGER.error(ERROR)
