@@ -12,7 +12,11 @@ DEFAULT_MAP_ZOOM = 18
 DEFAULT_EXTENDED_ATTR = False
 
 # Settings
-TRACKING_DOMAINS = [str(Platform.DEVICE_TRACKER),str(Platform.PERSON),str(Platform.SENSOR)]
+TRACKING_DOMAINS = [
+    str(Platform.DEVICE_TRACKER),
+    str(Platform.PERSON),
+    str(Platform.SENSOR),
+]
 HOME_LOCATION_DOMAIN = CONF_ZONE
 
 # Config

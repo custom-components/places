@@ -30,12 +30,12 @@ from homeassistant import core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import ATTR_FRIENDLY_NAME
 from homeassistant.const import CONF_API_KEY
+from homeassistant.const import CONF_LATITUDE
+from homeassistant.const import CONF_LONGITUDE
 from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_PLATFORM
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.const import EVENT_HOMEASSISTANT_START
-from homeassistant.const import CONF_LATITUDE
-from homeassistant.const import CONF_LONGITUDE
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
@@ -123,6 +123,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     }
 )
 
+
 async def async_setup_platform(
     hass: core.HomeAssistant,
     config: ConfigType,
@@ -151,33 +152,50 @@ async def async_setup_platform(
     # _LOGGER.debug("[async_setup_platform] initial import_config: " + str(import_config))
     import_config.pop(CONF_PLATFORM, 1)
     import_config.pop(CONF_SCAN_INTERVAL, 1)
-    
+
     if CONF_DEVICETRACKER_ID not in import_config:
-        #device_tracker not defined in config
+        # device_tracker not defined in config
         ERROR = "devicetracker_id not defined in the YAML places sensor definition"
         _LOGGER.error(ERROR)
         return
-    elif import_config[CONF_DEVICETRACKER_ID] is None: 
-        #device_tracker not defined in config
+    elif import_config[CONF_DEVICETRACKER_ID] is None:
+        # device_tracker not defined in config
         ERROR = "devicetracker_id not defined in the YAML places sensor definition"
         _LOGGER.error(ERROR)
         return
     elif import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in TRACKING_DOMAINS:
-        #entity isn't in supported typey
-        ERROR = "devicetracker_id: " + import_config[CONF_DEVICETRACKER_ID] + " is not one of the supported types: " + str(list(TRACKING_DOMAINS))
+        # entity isn't in supported typey
+        ERROR = (
+            "devicetracker_id: "
+            + import_config[CONF_DEVICETRACKER_ID]
+            + " is not one of the supported types: "
+            + str(list(TRACKING_DOMAINS))
+        )
         _LOGGER.error(ERROR)
         return
     elif not hass.states.get(import_config[CONF_DEVICETRACKER_ID]):
-        #entity doesn't exist
-        ERROR = "devicetracker_id: " + import_config[CONF_DEVICETRACKER_ID] + " doesn't exist"
+        # entity doesn't exist
+        ERROR = (
+            "devicetracker_id: "
+            + import_config[CONF_DEVICETRACKER_ID]
+            + " doesn't exist"
+        )
         _LOGGER.error(ERROR)
         return
-    elif not (hasattr(hass.states.get(import_config[CONF_DEVICETRACKER_ID]),CONF_LATITUDE) and hasattr(hass.states.get(import_config[CONF_DEVICETRACKER_ID]),CONF_LONGITUDE)):
-        #entity doesn't have lat/long attr
-        ERROR = "devicetracker_id: " + import_config[CONF_DEVICETRACKER_ID] + " doesnt have latitude/longitude as attributes"
+    elif not (
+        hasattr(hass.states.get(import_config[CONF_DEVICETRACKER_ID]), CONF_LATITUDE)
+        and hasattr(
+            hass.states.get(import_config[CONF_DEVICETRACKER_ID]), CONF_LONGITUDE
+        )
+    ):
+        # entity doesn't have lat/long attr
+        ERROR = (
+            "devicetracker_id: "
+            + import_config[CONF_DEVICETRACKER_ID]
+            + " doesnt have latitude/longitude as attributes"
+        )
         _LOGGER.error(ERROR)
         return
-
 
     # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
     string_to_hash = (
