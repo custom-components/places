@@ -8,102 +8,97 @@ Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
   Allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
   Configuration Instructions are on GitHub.
-  
+
 GitHub: https://github.com/custom-components/places
 """
 
 import hashlib
 import json
 import logging
-from datetime import datetime
-from datetime import timedelta
-from math import asin
-from math import cos
-from math import radians
-from math import sin
-from math import sqrt
+from datetime import datetime, timedelta
+from math import asin, cos, radians, sin, sqrt
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant import core
+from homeassistant import config_entries, core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import ATTR_FRIENDLY_NAME
-from homeassistant.const import CONF_API_KEY
-from homeassistant.const import CONF_LATITUDE
-from homeassistant.const import CONF_LONGITUDE
-from homeassistant.const import CONF_NAME
-from homeassistant.const import CONF_PLATFORM
-from homeassistant.const import CONF_SCAN_INTERVAL
-from homeassistant.const import EVENT_HOMEASSISTANT_START
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_NAME,
+    CONF_PLATFORM,
+    CONF_SCAN_INTERVAL,
+    EVENT_HOMEASSISTANT_START,
+)
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_call_later
-from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.helpers.issue_registry import IssueSeverity
-from homeassistant.helpers.issue_registry import async_create_issue
-from homeassistant.helpers.typing import ConfigType
-from homeassistant.helpers.typing import DiscoveryInfoType
+from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
+from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
 from requests import get
 
-from .const import ATTR_CITY
-from .const import ATTR_COUNTRY
-from .const import ATTR_COUNTY
-from .const import ATTR_DEVICETRACKER_ID
-from .const import ATTR_DEVICETRACKER_ZONE
-from .const import ATTR_DEVICETRACKER_ZONE_NAME
-from .const import ATTR_DIRECTION_OF_TRAVEL
-from .const import ATTR_DISTANCE_KM
-from .const import ATTR_DISTANCE_M
-from .const import ATTR_FORMATTED_ADDRESS
-from .const import ATTR_FORMATTED_PLACE
-from .const import ATTR_HOME_LATITUDE
-from .const import ATTR_HOME_LONGITUDE
-from .const import ATTR_HOME_ZONE
-from .const import ATTR_LAST_PLACE_NAME
-from .const import ATTR_LATITUDE
-from .const import ATTR_LATITUDE_OLD
-from .const import ATTR_LOCATION_CURRENT
-from .const import ATTR_LOCATION_PREVIOUS
-from .const import ATTR_LONGITUDE
-from .const import ATTR_LONGITUDE_OLD
-from .const import ATTR_MAP_LINK
-from .const import ATTR_MTIME
-from .const import ATTR_OPTIONS
-from .const import ATTR_OSM_DETAILS_DICT
-from .const import ATTR_OSM_DICT
-from .const import ATTR_OSM_ID
-from .const import ATTR_OSM_TYPE
-from .const import ATTR_PICTURE
-from .const import ATTR_PLACE_CATEGORY
-from .const import ATTR_PLACE_NAME
-from .const import ATTR_PLACE_NEIGHBOURHOOD
-from .const import ATTR_PLACE_TYPE
-from .const import ATTR_POSTAL_CODE
-from .const import ATTR_POSTAL_TOWN
-from .const import ATTR_REGION
-from .const import ATTR_STATE_ABBR
-from .const import ATTR_STREET
-from .const import ATTR_STREET_NUMBER
-from .const import ATTR_WIKIDATA_DICT
-from .const import ATTR_WIKIDATA_ID
-from .const import CONF_DEVICETRACKER_ID
-from .const import CONF_EXTENDED_ATTR
-from .const import CONF_HOME_ZONE
-from .const import CONF_LANGUAGE
-from .const import CONF_MAP_PROVIDER
-from .const import CONF_MAP_ZOOM
-from .const import CONF_OPTIONS
-from .const import CONF_YAML_HASH
-from .const import DEFAULT_EXTENDED_ATTR
-from .const import DEFAULT_HOME_ZONE
-from .const import DEFAULT_MAP_PROVIDER
-from .const import DEFAULT_MAP_ZOOM
-from .const import DEFAULT_OPTION
-from .const import DOMAIN
-from .const import TRACKING_DOMAINS
+from .const import (
+    ATTR_CITY,
+    ATTR_COUNTRY,
+    ATTR_COUNTY,
+    ATTR_DEVICETRACKER_ID,
+    ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_NAME,
+    ATTR_DIRECTION_OF_TRAVEL,
+    ATTR_DISTANCE_KM,
+    ATTR_DISTANCE_M,
+    ATTR_FORMATTED_ADDRESS,
+    ATTR_FORMATTED_PLACE,
+    ATTR_HOME_LATITUDE,
+    ATTR_HOME_LONGITUDE,
+    ATTR_HOME_ZONE,
+    ATTR_LAST_PLACE_NAME,
+    ATTR_LATITUDE,
+    ATTR_LATITUDE_OLD,
+    ATTR_LOCATION_CURRENT,
+    ATTR_LOCATION_PREVIOUS,
+    ATTR_LONGITUDE,
+    ATTR_LONGITUDE_OLD,
+    ATTR_MAP_LINK,
+    ATTR_MTIME,
+    ATTR_OPTIONS,
+    ATTR_OSM_DETAILS_DICT,
+    ATTR_OSM_DICT,
+    ATTR_OSM_ID,
+    ATTR_OSM_TYPE,
+    ATTR_PICTURE,
+    ATTR_PLACE_CATEGORY,
+    ATTR_PLACE_NAME,
+    ATTR_PLACE_NEIGHBOURHOOD,
+    ATTR_PLACE_TYPE,
+    ATTR_POSTAL_CODE,
+    ATTR_POSTAL_TOWN,
+    ATTR_REGION,
+    ATTR_STATE_ABBR,
+    ATTR_STREET,
+    ATTR_STREET_NUMBER,
+    ATTR_WIKIDATA_DICT,
+    ATTR_WIKIDATA_ID,
+    CONF_DEVICETRACKER_ID,
+    CONF_EXTENDED_ATTR,
+    CONF_HOME_ZONE,
+    CONF_LANGUAGE,
+    CONF_MAP_PROVIDER,
+    CONF_MAP_ZOOM,
+    CONF_OPTIONS,
+    CONF_YAML_HASH,
+    DEFAULT_EXTENDED_ATTR,
+    DEFAULT_HOME_ZONE,
+    DEFAULT_MAP_PROVIDER,
+    DEFAULT_MAP_ZOOM,
+    DEFAULT_OPTION,
+    DOMAIN,
+    TRACKING_DOMAINS,
+)
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -164,7 +159,8 @@ async def async_setup_platform(
         _LOGGER.error(ERROR)
         return
     _LOGGER.debug(
-        "[YAML Import] devicetracker_id: " + str(import_config[CONF_DEVICETRACKER_ID])
+        "[YAML Import] devicetracker_id: " +
+        str(import_config[CONF_DEVICETRACKER_ID])
     )
     if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in TRACKING_DOMAINS:
         # entity isn't in supported type
@@ -306,11 +302,13 @@ class Places(Entity):
         self._api_key = config.setdefault(CONF_API_KEY)
         self._options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
         self._devicetracker_id = config.get(CONF_DEVICETRACKER_ID).lower()
-        self._home_zone = config.setdefault(CONF_HOME_ZONE, DEFAULT_HOME_ZONE).lower()
+        self._home_zone = config.setdefault(
+            CONF_HOME_ZONE, DEFAULT_HOME_ZONE).lower()
         self._map_provider = config.setdefault(
             CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER
         ).lower()
-        self._map_zoom = int(config.setdefault(CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM))
+        self._map_zoom = int(config.setdefault(
+            CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM))
         self._language = config.setdefault(CONF_LANGUAGE)
         self._language = (
             self._language.replace(" ", "").strip()
@@ -322,7 +320,8 @@ class Places(Entity):
         )
         self._state = "Initializing..."
 
-        home_latitude = str(hass.states.get(self._home_zone).attributes.get("latitude"))
+        home_latitude = str(hass.states.get(
+            self._home_zone).attributes.get("latitude"))
         if not self.is_float(home_latitude):
             home_latitude = None
         home_longitude = str(
@@ -331,7 +330,8 @@ class Places(Entity):
         if not self.is_float(home_longitude):
             home_longitude = None
         self._entity_picture = (
-            hass.states.get(self._devicetracker_id).attributes.get("entity_picture")
+            hass.states.get(self._devicetracker_id).attributes.get(
+                "entity_picture")
             if hass.states.get(self._devicetracker_id)
             else None
         )
@@ -363,8 +363,10 @@ class Places(Entity):
         self._distance_km = 0
         self._distance_m = 0
         if home_latitude is not None and home_longitude is not None:
-            self._location_current = str(home_latitude) + "," + str(home_longitude)
-            self._location_previous = str(home_latitude) + "," + str(home_longitude)
+            self._location_current = str(
+                home_latitude) + "," + str(home_longitude)
+            self._location_previous = str(
+                home_latitude) + "," + str(home_longitude)
         else:
             self._location_current = None
             self._location_previous = None
@@ -627,7 +629,8 @@ class Places(Entity):
         last_place_name = None
         prev_last_place_name = None
 
-        _LOGGER.info("(" + self._name + ") Calling update due to: " + str(reason))
+        _LOGGER.info(
+            "(" + self._name + ") Calling update due to: " + str(reason))
         if hasattr(self, "entity_id") and self.entity_id is not None:
             # _LOGGER.debug("(" + self._name + ") Entity ID: " + str(self.entity_id))
             if (
@@ -674,9 +677,11 @@ class Places(Entity):
                 )
 
         _LOGGER.info(
-            "(" + self._name + ") Check if update req'd: " + str(self._devicetracker_id)
+            "(" + self._name + ") Check if update req'd: " +
+            str(self._devicetracker_id)
         )
-        _LOGGER.debug("(" + self._name + ") Previous State: " + str(previous_state))
+        _LOGGER.debug("(" + self._name + ") Previous State: " +
+                      str(previous_state))
 
         now = datetime.now()
         if self.is_float(self._latitude):
@@ -684,13 +689,16 @@ class Places(Entity):
         if self.is_float(self._longitude):
             old_longitude = str(self._longitude)
         if self.is_float(
-            self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
+            self._hass.states.get(
+                self._devicetracker_id).attributes.get("latitude")
         ):
             new_latitude = str(
-                self._hass.states.get(self._devicetracker_id).attributes.get("latitude")
+                self._hass.states.get(
+                    self._devicetracker_id).attributes.get("latitude")
             )
         if self.is_float(
-            self._hass.states.get(self._devicetracker_id).attributes.get("longitude")
+            self._hass.states.get(
+                self._devicetracker_id).attributes.get("longitude")
         ):
             new_longitude = str(
                 self._hass.states.get(self._devicetracker_id).attributes.get(
@@ -738,7 +746,8 @@ class Places(Entity):
             # In a Zone
             last_place_name = self._devicetracker_zone_name
             _LOGGER.debug(
-                "(" + self._name + ") Previous Place is Zone: " + str(last_place_name)
+                "(" + self._name + ") Previous Place is Zone: " +
+                str(last_place_name)
             )
         _LOGGER.debug(
             "(" + self._name + ") Last Place Name (Initial): " + str(last_place_name)
@@ -797,12 +806,14 @@ class Places(Entity):
                 direction = "stationary"
 
             _LOGGER.debug(
-                "(" + self._name + ") Previous Location: " + str(previous_location)
+                "(" + self._name + ") Previous Location: " +
+                str(previous_location)
             )
             _LOGGER.debug(
                 "(" + self._name + ") Current Location: " + str(current_location)
             )
-            _LOGGER.debug("(" + self._name + ") Home Location: " + str(home_location))
+            _LOGGER.debug(
+                "(" + self._name + ") Home Location: " + str(home_location))
             _LOGGER.info(
                 "("
                 + self._name
@@ -812,13 +823,16 @@ class Places(Entity):
                 + str(distance_km)
                 + " km"
             )
-            _LOGGER.info("(" + self._name + ") Travel Direction: " + str(direction))
+            _LOGGER.info(
+                "(" + self._name + ") Travel Direction: " + str(direction))
 
             """Update if location has changed."""
 
-            devicetracker_zone = self._hass.states.get(self._devicetracker_id).state
+            devicetracker_zone = self._hass.states.get(
+                self._devicetracker_id).state
             _LOGGER.debug(
-                "(" + self._name + ") DeviceTracker Zone: " + str(devicetracker_zone)
+                "(" + self._name + ") DeviceTracker Zone: " +
+                str(devicetracker_zone)
             )
 
             devicetracker_zone_id = self._hass.states.get(
@@ -896,7 +910,8 @@ class Places(Entity):
             proceed_with_update = False
 
         if previous_state == "Initializing...":
-            _LOGGER.info("(" + self._name + ") Performing Initial Update for user...")
+            _LOGGER.info(
+                "(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
             initial_update = True
 
@@ -939,7 +954,8 @@ class Places(Entity):
             _LOGGER.debug(
                 "(" + self._name + ") Map Link Type: " + str(self._map_provider)
             )
-            _LOGGER.debug("(" + self._name + ") Map Link URL: " + str(self._map_link))
+            _LOGGER.debug(
+                "(" + self._name + ") Map Link URL: " + str(self._map_link))
 
             osm_url = (
                 "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="
@@ -952,7 +968,8 @@ class Places(Entity):
                     else ""
                 )
                 + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
-                + ("&email=" + str(self._api_key) if self._api_key is not None else "")
+                + ("&email=" + str(self._api_key)
+                   if self._api_key is not None else "")
             )
 
             osm_decoded = {}
@@ -967,7 +984,8 @@ class Places(Entity):
             _LOGGER.debug("(" + self._name + ") OSM URL: " + str(osm_url))
             osm_response = get(osm_url)
             osm_json_input = osm_response.text
-            _LOGGER.debug("(" + self._name + ") OSM Response: " + osm_json_input)
+            _LOGGER.debug(
+                "(" + self._name + ") OSM Response: " + osm_json_input)
             osm_decoded = json.loads(osm_json_input)
 
             place_options = self._options.lower()
@@ -1044,7 +1062,8 @@ class Places(Entity):
                 region = osm_decoded["address"]["state"]
             if "ISO3166-2-lvl4" in osm_decoded["address"]:
                 state_abbr = (
-                    osm_decoded["address"]["ISO3166-2-lvl4"].split("-")[1].upper()
+                    osm_decoded["address"]["ISO3166-2-lvl4"].split("-")[
+                        1].upper()
                 )
             if "county" in osm_decoded["address"]:
                 county = osm_decoded["address"]["county"]
@@ -1102,7 +1121,8 @@ class Places(Entity):
                     + ", keeping previous last_place_name"
                 )
             else:
-                _LOGGER.debug("(" + self._name + ") Keeping initial last_place_name")
+                _LOGGER.debug(
+                    "(" + self._name + ") Keeping initial last_place_name")
             self._last_place_name = last_place_name
             _LOGGER.info(
                 "(" + self._name + ") Last Place Name: " + str(last_place_name)
@@ -1158,7 +1178,8 @@ class Places(Entity):
                         self._place_type.lower() == "house"
                         and self._place_neighbourhood is not None
                     ):
-                        formatted_place_array.append(self._place_neighbourhood.strip())
+                        formatted_place_array.append(
+                            self._place_neighbourhood.strip())
 
                 else:
                     formatted_place_array.append(self._place_name.strip())
@@ -1364,7 +1385,8 @@ class Places(Entity):
                             )
                         else:
                             osm_details_json_input = osm_details_response.text
-                            osm_details_dict = json.loads(osm_details_json_input)
+                            osm_details_dict = json.loads(
+                                osm_details_json_input)
                             _LOGGER.debug(
                                 "("
                                 + self._name
@@ -1411,7 +1433,8 @@ class Places(Entity):
                                     )
                                 else:
                                     wikidata_json_input = wikidata_response.text
-                                    wikidata_dict = json.loads(wikidata_json_input)
+                                    wikidata_dict = json.loads(
+                                        wikidata_json_input)
                                     _LOGGER.debug(
                                         "("
                                         + self._name
@@ -1427,7 +1450,8 @@ class Places(Entity):
                                     self._wikidata_dict = wikidata_dict
                 if new_state is not None:
                     self._state = new_state[:255]
-                    _LOGGER.info("(" + self._name + ") New State: " + str(self._state))
+                    _LOGGER.info(
+                        "(" + self._name + ") New State: " + str(self._state))
                 else:
                     self._state = "<Unknown>"
                     _LOGGER.warning(

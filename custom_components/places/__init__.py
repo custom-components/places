@@ -1,7 +1,6 @@
 import logging
 
-from homeassistant import config_entries
-from homeassistant import core
+from homeassistant import config_entries, core
 from homeassistant.const import Platform
 
 from .const import DOMAIN

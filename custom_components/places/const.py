@@ -1,5 +1,4 @@
-from homeassistant.const import CONF_ZONE
-from homeassistant.const import Platform
+from homeassistant.const import CONF_ZONE, Platform
 
 DOMAIN = "places"
 

@@ -4,30 +4,28 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant import core
-from homeassistant.const import CONF_API_KEY
-from homeassistant.const import CONF_LATITUDE
-from homeassistant.const import CONF_LONGITUDE
-from homeassistant.const import CONF_NAME
+from homeassistant import config_entries, core
+from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
-from .const import CONF_DEVICETRACKER_ID
-from .const import CONF_EXTENDED_ATTR
-from .const import CONF_HOME_ZONE
-from .const import CONF_LANGUAGE
-from .const import CONF_MAP_PROVIDER
-from .const import CONF_MAP_ZOOM
-from .const import CONF_OPTIONS
-from .const import DEFAULT_EXTENDED_ATTR
-from .const import DEFAULT_HOME_ZONE
-from .const import DEFAULT_MAP_PROVIDER
-from .const import DEFAULT_MAP_ZOOM
-from .const import DEFAULT_OPTION
 from .const import DOMAIN  # pylint:disable=unused-import
-from .const import HOME_LOCATION_DOMAIN
-from .const import TRACKING_DOMAINS
+from .const import (
+    CONF_DEVICETRACKER_ID,
+    CONF_EXTENDED_ATTR,
+    CONF_HOME_ZONE,
+    CONF_LANGUAGE,
+    CONF_MAP_PROVIDER,
+    CONF_MAP_ZOOM,
+    CONF_OPTIONS,
+    DEFAULT_EXTENDED_ATTR,
+    DEFAULT_HOME_ZONE,
+    DEFAULT_MAP_PROVIDER,
+    DEFAULT_MAP_ZOOM,
+    DEFAULT_OPTION,
+    HOME_LOCATION_DOMAIN,
+    TRACKING_DOMAINS,
+)
 
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
@@ -92,7 +90,8 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=info["title"], data=user_input)
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.exception(
-                    "[config_flow async_step_user] Unexpected exception:" + str(err)
+                    "[config_flow async_step_user] Unexpected exception:" +
+                    str(err)
                 )
                 errors["base"] = "unknown"
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
@@ -121,7 +120,8 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
                 ): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
+                    selector.SingleEntitySelectorConfig(
+                        domain=HOME_LOCATION_DOMAIN)
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
@@ -250,7 +250,8 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         else ""
                     ),
                 ): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
+                    selector.SingleEntitySelectorConfig(
+                        domain=HOME_LOCATION_DOMAIN)
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER,
