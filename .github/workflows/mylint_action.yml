@@ -33,7 +33,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v4.1.1
         with:
-          token: ${{ secrets.CPR }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           title: "Format Python code with isort & Black Code Formatter"
           commit-message: ":art: Format Python code with isort & Black Code Formatter"
           body: |
@@ -48,7 +48,7 @@ jobs:
         id: automerge
         uses: pascalgn/automerge-action@v0.15.3
         env:
-          GITHUB_TOKEN: "${{ secrets.CPR }}"
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           PULL_REQUEST: "${{ steps.cpr.outputs.pull-request-number }}"
           MERGE_LABELS: "automerge"
           MERGE_METHOD: "squash"
