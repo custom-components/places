@@ -42,7 +42,7 @@ COMPONENT_CONFIG_URL = "https://github.com/custom-components/places#configuratio
 
 
 def get_devicetracker_id_entities(hass: core.HomeAssistant) -> list[str]:
-    """Get the list of valid entities for the devicetracker selector"""
+    """Get the list of valid entities (ones with latitude and longitude attributes) for the devicetracker selector"""
     clean_list = []
     for dom in TRACKING_DOMAINS:
         # _LOGGER.debug("Geting entities for domain: " + str(dom))
@@ -87,7 +87,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 info = await validate_input(self.hass, user_input)
                 _LOGGER.debug(
-                    "[config_flow async_step_user] user_input: " + str(user_input)
+                    "[New Sensor] user_input: " + str(user_input)
                 )
                 return self.async_create_entry(title=info["title"], data=user_input)
             except Exception as err:  # pylint: disable=broad-except
@@ -96,14 +96,13 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 errors["base"] = "unknown"
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
-        _LOGGER.debug(
-            "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
-        )
+        #_LOGGER.debug(
+        #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
+        #)
         DATA_SCHEMA = vol.Schema(
             {
                 vol.Required(CONF_NAME): str,
                 vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(
-                    # selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
                     selector.SingleEntitySelectorConfig(
                         include_entities=devicetracker_id_list
                     )
@@ -176,7 +175,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
-    """Config flow options for Places."""
+    """Config flow options for Places. Does not actually store these into Options but updates the Config instead."""
 
     def __init__(self, entry: config_entries.ConfigEntry) -> None:
         """Initialize Places options flow."""
@@ -188,25 +187,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             # _LOGGER.debug(
             #    "[options_flow async_step_init] user_input initial: " + str(user_input)
             # )
+            # Bring in other keys not in the Options Flow
             for m in dict(self.config_entry.data).keys():
                 user_input.setdefault(m, self.config_entry.data[m])
-                _LOGGER.debug(
-                    "[Options Update] user_input["
-                    + m
-                    + "]: '"
-                    + str(user_input.get(m))
-                    + "'"
-                )
-                if not user_input.get(m):
-                    user_input.pop(m)
+            # Remove any keys with blank values
             for m in dict(user_input).keys():
-                _LOGGER.debug(
-                    "[Options Update] user_input["
-                    + m
-                    + "]: '"
-                    + str(user_input.get(m))
-                    + "'"
-                )
                 if not user_input.get(m):
                     user_input.pop(m)
             _LOGGER.debug("[Options Update] user_input: " + str(user_input))
@@ -221,7 +206,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
         # )
         OPTIONS_SCHEMA = vol.Schema(
             {
-                # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
+                #vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
                 vol.Required(
                     CONF_DEVICETRACKER_ID,
                     default=(
@@ -230,7 +215,6 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         else None
                     ),
                 ): selector.EntitySelector(
-                    # selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
                     selector.SingleEntitySelectorConfig(
                         include_entities=devicetracker_id_list
                     )
