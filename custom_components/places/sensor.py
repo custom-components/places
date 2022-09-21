@@ -155,12 +155,12 @@ async def async_setup_platform(
 
     if CONF_DEVICETRACKER_ID not in import_config:
         # device_tracker not defined in config
-        ERROR = "[YAML Import] devicetracker_id not defined in the YAML places sensor definition"
+        ERROR = "[YAML Import] Not importing: devicetracker_id not defined in the YAML places sensor definition"
         _LOGGER.error(ERROR)
         return
     elif import_config[CONF_DEVICETRACKER_ID] is None:
         # device_tracker not defined in config
-        ERROR = "[YAML Import] devicetracker_id not defined in the YAML places sensor definition"
+        ERROR = "[YAML Import] Not importing: devicetracker_id not defined in the YAML places sensor definition"
         _LOGGER.error(ERROR)
         return
     _LOGGER.debug(
@@ -169,7 +169,7 @@ async def async_setup_platform(
     if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in TRACKING_DOMAINS:
         # entity isn't in supported type
         ERROR = (
-            "[YAML Import] devicetracker_id: "
+            "[YAML Import] Not importing: devicetracker_id: "
             + str(import_config[CONF_DEVICETRACKER_ID])
             + " is not one of the supported types: "
             + str(list(TRACKING_DOMAINS))
@@ -179,7 +179,7 @@ async def async_setup_platform(
     elif not hass.states.get(import_config[CONF_DEVICETRACKER_ID]):
         # entity doesn't exist
         ERROR = (
-            "[YAML Import] devicetracker_id: "
+            "[YAML Import] Not importing: devicetracker_id: "
             + str(import_config[CONF_DEVICETRACKER_ID])
             + " doesn't exist"
         )
@@ -210,15 +210,11 @@ async def async_setup_platform(
         )
     )
     if not (
-        hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
-            CONF_LATITUDE
-        )
-        and hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
-            CONF_LONGITUDE
-        )
+        CONF_LATITUDE in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
+        and CONF_LONGITUDE in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
     ):
         ERROR = (
-            "[YAML Import] devicetracker_id: "
+            "[YAML Import] Not importing: devicetracker_id: "
             + import_config[CONF_DEVICETRACKER_ID]
             + " doesnt have latitude/longitude as attributes"
         )

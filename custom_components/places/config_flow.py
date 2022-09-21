@@ -8,6 +8,8 @@ from homeassistant import config_entries
 from homeassistant import core
 from homeassistant.const import CONF_API_KEY
 from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_LATITUDE
+from homeassistant.const import CONF_LONGITUDE
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -38,50 +40,17 @@ COMPONENT_CONFIG_URL = "https://github.com/custom-components/places#configuratio
 # translations/<lang>.json file and strings.json. See here for further information:
 # https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
 
-DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_NAME): str,
-        vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(
-            selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
-        ),
-        vol.Optional(CONF_API_KEY): str,
-        vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=STATE_OPTIONS,
-                multiple=False,
-                custom_value=True,
-                mode=selector.SelectSelectorMode.DROPDOWN,
-            )
-        ),
-        vol.Optional(
-            CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
-        ): selector.EntitySelector(
-            selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
-        ),
-        vol.Optional(
-            CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
-        ): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=MAP_PROVIDER_OPTIONS,
-                multiple=False,
-                custom_value=False,
-                mode=selector.SelectSelectorMode.DROPDOWN,
-            )
-        ),
-        vol.Optional(
-            CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)
-        ): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=MAP_ZOOM_MIN, max=MAP_ZOOM_MAX, mode=selector.NumberSelectorMode.BOX
-            )
-        ),
-        vol.Optional(CONF_LANGUAGE): str,
-        vol.Optional(
-            CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
-        ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
-    }
-)
-
+def get_devicetracker_id_entities(hass: core.HomeAssistant) -> list[str]:
+    """Get the list of valid entities for the devicetracker selector"""
+    clean_list = []
+    for dom in TRACKING_DOMAINS:
+        #_LOGGER.debug("Geting entities for domain: " + str(dom))
+        for ent in hass.states.async_all(dom):
+            if CONF_LATITUDE in hass.states.get(ent.entity_id).attributes and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes:
+                clean_list.append(str(ent.entity_id))
+    clean_list.sort()
+    #_LOGGER.debug("Devicetracker entities with lat/long: " + str(clean_list))
+    return clean_list
 
 async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]:
     """Validate the user input allows us to connect.
@@ -121,7 +90,52 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "[config_flow async_step_user] Unexpected exception:" + str(err)
                 )
                 errors["base"] = "unknown"
-
+        devicetracker_id_list = get_devicetracker_id_entities(self.hass)
+        _LOGGER.debug("Devicetracker entities with lat/long: " + str(devicetracker_id_list))
+        DATA_SCHEMA = vol.Schema(
+            {
+                vol.Required(CONF_NAME): str,
+                vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(
+                    #selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
+                    selector.SingleEntitySelectorConfig(include_entities=devicetracker_id_list)
+                ),
+                vol.Optional(CONF_API_KEY): str,
+                vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=STATE_OPTIONS,
+                        multiple=False,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
+                ): selector.EntitySelector(
+                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
+                ),
+                vol.Optional(
+                    CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=MAP_PROVIDER_OPTIONS,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MAP_ZOOM_MIN, max=MAP_ZOOM_MAX, mode=selector.NumberSelectorMode.BOX
+                    )
+                ),
+                vol.Optional(CONF_LANGUAGE): str,
+                vol.Optional(
+                    CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+            }
+        )
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
             step_id="user",
@@ -161,10 +175,6 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             _LOGGER.debug(
                 "[options_flow async_step_init] user_input initial: " + str(user_input)
             )
-            # if CONF_HOST in self.config_entry.data:
-            #    user_input[CONF_HOST] = self.config_entry.data[CONF_HOST]
-            # if CONF_EMAIL in self.config_entry.data:
-            #    user_input[CONF_EMAIL] = self.config_entry.data[CONF_EMAIL]
             for m in dict(self.config_entry.data).keys():
                 user_input.setdefault(m, self.config_entry.data[m])
             _LOGGER.debug(
@@ -175,102 +185,106 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
             return self.async_create_entry(title="", data={})
+        devicetracker_id_list = get_devicetracker_id_entities(self.hass)
+        _LOGGER.debug("Devicetracker entities with lat/long: " + str(devicetracker_id_list))
+        OPTIONS_SCHEMA=vol.Schema(
+            {
+                # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
+                vol.Required(
+                    CONF_DEVICETRACKER_ID,
+                    default=(
+                        self.config_entry.data[CONF_DEVICETRACKER_ID]
+                        if CONF_DEVICETRACKER_ID in self.config_entry.data
+                        else None
+                    ),
+                ): selector.EntitySelector(
+                    #selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
+                    selector.SingleEntitySelectorConfig(include_entities=devicetracker_id_list)
+                ),
+                vol.Optional(
+                    CONF_API_KEY,
+                    default=(
+                        self.config_entry.data[CONF_API_KEY]
+                        if CONF_API_KEY in self.config_entry.data
+                        else None
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_OPTIONS,
+                    default=(
+                        self.config_entry.data[CONF_OPTIONS]
+                        if CONF_OPTIONS in self.config_entry.data
+                        else None
+                    ),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=STATE_OPTIONS,
+                        multiple=False,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_HOME_ZONE,
+                    default=(
+                        self.config_entry.data[CONF_HOME_ZONE]
+                        if CONF_HOME_ZONE in self.config_entry.data
+                        else None
+                    ),
+                ): selector.EntitySelector(
+                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
+                ),
+                vol.Optional(
+                    CONF_MAP_PROVIDER,
+                    default=(
+                        self.config_entry.data[CONF_MAP_PROVIDER]
+                        if CONF_MAP_PROVIDER in self.config_entry.data
+                        else None
+                    ),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=MAP_PROVIDER_OPTIONS,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_MAP_ZOOM,
+                    default=(
+                        self.config_entry.data[CONF_MAP_ZOOM]
+                        if CONF_MAP_ZOOM in self.config_entry.data
+                        else None
+                    ),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MAP_ZOOM_MIN,
+                        max=MAP_ZOOM_MAX,
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Optional(
+                    CONF_LANGUAGE,
+                    default=(
+                        self.config_entry.data[CONF_LANGUAGE]
+                        if CONF_LANGUAGE in self.config_entry.data
+                        else None
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_EXTENDED_ATTR,
+                    default=(
+                        self.config_entry.data[CONF_EXTENDED_ATTR]
+                        if CONF_EXTENDED_ATTR in self.config_entry.data
+                        else None
+                    ),
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+            }
+        )
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
-                    vol.Required(
-                        CONF_DEVICETRACKER_ID,
-                        default=(
-                            self.config_entry.data[CONF_DEVICETRACKER_ID]
-                            if CONF_DEVICETRACKER_ID in self.config_entry.data
-                            else None
-                        ),
-                    ): selector.EntitySelector(
-                        selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
-                    ),
-                    vol.Optional(
-                        CONF_API_KEY,
-                        default=(
-                            self.config_entry.data[CONF_API_KEY]
-                            if CONF_API_KEY in self.config_entry.data
-                            else None
-                        ),
-                    ): str,
-                    vol.Optional(
-                        CONF_OPTIONS,
-                        default=(
-                            self.config_entry.data[CONF_OPTIONS]
-                            if CONF_OPTIONS in self.config_entry.data
-                            else None
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=STATE_OPTIONS,
-                            multiple=False,
-                            custom_value=True,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_HOME_ZONE,
-                        default=(
-                            self.config_entry.data[CONF_HOME_ZONE]
-                            if CONF_HOME_ZONE in self.config_entry.data
-                            else None
-                        ),
-                    ): selector.EntitySelector(
-                        selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
-                    ),
-                    vol.Optional(
-                        CONF_MAP_PROVIDER,
-                        default=(
-                            self.config_entry.data[CONF_MAP_PROVIDER]
-                            if CONF_MAP_PROVIDER in self.config_entry.data
-                            else None
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=MAP_PROVIDER_OPTIONS,
-                            multiple=False,
-                            custom_value=False,
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_MAP_ZOOM,
-                        default=(
-                            self.config_entry.data[CONF_MAP_ZOOM]
-                            if CONF_MAP_ZOOM in self.config_entry.data
-                            else None
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=MAP_ZOOM_MIN,
-                            max=MAP_ZOOM_MAX,
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_LANGUAGE,
-                        default=(
-                            self.config_entry.data[CONF_LANGUAGE]
-                            if CONF_LANGUAGE in self.config_entry.data
-                            else None
-                        ),
-                    ): str,
-                    vol.Optional(
-                        CONF_EXTENDED_ATTR,
-                        default=(
-                            self.config_entry.data[CONF_EXTENDED_ATTR]
-                            if CONF_EXTENDED_ATTR in self.config_entry.data
-                            else None
-                        ),
-                    ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
-                }
-            ),
+            data_schema=OPTIONS_SCHEMA,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
                 "sensor_name": self.config_entry.data[CONF_NAME],
