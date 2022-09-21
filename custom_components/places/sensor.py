@@ -163,8 +163,9 @@ async def async_setup_platform(
         ERROR = "[YAML Import] devicetracker_id not defined in the YAML places sensor definition"
         _LOGGER.error(ERROR)
         return
-    _LOGGER.debug("[YAML Import] devicetracker_id: "
-            + str(import_config[CONF_DEVICETRACKER_ID]))
+    _LOGGER.debug(
+        "[YAML Import] devicetracker_id: " + str(import_config[CONF_DEVICETRACKER_ID])
+    )
     if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in TRACKING_DOMAINS:
         # entity isn't in supported type
         ERROR = (
@@ -184,21 +185,38 @@ async def async_setup_platform(
         )
         _LOGGER.error(ERROR)
         return
-    _LOGGER.debug("[YAML Import] devicetracker_id: "
+    _LOGGER.debug(
+        "[YAML Import] devicetracker_id: "
         + str(import_config[CONF_DEVICETRACKER_ID])
         + " - "
         + CONF_LATITUDE
-        + "= " 
-        + str(hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(CONF_LATITUDE))
+        + "= "
+        + str(
+            hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
+                CONF_LATITUDE
+            )
+        )
     )
-    _LOGGER.debug("[YAML Import] devicetracker_id: "
+    _LOGGER.debug(
+        "[YAML Import] devicetracker_id: "
         + str(import_config[CONF_DEVICETRACKER_ID])
         + " - "
         + CONF_LONGITUDE
-        + "= " 
-        + str(hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(CONF_LONGITUDE))
+        + "= "
+        + str(
+            hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
+                CONF_LONGITUDE
+            )
+        )
     )
-    if not (hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(CONF_LATITUDE) and hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(CONF_LONGITUDE)):
+    if not (
+        hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
+            CONF_LATITUDE
+        )
+        and hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
+            CONF_LONGITUDE
+        )
+    ):
         ERROR = (
             "[YAML Import] devicetracker_id: "
             + import_config[CONF_DEVICETRACKER_ID]
@@ -238,7 +256,8 @@ async def async_setup_platform(
     # _LOGGER.debug("[YAML Import] All yaml hashes: " + str(all_yaml_hashes))
     if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
         _LOGGER.warning(
-            "[YAML Import] New YAML sensor, importing: " + str(import_config.get(CONF_NAME))
+            "[YAML Import] New YAML sensor, importing: "
+            + str(import_config.get(CONF_NAME))
         )
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
     else:
