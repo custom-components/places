@@ -14,7 +14,7 @@ DEFAULT_EXTENDED_ATTR = False
 # Settings
 TRACKING_DOMAINS = [
     str(Platform.DEVICE_TRACKER),
-    str(Platform.PERSON),
+    str("person"),
     str(Platform.SENSOR),
 ]
 HOME_LOCATION_DOMAIN = CONF_ZONE
