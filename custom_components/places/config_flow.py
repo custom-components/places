@@ -190,7 +190,13 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             # )
             for m in dict(self.config_entry.data).keys():
                 user_input.setdefault(m, self.config_entry.data[m])
-                _LOGGER.debug("[Options Update] user_input[" + m + "]: '" + str(user_input.get(m)) + "'")
+                _LOGGER.debug(
+                    "[Options Update] user_input["
+                    + m
+                    + "]: '"
+                    + str(user_input.get(m))
+                    + "'"
+                )
                 if user_input.get(m) == "":
                     user_input.pop(m)
             _LOGGER.debug("[Options Update] user_input: " + str(user_input))
