@@ -86,9 +86,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 info = await validate_input(self.hass, user_input)
-                _LOGGER.debug(
-                    "[New Sensor] user_input: " + str(user_input)
-                )
+                _LOGGER.debug("[New Sensor] user_input: " + str(user_input))
                 return self.async_create_entry(title=info["title"], data=user_input)
             except Exception as err:  # pylint: disable=broad-except
                 _LOGGER.exception(
@@ -96,9 +94,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 errors["base"] = "unknown"
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
-        #_LOGGER.debug(
+        # _LOGGER.debug(
         #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
-        #)
+        # )
         DATA_SCHEMA = vol.Schema(
             {
                 vol.Required(CONF_NAME): str,
@@ -206,7 +204,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
         # )
         OPTIONS_SCHEMA = vol.Schema(
             {
-                #vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
+                # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
                 vol.Required(
                     CONF_DEVICETRACKER_ID,
                     default=(
