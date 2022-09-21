@@ -587,10 +587,13 @@ class Places(Entity):
         return c * r
 
     def is_float(self, value):
-        try:
-            float(value)
-            return True
-        except ValueError:
+        if value is not None:
+            try:
+                float(value)
+                return True
+            except ValueError:
+                return False
+        else:
             return False
 
     def in_zone(self):
