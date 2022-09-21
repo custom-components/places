@@ -210,8 +210,10 @@ async def async_setup_platform(
         )
     )
     if not (
-        CONF_LATITUDE in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
-        and CONF_LONGITUDE in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
+        CONF_LATITUDE
+        in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
+        and CONF_LONGITUDE
+        in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
     ):
         ERROR = (
             "[YAML Import] Not importing: devicetracker_id: "

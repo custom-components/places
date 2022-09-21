@@ -7,9 +7,9 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant import core
 from homeassistant.const import CONF_API_KEY
-from homeassistant.const import CONF_NAME
 from homeassistant.const import CONF_LATITUDE
 from homeassistant.const import CONF_LONGITUDE
+from homeassistant.const import CONF_NAME
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -40,17 +40,22 @@ COMPONENT_CONFIG_URL = "https://github.com/custom-components/places#configuratio
 # translations/<lang>.json file and strings.json. See here for further information:
 # https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
 
+
 def get_devicetracker_id_entities(hass: core.HomeAssistant) -> list[str]:
     """Get the list of valid entities for the devicetracker selector"""
     clean_list = []
     for dom in TRACKING_DOMAINS:
-        #_LOGGER.debug("Geting entities for domain: " + str(dom))
+        # _LOGGER.debug("Geting entities for domain: " + str(dom))
         for ent in hass.states.async_all(dom):
-            if CONF_LATITUDE in hass.states.get(ent.entity_id).attributes and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes:
+            if (
+                CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
+                and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
+            ):
                 clean_list.append(str(ent.entity_id))
     clean_list.sort()
-    #_LOGGER.debug("Devicetracker entities with lat/long: " + str(clean_list))
+    # _LOGGER.debug("Devicetracker entities with lat/long: " + str(clean_list))
     return clean_list
+
 
 async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]:
     """Validate the user input allows us to connect.
@@ -91,16 +96,22 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 errors["base"] = "unknown"
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
-        _LOGGER.debug("Devicetracker entities with lat/long: " + str(devicetracker_id_list))
+        _LOGGER.debug(
+            "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
+        )
         DATA_SCHEMA = vol.Schema(
             {
                 vol.Required(CONF_NAME): str,
                 vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(
-                    #selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
-                    selector.SingleEntitySelectorConfig(include_entities=devicetracker_id_list)
+                    # selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
+                    selector.SingleEntitySelectorConfig(
+                        include_entities=devicetracker_id_list
+                    )
                 ),
                 vol.Optional(CONF_API_KEY): str,
-                vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): selector.SelectSelector(
+                vol.Optional(
+                    CONF_OPTIONS, default=DEFAULT_OPTION
+                ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=STATE_OPTIONS,
                         multiple=False,
@@ -127,7 +138,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
-                        min=MAP_ZOOM_MIN, max=MAP_ZOOM_MAX, mode=selector.NumberSelectorMode.BOX
+                        min=MAP_ZOOM_MIN,
+                        max=MAP_ZOOM_MAX,
+                        mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
                 vol.Optional(CONF_LANGUAGE): str,
@@ -186,8 +199,10 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             )
             return self.async_create_entry(title="", data={})
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
-        _LOGGER.debug("Devicetracker entities with lat/long: " + str(devicetracker_id_list))
-        OPTIONS_SCHEMA=vol.Schema(
+        _LOGGER.debug(
+            "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
+        )
+        OPTIONS_SCHEMA = vol.Schema(
             {
                 # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
                 vol.Required(
@@ -198,8 +213,10 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         else None
                     ),
                 ): selector.EntitySelector(
-                    #selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
-                    selector.SingleEntitySelectorConfig(include_entities=devicetracker_id_list)
+                    # selector.SingleEntitySelectorConfig(domain=TRACKING_DOMAINS)
+                    selector.SingleEntitySelectorConfig(
+                        include_entities=devicetracker_id_list
+                    )
                 ),
                 vol.Optional(
                     CONF_API_KEY,
