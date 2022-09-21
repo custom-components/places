@@ -54,5 +54,4 @@ jobs:
           MERGE_METHOD: "squash"
           MERGE_REMOVE_LABELS: "automerge"
           MERGE_DELETE_BRANCH: "true"
-          MERGE_ERROR_FAIL: "true" 
-          
+          MERGE_ERROR_FAIL: "true"
