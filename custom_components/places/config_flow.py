@@ -9,7 +9,6 @@ from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE, CON
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
-from .const import DOMAIN  # pylint:disable=unused-import
 from .const import (
     CONF_DEVICETRACKER_ID,
     CONF_EXTENDED_ATTR,
@@ -23,6 +22,7 @@ from .const import (
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
+    DOMAIN,
     HOME_LOCATION_DOMAIN,
     TRACKING_DOMAINS,
 )
@@ -88,7 +88,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 info = await validate_input(self.hass, user_input)
                 _LOGGER.debug("[New Sensor] user_input: " + str(user_input))
                 return self.async_create_entry(title=info["title"], data=user_input)
-            except Exception as err:  # pylint: disable=broad-except
+            except Exception as err:
                 _LOGGER.exception(
                     "[config_flow async_step_user] Unexpected exception:" +
                     str(err)
