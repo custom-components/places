@@ -19,7 +19,7 @@ jobs:
         uses: jamescurtin/isort-action@master
         id: action_isort
         with:
-          configuration: --force-single-line --profile black
+          configuration: --profile black
       - name: Check code with flake8
         uses: reviewdog/action-flake8@v3
         id: action_flake8
