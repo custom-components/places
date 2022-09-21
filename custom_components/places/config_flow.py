@@ -185,13 +185,15 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
-            _LOGGER.debug(
-                "[options_flow async_step_init] user_input initial: " + str(user_input)
-            )
+            #_LOGGER.debug(
+            #    "[options_flow async_step_init] user_input initial: " + str(user_input)
+            #)
             for m in dict(self.config_entry.data).keys():
                 user_input.setdefault(m, self.config_entry.data[m])
+                if user_input.get(m) == "":
+                    user_input.pop(m)
             _LOGGER.debug(
-                "[options_flow async_step_init] user_input final: " + str(user_input)
+                "[Options Update] user_input: " + str(user_input)
             )
 
             self.hass.config_entries.async_update_entry(
@@ -199,9 +201,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             )
             return self.async_create_entry(title="", data={})
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
-        _LOGGER.debug(
-            "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
-        )
+        #_LOGGER.debug(
+        #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
+        #)
         OPTIONS_SCHEMA = vol.Schema(
             {
                 # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
@@ -223,7 +225,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     default=(
                         self.config_entry.data[CONF_API_KEY]
                         if CONF_API_KEY in self.config_entry.data
-                        else None
+                        else ""
                     ),
                 ): str,
                 vol.Optional(
@@ -231,7 +233,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     default=(
                         self.config_entry.data[CONF_OPTIONS]
                         if CONF_OPTIONS in self.config_entry.data
-                        else None
+                        else DEFAULT_OPTION
                     ),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -246,7 +248,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     default=(
                         self.config_entry.data[CONF_HOME_ZONE]
                         if CONF_HOME_ZONE in self.config_entry.data
-                        else None
+                        else ""
                     ),
                 ): selector.EntitySelector(
                     selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAIN)
@@ -256,7 +258,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     default=(
                         self.config_entry.data[CONF_MAP_PROVIDER]
                         if CONF_MAP_PROVIDER in self.config_entry.data
-                        else None
+                        else CONF_MAP_PROVIDER
                     ),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -271,7 +273,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     default=(
                         self.config_entry.data[CONF_MAP_ZOOM]
                         if CONF_MAP_ZOOM in self.config_entry.data
-                        else None
+                        else CONF_MAP_ZOOM
                     ),
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
@@ -285,7 +287,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     default=(
                         self.config_entry.data[CONF_LANGUAGE]
                         if CONF_LANGUAGE in self.config_entry.data
-                        else None
+                        else ""
                     ),
                 ): str,
                 vol.Optional(
@@ -293,7 +295,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     default=(
                         self.config_entry.data[CONF_EXTENDED_ATTR]
                         if CONF_EXTENDED_ATTR in self.config_entry.data
-                        else None
+                        else DEFAULT_EXTENDED_ATTR
                     ),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
