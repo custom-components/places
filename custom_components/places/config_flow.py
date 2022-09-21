@@ -185,25 +185,23 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
-            #_LOGGER.debug(
+            # _LOGGER.debug(
             #    "[options_flow async_step_init] user_input initial: " + str(user_input)
-            #)
+            # )
             for m in dict(self.config_entry.data).keys():
                 user_input.setdefault(m, self.config_entry.data[m])
                 if user_input.get(m) == "":
                     user_input.pop(m)
-            _LOGGER.debug(
-                "[Options Update] user_input: " + str(user_input)
-            )
+            _LOGGER.debug("[Options Update] user_input: " + str(user_input))
 
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
             return self.async_create_entry(title="", data={})
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
-        #_LOGGER.debug(
+        # _LOGGER.debug(
         #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
-        #)
+        # )
         OPTIONS_SCHEMA = vol.Schema(
             {
                 # vol.Required(CONF_NAME, default=self.config_entry.data[CONF_NAME] if CONF_NAME in self.config_entry.data else None)): str,
