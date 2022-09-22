@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 
 import homeassistant.helpers.config_validation as cv
+import requests
 import voluptuous as vol
 from homeassistant import config_entries, core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
@@ -39,7 +40,6 @@ from homeassistant.helpers.issue_registry import IssueSeverity, async_create_iss
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
-from requests import get
 
 from .const import (
     ATTR_CITY,
@@ -123,7 +123,7 @@ async def async_setup_platform(
     hass: core.HomeAssistant,
     config: ConfigType,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
+    discovery_info: DiscoveryInfoType = None,
 ) -> None:
     """Set up places sensor from YAML."""
 
@@ -597,15 +597,18 @@ class Places(Entity):
             return False
 
     def in_zone(self):
-        if (
-            "stationary" in self._devicetracker_zone.lower()
-            or self._devicetracker_zone.lower() == "away"
-            or self._devicetracker_zone.lower() == "not_home"
-            or self._devicetracker_zone.lower() == "notset"
-        ):
-            return False
+        if self._devicetracker_zone is not None:
+            if (
+                "stationary" in self._devicetracker_zone.lower()
+                or self._devicetracker_zone.lower() == "away"
+                or self._devicetracker_zone.lower() == "not_home"
+                or self._devicetracker_zone.lower() == "notset"
+            ):
+                return False
+            else:
+                return True
         else:
-            return True
+            return False
 
     def do_update(self, reason):
         """Get the latest data and updates the states."""
@@ -985,555 +988,650 @@ class Places(Entity):
                 + str(self._longitude)
             )
             _LOGGER.debug("(" + self._name + ") OSM URL: " + str(osm_url))
-            osm_response = get(osm_url)
-            osm_json_input = osm_response.text
-            _LOGGER.debug(
-                "(" + self._name + ") OSM Response: " + osm_json_input)
-            osm_decoded = json.loads(osm_json_input)
-
-            place_options = self._options.lower()
-            place_type = None
-            place_name = None
-            place_category = None
-            place_neighbourhood = None
-            street_number = None
-            street = None
-            city = None
-            postal_town = None
-            region = None
-            state_abbr = None
-            county = None
-            country = None
-            postal_code = None
-            formatted_address = None
-            target_option = None
-            formatted_place = None
-            osm_id = None
-            osm_type = None
-            wikidata_id = None
-
-            if "place" in self._options:
-                place_type = osm_decoded["type"]
-                if place_type == "yes":
-                    place_type = osm_decoded["addresstype"]
-                if place_type in osm_decoded["address"]:
-                    place_name = osm_decoded["address"][place_type]
-                if "category" in osm_decoded:
-                    place_category = osm_decoded["category"]
-                    if place_category in osm_decoded["address"]:
-                        place_name = osm_decoded["address"][place_category]
-                if "name" in osm_decoded["namedetails"]:
-                    place_name = osm_decoded["namedetails"]["name"]
-                if self._language is not None:
-                    for language in self._language.split(","):
-                        if "name:" + language in osm_decoded["namedetails"]:
-                            place_name = osm_decoded["namedetails"]["name:" + language]
-                            break
-                if not self.in_zone() and place_name != "house":
-                    new_state = place_name
-
-            if "house_number" in osm_decoded["address"]:
-                street_number = osm_decoded["address"]["house_number"]
-            if "road" in osm_decoded["address"]:
-                street = osm_decoded["address"]["road"]
-
-            if "neighbourhood" in osm_decoded["address"]:
-                place_neighbourhood = osm_decoded["address"]["neighbourhood"]
-            elif "hamlet" in osm_decoded["address"]:
-                place_neighbourhood = osm_decoded["address"]["hamlet"]
-
-            if "city" in osm_decoded["address"]:
-                city = osm_decoded["address"]["city"]
-            elif "town" in osm_decoded["address"]:
-                city = osm_decoded["address"]["town"]
-            elif "village" in osm_decoded["address"]:
-                city = osm_decoded["address"]["village"]
-            elif "township" in osm_decoded["address"]:
-                city = osm_decoded["address"]["township"]
-            elif "municipality" in osm_decoded["address"]:
-                city = osm_decoded["address"]["municipality"]
-            elif "city_district" in osm_decoded["address"]:
-                city = osm_decoded["address"]["city_district"]
-            if city is not None and city.startswith("City of"):
-                city = city[8:] + " City"
-
-            if "city_district" in osm_decoded["address"]:
-                postal_town = osm_decoded["address"]["city_district"]
-            if "suburb" in osm_decoded["address"]:
-                postal_town = osm_decoded["address"]["suburb"]
-            if "state" in osm_decoded["address"]:
-                region = osm_decoded["address"]["state"]
-            if "ISO3166-2-lvl4" in osm_decoded["address"]:
-                state_abbr = (
-                    osm_decoded["address"]["ISO3166-2-lvl4"].split("-")[
-                        1].upper()
-                )
-            if "county" in osm_decoded["address"]:
-                county = osm_decoded["address"]["county"]
-            if "country" in osm_decoded["address"]:
-                country = osm_decoded["address"]["country"]
-            if "postcode" in osm_decoded["address"]:
-                postal_code = osm_decoded["address"]["postcode"]
-            if "display_name" in osm_decoded:
-                formatted_address = osm_decoded["display_name"]
-
-            if "osm_id" in osm_decoded:
-                osm_id = str(osm_decoded["osm_id"])
-            if "osm_type" in osm_decoded:
-                osm_type = osm_decoded["osm_type"]
-
-            self._place_type = place_type
-            self._place_category = place_category
-            self._place_neighbourhood = place_neighbourhood
-            self._place_name = place_name
-
-            self._street_number = street_number
-            self._street = street
-            self._city = city
-            self._postal_town = postal_town
-            self._region = region
-            self._state_abbr = state_abbr
-            self._county = county
-            self._country = country
-            self._postal_code = postal_code
-            self._formatted_address = formatted_address
-            self._mtime = str(datetime.now())
-            if osm_id is not None:
-                self._osm_id = str(osm_id)
-            self._osm_type = osm_type
-            if initial_update is True:
-                last_place_name = self._last_place_name
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Runnining initial update after load, using prior last_place_name"
-                )
-            elif (
-                last_place_name == place_name
-                or last_place_name == devicetracker_zone_name
-            ):
-                # If current place name/zone are the same as previous, keep older last place name
-                last_place_name = self._last_place_name
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Initial last_place_name is same as new: place_name="
-                    + str(place_name)
-                    + " or devicetracker_zone_name="
-                    + str(devicetracker_zone_name)
-                    + ", keeping previous last_place_name"
-                )
-            else:
-                _LOGGER.debug(
-                    "(" + self._name + ") Keeping initial last_place_name")
-            self._last_place_name = last_place_name
-            _LOGGER.info(
-                "(" + self._name + ") Last Place Name: " + str(last_place_name)
-            )
-
-            isDriving = False
-
-            display_options = []
-            options_array = self._options.split(",")
-            for option in options_array:
-                display_options.append(option.strip())
-
-            # Formatted Place
-            formatted_place_array = []
-            if not self.in_zone():
-                if (
-                    self._direction != "stationary"
-                    and (
-                        self._place_category == "highway"
-                        or self._place_type == "motorway"
-                    )
-                    and "driving" in display_options
-                ):
-                    formatted_place_array.append("Driving")
-                    isDriving = True
-                if self._place_name is None:
-                    if (
-                        self._place_type is not None
-                        and self._place_type.lower() != "unclassified"
-                        and self._place_category.lower() != "highway"
-                    ):
-                        formatted_place_array.append(
-                            self._place_type.title()
-                            .replace("Proposed", "")
-                            .replace("Construction", "")
-                            .strip()
-                        )
-                    elif (
-                        self._place_category is not None
-                        and self._place_category.lower() != "highway"
-                    ):
-                        formatted_place_array.append(
-                            self._place_category.title().strip()
-                        )
-                    if self._street is not None:
-                        if self._street_number is None:
-                            formatted_place_array.append(self._street.strip())
-                        else:
-                            formatted_place_array.append(
-                                self._street_number.strip() + " " + self._street.strip()
-                            )
-                    if (
-                        self._place_type.lower() == "house"
-                        and self._place_neighbourhood is not None
-                    ):
-                        formatted_place_array.append(
-                            self._place_neighbourhood.strip())
-
-                else:
-                    formatted_place_array.append(self._place_name.strip())
-                if self._city is not None:
-                    formatted_place_array.append(
-                        self._city.replace(" Township", "").strip()
-                    )
-                elif self._county is not None:
-                    formatted_place_array.append(self._county.strip())
-                if self._state_abbr is not None:
-                    formatted_place_array.append(self._state_abbr)
-            else:
-                formatted_place_array.append(devicetracker_zone_name.strip())
-            formatted_place = ", ".join(item for item in formatted_place_array)
-            formatted_place = (
-                formatted_place.replace("\n", " ").replace("  ", " ").strip()
-            )
-            self._formatted_place = formatted_place
-
-            if "error_message" in osm_decoded:
-                new_state = osm_decoded["error_message"]
+            # osm_response = get(osm_url)
+            try:
+                osm_response = requests.get(osm_url)
+            except requests.exceptions.Timeout:
+                osm_response = None
                 _LOGGER.warning(
                     "("
                     + self._name
-                    + ") An error occurred contacting the web service for OpenStreetMap"
+                    + ") Timeout Connecting to OpenStreetMaps: "
+                    + str(osm_url)
                 )
-            elif "formatted_place" in display_options:
-                new_state = self._formatted_place
+            if osm_response is not None:
+                osm_json_input = osm_response.text
                 _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") New State using formatted_place: "
-                    + str(new_state)
-                )
-            elif not self.in_zone():
+                    "(" + self._name + ") OSM Response: " + osm_json_input)
+            else:
+                osm_json_input = {}
 
-                # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
+            if osm_json_input:
+                osm_decoded = json.loads(osm_json_input)
 
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Building State from Display Options: "
-                    + str(self._options)
-                )
+            if osm_decoded:
+                place_type = None
+                place_name = None
+                place_category = None
+                place_neighbourhood = None
+                street_number = None
+                street = None
+                city = None
+                postal_town = None
+                region = None
+                state_abbr = None
+                county = None
+                country = None
+                postal_code = None
+                formatted_address = None
+                target_option = None
+                formatted_place = None
+                osm_id = None
+                osm_type = None
+                wikidata_id = None
 
-                user_display = []
+                if "place" in str(self._options):
+                    place_type = osm_decoded["type"]
+                    if place_type == "yes":
+                        place_type = osm_decoded["addresstype"]
+                    if place_type in osm_decoded["address"]:
+                        place_name = osm_decoded["address"][place_type]
+                    if "category" in osm_decoded:
+                        place_category = osm_decoded["category"]
+                        if place_category in osm_decoded["address"]:
+                            place_name = osm_decoded["address"][place_category]
+                    if "name" in osm_decoded["namedetails"]:
+                        place_name = osm_decoded["namedetails"]["name"]
+                    if self._language is not None:
+                        for language in self._language.split(","):
+                            if "name:" + language in osm_decoded["namedetails"]:
+                                place_name = osm_decoded["namedetails"][
+                                    "name:" + language
+                                ]
+                                break
+                    if not self.in_zone() and place_name != "house":
+                        new_state = place_name
 
-                if "driving" in display_options and isDriving:
-                    user_display.append("Driving")
+                if "house_number" in osm_decoded["address"]:
+                    street_number = osm_decoded["address"]["house_number"]
+                if "road" in osm_decoded["address"]:
+                    street = osm_decoded["address"]["road"]
 
-                if (
-                    "zone_name" in display_options
-                    and "do_not_show_not_home" not in display_options
-                    and self._devicetracker_zone_name is not None
-                ):
-                    user_display.append(self._devicetracker_zone_name)
+                if "neighbourhood" in osm_decoded["address"]:
+                    place_neighbourhood = osm_decoded["address"]["neighbourhood"]
+                elif "hamlet" in osm_decoded["address"]:
+                    place_neighbourhood = osm_decoded["address"]["hamlet"]
+
+                if "city" in osm_decoded["address"]:
+                    city = osm_decoded["address"]["city"]
+                elif "town" in osm_decoded["address"]:
+                    city = osm_decoded["address"]["town"]
+                elif "village" in osm_decoded["address"]:
+                    city = osm_decoded["address"]["village"]
+                elif "township" in osm_decoded["address"]:
+                    city = osm_decoded["address"]["township"]
+                elif "municipality" in osm_decoded["address"]:
+                    city = osm_decoded["address"]["municipality"]
+                elif "city_district" in osm_decoded["address"]:
+                    city = osm_decoded["address"]["city_district"]
+                if city is not None and city.startswith("City of"):
+                    city = city[8:] + " City"
+
+                if "city_district" in osm_decoded["address"]:
+                    postal_town = osm_decoded["address"]["city_district"]
+                if "suburb" in osm_decoded["address"]:
+                    postal_town = osm_decoded["address"]["suburb"]
+                if "state" in osm_decoded["address"]:
+                    region = osm_decoded["address"]["state"]
+                if "ISO3166-2-lvl4" in osm_decoded["address"]:
+                    state_abbr = (
+                        osm_decoded["address"]["ISO3166-2-lvl4"].split("-")[
+                            1].upper()
+                    )
+                if "county" in osm_decoded["address"]:
+                    county = osm_decoded["address"]["county"]
+                if "country" in osm_decoded["address"]:
+                    country = osm_decoded["address"]["country"]
+                if "postcode" in osm_decoded["address"]:
+                    postal_code = osm_decoded["address"]["postcode"]
+                if "display_name" in osm_decoded:
+                    formatted_address = osm_decoded["display_name"]
+
+                if "osm_id" in osm_decoded:
+                    osm_id = str(osm_decoded["osm_id"])
+                if "osm_type" in osm_decoded:
+                    osm_type = osm_decoded["osm_type"]
+
+                self._place_type = place_type
+                self._place_category = place_category
+                self._place_neighbourhood = place_neighbourhood
+                self._place_name = place_name
+
+                self._street_number = street_number
+                self._street = street
+                self._city = city
+                self._postal_town = postal_town
+                self._region = region
+                self._state_abbr = state_abbr
+                self._county = county
+                self._country = country
+                self._postal_code = postal_code
+                self._formatted_address = formatted_address
+                self._mtime = str(datetime.now())
+                if osm_id is not None:
+                    self._osm_id = str(osm_id)
+                self._osm_type = osm_type
+                if initial_update is True:
+                    last_place_name = self._last_place_name
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") Runnining initial update after load, using prior last_place_name"
+                    )
                 elif (
-                    "zone" in display_options
-                    and "do_not_show_not_home" not in display_options
-                    and self._devicetracker_zone is not None
+                    last_place_name == place_name
+                    or last_place_name == devicetracker_zone_name
                 ):
-                    user_display.append(self._devicetracker_zone)
-
-                if "place_name" in display_options and place_name is not None:
-                    user_display.append(place_name)
-                if "place" in display_options:
-                    if place_name is not None:
-                        user_display.append(place_name)
-                    if place_category is not None and place_category.lower() != "place":
-                        user_display.append(place_category)
-                    if place_type is not None and place_type.lower() != "yes":
-                        user_display.append(place_type)
-                    if place_neighbourhood is not None:
-                        user_display.append(place_neighbourhood)
-                    if street_number is not None:
-                        user_display.append(street_number)
-                    if street is not None:
-                        user_display.append(street)
+                    # If current place name/zone are the same as previous, keep older last place name
+                    last_place_name = self._last_place_name
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") Initial last_place_name is same as new: place_name="
+                        + str(place_name)
+                        + " or devicetracker_zone_name="
+                        + str(devicetracker_zone_name)
+                        + ", keeping previous last_place_name"
+                    )
                 else:
-                    if "street_number" in display_options and street_number is not None:
-                        user_display.append(street_number)
-                    if "street" in display_options and street is not None:
-                        user_display.append(street)
-                if "city" in display_options and self._city is not None:
-                    user_display.append(self._city)
-                if "county" in display_options and self._county is not None:
-                    user_display.append(self._county)
-                if "state" in display_options and self._region is not None:
-                    user_display.append(self._region)
-                elif "region" in display_options and self._region is not None:
-                    user_display.append(self._region)
-                if "postal_code" in display_options and self._postal_code is not None:
-                    user_display.append(self._postal_code)
-                if "country" in display_options and self._country is not None:
-                    user_display.append(self._country)
-                if (
-                    "formatted_address" in display_options
-                    and self._formatted_address is not None
-                ):
-                    user_display.append(self._formatted_address)
-
-                if "do_not_reorder" in display_options:
-                    user_display = []
-                    display_options.remove("do_not_reorder")
-                    for option in display_options:
-                        if option == "state":
-                            target_option = "region"
-                        if option == "place_neighborhood":
-                            target_option = "place_neighbourhood"
-                        if option in locals():
-                            user_display.append(target_option)
-
-                if user_display:
-                    new_state = ", ".join(item for item in user_display)
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") New State from Display Options: "
-                    + str(new_state)
-                )
-            elif (
-                "zone_name" in display_options
-                and self._devicetracker_zone_name is not None
-            ):
-                new_state = self._devicetracker_zone_name
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") New State from DeviceTracker Zone Name: "
-                    + str(new_state)
-                )
-            elif self._devicetracker_zone is not None:
-                new_state = devicetracker_zone
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") New State from DeviceTracker Zone: "
-                    + str(new_state)
+                    _LOGGER.debug(
+                        "(" + self._name + ") Keeping initial last_place_name"
+                    )
+                self._last_place_name = last_place_name
+                _LOGGER.info(
+                    "(" + self._name + ") Last Place Name: " +
+                    str(last_place_name)
                 )
 
-            if self._extended_attr:
-                self._osm_dict = osm_decoded
-            current_time = "%02d:%02d" % (now.hour, now.minute)
+                isDriving = False
 
-            if (
-                previous_state.lower().strip() != new_state.lower().strip()
-                and previous_state.replace(" ", "").lower().strip()
-                != new_state.lower().strip()
-                and previous_state.lower().strip() != devicetracker_zone.lower().strip()
-            ) or previous_state.strip() == "Initializing...":
+                display_options = []
+                if self._options is not None:
+                    options_array = self._options.split(",")
+                    for option in options_array:
+                        display_options.append(option.strip())
 
-                if self._extended_attr:
-                    osm_details_dict = {}
-                    if osm_id is not None and osm_type is not None:
-                        if osm_type.lower() == "node":
-                            osm_type_abbr = "N"
-                        elif osm_type.lower() == "way":
-                            osm_type_abbr = "W"
-                        elif osm_type.lower() == "relation":
-                            osm_type_abbr = "R"
-
-                        osm_details_url = (
-                            "https://nominatim.openstreetmap.org/details.php?osmtype="
-                            + str(osm_type_abbr)
-                            + "&osmid="
-                            + str(osm_id)
-                            + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
-                            + (
-                                "&email=" + str(self._api_key)
-                                if self._api_key is not None
-                                else ""
-                            )
-                            + (
-                                "&accept-language=" + str(self._language)
-                                if self._language is not None
-                                else ""
-                            )
+                # Formatted Place
+                formatted_place_array = []
+                if not self.in_zone():
+                    if (
+                        self._direction != "stationary"
+                        and (
+                            self._place_category == "highway"
+                            or self._place_type == "motorway"
                         )
-
-                        _LOGGER.info(
-                            "("
-                            + self._name
-                            + ") OpenStreetMap Details Request: type="
-                            + str(osm_type)
-                            + " ("
-                            + str(osm_type_abbr)
-                            + ") and id="
-                            + str(osm_id)
-                        )
-                        _LOGGER.debug(
-                            "("
-                            + self._name
-                            + ") OSM Details URL: "
-                            + str(osm_details_url)
-                        )
-                        osm_details_response = get(osm_details_url)
-                        if "error_message" in osm_details_response:
-                            osm_details_dict = osm_details_response["error_message"]
-                            _LOGGER.info(
-                                "("
-                                + self._name
-                                + ") An error occurred contacting the web service for OSM Details"
+                        and "driving" in display_options
+                    ):
+                        formatted_place_array.append("Driving")
+                        isDriving = True
+                    if self._place_name is None:
+                        if (
+                            self._place_type is not None
+                            and self._place_type.lower() != "unclassified"
+                            and self._place_category.lower() != "highway"
+                        ):
+                            formatted_place_array.append(
+                                self._place_type.title()
+                                .replace("Proposed", "")
+                                .replace("Construction", "")
+                                .strip()
                             )
-                        else:
-                            osm_details_json_input = osm_details_response.text
-                            osm_details_dict = json.loads(
-                                osm_details_json_input)
-                            _LOGGER.debug(
-                                "("
-                                + self._name
-                                + ") OSM Details JSON: "
-                                + osm_details_json_input
+                        elif (
+                            self._place_category is not None
+                            and self._place_category.lower() != "highway"
+                        ):
+                            formatted_place_array.append(
+                                self._place_category.title().strip()
                             )
-                            # _LOGGER.debug("(" + self._name + ") OSM Details Dict: " + str(osm_details_dict))
-                            self._osm_details_dict = osm_details_dict
-
-                            if (
-                                "extratags" in osm_details_dict
-                                and "wikidata" in osm_details_dict["extratags"]
-                            ):
-                                wikidata_id = osm_details_dict["extratags"]["wikidata"]
-                            self._wikidata_id = wikidata_id
-
-                            wikidata_dict = {}
-                            if wikidata_id is not None:
-                                wikidata_url = (
-                                    "https://www.wikidata.org/wiki/Special:EntityData/"
-                                    + str(wikidata_id)
-                                    + ".json"
+                        if self._street is not None:
+                            if self._street_number is None:
+                                formatted_place_array.append(
+                                    self._street.strip())
+                            else:
+                                formatted_place_array.append(
+                                    self._street_number.strip()
+                                    + " "
+                                    + self._street.strip()
                                 )
+                        if (
+                            self._place_type.lower() == "house"
+                            and self._place_neighbourhood is not None
+                        ):
+                            formatted_place_array.append(
+                                self._place_neighbourhood.strip()
+                            )
 
-                                _LOGGER.info(
-                                    "("
-                                    + self._name
-                                    + ") Wikidata Request: id="
-                                    + str(wikidata_id)
-                                )
-                                _LOGGER.debug(
-                                    "("
-                                    + self._name
-                                    + ") Wikidata URL: "
-                                    + str(wikidata_url)
-                                )
-                                wikidata_response = get(wikidata_url)
-                                if "error_message" in wikidata_response:
-                                    wikidata_dict = wikidata_response["error_message"]
-                                    _LOGGER.info(
-                                        "("
-                                        + self._name
-                                        + ") An error occurred contacting the web service for Wikidata"
-                                    )
-                                else:
-                                    wikidata_json_input = wikidata_response.text
-                                    wikidata_dict = json.loads(
-                                        wikidata_json_input)
-                                    _LOGGER.debug(
-                                        "("
-                                        + self._name
-                                        + ") Wikidata JSON: "
-                                        + wikidata_json_input
-                                    )
-                                    # _LOGGER.debug(
-                                    #    "("
-                                    #    + self._name
-                                    #    + ") Wikidata Dict: "
-                                    #    + str(wikidata_dict)
-                                    # )
-                                    self._wikidata_dict = wikidata_dict
-                if new_state is not None:
-                    self._state = new_state[:255]
-                    _LOGGER.info(
-                        "(" + self._name + ") New State: " + str(self._state))
+                    else:
+                        formatted_place_array.append(self._place_name.strip())
+                    if self._city is not None:
+                        formatted_place_array.append(
+                            self._city.replace(" Township", "").strip()
+                        )
+                    elif self._county is not None:
+                        formatted_place_array.append(self._county.strip())
+                    if self._state_abbr is not None:
+                        formatted_place_array.append(self._state_abbr)
                 else:
-                    self._state = "<Unknown>"
+                    formatted_place_array.append(
+                        devicetracker_zone_name.strip())
+                formatted_place = ", ".join(
+                    item for item in formatted_place_array)
+                formatted_place = (
+                    formatted_place.replace(
+                        "\n", " ").replace("  ", " ").strip()
+                )
+                self._formatted_place = formatted_place
+
+                if "error_message" in osm_decoded:
+                    new_state = osm_decoded["error_message"]
                     _LOGGER.warning(
                         "("
                         + self._name
-                        + ") New State is None, setting to: "
-                        + str(self._state)
+                        + ") An error occurred contacting the web service for OpenStreetMap"
                     )
-                _LOGGER.debug("(" + self._name + ") Building Event Data")
-                event_data = {}
-                event_data["entity"] = self._name
-                event_data["from_state"] = previous_state
-                event_data["to_state"] = new_state
+                elif "formatted_place" in display_options:
+                    new_state = self._formatted_place
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") New State using formatted_place: "
+                        + str(new_state)
+                    )
+                elif not self.in_zone():
 
-                if place_name is not None:
-                    event_data[ATTR_PLACE_NAME] = place_name
-                if current_time is not None:
-                    event_data[ATTR_MTIME] = current_time
-                if (
-                    last_place_name is not None
-                    and last_place_name != prev_last_place_name
+                    # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
+
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") Building State from Display Options: "
+                        + str(self._options)
+                    )
+
+                    user_display = []
+
+                    if "driving" in display_options and isDriving:
+                        user_display.append("Driving")
+
+                    if (
+                        "zone_name" in display_options
+                        and "do_not_show_not_home" not in display_options
+                        and self._devicetracker_zone_name is not None
+                    ):
+                        user_display.append(self._devicetracker_zone_name)
+                    elif (
+                        "zone" in display_options
+                        and "do_not_show_not_home" not in display_options
+                        and self._devicetracker_zone is not None
+                    ):
+                        user_display.append(self._devicetracker_zone)
+
+                    if "place_name" in display_options and place_name is not None:
+                        user_display.append(place_name)
+                    if "place" in display_options:
+                        if place_name is not None:
+                            user_display.append(place_name)
+                        if (
+                            place_category is not None
+                            and place_category.lower() != "place"
+                        ):
+                            user_display.append(place_category)
+                        if place_type is not None and place_type.lower() != "yes":
+                            user_display.append(place_type)
+                        if place_neighbourhood is not None:
+                            user_display.append(place_neighbourhood)
+                        if street_number is not None:
+                            user_display.append(street_number)
+                        if street is not None:
+                            user_display.append(street)
+                    else:
+                        if (
+                            "street_number" in display_options
+                            and street_number is not None
+                        ):
+                            user_display.append(street_number)
+                        if "street" in display_options and street is not None:
+                            user_display.append(street)
+                    if "city" in display_options and self._city is not None:
+                        user_display.append(self._city)
+                    if "county" in display_options and self._county is not None:
+                        user_display.append(self._county)
+                    if "state" in display_options and self._region is not None:
+                        user_display.append(self._region)
+                    elif "region" in display_options and self._region is not None:
+                        user_display.append(self._region)
+                    if (
+                        "postal_code" in display_options
+                        and self._postal_code is not None
+                    ):
+                        user_display.append(self._postal_code)
+                    if "country" in display_options and self._country is not None:
+                        user_display.append(self._country)
+                    if (
+                        "formatted_address" in display_options
+                        and self._formatted_address is not None
+                    ):
+                        user_display.append(self._formatted_address)
+
+                    if "do_not_reorder" in display_options:
+                        user_display = []
+                        display_options.remove("do_not_reorder")
+                        for option in display_options:
+                            if option == "state":
+                                target_option = "region"
+                            if option == "place_neighborhood":
+                                target_option = "place_neighbourhood"
+                            if option in locals():
+                                user_display.append(target_option)
+
+                    if user_display:
+                        new_state = ", ".join(item for item in user_display)
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") New State from Display Options: "
+                        + str(new_state)
+                    )
+                elif (
+                    "zone_name" in display_options
+                    and self._devicetracker_zone_name is not None
                 ):
-                    event_data[ATTR_LAST_PLACE_NAME] = last_place_name
-                if distance_km is not None:
-                    event_data[ATTR_DISTANCE_KM] = distance_km
-                if distance_m is not None:
-                    event_data[ATTR_DISTANCE_M] = distance_m
-                if direction is not None:
-                    event_data[ATTR_DIRECTION_OF_TRAVEL] = direction
-                if devicetracker_zone is not None:
-                    event_data[ATTR_DEVICETRACKER_ZONE] = devicetracker_zone
-                if devicetracker_zone_name is not None:
-                    event_data[ATTR_DEVICETRACKER_ZONE_NAME] = devicetracker_zone_name
-                if self._latitude is not None:
-                    event_data[ATTR_LATITUDE] = self._latitude
-                if self._longitude is not None:
-                    event_data[ATTR_LONGITUDE] = self._longitude
-                if self._latitude_old is not None:
-                    event_data[ATTR_LATITUDE_OLD] = self._latitude_old
-                if self._longitude_old is not None:
-                    event_data[ATTR_LONGITUDE_OLD] = self._longitude_old
-                if self._map_link is not None:
-                    event_data[ATTR_MAP_LINK] = self._map_link
-                if osm_id is not None:
-                    event_data[ATTR_OSM_ID] = osm_id
-                if osm_type is not None:
-                    event_data[ATTR_OSM_TYPE] = osm_type
-                if self._extended_attr:
-                    if wikidata_id is not None:
-                        event_data[ATTR_WIKIDATA_ID] = wikidata_id
-                    if osm_decoded is not None:
-                        event_data[ATTR_OSM_DICT] = osm_decoded
-                    if osm_details_dict is not None:
-                        event_data[ATTR_OSM_DETAILS_DICT] = osm_details_dict
-                    if wikidata_dict is not None:
-                        event_data[ATTR_WIKIDATA_DICT] = wikidata_dict
-                self._hass.bus.fire(DOMAIN + "_state_update", event_data)
-                _LOGGER.debug(
-                    "("
-                    + self._name
-                    + ") Event Details [event_type: "
-                    + DOMAIN
-                    + "_state_update]: "
-                    + str(event_data)
-                )
-                _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") Event Fired [event_type: "
-                    + DOMAIN
-                    + "_state_update]"
-                )
+                    new_state = self._devicetracker_zone_name
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") New State from DeviceTracker Zone Name: "
+                        + str(new_state)
+                    )
+                elif self._devicetracker_zone is not None:
+                    new_state = devicetracker_zone
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") New State from DeviceTracker Zone: "
+                        + str(new_state)
+                    )
 
-            else:
-                _LOGGER.info(
-                    "("
-                    + self._name
-                    + ") No entity update needed, Previous State = New State"
-                )
+                if self._extended_attr:
+                    self._osm_dict = osm_decoded
+                current_time = "%02d:%02d" % (now.hour, now.minute)
+
+                if (
+                    previous_state is not None
+                    and new_state is not None
+                    and (
+                        (
+                            previous_state.lower().strip() != new_state.lower().strip()
+                            and previous_state.replace(" ", "").lower().strip()
+                            != new_state.lower().strip()
+                            and previous_state.lower().strip()
+                            != devicetracker_zone.lower().strip()
+                        )
+                        or previous_state.strip() == "Initializing..."
+                    )
+                ):
+
+                    if self._extended_attr:
+                        osm_details_dict = {}
+                        if osm_id is not None and osm_type is not None:
+                            if osm_type.lower() == "node":
+                                osm_type_abbr = "N"
+                            elif osm_type.lower() == "way":
+                                osm_type_abbr = "W"
+                            elif osm_type.lower() == "relation":
+                                osm_type_abbr = "R"
+
+                            osm_details_url = (
+                                "https://nominatim.openstreetmap.org/details.php?osmtype="
+                                + str(osm_type_abbr)
+                                + "&osmid="
+                                + str(osm_id)
+                                + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
+                                + (
+                                    "&email=" + str(self._api_key)
+                                    if self._api_key is not None
+                                    else ""
+                                )
+                                + (
+                                    "&accept-language=" + str(self._language)
+                                    if self._language is not None
+                                    else ""
+                                )
+                            )
+
+                            _LOGGER.info(
+                                "("
+                                + self._name
+                                + ") OpenStreetMap Details Request: type="
+                                + str(osm_type)
+                                + " ("
+                                + str(osm_type_abbr)
+                                + ") and id="
+                                + str(osm_id)
+                            )
+                            _LOGGER.debug(
+                                "("
+                                + self._name
+                                + ") OSM Details URL: "
+                                + str(osm_details_url)
+                            )
+                            try:
+                                osm_details_response = requests.get(
+                                    osm_details_url)
+                            except requests.exceptions.Timeout:
+                                osm_details_response = None
+                                _LOGGER.warning(
+                                    "("
+                                    + self._name
+                                    + ") Timeout Connecting to OpenStreetMaps Details: "
+                                    + str(osm_details_url)
+                                )
+                            if (
+                                osm_details_response is not None
+                                and "error_message" in osm_details_response
+                            ):
+                                osm_details_dict = osm_details_response["error_message"]
+                                _LOGGER.info(
+                                    "("
+                                    + self._name
+                                    + ") An error occurred contacting the web service for OSM Details"
+                                )
+                            else:
+                                if osm_details_response is not None:
+                                    osm_details_json_input = osm_details_response.text
+                                    _LOGGER.debug(
+                                        "("
+                                        + self._name
+                                        + ") OSM Details JSON: "
+                                        + osm_details_json_input
+                                    )
+                                else:
+                                    osm_details_json_input = {}
+                                if osm_details_json_input:
+                                    osm_details_dict = json.loads(
+                                        osm_details_json_input
+                                    )
+
+                                # _LOGGER.debug("(" + self._name + ") OSM Details Dict: " + str(osm_details_dict))
+                                self._osm_details_dict = osm_details_dict
+
+                                if (
+                                    osm_details_dict
+                                    and "extratags" in osm_details_dict
+                                    and "wikidata" in osm_details_dict["extratags"]
+                                ):
+                                    wikidata_id = osm_details_dict["extratags"][
+                                        "wikidata"
+                                    ]
+                                self._wikidata_id = wikidata_id
+
+                                wikidata_dict = {}
+                                if wikidata_id is not None:
+                                    wikidata_url = (
+                                        "https://www.wikidata.org/wiki/Special:EntityData/"
+                                        + str(wikidata_id)
+                                        + ".json"
+                                    )
+
+                                    _LOGGER.info(
+                                        "("
+                                        + self._name
+                                        + ") Wikidata Request: id="
+                                        + str(wikidata_id)
+                                    )
+                                    _LOGGER.debug(
+                                        "("
+                                        + self._name
+                                        + ") Wikidata URL: "
+                                        + str(wikidata_url)
+                                    )
+                                    try:
+                                        wikidata_response = requests.get(
+                                            wikidata_url)
+                                    except requests.exceptions.Timeout:
+                                        wikidata_response = None
+                                        _LOGGER.warning(
+                                            "("
+                                            + self._name
+                                            + ") Timeout Connecting to Wikidata: "
+                                            + str(wikidata_url)
+                                        )
+                                    if (
+                                        wikidata_response is not None
+                                        and "error_message" in wikidata_response
+                                    ):
+                                        wikidata_dict = wikidata_response[
+                                            "error_message"
+                                        ]
+                                        _LOGGER.info(
+                                            "("
+                                            + self._name
+                                            + ") An error occurred contacting the web service for Wikidata"
+                                        )
+                                    else:
+                                        if wikidata_response is not None:
+                                            wikidata_json_input = wikidata_response.text
+                                            _LOGGER.debug(
+                                                "("
+                                                + self._name
+                                                + ") Wikidata JSON: "
+                                                + wikidata_json_input
+                                            )
+                                        else:
+                                            wikidata_json_input = {}
+                                        if wikidata_json_input:
+                                            wikidata_dict = json.loads(
+                                                wikidata_json_input
+                                            )
+                                        _LOGGER.debug(
+                                            "("
+                                            + self._name
+                                            + ") Wikidata JSON: "
+                                            + str(wikidata_json_input)
+                                        )
+                                        # _LOGGER.debug(
+                                        #    "("
+                                        #    + self._name
+                                        #    + ") Wikidata Dict: "
+                                        #    + str(wikidata_dict)
+                                        # )
+                                        self._wikidata_dict = wikidata_dict
+                    if new_state is not None:
+                        self._state = new_state[:255]
+                        _LOGGER.info(
+                            "(" + self._name + ") New State: " + str(self._state)
+                        )
+                    else:
+                        self._state = "<Unknown>"
+                        _LOGGER.warning(
+                            "("
+                            + self._name
+                            + ") New State is None, setting to: "
+                            + str(self._state)
+                        )
+                    _LOGGER.debug("(" + self._name + ") Building Event Data")
+                    event_data = {}
+                    event_data["entity"] = self._name
+                    event_data["from_state"] = previous_state
+                    event_data["to_state"] = new_state
+
+                    if place_name is not None:
+                        event_data[ATTR_PLACE_NAME] = place_name
+                    if current_time is not None:
+                        event_data[ATTR_MTIME] = current_time
+                    if (
+                        last_place_name is not None
+                        and last_place_name != prev_last_place_name
+                    ):
+                        event_data[ATTR_LAST_PLACE_NAME] = last_place_name
+                    if distance_km is not None:
+                        event_data[ATTR_DISTANCE_KM] = distance_km
+                    if distance_m is not None:
+                        event_data[ATTR_DISTANCE_M] = distance_m
+                    if direction is not None:
+                        event_data[ATTR_DIRECTION_OF_TRAVEL] = direction
+                    if devicetracker_zone is not None:
+                        event_data[ATTR_DEVICETRACKER_ZONE] = devicetracker_zone
+                    if devicetracker_zone_name is not None:
+                        event_data[
+                            ATTR_DEVICETRACKER_ZONE_NAME
+                        ] = devicetracker_zone_name
+                    if self._latitude is not None:
+                        event_data[ATTR_LATITUDE] = self._latitude
+                    if self._longitude is not None:
+                        event_data[ATTR_LONGITUDE] = self._longitude
+                    if self._latitude_old is not None:
+                        event_data[ATTR_LATITUDE_OLD] = self._latitude_old
+                    if self._longitude_old is not None:
+                        event_data[ATTR_LONGITUDE_OLD] = self._longitude_old
+                    if self._map_link is not None:
+                        event_data[ATTR_MAP_LINK] = self._map_link
+                    if osm_id is not None:
+                        event_data[ATTR_OSM_ID] = osm_id
+                    if osm_type is not None:
+                        event_data[ATTR_OSM_TYPE] = osm_type
+                    if self._extended_attr:
+                        if wikidata_id is not None:
+                            event_data[ATTR_WIKIDATA_ID] = wikidata_id
+                        if osm_decoded is not None:
+                            event_data[ATTR_OSM_DICT] = osm_decoded
+                        if osm_details_dict is not None:
+                            event_data[ATTR_OSM_DETAILS_DICT] = osm_details_dict
+                        if wikidata_dict is not None:
+                            event_data[ATTR_WIKIDATA_DICT] = wikidata_dict
+                    self._hass.bus.fire(DOMAIN + "_state_update", event_data)
+                    _LOGGER.debug(
+                        "("
+                        + self._name
+                        + ") Event Details [event_type: "
+                        + DOMAIN
+                        + "_state_update]: "
+                        + str(event_data)
+                    )
+                    _LOGGER.info(
+                        "("
+                        + self._name
+                        + ") Event Fired [event_type: "
+                        + DOMAIN
+                        + "_state_update]"
+                    )
+
+                else:
+                    _LOGGER.info(
+                        "("
+                        + self._name
+                        + ") No entity update needed, Previous State = New State"
+                    )
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
