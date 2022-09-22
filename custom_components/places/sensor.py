@@ -123,7 +123,7 @@ async def async_setup_platform(
     hass: core.HomeAssistant,
     config: ConfigType,
     async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
+    discovery_info: DiscoveryInfoType = None,
 ) -> None:
     """Set up places sensor from YAML."""
 
