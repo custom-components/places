@@ -854,7 +854,10 @@ class Places(Entity):
                 devicetracker_zone_name = devicetracker_zone_name_state.name
             else:
                 devicetracker_zone_name = devicetracker_zone
-            if devicetracker_zone_name is not None and devicetracker_zone_name.lower() == devicetracker_zone_name:
+            if (
+                devicetracker_zone_name is not None
+                and devicetracker_zone_name.lower() == devicetracker_zone_name
+            ):
                 devicetracker_zone_name = devicetracker_zone_name.title()
             _LOGGER.debug(
                 "("
