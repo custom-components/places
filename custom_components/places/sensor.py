@@ -597,7 +597,7 @@ class Places(Entity):
             return False
 
     def in_zone(self):
-        if self._devicetracker_zone is not Null:
+        if self._devicetracker_zone is not None:
             if (
                 "stationary" in self._devicetracker_zone.lower()
                 or self._devicetracker_zone.lower() == "away"
