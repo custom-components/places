@@ -205,7 +205,7 @@ async def async_setup_platform(
             )
         )
     )
-    if not (
+    if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in [Places.SENSOR] and not (
         CONF_LATITUDE
         in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
         and CONF_LONGITUDE
