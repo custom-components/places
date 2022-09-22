@@ -620,6 +620,7 @@ class Places(Entity):
         devicetracker_zone = None
         devicetracker_zone_id = None
         devicetracker_zone_name_state = None
+        devicetracker_zone_name = None
         home_latitude = None
         home_longitude = None
         old_latitude = None
@@ -853,6 +854,8 @@ class Places(Entity):
                 devicetracker_zone_name = devicetracker_zone_name_state.name
             else:
                 devicetracker_zone_name = devicetracker_zone
+            if devicetracker_zone_name is not None and devicetracker_zone_name.lower() == devicetracker_zone_name:
+                devicetracker_zone_name = devicetracker_zone_name.title()
             _LOGGER.debug(
                 "("
                 + self._name
