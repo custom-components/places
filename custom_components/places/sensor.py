@@ -624,6 +624,8 @@ class Places(Entity):
         home_longitude = None
         old_latitude = None
         old_longitude = None
+        new_latitude = None
+        new_longitude = None
         last_distance_m = None
         last_updated = None
         current_location = None
