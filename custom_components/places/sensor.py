@@ -597,15 +597,18 @@ class Places(Entity):
             return False
 
     def in_zone(self):
-        if (
-            "stationary" in self._devicetracker_zone.lower()
-            or self._devicetracker_zone.lower() == "away"
-            or self._devicetracker_zone.lower() == "not_home"
-            or self._devicetracker_zone.lower() == "notset"
-        ):
-            return False
+        if self._devicetracker_zone is not Null:
+            if (
+                "stationary" in self._devicetracker_zone.lower()
+                or self._devicetracker_zone.lower() == "away"
+                or self._devicetracker_zone.lower() == "not_home"
+                or self._devicetracker_zone.lower() == "notset"
+            ):
+                return False
+            else:
+                return True
         else:
-            return True
+            return False
 
     def do_update(self, reason):
         """Get the latest data and updates the states."""
@@ -1364,12 +1367,19 @@ class Places(Entity):
                 current_time = "%02d:%02d" % (now.hour, now.minute)
 
                 if (
-                    previous_state.lower().strip() != new_state.lower().strip()
-                    and previous_state.replace(" ", "").lower().strip()
-                    != new_state.lower().strip()
-                    and previous_state.lower().strip()
-                    != devicetracker_zone.lower().strip()
-                ) or previous_state.strip() == "Initializing...":
+                    previous_state is not None
+                    and new_state is not None
+                    and (
+                        (
+                            previous_state.lower().strip() != new_state.lower().strip()
+                            and previous_state.replace(" ", "").lower().strip()
+                            != new_state.lower().strip()
+                            and previous_state.lower().strip()
+                            != devicetracker_zone.lower().strip()
+                        )
+                        or previous_state.strip() == "Initializing..."
+                    )
+                ):
 
                     if self._extended_attr:
                         osm_details_dict = {}
