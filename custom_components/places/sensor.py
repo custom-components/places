@@ -40,9 +40,11 @@ from homeassistant.helpers.event import async_call_later, async_track_state_chan
 try:
     from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
 except:
-    from homeassistant.components.repairs.issue_registry import (
-        IssueSeverity,
+    from homeassistant.components.repairs.issue_handler import (
         async_create_issue,
+    )
+    from homeassistant.components.repairs.models import (
+        IssueSeverity,
     )
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import Throttle
