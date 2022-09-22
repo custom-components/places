@@ -990,7 +990,7 @@ class Places(Entity):
                 osm_response = requests.get(osm_url)
             except requests.exceptions.Timeout:
                 osm_response = None
-                _LOGGER.error(
+                _LOGGER.warning(
                     "("
                     + self._name
                     + ") Timeout Connecting to OpenStreetMaps: "
@@ -1420,7 +1420,7 @@ class Places(Entity):
                                     osm_details_url)
                             except requests.exceptions.Timeout:
                                 osm_details_response = None
-                                _LOGGER.error(
+                                _LOGGER.warning(
                                     "("
                                     + self._name
                                     + ") Timeout Connecting to OpenStreetMaps Details: "
@@ -1490,7 +1490,7 @@ class Places(Entity):
                                             wikidata_url)
                                     except requests.exceptions.Timeout:
                                         wikidata_response = None
-                                        _LOGGER.error(
+                                        _LOGGER.warning(
                                             "("
                                             + self._name
                                             + ") Timeout Connecting to Wikidata: "
