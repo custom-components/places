@@ -209,7 +209,8 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 user_input.setdefault(m, self.config_entry.data[m])
             # Remove any keys with blank values
             for m in dict(user_input).keys():
-                if not user_input.get(m):
+                _LOGGER.debug("[Options Update] " + m + " [" + str(type(user_input.get(m))) + "]: " + str(user_input.get(m)))
+                if isinstance(user_input.get(m),str) and not user_input.get(m):
                     user_input.pop(m)
             _LOGGER.debug(
                 "[Options Update] updated config: " + str(user_input))
@@ -246,19 +247,19 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_API_KEY,
-                    default=(
+                    default="",
+                    description={"suggested_value": 
                         self.config_entry.data[CONF_API_KEY]
                         if CONF_API_KEY in self.config_entry.data
-                        else ""
-                    ),
+                        else None},
                 ): str,
                 vol.Optional(
                     CONF_OPTIONS,
-                    default=(
+                    default=DEFAULT_OPTION,
+                    description={"suggested_value": 
                         self.config_entry.data[CONF_OPTIONS]
                         if CONF_OPTIONS in self.config_entry.data
-                        else DEFAULT_OPTION
-                    ),
+                        else DEFAULT_OPTION},
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=STATE_OPTIONS,
@@ -269,22 +270,22 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_HOME_ZONE,
-                    default=(
+                    default="",
+                    description={"suggested_value": 
                         self.config_entry.data[CONF_HOME_ZONE]
                         if CONF_HOME_ZONE in self.config_entry.data
-                        else ""
-                    ),
+                        else None},
                 ): selector.EntitySelector(
                     selector.SingleEntitySelectorConfig(
                         domain=HOME_LOCATION_DOMAINS)
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER,
-                    default=(
+                    default=DEFAULT_MAP_PROVIDER,
+                    description={"suggested_value":
                         self.config_entry.data[CONF_MAP_PROVIDER]
                         if CONF_MAP_PROVIDER in self.config_entry.data
-                        else CONF_MAP_PROVIDER
-                    ),
+                        else DEFAULT_MAP_PROVIDER},
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=MAP_PROVIDER_OPTIONS,
@@ -295,11 +296,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_MAP_ZOOM,
-                    default=(
+                    default=DEFAULT_MAP_ZOOM,
+                    description={"suggested_value":
                         self.config_entry.data[CONF_MAP_ZOOM]
                         if CONF_MAP_ZOOM in self.config_entry.data
-                        else CONF_MAP_ZOOM
-                    ),
+                        else DEFAULT_MAP_ZOOM},
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
                         min=MAP_ZOOM_MIN,
@@ -309,11 +310,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_LANGUAGE,
-                    default=(
+                    default="",
+                    description={"suggested_value":
                         self.config_entry.data[CONF_LANGUAGE]
                         if CONF_LANGUAGE in self.config_entry.data
-                        else ""
-                    ),
+                        else None},
                 ): str,
                 vol.Optional(
                     CONF_EXTENDED_ATTR,
