@@ -335,6 +335,8 @@ class Places(Entity):
         )
         self._state = "Initializing..."
 
+        home_latitude = None
+        home_longitude = None
         if (
             hasattr(self, "_home_zone")
             and hass.states.get(self._home_zone) is not None
