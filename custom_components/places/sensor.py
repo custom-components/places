@@ -181,36 +181,37 @@ async def async_setup_platform(
         )
         _LOGGER.error(ERROR)
         return
-    _LOGGER.debug(
-        "[YAML Import] devicetracker_id: "
-        + str(import_config[CONF_DEVICETRACKER_ID])
-        + " - "
-        + CONF_LATITUDE
-        + "= "
-        + str(
-            hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
-                CONF_LATITUDE
-            )
-        )
-    )
-    _LOGGER.debug(
-        "[YAML Import] devicetracker_id: "
-        + str(import_config[CONF_DEVICETRACKER_ID])
-        + " - "
-        + CONF_LONGITUDE
-        + "= "
-        + str(
-            hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
-                CONF_LONGITUDE
-            )
-        )
-    )
+
     if not (
         CONF_LATITUDE
         in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
         and CONF_LONGITUDE
         in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
     ):
+        _LOGGER.debug(
+            "[YAML Import] devicetracker_id: "
+            + str(import_config[CONF_DEVICETRACKER_ID])
+            + " - "
+            + CONF_LATITUDE
+            + "= "
+            + str(
+                hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
+                    CONF_LATITUDE
+                )
+            )
+        )
+        _LOGGER.debug(
+            "[YAML Import] devicetracker_id: "
+            + str(import_config[CONF_DEVICETRACKER_ID])
+            + " - "
+            + CONF_LONGITUDE
+            + "= "
+            + str(
+                hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
+                    CONF_LONGITUDE
+                )
+            )
+        )
         ERROR = (
             "[YAML Import] Not importing: devicetracker_id: "
             + import_config[CONF_DEVICETRACKER_ID]
