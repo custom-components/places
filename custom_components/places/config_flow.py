@@ -65,7 +65,10 @@ def get_devicetracker_id_entities(
         clean_list.append(current_entity)
     clean_list = [*set(clean_list)]
     clean_list.sort()
-    # _LOGGER.debug("Devicetracker entities with lat/long: " + str(clean_list))
+    _LOGGER.debug(
+        "Devicetracker_id entities including sensors with lat/long: " +
+        str(clean_list)
+    )
     return clean_list
 
 
@@ -206,7 +209,8 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             for m in dict(user_input).keys():
                 if not user_input.get(m):
                     user_input.pop(m)
-            _LOGGER.debug("[Options Update] user_input: " + str(user_input))
+            _LOGGER.debug(
+                "[Options Update] updated config: " + str(user_input))
 
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
@@ -220,7 +224,8 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             else None,
         )
         # _LOGGER.debug(
-        #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
+        #    "Devicetracker_id entities including sensors with lat/long: "
+        #    + str(devicetracker_id_list)
         # )
         OPTIONS_SCHEMA = vol.Schema(
             {
@@ -318,6 +323,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )
+
+        _LOGGER.debug("[Options Update] initial config: " +
+                      str(self.config_entry.data))
 
         return self.async_show_form(
             step_id="init",
