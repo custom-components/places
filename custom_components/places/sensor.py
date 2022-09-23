@@ -335,15 +335,33 @@ class Places(Entity):
         )
         self._state = "Initializing..."
 
-        home_latitude = str(hass.states.get(
-            self._home_zone).attributes.get("latitude"))
-        if not self.is_float(home_latitude):
-            home_latitude = None
-        home_longitude = str(
-            hass.states.get(self._home_zone).attributes.get("longitude")
-        )
-        if not self.is_float(home_longitude):
-            home_longitude = None
+        if (
+            hasattr(self, "_home_zone")
+            and hass.states.get(self._home_zone) is not None
+            and CONF_LATITUDE in hass.states.get(self._home_zone).attributes
+            and hass.states.get(self._home_zone).attributes.get(CONF_LATITUDE)
+            is not None
+            and self.is_float(
+                hass.states.get(self._home_zone).attributes.get(CONF_LATITUDE)
+            )
+        ):
+            home_latitude = str(
+                hass.states.get(self._home_zone).attributes.get(CONF_LATITUDE)
+            )
+        if (
+            hasattr(self, "_home_zone")
+            and hass.states.get(self._home_zone) is not None
+            and CONF_LONGITUDE in hass.states.get(self._home_zone).attributes
+            and hass.states.get(self._home_zone).attributes.get(CONF_LONGITUDE)
+            is not None
+            and self.is_float(
+                hass.states.get(self._home_zone).attributes.get(CONF_LONGITUDE)
+            )
+        ):
+            home_longitude = str(
+                hass.states.get(self._home_zone).attributes.get(CONF_LONGITUDE)
+            )
+
         self._entity_picture = (
             hass.states.get(self._devicetracker_id).attributes.get(
                 "entity_picture")
