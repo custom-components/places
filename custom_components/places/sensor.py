@@ -109,6 +109,7 @@ from .const import (
     DEFAULT_OPTION,
     DOMAIN,
     TRACKING_DOMAINS,
+    HOME_LOCATION_DOMAINS,
 )
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
@@ -232,6 +233,37 @@ async def async_setup_platform(
         )
         _LOGGER.error(ERROR)
         return
+    
+    if CONF_HOME_ZONE in import_config:
+        if import_config[CONF_HOME_ZONE] is None:
+            # home zone not defined in config
+            ERROR = "[YAML Import] Not importing: home_zone is blank in the YAML places sensor definition"
+            _LOGGER.error(ERROR)
+            return
+        _LOGGER.debug(
+            "[YAML Import] home_zone: " +
+            str(import_config[CONF_HOME_ZONE])
+        )
+        
+        if import_config[CONF_HOME_ZONE].split(".")[0] not in HOME_LOCATION_DOMAINS:
+            # entity isn't in supported type
+            ERROR = (
+                "[YAML Import] Not importing: home_zone: "
+                + str(import_config[CONF_HOME_ZONE])
+                + " is not one of the supported types: "
+                + str(list(HOME_LOCATION_DOMAINS))
+            )
+            _LOGGER.error(ERROR)
+            return
+        elif not hass.states.get(import_config[CONF_HOME_ZONE]):
+            # entity doesn't exist
+            ERROR = (
+                "[YAML Import] Not importing: home_zone: "
+                + str(import_config[CONF_HOME_ZONE])
+                + " doesn't exist"
+            )
+            _LOGGER.error(ERROR)
+            return
 
     # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
     string_to_hash = (
@@ -293,9 +325,15 @@ async def async_setup_entry(
 ) -> None:
     """Setup the sensor platform with a config_entry (config_flow)."""
 
+    # _LOGGER.debug("[aync_setup_entity] all entities: " +
+    #              str(hass.data[DOMAIN]))
+
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
+    # _LOGGER.debug("[async_setup_entry] name: " + str(name))
+    # _LOGGER.debug("[async_setup_entry] unique_id: " + str(unique_id))
+    # _LOGGER.debug("[async_setup_entry] config: " + str(config))
 
     async_add_entities(
         [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
@@ -335,15 +373,35 @@ class Places(Entity):
         )
         self._state = "Initializing..."
 
-        home_latitude = str(hass.states.get(
-            self._home_zone).attributes.get("latitude"))
-        if not self.is_float(home_latitude):
-            home_latitude = None
-        home_longitude = str(
-            hass.states.get(self._home_zone).attributes.get("longitude")
-        )
-        if not self.is_float(home_longitude):
-            home_longitude = None
+        home_latitude = None
+        home_longitude = None
+        if (
+            hasattr(self, "_home_zone")
+            and hass.states.get(self._home_zone) is not None
+            and CONF_LATITUDE in hass.states.get(self._home_zone).attributes
+            and hass.states.get(self._home_zone).attributes.get(CONF_LATITUDE)
+            is not None
+            and self.is_float(
+                hass.states.get(self._home_zone).attributes.get(CONF_LATITUDE)
+            )
+        ):
+            home_latitude = str(
+                hass.states.get(self._home_zone).attributes.get(CONF_LATITUDE)
+            )
+        if (
+            hasattr(self, "_home_zone")
+            and hass.states.get(self._home_zone) is not None
+            and CONF_LONGITUDE in hass.states.get(self._home_zone).attributes
+            and hass.states.get(self._home_zone).attributes.get(CONF_LONGITUDE)
+            is not None
+            and self.is_float(
+                hass.states.get(self._home_zone).attributes.get(CONF_LONGITUDE)
+            )
+        ):
+            home_longitude = str(
+                hass.states.get(self._home_zone).attributes.get(CONF_LONGITUDE)
+            )
+
         self._entity_picture = (
             hass.states.get(self._devicetracker_id).attributes.get(
                 "entity_picture")
@@ -403,23 +461,16 @@ class Places(Entity):
             + self._devicetracker_id
         )
 
-        # async_track_state_change(
-        #    hass,
-        #    self._devicetracker_id,
-        #    self.tsc_update,
-        #    from_state=None,
-        #    to_state=None,
-        # )
         async_track_state_change_event(
             hass,
             self._devicetracker_id,
             self.tsc_update,
         )
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") [Init] Subscribed to DeviceTracker state change events"
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [Init] Subscribed to DeviceTracker state change events"
+        # )
 
     @property
     def name(self):
@@ -532,58 +583,73 @@ class Places(Entity):
         return return_attr
 
     def is_devicetracker_set(self):
+        # if self._hass.states.get(self._devicetracker_id) is not None:
         # _LOGGER.debug(
         #    "("
         #    + self._name
-        #    + ") [is_devicetracker_set] DeviceTracker State: "
-        #    + str(
-        #        self._hass.states.get(self._devicetracker_id).state
-        #        if self._hass.states.get(self._devicetracker_id) is not None
-        #        else None
-        #    )
+        #    + ") [is_devicetracker_set] DeviceTracker: "
+        #    + str(self._hass.states.get(self._devicetracker_id))
         # )
-
         if (
             hasattr(self, "_devicetracker_id")
             and self._hass.states.get(self._devicetracker_id) is not None
-            and self._hass.states.get(self._devicetracker_id).state.lower() != "notset"
+            and CONF_LATITUDE
+            in self._hass.states.get(self._devicetracker_id).attributes
+            and CONF_LONGITUDE
+            in self._hass.states.get(self._devicetracker_id).attributes
+            and self._hass.states.get(self._devicetracker_id).attributes.get(
+                CONF_LATITUDE
+            )
+            is not None
+            and self._hass.states.get(self._devicetracker_id).attributes.get(
+                CONF_LONGITUDE
+            )
+            is not None
         ):
+            # _LOGGER.debug(
+            #    "(" + self._name +
+            #    ") [is_devicetracker_set] Devicetracker is set"
+            # )
             return True
         else:
+            # _LOGGER.debug(
+            #    "(" + self._name +
+            #    ") [is_devicetracker_set] Devicetracker is not set"
+            # )
             return False
 
     def tsc_update(self, tscarg=None):
         """Call the do_update function based on the TSC (track state change) event"""
         if self.is_devicetracker_set():
-            #    _LOGGER.debug(
-            #        "("
-            #        + self._name
-            #        + ") [TSC Update] Running Update - Devicetracker is set"
-            #    )
+            # _LOGGER.debug(
+            #    "("
+            #    + self._name
+            #    + ") [TSC Update] Running Update - Devicetracker is set"
+            # )
             self.do_update("Track State Change")
         # else:
-        #    _LOGGER.debug(
-        #        "("
-        #        + self._name
-        #        + ") [TSC Update] Not Running Update - Devicetracker is not set"
-        #    )
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [TSC Update] Not Running Update - Devicetracker is not set"
+        # )
 
     @Throttle(THROTTLE_INTERVAL)
     async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
         if self.is_devicetracker_set():
-            #    _LOGGER.debug(
-            #        "("
-            #        + self._name
-            #        + ") [Async Update] Running Update - Devicetracker is set"
-            #    )
+            # _LOGGER.debug(
+            #    "("
+            #    + self._name
+            #    + ") [Async Update] Running Update - Devicetracker is set"
+            # )
             await self._hass.async_add_executor_job(self.do_update, "Scan Interval")
         # else:
-        #    _LOGGER.debug(
-        #        "("
-        #        + self._name
-        #        + ") [Async Update] Not Running Update - Devicetracker is not set"
-        #    )
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [Async Update] Not Running Update - Devicetracker is not set"
+        # )
 
     def haversine(self, lon1, lat1, lon2, lat2):
         """
