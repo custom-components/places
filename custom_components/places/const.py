@@ -16,7 +16,7 @@ TRACKING_DOMAINS = [
     str("person"),
     str(Platform.SENSOR),
 ]
-HOME_LOCATION_DOMAIN = CONF_ZONE
+HOME_LOCATION_DOMAINS = [CONF_ZONE]
 
 # Config
 CONF_DEVICETRACKER_ID = "devicetracker_id"

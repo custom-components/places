@@ -29,7 +29,7 @@ from .const import (
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
     DOMAIN,
-    HOME_LOCATION_DOMAIN,
+    HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
 )
 
@@ -136,7 +136,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
                 ): selector.EntitySelector(
                     selector.SingleEntitySelectorConfig(
-                        domain=HOME_LOCATION_DOMAIN)
+                        domain=HOME_LOCATION_DOMAINS)
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
@@ -275,7 +275,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                 ): selector.EntitySelector(
                     selector.SingleEntitySelectorConfig(
-                        domain=HOME_LOCATION_DOMAIN)
+                        domain=HOME_LOCATION_DOMAINS)
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER,
