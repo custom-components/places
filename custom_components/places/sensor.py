@@ -299,9 +299,9 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
-    _LOGGER.debug("[async_setup_entry] name: " + str(name))
-    _LOGGER.debug("[async_setup_entry] unique_id: " + str(unique_id))
-    _LOGGER.debug("[async_setup_entry] config: " + str(config))
+    # _LOGGER.debug("[async_setup_entry] name: " + str(name))
+    # _LOGGER.debug("[async_setup_entry] unique_id: " + str(unique_id))
+    # _LOGGER.debug("[async_setup_entry] config: " + str(config))
 
     async_add_entities(
         [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
@@ -409,23 +409,16 @@ class Places(Entity):
             + self._devicetracker_id
         )
 
-        # async_track_state_change(
-        #    hass,
-        #    self._devicetracker_id,
-        #    self.tsc_update,
-        #    from_state=None,
-        #    to_state=None,
-        # )
         async_track_state_change_event(
             hass,
             self._devicetracker_id,
             self.tsc_update,
         )
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") [Init] Subscribed to DeviceTracker state change events"
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [Init] Subscribed to DeviceTracker state change events"
+        # )
 
     @property
     def name(self):
@@ -538,13 +531,13 @@ class Places(Entity):
         return return_attr
 
     def is_devicetracker_set(self):
-        if self._hass.states.get(self._devicetracker_id) is not None:
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") [is_devicetracker_set] DeviceTracker: "
-                + str(self._hass.states.get(self._devicetracker_id))
-            )
+        # if self._hass.states.get(self._devicetracker_id) is not None:
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [is_devicetracker_set] DeviceTracker: "
+        #    + str(self._hass.states.get(self._devicetracker_id))
+        # )
         if (
             hasattr(self, "_devicetracker_id")
             and self._hass.states.get(self._devicetracker_id) is not None
@@ -561,16 +554,16 @@ class Places(Entity):
             )
             is not None
         ):
-            _LOGGER.debug(
-                "(" + self._name +
-                ") [is_devicetracker_set] Devicetracker is set"
-            )
+            # _LOGGER.debug(
+            #    "(" + self._name +
+            #    ") [is_devicetracker_set] Devicetracker is set"
+            # )
             return True
         else:
-            _LOGGER.debug(
-                "(" + self._name +
-                ") [is_devicetracker_set] Devicetracker is not set"
-            )
+            # _LOGGER.debug(
+            #    "(" + self._name +
+            #    ") [is_devicetracker_set] Devicetracker is not set"
+            # )
             return False
 
     def tsc_update(self, tscarg=None):
