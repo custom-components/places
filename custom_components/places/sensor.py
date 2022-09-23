@@ -966,7 +966,7 @@ class Places(Entity):
             _LOGGER.error(
                 "("
                 + self._name
-                + ") Problem with updated lat/long, this will likely error: new_latitude="
+                + ") Problem with updated lat/long, this update will likely fail: new_latitude="
                 + str(new_latitude)
                 + ", new_longitude="
                 + str(new_longitude)
