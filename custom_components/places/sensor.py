@@ -40,6 +40,7 @@ from homeassistant.helpers.issue_registry import IssueSeverity, async_create_iss
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
+from urllib3.exceptions import NewConnectionError
 
 from .const import (
     ATTR_CITY,
@@ -991,12 +992,47 @@ class Places(Entity):
             # osm_response = get(osm_url)
             try:
                 osm_response = requests.get(osm_url)
-            except requests.exceptions.Timeout:
+            except requests.exceptions.Timeout as e:
                 osm_response = None
                 _LOGGER.warning(
                     "("
                     + self._name
-                    + ") Timeout Connecting to OpenStreetMaps: "
+                    + ") Timeout connecting to OpenStreetMaps [Error: "
+                    + e
+                    + "]: "
+                    + str(osm_url)
+                )
+            except OSError as e:
+                # Includes error code 101, network unreachable
+                osm_response = None
+                _LOGGER.warning(
+                    "("
+                    + self._name
+                    + ") Network unreachable error when connecting to OpenStreetMaps [Error "
+                    + e.errno
+                    + ": "
+                    + e
+                    + "]: "
+                    + str(osm_url)
+                )
+            except NewConnectionError as e:
+                osm_response = None
+                _LOGGER.warning(
+                    "("
+                    + self._name
+                    + ") Connection Error connecting to OpenStreetMaps [Error: "
+                    + e
+                    + "]: "
+                    + str(osm_url)
+                )
+            except Exception as e:
+                osm_response = None
+                _LOGGER.warning(
+                    "("
+                    + self._name
+                    + ") Unknown Error connecting to OpenStreetMaps [Error: "
+                    + e
+                    + "]: "
                     + str(osm_url)
                 )
             if osm_response is not None:
@@ -1428,14 +1464,50 @@ class Places(Entity):
                             try:
                                 osm_details_response = requests.get(
                                     osm_details_url)
-                            except requests.exceptions.Timeout:
+                            except requests.exceptions.Timeout as e:
                                 osm_details_response = None
                                 _LOGGER.warning(
                                     "("
                                     + self._name
-                                    + ") Timeout Connecting to OpenStreetMaps Details: "
+                                    + ") Timeout connecting to OpenStreetMaps Details [Error: "
+                                    + e
+                                    + "]: "
                                     + str(osm_details_url)
                                 )
+                            except OSError as e:
+                                # Includes error code 101, network unreachable
+                                osm_details_response = None
+                                _LOGGER.warning(
+                                    "("
+                                    + self._name
+                                    + ") Network unreachable error when connecting to OpenStreetMaps Details [Error "
+                                    + e.errno
+                                    + ": "
+                                    + e
+                                    + "]: "
+                                    + str(osm_details_url)
+                                )
+                            except NewConnectionError as e:
+                                osm_details_response = None
+                                _LOGGER.warning(
+                                    "("
+                                    + self._name
+                                    + ") Connection Error connecting to OpenStreetMaps Details [Error: "
+                                    + e
+                                    + "]: "
+                                    + str(osm_details_url)
+                                )
+                            except Exception as e:
+                                osm_details_response = None
+                                _LOGGER.warning(
+                                    "("
+                                    + self._name
+                                    + ") Unknown Error connecting to OpenStreetMaps Details [Error: "
+                                    + e
+                                    + "]: "
+                                    + str(osm_details_url)
+                                )
+
                             if (
                                 osm_details_response is not None
                                 and "error_message" in osm_details_response
@@ -1498,14 +1570,50 @@ class Places(Entity):
                                     try:
                                         wikidata_response = requests.get(
                                             wikidata_url)
-                                    except requests.exceptions.Timeout:
+                                    except requests.exceptions.Timeout as e:
                                         wikidata_response = None
                                         _LOGGER.warning(
                                             "("
                                             + self._name
-                                            + ") Timeout Connecting to Wikidata: "
+                                            + ") Timeout connecting to Wikidata [Error: "
+                                            + e
+                                            + "]: "
                                             + str(wikidata_url)
                                         )
+                                    except OSError as e:
+                                        # Includes error code 101, network unreachable
+                                        wikidata_response = None
+                                        _LOGGER.warning(
+                                            "("
+                                            + self._name
+                                            + ") Network unreachable error when connecting to Wikidata [Error "
+                                            + e.errno
+                                            + ": "
+                                            + e
+                                            + "]: "
+                                            + str(wikidata_url)
+                                        )
+                                    except NewConnectionError as e:
+                                        wikidata_response = None
+                                        _LOGGER.warning(
+                                            "("
+                                            + self._name
+                                            + ") Connection Error connecting to Wikidata [Error: "
+                                            + e
+                                            + "]: "
+                                            + str(wikidata_url)
+                                        )
+                                    except Exception as e:
+                                        wikidata_response = None
+                                        _LOGGER.warning(
+                                            "("
+                                            + self._name
+                                            + ") Unknown Error connecting to Wikidata [Error: "
+                                            + e
+                                            + "]: "
+                                            + str(wikidata_url)
+                                        )
+
                                     if (
                                         wikidata_response is not None
                                         and "error_message" in wikidata_response
