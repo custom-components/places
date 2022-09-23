@@ -5,7 +5,13 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries, core
-from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
+from homeassistant.const import (
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_NAME,
+    Platform,
+)
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -41,19 +47,28 @@ COMPONENT_CONFIG_URL = (
 # https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
 
 
-def get_devicetracker_id_entities(hass: core.HomeAssistant) -> list[str]:
-    """Get the list of valid entities (ones with latitude and longitude attributes) for the devicetracker selector"""
+def get_devicetracker_id_entities(
+    hass: core.HomeAssistant, current_entity=None
+) -> list[str]:
+    """Get the list of valid entities. For sensors, only include ones with latitude and longitude attributes. For the devicetracker selector"""
     clean_list = []
     for dom in TRACKING_DOMAINS:
         # _LOGGER.debug("Geting entities for domain: " + str(dom))
         for ent in hass.states.async_all(dom):
-            if (
+            if dom not in [Platform.SENSOR] or (
                 CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
                 and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
             ):
                 clean_list.append(str(ent.entity_id))
+    # Optional: Include the current entity in the list as well.
+    if current_entity is not None:
+        clean_list.append(current_entity)
+    clean_list = [*set(clean_list)]
     clean_list.sort()
-    # _LOGGER.debug("Devicetracker entities with lat/long: " + str(clean_list))
+    _LOGGER.debug(
+        "Devicetracker_id entities including sensors with lat/long: " +
+        str(clean_list)
+    )
     return clean_list
 
 
@@ -195,15 +210,23 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             for m in dict(user_input).keys():
                 if not user_input.get(m):
                     user_input.pop(m)
-            _LOGGER.debug("[Options Update] user_input: " + str(user_input))
+            _LOGGER.debug(
+                "[Options Update] updated config: " + str(user_input))
 
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
             return self.async_create_entry(title="", data={})
-        devicetracker_id_list = get_devicetracker_id_entities(self.hass)
+        # Include the current entity in the list as well. Although it may still fail in validation checking.
+        devicetracker_id_list = get_devicetracker_id_entities(
+            self.hass,
+            self.config_entry.data[CONF_DEVICETRACKER_ID]
+            if CONF_DEVICETRACKER_ID in self.config_entry.data
+            else None,
+        )
         # _LOGGER.debug(
-        #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
+        #    "Devicetracker_id entities including sensors with lat/long: "
+        #    + str(devicetracker_id_list)
         # )
         OPTIONS_SCHEMA = vol.Schema(
             {
@@ -301,6 +324,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )
+
+        _LOGGER.debug("[Options Update] initial config: " +
+                      str(self.config_entry.data))
 
         return self.async_show_form(
             step_id="init",

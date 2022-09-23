@@ -32,6 +32,7 @@ from homeassistant.const import (
     CONF_PLATFORM,
     CONF_SCAN_INTERVAL,
     EVENT_HOMEASSISTANT_START,
+    Platform,
 )
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -192,7 +193,9 @@ async def async_setup_platform(
         _LOGGER.error(ERROR)
         return
 
-    if not (
+    if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in [
+        Platform.SENSOR
+    ] and not (
         CONF_LATITUDE
         in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
         and CONF_LONGITUDE
