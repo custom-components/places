@@ -296,6 +296,9 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
+    _LOGGER.debug("[async_setup_entry] name:" + str(name))
+    _LOGGER.debug("[async_setup_entry] unique_id:" + str(unique_id))
+    _LOGGER.debug("[async_setup_entry] config:" + str(config))
 
     async_add_entities(
         [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
