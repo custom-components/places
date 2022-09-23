@@ -214,7 +214,10 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data={})
         # Include the current entity in the list as well. Although it may still fail in validation checking.
         devicetracker_id_list = get_devicetracker_id_entities(
-            self.hass, user_input.get(CONF_DEVICETRACKER_ID)
+            self.hass,
+            self.config_entry.data[CONF_DEVICETRACKER_ID]
+            if CONF_DEVICETRACKER_ID in self.config_entry.data
+            else None,
         )
         # _LOGGER.debug(
         #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
