@@ -247,7 +247,8 @@ async def async_setup_platform(
             if CONF_YAML_HASH in m:
                 all_yaml_hashes.append(m[CONF_YAML_HASH])
 
-    _LOGGER.debug("[YAML Import] yaml hash: " + str(data.get(CONF_YAML_HASH)))
+    _LOGGER.debug("[YAML Import] yaml hash: " +
+                  str(import_config.get(CONF_YAML_HASH)))
     _LOGGER.debug("[YAML Import] All yaml hashes: " + str(all_yaml_hashes))
     if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
         _LOGGER.warning(
