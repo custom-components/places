@@ -109,6 +109,7 @@ from .const import (
     DEFAULT_OPTION,
     DOMAIN,
     TRACKING_DOMAINS,
+    HOME_LOCATION_DOMAINS,
 )
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
@@ -232,6 +233,37 @@ async def async_setup_platform(
         )
         _LOGGER.error(ERROR)
         return
+    
+    if CONF_HOME_ZONE in import_config:
+        if import_config[CONF_HOME_ZONE] is None:
+            # home zone not defined in config
+            ERROR = "[YAML Import] Not importing: home_zone is blank in the YAML places sensor definition"
+            _LOGGER.error(ERROR)
+            return
+        _LOGGER.debug(
+            "[YAML Import] home_zone: " +
+            str(import_config[CONF_HOME_ZONE])
+        )
+        
+        if import_config[CONF_HOME_ZONE].split(".")[0] not in HOME_LOCATION_DOMAINS:
+            # entity isn't in supported type
+            ERROR = (
+                "[YAML Import] Not importing: home_zone: "
+                + str(import_config[CONF_HOME_ZONE])
+                + " is not one of the supported types: "
+                + str(list(HOME_LOCATION_DOMAINS))
+            )
+            _LOGGER.error(ERROR)
+            return
+        elif not hass.states.get(import_config[CONF_HOME_ZONE]):
+            # entity doesn't exist
+            ERROR = (
+                "[YAML Import] Not importing: home_zone: "
+                + str(import_config[CONF_HOME_ZONE])
+                + " doesn't exist"
+            )
+            _LOGGER.error(ERROR)
+            return
 
     # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
     string_to_hash = (
