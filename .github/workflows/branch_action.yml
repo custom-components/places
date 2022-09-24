@@ -25,7 +25,7 @@ jobs:
       - name: Create Empty Commit
         run: git commit --allow-empty -m "Empty commit"
       - name: Push Empty Commit
-        run: gut push
+        run: git push
       - name: Create Pull Request
         run: gh pr create -d -B master -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}" --head "${GITHUB_REF##*/}"
         env:
