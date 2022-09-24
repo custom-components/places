@@ -403,17 +403,14 @@ class Places(Entity):
             + self._devicetracker_id
         )
 
-        # async_track_state_change(
-        #    hass,
-        #    self._devicetracker_id,
-        #    self.tsc_update,
-        #    from_state=None,
-        #    to_state=None,
-        # )
-        async_track_state_change_event(
-            hass,
-            self._devicetracker_id,
-            self.tsc_update,
+    async def async_added_to_hass(self) -> None:
+        """Added to hass."""
+        self.async_on_remove(
+            async_track_state_change_event(
+                hass,
+                self._devicetracker_id,
+                self.tsc_update,
+            )
         )
         _LOGGER.debug(
             "("
