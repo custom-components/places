@@ -209,8 +209,15 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 user_input.setdefault(m, self.config_entry.data[m])
             # Remove any keys with blank values
             for m in dict(user_input).keys():
-                _LOGGER.debug("[Options Update] " + m + " [" + str(type(user_input.get(m))) + "]: " + str(user_input.get(m)))
-                if isinstance(user_input.get(m),str) and not user_input.get(m):
+                # _LOGGER.debug(
+                #    "[Options Update] "
+                #    + m
+                #    + " ["
+                #    + str(type(user_input.get(m)))
+                #    + "]: "
+                #    + str(user_input.get(m))
+                # )
+                if isinstance(user_input.get(m), str) and not user_input.get(m):
                     user_input.pop(m)
             _LOGGER.debug(
                 "[Options Update] updated config: " + str(user_input))
@@ -248,18 +255,20 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_API_KEY,
                     default="",
-                    description={"suggested_value": 
-                        self.config_entry.data[CONF_API_KEY]
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_API_KEY]
                         if CONF_API_KEY in self.config_entry.data
-                        else None},
+                        else None
+                    },
                 ): str,
                 vol.Optional(
                     CONF_OPTIONS,
                     default=DEFAULT_OPTION,
-                    description={"suggested_value": 
-                        self.config_entry.data[CONF_OPTIONS]
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_OPTIONS]
                         if CONF_OPTIONS in self.config_entry.data
-                        else DEFAULT_OPTION},
+                        else DEFAULT_OPTION
+                    },
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=STATE_OPTIONS,
@@ -271,10 +280,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_HOME_ZONE,
                     default="",
-                    description={"suggested_value": 
-                        self.config_entry.data[CONF_HOME_ZONE]
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_HOME_ZONE]
                         if CONF_HOME_ZONE in self.config_entry.data
-                        else None},
+                        else None
+                    },
                 ): selector.EntitySelector(
                     selector.SingleEntitySelectorConfig(
                         domain=HOME_LOCATION_DOMAINS)
@@ -282,10 +292,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_MAP_PROVIDER,
                     default=DEFAULT_MAP_PROVIDER,
-                    description={"suggested_value":
-                        self.config_entry.data[CONF_MAP_PROVIDER]
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_MAP_PROVIDER]
                         if CONF_MAP_PROVIDER in self.config_entry.data
-                        else DEFAULT_MAP_PROVIDER},
+                        else DEFAULT_MAP_PROVIDER
+                    },
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=MAP_PROVIDER_OPTIONS,
@@ -297,10 +308,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_MAP_ZOOM,
                     default=DEFAULT_MAP_ZOOM,
-                    description={"suggested_value":
-                        self.config_entry.data[CONF_MAP_ZOOM]
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_MAP_ZOOM]
                         if CONF_MAP_ZOOM in self.config_entry.data
-                        else DEFAULT_MAP_ZOOM},
+                        else DEFAULT_MAP_ZOOM
+                    },
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
                         min=MAP_ZOOM_MIN,
@@ -311,10 +323,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_LANGUAGE,
                     default="",
-                    description={"suggested_value":
-                        self.config_entry.data[CONF_LANGUAGE]
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_LANGUAGE]
                         if CONF_LANGUAGE in self.config_entry.data
-                        else None},
+                        else None
+                    },
                 ): str,
                 vol.Optional(
                     CONF_EXTENDED_ATTR,
