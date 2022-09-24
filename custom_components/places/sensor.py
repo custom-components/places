@@ -47,6 +47,7 @@ except:
     from homeassistant.components.repairs.models import (
         IssueSeverity,
     )
+
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import Throttle
 from homeassistant.util.location import distance
@@ -108,8 +109,8 @@ from .const import (
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
     DOMAIN,
-    TRACKING_DOMAINS,
     HOME_LOCATION_DOMAINS,
+    TRACKING_DOMAINS,
 )
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
@@ -233,18 +234,16 @@ async def async_setup_platform(
         )
         _LOGGER.error(ERROR)
         return
-    
+
     if CONF_HOME_ZONE in import_config:
         if import_config[CONF_HOME_ZONE] is None:
             # home zone not defined in config
             ERROR = "[YAML Import] Not importing: home_zone is blank in the YAML places sensor definition"
             _LOGGER.error(ERROR)
             return
-        _LOGGER.debug(
-            "[YAML Import] home_zone: " +
-            str(import_config[CONF_HOME_ZONE])
-        )
-        
+        _LOGGER.debug("[YAML Import] home_zone: " +
+                      str(import_config[CONF_HOME_ZONE]))
+
         if import_config[CONF_HOME_ZONE].split(".")[0] not in HOME_LOCATION_DOMAINS:
             # entity isn't in supported type
             ERROR = (
@@ -966,7 +965,7 @@ class Places(Entity):
             _LOGGER.error(
                 "("
                 + self._name
-                + ") Problem with updated lat/long, this will likely error: new_latitude="
+                + ") Problem with updated lat/long, this update will likely fail: new_latitude="
                 + str(new_latitude)
                 + ", new_longitude="
                 + str(new_longitude)
