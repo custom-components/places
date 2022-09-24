@@ -39,14 +39,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 
 try:
+    use_issue_reg = True
     from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
 except:
-    from homeassistant.components.repairs.issue_handler import (
-        async_create_issue,
-    )
-    from homeassistant.components.repairs.models import (
-        IssueSeverity,
-    )
+    use_issue_reg = False
 
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import Throttle
@@ -306,7 +302,7 @@ async def async_setup_platform(
             + str(import_config.get(CONF_NAME))
         )
 
-    if import_config is not None:
+    if use_issue_reg and import_config is not None:
         async_create_issue(
             hass,
             DOMAIN,
