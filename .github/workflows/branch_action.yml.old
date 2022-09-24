@@ -6,14 +6,17 @@ on:
     branches-ignore:
       - dev
       - newdev
+      - main
+      - master
 jobs:
   new_branch_pr:
+    if: github.repository == 'Snuffy2/places'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.0.2
       - name: Show Branch Name
         run: echo Branch ${GITHUB_REF##*/}
-      - name: Create and Checkout New Dev branch
+      - name: Create and Checkout the New branch
         run: git checkout ${GITHUB_REF##*/}
       - name: Initialize mandatory git config
         run: |
@@ -21,10 +24,10 @@ jobs:
           git config user.email noreply@github.com
       - name: Create Empty Commit
         run: git commit --allow-empty -m "Empty commit"
-      #- run: echo "commit_count="$(git rev-list --count origin..HEAD)
-      #- run: echo "commit_count="$(git rev-list --count origin..HEAD) >> $GITHUB_ENV
+      - name: Push Empty Commit
+        run: gut push
       - name: Create Pull Request
-        run: gh pr create -d -B dev -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}" --head "${GITHUB_REF##*/}"
+        run: gh pr create -d -B master -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}" --head "${GITHUB_REF##*/}"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CPR }}
+          GH_TOKEN: ${{ secrets.CPR }}
