@@ -208,7 +208,7 @@ async def async_setup_platform(
             _LOGGER.error(ERROR)
             return False
 
-        if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in [
+        if import_config[CONF_DEVICETRACKER_ID].split(".")[0] in [
             Platform.SENSOR
         ] and not (
             CONF_LATITUDE
