@@ -25,7 +25,7 @@ jobs:
       - name: Create Empty Commit
         run: git commit --allow-empty -m "Empty commit"
       - name: Push Empty Commit
-        run: git push --set-upstream origin upstream/master
+        run: git push
       - name: Sleep for 10 seconds
         run: sleep 10s
         shell: bash
