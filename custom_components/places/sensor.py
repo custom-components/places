@@ -139,11 +139,13 @@ async def async_setup_platform(
     @core.callback
     def schedule_import(_):
         """Schedule delayed import after HA is fully started."""
+        _LOGGER.debug("[YAML Import] Awaiting HA Startup before importing")
         async_call_later(hass, 10, do_import)
 
     @core.callback
     def do_import(_):
         """Process YAML import."""
+        _LOGGER.debug("[YAML Import] HA Started, proceeding")
         if validate_import():
             _LOGGER.warning(
                 "[YAML Import] New YAML sensor, importing: "
@@ -171,7 +173,7 @@ async def async_setup_platform(
             _LOGGER.debug("[YAML Import] Failed validation, not importing")
 
     @core.callback
-    def validate_import(_):
+    def validate_import():
         if CONF_DEVICETRACKER_ID not in import_config:
             # device_tracker not defined in config
             ERROR = "[YAML Validate] Not importing: devicetracker_id not defined in the YAML places sensor definition"
@@ -288,9 +290,7 @@ async def async_setup_platform(
         # )
         yaml_hash_object = hashlib.md5(string_to_hash.encode())
         yaml_hash = yaml_hash_object.hexdigest()
-        # _LOGGER.debug(
-        #    "[YAML Validate] yaml_hash: " + str(yaml_hash)
-        # )
+
         import_config.setdefault(CONF_YAML_HASH, yaml_hash)
         _LOGGER.debug(
             "[YAML Validate] final import_config: " + str(import_config))
@@ -306,11 +306,12 @@ async def async_setup_platform(
                     all_yaml_hashes.append(m[CONF_YAML_HASH])
 
         _LOGGER.debug(
-            "[YAML Validate] yaml hash: " +
+            "[YAML Validate] YAML hash: " +
             str(import_config.get(CONF_YAML_HASH))
         )
-        _LOGGER.debug("[YAML Validate] All yaml hashes: " +
-                      str(all_yaml_hashes))
+        _LOGGER.debug(
+            "[YAML Validate] All existing YAML hashes: " + str(all_yaml_hashes)
+        )
         if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
             return True
         else:
