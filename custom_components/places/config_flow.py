@@ -23,11 +23,13 @@ from .const import (
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
     CONF_OPTIONS,
+    CONF_SHOW_TIME,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
+    DEFAULT_SHOW_TIME,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -161,6 +163,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_LANGUAGE): str,
                 vol.Optional(
                     CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )
@@ -335,6 +340,14 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         self.config_entry.data[CONF_EXTENDED_ATTR]
                         if CONF_EXTENDED_ATTR in self.config_entry.data
                         else DEFAULT_EXTENDED_ATTR
+                    ),
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_SHOW_TIME,
+                    default=(
+                        self.config_entry.data[CONF_SHOW_TIME]
+                        if CONF_SHOW_TIME in self.config_entry.data
+                        else DEFAULT_SHOW_TIME
                     ),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
