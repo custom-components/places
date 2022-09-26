@@ -13,7 +13,7 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import selector
+from homeassistant.helpers import entity_registry, selector
 
 from .const import (
     CONF_DEVICETRACKER_ID,
@@ -191,6 +191,14 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return PlacesOptionsFlowHandler(config_entry)
 
 
+async def do_update_entry(hass, do_config_entry, do_data, do_options):
+    hass.config_entries.async_update_entry(
+        do_config_entry,
+        data=do_data,
+        options=do_options,
+    )
+
+
 class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
     """Config flow options for Places. Does not actually store these into Options but updates the Config instead."""
 
@@ -221,10 +229,20 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     user_input.pop(m)
             _LOGGER.debug(
                 "[Options Update] updated config: " + str(user_input))
-
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, data=user_input, options=self.config_entry.options
+            await self.hass.async_add_executor_job(
+                do_update_entry,
+                self.hass,
+                self.config_entry,
+                user_input,
+                self.config_entry.options,
             )
+
+            entity_reg = entity_registry.async_get_registry(self.hass)
+            entry = entity_reg.async_get(entity_id)
+
+            self.hass.config_entries.async_get_entry(
+                self.config_entry.entry_id
+            ).async_update()
             return self.async_create_entry(title="", data={})
         # Include the current entity in the list as well. Although it may still fail in validation checking.
         devicetracker_id_list = get_devicetracker_id_entities(
