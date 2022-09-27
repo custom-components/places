@@ -862,8 +862,12 @@ class Places(Entity):
         )
 
         maplink_google = (
-            "https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query="
+            "https://maps.google.com/?q="
             + str(current_location)
+            + "&ll="
+            + str(current_location)
+            + "&z="
+            + str(self._map_zoom)
         )
         maplink_osm = (
             "https://www.openstreetmap.org/?mlat="
