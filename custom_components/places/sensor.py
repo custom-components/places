@@ -98,12 +98,14 @@ from .const import (
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
     CONF_OPTIONS,
+    CONF_SHOW_TIME,
     CONF_YAML_HASH,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
+    DEFAULT_SHOW_TIME,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -124,6 +126,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
         vol.Optional(CONF_LANGUAGE): cv.string,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
+        vol.Optional(CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME): cv.boolean,
     }
 )
 
@@ -382,7 +385,11 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
-        self._state = "Initializing..."
+        self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
+        if self._show_time:
+            self._state = "Initializing... (since 99:99)"
+        else:
+            self._state = "Initializing..."
 
         home_latitude = None
         home_longitude = None
@@ -706,7 +713,10 @@ class Places(Entity):
         """Get the latest data and updates the states."""
 
         _LOGGER.info("(" + self._name + ") Starting Update...")
-        previous_state = self._state
+        if self._show_time:
+            previous_state = self._state[:-14]
+        else:
+            previous_state = self._state
         new_state = None
         distance_traveled = 0
         devicetracker_zone = None
@@ -1019,7 +1029,10 @@ class Places(Entity):
             )
             proceed_with_update = False
 
-        if previous_state == "Initializing...":
+        if (
+            previous_state == "Initializing..."
+            or previous_state == "Initializing... (since 99:99)"
+        ):
             _LOGGER.info(
                 "(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
@@ -1517,6 +1530,7 @@ class Places(Entity):
                             != devicetracker_zone.lower().strip()
                         )
                         or previous_state.strip() == "Initializing..."
+                        or previous_state.strip() == "Initializing... (since 99:99)"
                     )
                 ):
 
@@ -1758,7 +1772,13 @@ class Places(Entity):
                                         # )
                                         self._wikidata_dict = wikidata_dict
                     if new_state is not None:
-                        self._state = new_state[:255]
+                        if self._show_time:
+                            self._state = (
+                                new_state[: 255 - 14] +
+                                " (since " + current_time + ")"
+                            )
+                        else:
+                            self._state = new_state[:255]
                         _LOGGER.info(
                             "(" + self._name + ") New State: " + str(self._state)
                         )
