@@ -1339,7 +1339,8 @@ class Places(Entity):
                                     + self._street.strip()
                                 )
                         if (
-                            self._place_type.lower() == "house"
+                            self._place_type is not None
+                            and self._place_type.lower() == "house"
                             and self._place_neighbourhood is not None
                         ):
                             formatted_place_array.append(
