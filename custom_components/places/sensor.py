@@ -1097,7 +1097,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Timeout connecting to OpenStreetMaps [Error: "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1108,9 +1108,9 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Network unreachable error when connecting to OpenStreetMaps [Error "
-                    + e.errno
+                    + str(e.errno)
                     + ": "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1120,7 +1120,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Connection Error connecting to OpenStreetMaps [Error: "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1130,7 +1130,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Unknown Error connecting to OpenStreetMaps [Error: "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1569,7 +1569,7 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Timeout connecting to OpenStreetMaps Details [Error: "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1580,9 +1580,9 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Network unreachable error when connecting to OpenStreetMaps Details [Error "
-                                    + e.errno
+                                    + str(e.errno)
                                     + ": "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1592,7 +1592,7 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Connection Error connecting to OpenStreetMaps Details [Error: "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1602,7 +1602,7 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Unknown Error connecting to OpenStreetMaps Details [Error: "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1675,7 +1675,7 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Timeout connecting to Wikidata [Error: "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
@@ -1686,9 +1686,9 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Network unreachable error when connecting to Wikidata [Error "
-                                            + e.errno
+                                            + str(e.errno)
                                             + ": "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
@@ -1698,7 +1698,7 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Connection Error connecting to Wikidata [Error: "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
@@ -1708,7 +1708,7 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Unknown Error connecting to Wikidata [Error: "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
