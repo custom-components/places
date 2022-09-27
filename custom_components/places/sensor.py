@@ -139,178 +139,194 @@ async def async_setup_platform(
     @core.callback
     def schedule_import(_):
         """Schedule delayed import after HA is fully started."""
+        _LOGGER.debug("[YAML Import] Awaiting HA Startup before importing")
         async_call_later(hass, 10, do_import)
 
     @core.callback
     def do_import(_):
         """Process YAML import."""
-        hass.async_create_task(
-            hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": config_entries.SOURCE_IMPORT},
-                data=import_config,
+        _LOGGER.debug("[YAML Import] HA Started, proceeding")
+        if validate_import():
+            _LOGGER.warning(
+                "[YAML Import] New YAML sensor, importing: "
+                + str(import_config.get(CONF_NAME))
             )
+
+            if use_issue_reg and import_config is not None:
+                async_create_issue(
+                    hass,
+                    DOMAIN,
+                    "deprecated_yaml",
+                    is_fixable=False,
+                    severity=IssueSeverity.WARNING,
+                    translation_key="deprecated_yaml",
+                )
+
+            hass.async_create_task(
+                hass.config_entries.flow.async_init(
+                    DOMAIN,
+                    context={"source": config_entries.SOURCE_IMPORT},
+                    data=import_config,
+                )
+            )
+        else:
+            _LOGGER.debug("[YAML Import] Failed validation, not importing")
+
+    @core.callback
+    def validate_import():
+        if CONF_DEVICETRACKER_ID not in import_config:
+            # device_tracker not defined in config
+            ERROR = "[YAML Validate] Not importing: devicetracker_id not defined in the YAML places sensor definition"
+            _LOGGER.error(ERROR)
+            return False
+        elif import_config[CONF_DEVICETRACKER_ID] is None:
+            # device_tracker not defined in config
+            ERROR = "[YAML Validate] Not importing: devicetracker_id not defined in the YAML places sensor definition"
+            _LOGGER.error(ERROR)
+            return False
+        _LOGGER.debug(
+            "[YAML Validate] devicetracker_id: "
+            + str(import_config[CONF_DEVICETRACKER_ID])
         )
+        if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in TRACKING_DOMAINS:
+            # entity isn't in supported type
+            ERROR = (
+                "[YAML Validate] Not importing: devicetracker_id: "
+                + str(import_config[CONF_DEVICETRACKER_ID])
+                + " is not one of the supported types: "
+                + str(list(TRACKING_DOMAINS))
+            )
+            _LOGGER.error(ERROR)
+            return False
+        elif not hass.states.get(import_config[CONF_DEVICETRACKER_ID]):
+            # entity doesn't exist
+            ERROR = (
+                "[YAML Validate] Not importing: devicetracker_id: "
+                + str(import_config[CONF_DEVICETRACKER_ID])
+                + " doesn't exist"
+            )
+            _LOGGER.error(ERROR)
+            return False
+
+        if import_config[CONF_DEVICETRACKER_ID].split(".")[0] in [
+            Platform.SENSOR
+        ] and not (
+            CONF_LATITUDE
+            in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
+            and CONF_LONGITUDE
+            in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
+        ):
+            _LOGGER.debug(
+                "[YAML Validate] devicetracker_id: "
+                + str(import_config[CONF_DEVICETRACKER_ID])
+                + " - "
+                + CONF_LATITUDE
+                + "= "
+                + str(
+                    hass.states.get(
+                        import_config[CONF_DEVICETRACKER_ID]
+                    ).attributes.get(CONF_LATITUDE)
+                )
+            )
+            _LOGGER.debug(
+                "[YAML Validate] devicetracker_id: "
+                + str(import_config[CONF_DEVICETRACKER_ID])
+                + " - "
+                + CONF_LONGITUDE
+                + "= "
+                + str(
+                    hass.states.get(
+                        import_config[CONF_DEVICETRACKER_ID]
+                    ).attributes.get(CONF_LONGITUDE)
+                )
+            )
+            ERROR = (
+                "[YAML Validate] Not importing: devicetracker_id: "
+                + import_config[CONF_DEVICETRACKER_ID]
+                + " doesnt have latitude/longitude as attributes"
+            )
+            _LOGGER.error(ERROR)
+            return False
+
+        if CONF_HOME_ZONE in import_config:
+            if import_config[CONF_HOME_ZONE] is None:
+                # home zone not defined in config
+                ERROR = "[YAML Validate] Not importing: home_zone is blank in the YAML places sensor definition"
+                _LOGGER.error(ERROR)
+                return False
+            _LOGGER.debug(
+                "[YAML Validate] home_zone: " +
+                str(import_config[CONF_HOME_ZONE])
+            )
+
+            if import_config[CONF_HOME_ZONE].split(".")[0] not in HOME_LOCATION_DOMAINS:
+                # entity isn't in supported type
+                ERROR = (
+                    "[YAML Validate] Not importing: home_zone: "
+                    + str(import_config[CONF_HOME_ZONE])
+                    + " is not one of the supported types: "
+                    + str(list(HOME_LOCATION_DOMAINS))
+                )
+                _LOGGER.error(ERROR)
+                return False
+            elif not hass.states.get(import_config[CONF_HOME_ZONE]):
+                # entity doesn't exist
+                ERROR = (
+                    "[YAML Validate] Not importing: home_zone: "
+                    + str(import_config[CONF_HOME_ZONE])
+                    + " doesn't exist"
+                )
+                _LOGGER.error(ERROR)
+                return False
+
+        # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
+        string_to_hash = (
+            import_config.get(CONF_NAME)
+            + import_config.get(CONF_DEVICETRACKER_ID)
+            + import_config.get(CONF_HOME_ZONE)
+        )
+        # _LOGGER.debug(
+        #    "[YAML Validate] string_to_hash: " + str(string_to_hash)
+        # )
+        yaml_hash_object = hashlib.md5(string_to_hash.encode())
+        yaml_hash = yaml_hash_object.hexdigest()
+
+        import_config.setdefault(CONF_YAML_HASH, yaml_hash)
+        _LOGGER.debug(
+            "[YAML Validate] final import_config: " + str(import_config))
+
+        all_yaml_hashes = []
+        if (
+            DOMAIN in hass.data
+            and hass.data[DOMAIN] is not None
+            and hass.data[DOMAIN].values() is not None
+        ):
+            for m in list(hass.data[DOMAIN].values()):
+                if CONF_YAML_HASH in m:
+                    all_yaml_hashes.append(m[CONF_YAML_HASH])
+
+        _LOGGER.debug(
+            "[YAML Validate] YAML hash: " +
+            str(import_config.get(CONF_YAML_HASH))
+        )
+        _LOGGER.debug(
+            "[YAML Validate] All existing YAML hashes: " + str(all_yaml_hashes)
+        )
+        if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
+            return True
+        else:
+            _LOGGER.info(
+                "[YAML Validate] YAML sensor already imported, ignoring: "
+                + str(import_config.get(CONF_NAME))
+            )
+            return False
 
     import_config = dict(config)
     _LOGGER.debug("[YAML Import] initial import_config: " + str(import_config))
     import_config.pop(CONF_PLATFORM, 1)
     import_config.pop(CONF_SCAN_INTERVAL, 1)
 
-    if CONF_DEVICETRACKER_ID not in import_config:
-        # device_tracker not defined in config
-        ERROR = "[YAML Import] Not importing: devicetracker_id not defined in the YAML places sensor definition"
-        _LOGGER.error(ERROR)
-        return
-    elif import_config[CONF_DEVICETRACKER_ID] is None:
-        # device_tracker not defined in config
-        ERROR = "[YAML Import] Not importing: devicetracker_id not defined in the YAML places sensor definition"
-        _LOGGER.error(ERROR)
-        return
-    _LOGGER.debug(
-        "[YAML Import] devicetracker_id: " +
-        str(import_config[CONF_DEVICETRACKER_ID])
-    )
-    if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in TRACKING_DOMAINS:
-        # entity isn't in supported type
-        ERROR = (
-            "[YAML Import] Not importing: devicetracker_id: "
-            + str(import_config[CONF_DEVICETRACKER_ID])
-            + " is not one of the supported types: "
-            + str(list(TRACKING_DOMAINS))
-        )
-        _LOGGER.error(ERROR)
-        return
-    elif not hass.states.get(import_config[CONF_DEVICETRACKER_ID]):
-        # entity doesn't exist
-        ERROR = (
-            "[YAML Import] Not importing: devicetracker_id: "
-            + str(import_config[CONF_DEVICETRACKER_ID])
-            + " doesn't exist"
-        )
-        _LOGGER.error(ERROR)
-        return
-
-    if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in [
-        Platform.SENSOR
-    ] and not (
-        CONF_LATITUDE
-        in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
-        and CONF_LONGITUDE
-        in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
-    ):
-        _LOGGER.debug(
-            "[YAML Import] devicetracker_id: "
-            + str(import_config[CONF_DEVICETRACKER_ID])
-            + " - "
-            + CONF_LATITUDE
-            + "= "
-            + str(
-                hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
-                    CONF_LATITUDE
-                )
-            )
-        )
-        _LOGGER.debug(
-            "[YAML Import] devicetracker_id: "
-            + str(import_config[CONF_DEVICETRACKER_ID])
-            + " - "
-            + CONF_LONGITUDE
-            + "= "
-            + str(
-                hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes.get(
-                    CONF_LONGITUDE
-                )
-            )
-        )
-        ERROR = (
-            "[YAML Import] Not importing: devicetracker_id: "
-            + import_config[CONF_DEVICETRACKER_ID]
-            + " doesnt have latitude/longitude as attributes"
-        )
-        _LOGGER.error(ERROR)
-        return
-
-    if CONF_HOME_ZONE in import_config:
-        if import_config[CONF_HOME_ZONE] is None:
-            # home zone not defined in config
-            ERROR = "[YAML Import] Not importing: home_zone is blank in the YAML places sensor definition"
-            _LOGGER.error(ERROR)
-            return
-        _LOGGER.debug("[YAML Import] home_zone: " +
-                      str(import_config[CONF_HOME_ZONE]))
-
-        if import_config[CONF_HOME_ZONE].split(".")[0] not in HOME_LOCATION_DOMAINS:
-            # entity isn't in supported type
-            ERROR = (
-                "[YAML Import] Not importing: home_zone: "
-                + str(import_config[CONF_HOME_ZONE])
-                + " is not one of the supported types: "
-                + str(list(HOME_LOCATION_DOMAINS))
-            )
-            _LOGGER.error(ERROR)
-            return
-        elif not hass.states.get(import_config[CONF_HOME_ZONE]):
-            # entity doesn't exist
-            ERROR = (
-                "[YAML Import] Not importing: home_zone: "
-                + str(import_config[CONF_HOME_ZONE])
-                + " doesn't exist"
-            )
-            _LOGGER.error(ERROR)
-            return
-
-    # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
-    string_to_hash = (
-        import_config.get(CONF_NAME)
-        + import_config.get(CONF_DEVICETRACKER_ID)
-        + import_config.get(CONF_HOME_ZONE)
-    )
-    # _LOGGER.debug(
-    #    "[YAML Import] string_to_hash: " + str(string_to_hash)
-    # )
-    yaml_hash_object = hashlib.md5(string_to_hash.encode())
-    yaml_hash = yaml_hash_object.hexdigest()
-    # _LOGGER.debug(
-    #    "[YAML Import] yaml_hash: " + str(yaml_hash)
-    # )
-    import_config.setdefault(CONF_YAML_HASH, yaml_hash)
-    _LOGGER.debug("[YAML Import] final import_config: " + str(import_config))
-
-    all_yaml_hashes = []
-    if (
-        DOMAIN in hass.data
-        and hass.data[DOMAIN] is not None
-        and hass.data[DOMAIN].values() is not None
-    ):
-        for m in list(hass.data[DOMAIN].values()):
-            if CONF_YAML_HASH in m:
-                all_yaml_hashes.append(m[CONF_YAML_HASH])
-
-    _LOGGER.debug("[YAML Import] yaml hash: " +
-                  str(import_config.get(CONF_YAML_HASH)))
-    _LOGGER.debug("[YAML Import] All yaml hashes: " + str(all_yaml_hashes))
-    if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
-        _LOGGER.warning(
-            "[YAML Import] New YAML sensor, importing: "
-            + str(import_config.get(CONF_NAME))
-        )
-        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
-    else:
-        _LOGGER.info(
-            "[YAML Import] YAML sensor already imported, ignoring: "
-            + str(import_config.get(CONF_NAME))
-        )
-
-    if use_issue_reg and import_config is not None:
-        async_create_issue(
-            hass,
-            DOMAIN,
-            "deprecated_yaml",
-            is_fixable=False,
-            severity=IssueSeverity.WARNING,
-            translation_key="deprecated_yaml",
-        )
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
 
 
 async def async_setup_entry(
@@ -1085,7 +1101,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Timeout connecting to OpenStreetMaps [Error: "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1096,9 +1112,9 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Network unreachable error when connecting to OpenStreetMaps [Error "
-                    + e.errno
+                    + str(e.errno)
                     + ": "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1108,7 +1124,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Connection Error connecting to OpenStreetMaps [Error: "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1118,7 +1134,7 @@ class Places(Entity):
                     "("
                     + self._name
                     + ") Unknown Error connecting to OpenStreetMaps [Error: "
-                    + e
+                    + str(e)
                     + "]: "
                     + str(osm_url)
                 )
@@ -1327,7 +1343,8 @@ class Places(Entity):
                                     + self._street.strip()
                                 )
                         if (
-                            self._place_type.lower() == "house"
+                            self._place_type is not None
+                            and self._place_type.lower() == "house"
                             and self._place_neighbourhood is not None
                         ):
                             formatted_place_array.append(
@@ -1557,7 +1574,7 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Timeout connecting to OpenStreetMaps Details [Error: "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1568,9 +1585,9 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Network unreachable error when connecting to OpenStreetMaps Details [Error "
-                                    + e.errno
+                                    + str(e.errno)
                                     + ": "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1580,7 +1597,7 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Connection Error connecting to OpenStreetMaps Details [Error: "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1590,7 +1607,7 @@ class Places(Entity):
                                     "("
                                     + self._name
                                     + ") Unknown Error connecting to OpenStreetMaps Details [Error: "
-                                    + e
+                                    + str(e)
                                     + "]: "
                                     + str(osm_details_url)
                                 )
@@ -1663,7 +1680,7 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Timeout connecting to Wikidata [Error: "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
@@ -1674,9 +1691,9 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Network unreachable error when connecting to Wikidata [Error "
-                                            + e.errno
+                                            + str(e.errno)
                                             + ": "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
@@ -1686,7 +1703,7 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Connection Error connecting to Wikidata [Error: "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
@@ -1696,7 +1713,7 @@ class Places(Entity):
                                             "("
                                             + self._name
                                             + ") Unknown Error connecting to Wikidata [Error: "
-                                            + e
+                                            + str(e)
                                             + "]: "
                                             + str(wikidata_url)
                                         )
