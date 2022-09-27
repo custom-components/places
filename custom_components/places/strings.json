@@ -13,6 +13,7 @@
                     "map_zoom": "Map Zoom",
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
+                    "scan_interval": "Scan Interval",
                     "extended_attr": "Extended Attributes"
                 },
                 "description": "Create a new sensor"
@@ -31,6 +32,7 @@
                     "map_zoom": "Map Zoom",
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
+                    "scan_interval": "Scan Interval",
                     "extended_attr": "Enable Extended Attributes"
                 },
                 "description": "Update existing sensor"

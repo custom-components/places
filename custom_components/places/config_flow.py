@@ -10,6 +10,7 @@ from homeassistant.const import (
     CONF_LATITUDE,
     CONF_LONGITUDE,
     CONF_NAME,
+    CONF_SCAN_INTERVAL,
     Platform,
 )
 from homeassistant.data_entry_flow import FlowResult
@@ -28,6 +29,7 @@ from .const import (
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -38,6 +40,8 @@ MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 STATE_OPTIONS = ["zone, place", "formatted_place", "zone_name, place"]
 MAP_ZOOM_MIN = 1
 MAP_ZOOM_MAX = 20
+SCAN_INTERVAL_MIN = 30
+SCAN_INTERVAL_MAX = 3600
 COMPONENT_CONFIG_URL = (
     "https://github.com/custom-components/places#configuration-options"
 )
@@ -155,6 +159,15 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.NumberSelectorConfig(
                         min=MAP_ZOOM_MIN,
                         max=MAP_ZOOM_MAX,
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Optional(
+                    CONF_SCAN_INTERVAL, default=int(DEFAULT_SCAN_INTERVAL)
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=SCAN_INTERVAL_MIN,
+                        max=SCAN_INTERVAL_MAX,
                         mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
@@ -317,6 +330,21 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     selector.NumberSelectorConfig(
                         min=MAP_ZOOM_MIN,
                         max=MAP_ZOOM_MAX,
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=DEFAULT_SCAN_INTERVAL,
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_SCAN_INTERVAL]
+                        if CONF_SCAN_INTERVAL in self.config_entry.data
+                        else DEFAULT_SCAN_INTERVAL
+                    },
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=SCAN_INTERVAL_MIN,
+                        max=SCAN_INTERVAL_MAX,
                         mode=selector.NumberSelectorMode.BOX,
                     )
                 ),

@@ -104,6 +104,7 @@ from .const import (
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -123,6 +124,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
         vol.Optional(CONF_LANGUAGE): cv.string,
+        vol.Optional(
+            CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
+        ): cv.positive_int,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
     }
 )
@@ -342,13 +346,14 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
-    # _LOGGER.debug("[async_setup_entry] name: " + str(name))
+    scan_interval = timedelta(seconds=int(config.get(CONF_SCAN_INTERVAL)))
+    _LOGGER.debug("[async_setup_entry] name: " + str(name))
     # _LOGGER.debug("[async_setup_entry] unique_id: " + str(unique_id))
+    _LOGGER.debug("[async_setup_entry] scan_interval: " + str(scan_interval))
     # _LOGGER.debug("[async_setup_entry] config: " + str(config))
 
     async_add_entities(
-        [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
-    )
+        [Places(hass, config, config_entry, name, unique_id)], True)
 
 
 class Places(Entity):
