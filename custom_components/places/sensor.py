@@ -360,6 +360,7 @@ class Places(Entity):
 
     def __init__(self, hass, config, config_entry, name, unique_id):
         """Initialize the sensor."""
+        global SCAN_INTERVAL
         _LOGGER.info("(" + str(name) + ") [Init] Places sensor: " + str(name))
 
         self._config = config
