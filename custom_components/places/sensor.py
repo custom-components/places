@@ -110,7 +110,7 @@ from .const import (
     TRACKING_DOMAINS,
 )
 
-#THROTTLE_INTERVAL = timedelta(seconds=600)
+# THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
 _LOGGER = logging.getLogger(__name__)
 
@@ -328,7 +328,7 @@ async def async_setup_platform(
     import_config = dict(config)
     _LOGGER.debug("[YAML Import] initial import_config: " + str(import_config))
     import_config.pop(CONF_PLATFORM, 1)
-    #import_config.pop(CONF_SCAN_INTERVAL, 1)
+    # import_config.pop(CONF_SCAN_INTERVAL, 1)
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
 
@@ -386,8 +386,13 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
-        self._scan_interval = int(config.setdefault(CONF_SCAN_INTERVAL,DEFAULT_SCAN_INTERVAL))
-        _LOGGER.debug("(" + self._name + ") [Init] scan_interval: " + str(self._scan_interval))
+        self._scan_interval = int(
+            config.setdefault(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        )
+        _LOGGER.debug(
+            "(" + self._name + ") [Init] scan_interval: " +
+            str(self._scan_interval)
+        )
         SCAN_INTERVAL = timedelta(seconds=self._scan_interval)
         self._state = "Initializing..."
 
@@ -652,7 +657,7 @@ class Places(Entity):
         #    + ") [TSC Update] Not Running Update - Devicetracker is not set"
         # )
 
-    #@Throttle(THROTTLE_INTERVAL)
+    # @Throttle(THROTTLE_INTERVAL)
     async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
         if self.is_devicetracker_set():
