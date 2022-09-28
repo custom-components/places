@@ -110,8 +110,8 @@ from .const import (
     TRACKING_DOMAINS,
 )
 
-THROTTLE_INTERVAL = timedelta(seconds=600)
-SCAN_INTERVAL = timedelta(seconds=30)
+#THROTTLE_INTERVAL = timedelta(seconds=600)
+SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -123,10 +123,10 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_NAME): cv.string,
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
-        vol.Optional(CONF_LANGUAGE): cv.string,
         vol.Optional(
             CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
         ): cv.positive_int,
+        vol.Optional(CONF_LANGUAGE): cv.string,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
     }
 )
@@ -328,7 +328,7 @@ async def async_setup_platform(
     import_config = dict(config)
     _LOGGER.debug("[YAML Import] initial import_config: " + str(import_config))
     import_config.pop(CONF_PLATFORM, 1)
-    import_config.pop(CONF_SCAN_INTERVAL, 1)
+    #import_config.pop(CONF_SCAN_INTERVAL, 1)
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
 
@@ -346,14 +346,13 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
-    scan_interval = timedelta(seconds=int(config.get(CONF_SCAN_INTERVAL)))
-    _LOGGER.debug("[async_setup_entry] name: " + str(name))
+    # _LOGGER.debug("[async_setup_entry] name: " + str(name))
     # _LOGGER.debug("[async_setup_entry] unique_id: " + str(unique_id))
-    _LOGGER.debug("[async_setup_entry] scan_interval: " + str(scan_interval))
     # _LOGGER.debug("[async_setup_entry] config: " + str(config))
 
     async_add_entities(
-        [Places(hass, config, config_entry, name, unique_id)], True)
+        [Places(hass, config, config_entry, name, unique_id)], update_before_add=True
+    )
 
 
 class Places(Entity):
@@ -387,6 +386,9 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
+        self._scan_interval = int(config.setdefault(CONF_SCAN_INTERVAL,DEFAULT_SCAN_INTERVAL))
+        _LOGGER.debug("(" + self._name + ") [Init] scan_interval: " + str(self._scan_interval))
+        SCAN_INTERVAL = timedelta(seconds=self._scan_interval)
         self._state = "Initializing..."
 
         home_latitude = None
@@ -650,7 +652,7 @@ class Places(Entity):
         #    + ") [TSC Update] Not Running Update - Devicetracker is not set"
         # )
 
-    @Throttle(THROTTLE_INTERVAL)
+    #@Throttle(THROTTLE_INTERVAL)
     async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
         if self.is_devicetracker_set():
