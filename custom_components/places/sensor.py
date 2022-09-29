@@ -98,12 +98,14 @@ from .const import (
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
     CONF_OPTIONS,
+    CONF_SHOW_TIME,
     CONF_YAML_HASH,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
+    DEFAULT_SHOW_TIME,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -124,6 +126,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
         vol.Optional(CONF_LANGUAGE): cv.string,
         vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
+        vol.Optional(CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME): cv.boolean,
     }
 )
 
@@ -383,8 +386,8 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
-
         self._state = None
+        self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
 
         home_latitude = None
         home_longitude = None
@@ -468,16 +471,20 @@ class Places(Entity):
             + self._devicetracker_id
         )
 
-        async_track_state_change_event(
-            hass,
-            self._devicetracker_id,
-            self.tsc_update,
+    async def async_added_to_hass(self) -> None:
+        """Added to hass."""
+        self.async_on_remove(
+            async_track_state_change_event(
+                self.hass,
+                self._devicetracker_id,
+                self.tsc_update,
+            )
         )
-        # _LOGGER.debug(
-        #    "("
-        #    + self._name
-        #    + ") [Init] Subscribed to DeviceTracker state change events"
-        # )
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") [Init] Subscribed to DeviceTracker state change events"
+        )
 
     @property
     def name(self):
@@ -702,7 +709,10 @@ class Places(Entity):
         """Get the latest data and updates the states."""
 
         _LOGGER.info("(" + self._name + ") Starting Update...")
-        previous_state = self._state
+        if self._show_time:
+            previous_state = self._state[:-14]
+        else:
+            previous_state = self._state
         new_state = None
         distance_traveled = 0
         devicetracker_zone = None
@@ -858,8 +868,12 @@ class Places(Entity):
         )
 
         maplink_google = (
-            "https://www.google.com/maps/search/?api=1&basemap=roadmap&layer=traffic&query="
+            "https://maps.google.com/?q="
             + str(current_location)
+            + "&ll="
+            + str(current_location)
+            + "&z="
+            + str(self._map_zoom)
         )
         maplink_osm = (
             "https://www.openstreetmap.org/?mlat="
@@ -1756,7 +1770,13 @@ class Places(Entity):
                                         # )
                                         self._wikidata_dict = wikidata_dict
                     if new_state is not None:
-                        self._state = new_state[:255]
+                        if self._show_time:
+                            self._state = (
+                                new_state[: 255 - 14] +
+                                " (since " + current_time + ")"
+                            )
+                        else:
+                            self._state = new_state[:255]
                         _LOGGER.info(
                             "(" + self._name + ") New State: " + str(self._state)
                         )

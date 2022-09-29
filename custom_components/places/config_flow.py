@@ -23,11 +23,13 @@ from .const import (
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
     CONF_OPTIONS,
+    CONF_SHOW_TIME,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
+    DEFAULT_SHOW_TIME,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -162,6 +164,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
@@ -225,7 +230,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
+            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
             return self.async_create_entry(title="", data={})
+
         # Include the current entity in the list as well. Although it may still fail in validation checking.
         devicetracker_id_list = get_devicetracker_id_entities(
             self.hass,
@@ -335,6 +342,14 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         self.config_entry.data[CONF_EXTENDED_ATTR]
                         if CONF_EXTENDED_ATTR in self.config_entry.data
                         else DEFAULT_EXTENDED_ATTR
+                    ),
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_SHOW_TIME,
+                    default=(
+                        self.config_entry.data[CONF_SHOW_TIME]
+                        if CONF_SHOW_TIME in self.config_entry.data
+                        else DEFAULT_SHOW_TIME
                     ),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
