@@ -35,6 +35,7 @@ async def async_unload_entry(
     # This is called when an entry/configured device is to be removed. The class
     # needs to unload itself, and remove callbacks. See the classes for further
     # details
+    _LOGGER.info("Unloading: " + str(entry.data))
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
