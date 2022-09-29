@@ -36,7 +36,11 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 
 try:
     use_issue_reg = True
@@ -111,7 +115,7 @@ from .const import (
 )
 
 # THROTTLE_INTERVAL = timedelta(seconds=600)
-SCAN_INTERVAL = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
+SCAN_INTERVAL = timedelta(seconds=180)
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -346,6 +350,7 @@ async def async_setup_entry(
     config = hass.data[DOMAIN][config_entry.entry_id]
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
+
     # _LOGGER.debug("[async_setup_entry] name: " + str(name))
     # _LOGGER.debug("[async_setup_entry] unique_id: " + str(unique_id))
     # _LOGGER.debug("[async_setup_entry] config: " + str(config))
@@ -360,7 +365,7 @@ class Places(Entity):
 
     def __init__(self, hass, config, config_entry, name, unique_id):
         """Initialize the sensor."""
-        global SCAN_INTERVAL
+        # global SCAN_INTERVAL
         _LOGGER.info("(" + str(name) + ") [Init] Places sensor: " + str(name))
 
         self._config = config
@@ -394,7 +399,11 @@ class Places(Entity):
             "(" + self._name + ") [Init] scan_interval: " +
             str(self._scan_interval)
         )
-        SCAN_INTERVAL = timedelta(seconds=self._scan_interval)
+        async_track_time_interval(
+            self._hass, self.async_update, timedelta(
+                seconds=self._scan_interval)
+        )
+        # SCAN_INTERVAL = timedelta(seconds=self._scan_interval)
         self._state = "Initializing..."
 
         home_latitude = None
