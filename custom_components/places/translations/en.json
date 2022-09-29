@@ -13,7 +13,8 @@
                     "map_zoom": "Map Zoom",
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
-                    "extended_attr": "Enable Extended Attributes"
+                    "extended_attr": "Enable Extended Attributes",
+                    "show_time": "Show last updated time at end of state '(since xx:yy)'"
                 },
                 "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }
@@ -31,7 +32,8 @@
                     "map_zoom": "Map Zoom",
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
-                    "extended_attr": "Enable Extended Attributes"
+                    "extended_attr": "Enable Extended Attributes",
+                    "show_time": "Show last updated time at end of state '(since xx:yy)'"
                 },
                 "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }

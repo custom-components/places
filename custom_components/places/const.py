@@ -9,6 +9,7 @@ DEFAULT_HOME_ZONE = "zone.home"
 DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
 DEFAULT_EXTENDED_ATTR = False
+DEFAULT_SHOW_TIME = False
 
 # Settings
 TRACKING_DOMAINS = [
@@ -26,6 +27,7 @@ CONF_MAP_PROVIDER = "map_provider"
 CONF_MAP_ZOOM = "map_zoom"
 CONF_LANGUAGE = "language"
 CONF_EXTENDED_ATTR = "extended_attr"
+CONF_SHOW_TIME = "show_time"
 CONF_YAML_HASH = "yaml_hash"
 
 # Attributes
