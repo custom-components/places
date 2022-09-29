@@ -383,7 +383,7 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
-        # self._state = "Initializing..."
+
         self._state = None
 
         home_latitude = None
@@ -438,12 +438,6 @@ class Places(Entity):
         self._place_neighbourhood = None
         self._home_latitude = home_latitude
         self._home_longitude = home_longitude
-        # self._latitude_old = home_latitude
-        # self._longitude_old = home_longitude
-        # self._latitude = home_latitude
-        # self._longitude = home_longitude
-        # self._devicetracker_zone = "Home"
-        # self._devicetracker_zone_name = "Home"
         self._latitude_old = None
         self._longitude_old = None
         self._latitude = None
@@ -454,14 +448,6 @@ class Places(Entity):
         self._last_place_name = None
         self._distance_km = 0
         self._distance_m = 0
-        # if home_latitude is not None and home_longitude is not None:
-        #    self._location_current = str(
-        #        home_latitude) + "," + str(home_longitude)
-        #    self._location_previous = str(
-        #        home_latitude) + "," + str(home_longitude)
-        # else:
-        #    self._location_current = None
-        #    self._location_previous = None
         self._location_current = None
         self._location_previous = None
         self._updateskipped = 0
@@ -1007,13 +993,11 @@ class Places(Entity):
             )
 
         proceed_with_update = True
-        # initial_update = False
 
         if self.initial_update:
             _LOGGER.info(
                 "(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
-            # initial_update = True
         elif current_location == previous_location:
             _LOGGER.info(
                 "(" + self._name + ") Stopping update because coordinates are identical"
@@ -1106,7 +1090,6 @@ class Places(Entity):
                 + str(self._longitude)
             )
             _LOGGER.debug("(" + self._name + ") OSM URL: " + str(osm_url))
-            # osm_response = get(osm_url)
             try:
                 osm_response = requests.get(osm_url)
             except requests.exceptions.Timeout as e:
@@ -1778,15 +1761,9 @@ class Places(Entity):
                             "(" + self._name + ") New State: " + str(self._state)
                         )
                     else:
-                        # self._state = "<Unknown>"
                         self._state = None
                         _LOGGER.warning(
-                            "("
-                            + self._name
-                            # + ") New State is None, setting to: "
-                            + ") New State is None"
-                            # + str(self._state)
-                        )
+                            "(" + self._name + ") New State is None")
                     _LOGGER.debug("(" + self._name + ") Building Event Data")
                     event_data = {}
                     event_data["entity"] = self._name
