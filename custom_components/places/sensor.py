@@ -476,7 +476,7 @@ class Places(Entity):
         """Added to hass."""
         self.async_on_remove(
             async_track_state_change_event(
-                hass,
+                self.hass,
                 self._devicetracker_id,
                 self.tsc_update,
             )
