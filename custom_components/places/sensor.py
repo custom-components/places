@@ -1142,8 +1142,18 @@ class Places(Entity):
                     "(" + self._name + ") OSM Response: " + osm_json_input)
 
             if osm_json_input is not None and osm_json_input:
-                osm_decoded = json.loads(osm_json_input)
-
+                try:
+                    osm_decoded = json.loads(osm_json_input)
+                except json.decoder.JSONDecodeError as e:
+                    osm_decoded = None
+                    _LOGGER.warning(
+                        "("
+                        + self._name
+                        + ") JSON Decode Error with OSM info [Error: "
+                        + str(e)
+                        + "]: "
+                        + str(osm_json_input)
+                    )
             if osm_decoded is not None and osm_decoded:
                 place_type = None
                 place_name = None
@@ -1637,10 +1647,20 @@ class Places(Entity):
                                     osm_details_json_input is not None
                                     and osm_details_json_input
                                 ):
-                                    osm_details_dict = json.loads(
-                                        osm_details_json_input
-                                    )
-
+                                    try:
+                                        osm_details_dict = json.loads(
+                                            osm_details_json_input
+                                        )
+                                    except json.decoder.JSONDecodeError as e:
+                                        osm_details_dict = None
+                                        _LOGGER.warning(
+                                            "("
+                                            + self._name
+                                            + ") JSON Decode Error with OSM Details info [Error: "
+                                            + str(e)
+                                            + "]: "
+                                            + str(osm_details_json_input)
+                                        )
                                 # _LOGGER.debug("(" + self._name + ") OSM Details Dict: " + str(osm_details_dict))
                                 self._osm_details_dict = osm_details_dict
 
@@ -1752,9 +1772,20 @@ class Places(Entity):
                                             wikidata_json_input is not None
                                             and wikidata_json_input
                                         ):
-                                            wikidata_dict = json.loads(
-                                                wikidata_json_input
-                                            )
+                                            try:
+                                                wikidata_dict = json.loads(
+                                                    wikidata_json_input
+                                                )
+                                            except json.decoder.JSONDecodeError as e:
+                                                wikidata_dict = None
+                                                _LOGGER.warning(
+                                                    "("
+                                                    + self._name
+                                                    + ") JSON Decode Error with Wikidata info [Error: "
+                                                    + str(e)
+                                                    + "]: "
+                                                    + str(wikidata_json_input)
+                                                )
                                         _LOGGER.debug(
                                             "("
                                             + self._name
