@@ -25,6 +25,7 @@ from homeassistant import config_entries, core
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
+    ATTR_GPS_ACCURACY,
     CONF_API_KEY,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -391,6 +392,7 @@ class Places(Entity):
 
         home_latitude = None
         home_longitude = None
+
         if (
             hasattr(self, "_home_zone")
             and hass.states.get(self._home_zone) is not None
@@ -709,7 +711,7 @@ class Places(Entity):
         """Get the latest data and updates the states."""
 
         _LOGGER.info("(" + self._name + ") Starting Update...")
-        if self._show_time:
+        if self._state is not None and self._show_time:
             previous_state = self._state[:-14]
         else:
             previous_state = self._state
@@ -735,6 +737,8 @@ class Places(Entity):
         maplink_osm = None
         last_place_name = None
         prev_last_place_name = None
+        # Will update with real value if it exists and then places will only only update if >0
+        gps_accuracy = 1
 
         _LOGGER.info(
             "(" + self._name + ") Calling update due to: " + str(reason))
@@ -812,6 +816,38 @@ class Places(Entity):
                     "longitude"
                 )
             )
+
+        # GPS Accuracy
+        if (
+            self._hass.states.get(self._devicetracker_id)
+            and self._hass.states.get(self._devicetracker_id).attributes
+            and ATTR_GPS_ACCURACY
+            in self._hass.states.get(self._devicetracker_id).attributes
+            and self._hass.states.get(self._devicetracker_id).attributes.get(
+                ATTR_GPS_ACCURACY
+            )
+            is not None
+            and self.is_float(
+                self._hass.states.get(self._devicetracker_id).attributes.get(
+                    ATTR_GPS_ACCURACY
+                )
+            )
+        ):
+            gps_accuracy = float(
+                self._hass.states.get(self._devicetracker_id).attributes.get(
+                    ATTR_GPS_ACCURACY
+                )
+            )
+            _LOGGER.debug(
+                "(" + self._name + ") GPS Accuracy: " + str(gps_accuracy))
+        else:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") GPS Accuracy attribute not found in: "
+                + str(self._devicetracker_id)
+            )
+
         if self.is_float(self._home_latitude):
             home_latitude = str(self._home_latitude)
         if self.is_float(self._home_longitude):
@@ -1008,13 +1044,20 @@ class Places(Entity):
 
         proceed_with_update = True
 
-        if self.initial_update:
+        if gps_accuracy == 0:
+            proceed_with_update = False
+            _LOGGER.info(
+                "(" + self._name + ") GPS Accuracy is 0, not performing update"
+            )
+        elif self.initial_update:
             _LOGGER.info(
                 "(" + self._name + ") Performing Initial Update for user...")
             proceed_with_update = True
         elif current_location == previous_location:
             _LOGGER.info(
-                "(" + self._name + ") Stopping update because coordinates are identical"
+                "("
+                + self._name
+                + ") Not performing update because coordinates are identical"
             )
             proceed_with_update = False
         elif int(distance_traveled) > 0 and self._updateskipped > 3:
@@ -1029,7 +1072,7 @@ class Places(Entity):
             _LOGGER.info(
                 "("
                 + self._name
-                + ") Stopping update because location changed "
+                + ") Not performing update because location changed "
                 + str(round(distance_traveled, 1))
                 + " < 10m  ("
                 + str(self._updateskipped)
