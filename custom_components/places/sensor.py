@@ -711,7 +711,7 @@ class Places(Entity):
         """Get the latest data and updates the states."""
 
         _LOGGER.info("(" + self._name + ") Starting Update...")
-        if self._show_time:
+        if self._state is not None and self._show_time:
             previous_state = self._state[:-14]
         else:
             previous_state = self._state
