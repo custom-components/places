@@ -900,18 +900,21 @@ class Places(Entity):
             )
             distance_km = round(distance_m / 1000, 3)
 
-            deviation = self.haversine(
-                float(old_latitude),
-                float(old_longitude),
-                float(new_latitude),
-                float(new_longitude),
-            )
-            if deviation <= 0.2:  # in kilometers
-                direction = "stationary"
-            elif last_distance_m > distance_m:
-                direction = "towards home"
-            elif last_distance_m < distance_m:
-                direction = "away from home"
+            if old_latitude is not None and old_longitude is not None:
+                deviation = self.haversine(
+                    float(old_latitude),
+                    float(old_longitude),
+                    float(new_latitude),
+                    float(new_longitude),
+                )
+                if deviation <= 0.2:  # in kilometers
+                    direction = "stationary"
+                elif last_distance_m > distance_m:
+                    direction = "towards home"
+                elif last_distance_m < distance_m:
+                    direction = "away from home"
+                else:
+                    direction = "stationary"
             else:
                 direction = "stationary"
 
@@ -969,12 +972,13 @@ class Places(Entity):
                 + str(devicetracker_zone_name)
             )
 
-            distance_traveled = distance(
-                float(new_latitude),
-                float(new_longitude),
-                float(old_latitude),
-                float(old_longitude),
-            )
+            if old_latitude is not None and old_longitude is not None:
+                distance_traveled = distance(
+                    float(new_latitude),
+                    float(new_longitude),
+                    float(old_latitude),
+                    float(old_longitude),
+                )
 
             _LOGGER.info(
                 "("
@@ -986,7 +990,12 @@ class Places(Entity):
             _LOGGER.error(
                 "("
                 + self._name
-                + ") Problem with updated lat/long, this update will likely fail: new_latitude="
+                + ") Problem with updated lat/long, this update will likely fail: "
+                + "old_latitude="
+                + str(old_latitude)
+                + ", old_longitude="
+                + str(old_longitude)
+                + ", new_latitude="
                 + str(new_latitude)
                 + ", new_longitude="
                 + str(new_longitude)
