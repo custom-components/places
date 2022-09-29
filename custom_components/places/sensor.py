@@ -923,6 +923,7 @@ class Places(Entity):
             + "/"
             + str(new_longitude)[:9]
         )
+        proceed_with_update = True
         if (
             new_latitude is not None
             and new_longitude is not None
@@ -1024,10 +1025,11 @@ class Places(Entity):
                 + str(round(distance_traveled, 1))
             )
         else:
-            _LOGGER.error(
+            proceed_with_update = False
+            _LOGGER.info(
                 "("
                 + self._name
-                + ") Problem with updated lat/long, this update will likely fail: "
+                + ") Problem with updated lat/long, not performing update: "
                 + "old_latitude="
                 + str(old_latitude)
                 + ", old_longitude="
@@ -1042,9 +1044,9 @@ class Places(Entity):
                 + str(home_longitude)
             )
 
-        proceed_with_update = True
-
-        if gps_accuracy == 0:
+        if not proceed_with_update:
+            proceed_with_update = False
+        elif gps_accuracy == 0:
             proceed_with_update = False
             _LOGGER.info(
                 "(" + self._name + ") GPS Accuracy is 0, not performing update"
