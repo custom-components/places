@@ -358,6 +358,7 @@ class Places(Entity):
         """Initialize the sensor."""
         _LOGGER.info("(" + str(name) + ") [Init] Places sensor: " + str(name))
 
+        self.initial_update = True
         self._config = config
         self._config_entry = config_entry
         self._hass = hass
@@ -1006,9 +1007,14 @@ class Places(Entity):
             )
 
         proceed_with_update = True
-        initial_update = False
+        # initial_update = False
 
-        if current_location == previous_location:
+        if self.initial_update:
+            _LOGGER.info(
+                "(" + self._name + ") Performing Initial Update for user...")
+            proceed_with_update = True
+            # initial_update = True
+        elif current_location == previous_location:
             _LOGGER.info(
                 "(" + self._name + ") Stopping update because coordinates are identical"
             )
@@ -1032,12 +1038,6 @@ class Places(Entity):
                 + ")"
             )
             proceed_with_update = False
-
-        if previous_state == "Initializing...":
-            _LOGGER.info(
-                "(" + self._name + ") Performing Initial Update for user...")
-            proceed_with_update = True
-            initial_update = True
 
         if proceed_with_update and devicetracker_zone:
             _LOGGER.info(
@@ -1274,7 +1274,7 @@ class Places(Entity):
                 if osm_id is not None:
                     self._osm_id = str(osm_id)
                 self._osm_type = osm_type
-                if initial_update is True:
+                if self.initial_update is True:
                     last_place_name = self._last_place_name
                     _LOGGER.debug(
                         "("
@@ -1521,18 +1521,18 @@ class Places(Entity):
                 current_time = "%02d:%02d" % (now.hour, now.minute)
 
                 if (
-                    previous_state is not None
-                    and new_state is not None
-                    and (
-                        (
-                            previous_state.lower().strip() != new_state.lower().strip()
-                            and previous_state.replace(" ", "").lower().strip()
-                            != new_state.lower().strip()
-                            and previous_state.lower().strip()
-                            != devicetracker_zone.lower().strip()
-                        )
-                        or previous_state.strip() == "Initializing..."
+                    (
+                        previous_state is not None
+                        and new_state is not None
+                        and previous_state.lower().strip() != new_state.lower().strip()
+                        and previous_state.replace(" ", "").lower().strip()
+                        != new_state.lower().strip()
+                        and previous_state.lower().strip()
+                        != devicetracker_zone.lower().strip()
                     )
+                    or previous_state is None
+                    or new_state is None
+                    or self.initial_update
                 ):
 
                     if self._extended_attr:
@@ -1790,9 +1790,10 @@ class Places(Entity):
                     _LOGGER.debug("(" + self._name + ") Building Event Data")
                     event_data = {}
                     event_data["entity"] = self._name
-                    event_data["from_state"] = previous_state
-                    event_data["to_state"] = new_state
-
+                    if previous_state is not None:
+                        event_data["from_state"] = previous_state
+                    if new_state is not None:
+                        event_data["to_state"] = new_state
                     if place_name is not None:
                         event_data[ATTR_PLACE_NAME] = place_name
                     if current_time is not None:
@@ -1860,6 +1861,7 @@ class Places(Entity):
                         + self._name
                         + ") No entity update needed, Previous State = New State"
                     )
+            self.initial_update = False
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
