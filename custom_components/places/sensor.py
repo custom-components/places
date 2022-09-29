@@ -1134,17 +1134,17 @@ class Places(Entity):
                     + "]: "
                     + str(osm_url)
                 )
-            if osm_response is not None:
+
+            osm_json_input = {}
+            if osm_response is not None and osm_response:
                 osm_json_input = osm_response.text
                 _LOGGER.debug(
                     "(" + self._name + ") OSM Response: " + osm_json_input)
-            else:
-                osm_json_input = {}
 
-            if osm_json_input:
+            if osm_json_input is not None and osm_json_input:
                 osm_decoded = json.loads(osm_json_input)
 
-            if osm_decoded:
+            if osm_decoded is not None and osm_decoded:
                 place_type = None
                 place_name = None
                 place_category = None
@@ -1619,7 +1619,12 @@ class Places(Entity):
                                     + ") An error occurred contacting the web service for OSM Details"
                                 )
                             else:
-                                if osm_details_response is not None:
+                                osm_details_json_input = {}
+
+                                if (
+                                    osm_details_response is not None
+                                    and osm_details_response
+                                ):
                                     osm_details_json_input = osm_details_response.text
                                     _LOGGER.debug(
                                         "("
@@ -1627,9 +1632,11 @@ class Places(Entity):
                                         + ") OSM Details JSON: "
                                         + osm_details_json_input
                                     )
-                                else:
-                                    osm_details_json_input = {}
-                                if osm_details_json_input:
+
+                                if (
+                                    osm_details_json_input is not None
+                                    and osm_details_json_input
+                                ):
                                     osm_details_dict = json.loads(
                                         osm_details_json_input
                                     )
@@ -1727,7 +1734,12 @@ class Places(Entity):
                                             + ") An error occurred contacting the web service for Wikidata"
                                         )
                                     else:
-                                        if wikidata_response is not None:
+                                        wikidata_json_input = {}
+
+                                        if (
+                                            wikidata_response is not None
+                                            and wikidata_response
+                                        ):
                                             wikidata_json_input = wikidata_response.text
                                             _LOGGER.debug(
                                                 "("
@@ -1735,9 +1747,11 @@ class Places(Entity):
                                                 + ") Wikidata JSON: "
                                                 + wikidata_json_input
                                             )
-                                        else:
-                                            wikidata_json_input = {}
-                                        if wikidata_json_input:
+
+                                        if (
+                                            wikidata_json_input is not None
+                                            and wikidata_json_input
+                                        ):
                                             wikidata_dict = json.loads(
                                                 wikidata_json_input
                                             )
