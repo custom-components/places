@@ -230,7 +230,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
             )
+            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
             return self.async_create_entry(title="", data={})
+
         # Include the current entity in the list as well. Although it may still fail in validation checking.
         devicetracker_id_list = get_devicetracker_id_entities(
             self.hass,
