@@ -361,6 +361,7 @@ class Places(Entity):
         """Initialize the sensor."""
         _LOGGER.info("(" + str(name) + ") [Init] Places sensor: " + str(name))
 
+        self.initial_update = True
         self._config = config
         self._config_entry = config_entry
         self._hass = hass
@@ -385,11 +386,8 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
+        self._state = None
         self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
-        if self._show_time:
-            self._state = "Initializing... (since 99:99)"
-        else:
-            self._state = "Initializing..."
 
         home_latitude = None
         home_longitude = None
@@ -443,24 +441,18 @@ class Places(Entity):
         self._place_neighbourhood = None
         self._home_latitude = home_latitude
         self._home_longitude = home_longitude
-        self._latitude_old = home_latitude
-        self._longitude_old = home_longitude
-        self._latitude = home_latitude
-        self._longitude = home_longitude
-        self._devicetracker_zone = "Home"
-        self._devicetracker_zone_name = "Home"
+        self._latitude_old = None
+        self._longitude_old = None
+        self._latitude = None
+        self._longitude = None
+        self._devicetracker_zone = None
+        self._devicetracker_zone_name = None
         self._mtime = str(datetime.now())
         self._last_place_name = None
         self._distance_km = 0
         self._distance_m = 0
-        if home_latitude is not None and home_longitude is not None:
-            self._location_current = str(
-                home_latitude) + "," + str(home_longitude)
-            self._location_previous = str(
-                home_latitude) + "," + str(home_longitude)
-        else:
-            self._location_current = None
-            self._location_previous = None
+        self._location_current = None
+        self._location_previous = None
         self._updateskipped = 0
         self._direction = "stationary"
         self._map_link = None
@@ -909,18 +901,21 @@ class Places(Entity):
             )
             distance_km = round(distance_m / 1000, 3)
 
-            deviation = self.haversine(
-                float(old_latitude),
-                float(old_longitude),
-                float(new_latitude),
-                float(new_longitude),
-            )
-            if deviation <= 0.2:  # in kilometers
-                direction = "stationary"
-            elif last_distance_m > distance_m:
-                direction = "towards home"
-            elif last_distance_m < distance_m:
-                direction = "away from home"
+            if old_latitude is not None and old_longitude is not None:
+                deviation = self.haversine(
+                    float(old_latitude),
+                    float(old_longitude),
+                    float(new_latitude),
+                    float(new_longitude),
+                )
+                if deviation <= 0.2:  # in kilometers
+                    direction = "stationary"
+                elif last_distance_m > distance_m:
+                    direction = "towards home"
+                elif last_distance_m < distance_m:
+                    direction = "away from home"
+                else:
+                    direction = "stationary"
             else:
                 direction = "stationary"
 
@@ -978,12 +973,13 @@ class Places(Entity):
                 + str(devicetracker_zone_name)
             )
 
-            distance_traveled = distance(
-                float(new_latitude),
-                float(new_longitude),
-                float(old_latitude),
-                float(old_longitude),
-            )
+            if old_latitude is not None and old_longitude is not None:
+                distance_traveled = distance(
+                    float(new_latitude),
+                    float(new_longitude),
+                    float(old_latitude),
+                    float(old_longitude),
+                )
 
             _LOGGER.info(
                 "("
@@ -995,7 +991,12 @@ class Places(Entity):
             _LOGGER.error(
                 "("
                 + self._name
-                + ") Problem with updated lat/long, this update will likely fail: new_latitude="
+                + ") Problem with updated lat/long, this update will likely fail: "
+                + "old_latitude="
+                + str(old_latitude)
+                + ", old_longitude="
+                + str(old_longitude)
+                + ", new_latitude="
                 + str(new_latitude)
                 + ", new_longitude="
                 + str(new_longitude)
@@ -1006,9 +1007,12 @@ class Places(Entity):
             )
 
         proceed_with_update = True
-        initial_update = False
 
-        if current_location == previous_location:
+        if self.initial_update:
+            _LOGGER.info(
+                "(" + self._name + ") Performing Initial Update for user...")
+            proceed_with_update = True
+        elif current_location == previous_location:
             _LOGGER.info(
                 "(" + self._name + ") Stopping update because coordinates are identical"
             )
@@ -1032,15 +1036,6 @@ class Places(Entity):
                 + ")"
             )
             proceed_with_update = False
-
-        if (
-            previous_state == "Initializing..."
-            or previous_state == "Initializing... (since 99:99)"
-        ):
-            _LOGGER.info(
-                "(" + self._name + ") Performing Initial Update for user...")
-            proceed_with_update = True
-            initial_update = True
 
         if proceed_with_update and devicetracker_zone:
             _LOGGER.info(
@@ -1109,7 +1104,6 @@ class Places(Entity):
                 + str(self._longitude)
             )
             _LOGGER.debug("(" + self._name + ") OSM URL: " + str(osm_url))
-            # osm_response = get(osm_url)
             try:
                 osm_response = requests.get(osm_url)
             except requests.exceptions.Timeout as e:
@@ -1277,7 +1271,7 @@ class Places(Entity):
                 if osm_id is not None:
                     self._osm_id = str(osm_id)
                 self._osm_type = osm_type
-                if initial_update is True:
+                if self.initial_update is True:
                     last_place_name = self._last_place_name
                     _LOGGER.debug(
                         "("
@@ -1524,19 +1518,18 @@ class Places(Entity):
                 current_time = "%02d:%02d" % (now.hour, now.minute)
 
                 if (
-                    previous_state is not None
-                    and new_state is not None
-                    and (
-                        (
-                            previous_state.lower().strip() != new_state.lower().strip()
-                            and previous_state.replace(" ", "").lower().strip()
-                            != new_state.lower().strip()
-                            and previous_state.lower().strip()
-                            != devicetracker_zone.lower().strip()
-                        )
-                        or previous_state.strip() == "Initializing..."
-                        or previous_state.strip() == "Initializing... (since 99:99)"
+                    (
+                        previous_state is not None
+                        and new_state is not None
+                        and previous_state.lower().strip() != new_state.lower().strip()
+                        and previous_state.replace(" ", "").lower().strip()
+                        != new_state.lower().strip()
+                        and previous_state.lower().strip()
+                        != devicetracker_zone.lower().strip()
                     )
+                    or previous_state is None
+                    or new_state is None
+                    or self.initial_update
                 ):
 
                     if self._extended_attr:
@@ -1788,19 +1781,16 @@ class Places(Entity):
                             "(" + self._name + ") New State: " + str(self._state)
                         )
                     else:
-                        self._state = "<Unknown>"
+                        self._state = None
                         _LOGGER.warning(
-                            "("
-                            + self._name
-                            + ") New State is None, setting to: "
-                            + str(self._state)
-                        )
+                            "(" + self._name + ") New State is None")
                     _LOGGER.debug("(" + self._name + ") Building Event Data")
                     event_data = {}
                     event_data["entity"] = self._name
-                    event_data["from_state"] = previous_state
-                    event_data["to_state"] = new_state
-
+                    if previous_state is not None:
+                        event_data["from_state"] = previous_state
+                    if new_state is not None:
+                        event_data["to_state"] = new_state
                     if place_name is not None:
                         event_data[ATTR_PLACE_NAME] = place_name
                     if current_time is not None:
@@ -1868,6 +1858,7 @@ class Places(Entity):
                         + self._name
                         + ") No entity update needed, Previous State = New State"
                     )
+            self.initial_update = False
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
