@@ -401,7 +401,7 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
-        self._state = None
+
         self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
         self._json_filename = "places-" + \
             slugify(str(self._unique_id)) + ".json"
@@ -409,6 +409,7 @@ class Places(Entity):
             "(" + self._name + ") [Init] JSON Filename: " + self._json_filename
         )
 
+        self._state = None
         home_latitude = None
         home_longitude = None
 
@@ -444,6 +445,29 @@ class Places(Entity):
                 "entity_picture")
             if hass.states.get(self._devicetracker_id)
             else None
+        )
+        sensor_attributes = None
+        try:
+            with open(
+                os.path.join(PLACES_JSON_FOLDER, self._json_filename), "r"
+            ) as jsonfile:
+                sensor_attributes = json.load(jsonfile)
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") No JSON file to import ("
+                + str(self._json_filename)
+                + ") [Error "
+                + str(e.errno)
+                + "]: "
+                + str(e)
+            )
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") Sensor Attributes to Import: "
+            + str(sensor_attributes)
         )
         self._street_number = None
         self._street = None
@@ -1968,6 +1992,7 @@ class Places(Entity):
                         + ") No entity update needed, Previous State = New State"
                     )
             self.initial_update = False
+        sensor_attributes = None
         sensor_attributes = self.extra_state_attributes
         sensor_attributes.update({CONF_NAME: self._name})
         # Remove the longer extended attributes
@@ -1977,7 +2002,7 @@ class Places(Entity):
         _LOGGER.debug(
             "("
             + self._name
-            + ") Sensor Attributes ["
+            + ") Sensor Attributes to Save ["
             + str(type(sensor_attributes))
             + "]: "
             + str(sensor_attributes)
@@ -1985,8 +2010,8 @@ class Places(Entity):
         try:
             with open(
                 os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
-            ) as outfile:
-                json.dump(sensor_attributes, outfile)
+            ) as jsonfile:
+                json.dump(sensor_attributes, jsonfile)
         except OSError as e:
             _LOGGER.warning(
                 "("
