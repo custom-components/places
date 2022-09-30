@@ -446,29 +446,7 @@ class Places(Entity):
             if hass.states.get(self._devicetracker_id)
             else None
         )
-        sensor_attributes = None
-        try:
-            with open(
-                os.path.join(PLACES_JSON_FOLDER, self._json_filename), "r"
-            ) as jsonfile:
-                sensor_attributes = json.load(jsonfile)
-        except OSError as e:
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") No JSON file to import ("
-                + str(self._json_filename)
-                + ") [Error "
-                + str(e.errno)
-                + "]: "
-                + str(e)
-            )
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") Sensor Attributes to Import: "
-            + str(sensor_attributes)
-        )
+
         self._street_number = None
         self._street = None
         self._city = None
@@ -508,6 +486,30 @@ class Places(Entity):
         self._osm_dict = None
         self._osm_details_dict = None
         self._wikidata_dict = None
+
+        sensor_attributes = None
+        try:
+            with open(
+                os.path.join(PLACES_JSON_FOLDER, self._json_filename), "r"
+            ) as jsonfile:
+                sensor_attributes = json.load(jsonfile)
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") [Init] No JSON file to import ("
+                + str(self._json_filename)
+                + ") [Error "
+                + str(e.errno)
+                + "]: "
+                + str(e)
+            )
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") [Init] Sensor Attributes to Import: "
+            + str(sensor_attributes)
+        )
 
         _LOGGER.info(
             "("
