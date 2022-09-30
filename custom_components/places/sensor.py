@@ -117,8 +117,17 @@ from .const import (
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
 PLACES_JSON_FOLDER = "custom_components/places/json_sensors"
-os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
-
+try:
+    os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
+except OSError as e:
+    _LOGGER.warning(
+        "("
+        + self._name
+        + ") Error creating folder for JSON sensor files [Error "
+        + str(e.errno)
+        + "]: "
+        + str(e)
+    )
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -1973,10 +1982,22 @@ class Places(Entity):
             + "]: "
             + str(sensor_attributes)
         )
-        with open(
-            os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
-        ) as outfile:
-            json.dump(sensor_attributes, outfile)
+        try:
+            with open(
+                os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
+            ) as outfile:
+                json.dump(sensor_attributes, outfile)
+        except OSError as e:
+            _LOGGER.warning(
+                "("
+                + self._name
+                + ") Error writing sensor to JSON ("
+                + str(self._json_filename)
+                + ") [Error "
+                + str(e.errno)
+                + "]: "
+                + str(e)
+            )
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
