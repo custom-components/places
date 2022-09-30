@@ -132,6 +132,7 @@ except Exception as e:
         + ") Unknown Exception creating folder for JSON sensor files: "
         + str(e)
     )
+ICON = "mdi:map-search-outline"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -382,6 +383,7 @@ class Places(Entity):
         self._hass = hass
         self._name = name
         self._unique_id = unique_id
+        self._icon = ICON
         self._api_key = config.setdefault(CONF_API_KEY)
         self._options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
         self._devicetracker_id = config.get(CONF_DEVICETRACKER_ID).lower()
@@ -597,6 +599,11 @@ class Places(Entity):
     def state(self):
         """Return the state of the sensor."""
         return self._state
+
+    @property
+    def icon(self):
+        """Return the icon for the sensor."""
+        return self._icon
 
     @property
     def entity_picture(self):
