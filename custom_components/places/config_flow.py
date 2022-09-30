@@ -68,8 +68,7 @@ def get_devicetracker_id_entities(
     clean_list = [*set(clean_list)]
     clean_list.sort()
     _LOGGER.debug(
-        "Devicetracker_id entities including sensors with lat/long: " +
-        str(clean_list)
+        "Devicetracker_id entities including sensors with lat/long: " + str(clean_list)
     )
     return clean_list
 
@@ -108,8 +107,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=info["title"], data=user_input)
             except Exception as err:
                 _LOGGER.exception(
-                    "[config_flow async_step_user] Unexpected exception:" +
-                    str(err)
+                    "[config_flow async_step_user] Unexpected exception:" + str(err)
                 )
                 errors["base"] = "unknown"
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
@@ -138,8 +136,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
                 ): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(
-                        domain=HOME_LOCATION_DOMAINS)
+                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAINS)
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
@@ -183,8 +180,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_import(self, import_config=None) -> FlowResult:
         """Import a config entry from configuration.yaml."""
 
-        _LOGGER.debug("[async_step_import] import_config: " +
-                      str(import_config))
+        _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
         return await self.async_step_user(import_config)
 
     @staticmethod
@@ -224,8 +220,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 # )
                 if isinstance(user_input.get(m), str) and not user_input.get(m):
                     user_input.pop(m)
-            _LOGGER.debug(
-                "[Options Update] updated config: " + str(user_input))
+            _LOGGER.debug("[Options Update] updated config: " + str(user_input))
 
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
@@ -293,8 +288,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         else None
                     },
                 ): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(
-                        domain=HOME_LOCATION_DOMAINS)
+                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAINS)
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER,
@@ -355,8 +349,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             }
         )
 
-        _LOGGER.debug("[Options Update] initial config: " +
-                      str(self.config_entry.data))
+        _LOGGER.debug("[Options Update] initial config: " + str(self.config_entry.data))
 
         return self.async_show_form(
             step_id="init",
