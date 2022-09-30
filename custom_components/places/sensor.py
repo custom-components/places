@@ -121,11 +121,13 @@ try:
     os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
 except OSError as e:
     _LOGGER.warning(
+        "(" + self._name + ") Error creating folder for JSON sensor files: " + str(e)
+    )
+except Exception as e:
+    _LOGGER.warning(
         "("
         + self._name
-        + ") Error creating folder for JSON sensor files [Error "
-        + str(e.errno)
-        + "]: "
+        + ") Unknown Error creating folder for JSON sensor files: "
         + str(e)
     )
 _LOGGER = logging.getLogger(__name__)
@@ -398,8 +400,7 @@ class Places(Entity):
         )
 
         self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
-        self._json_filename = "places-" + \
-            slugify(str(self._unique_id)) + ".json"
+        self._json_filename = "places-" + slugify(str(self._unique_id)) + ".json"
         _LOGGER.debug(
             "(" + self._name + ") [Init] JSON Filename: " + self._json_filename
         )
@@ -493,9 +494,16 @@ class Places(Entity):
                 + self._name
                 + ") [Init] No JSON file to import ("
                 + str(self._json_filename)
-                + ") [Error "
-                + str(e.errno)
-                + "]: "
+                + "): "
+                + str(e)
+            )
+        except Exception as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") [Init] Unknown Error importing JSON file ()"
+                + str(self._json_filename)
+                + "): "
                 + str(e)
             )
         _LOGGER.debug(
@@ -1987,9 +1995,16 @@ class Places(Entity):
                 + self._name
                 + ") Error writing sensor to JSON ("
                 + str(self._json_filename)
-                + ") [Error "
-                + str(e.errno)
-                + "]: "
+                + "): "
+                + str(e)
+            )
+        except Exception as e:
+            _LOGGER.warning(
+                "("
+                + self._name
+                + ") Unknown Error writing sensor to JSON ("
+                + str(self._json_filename)
+                + "): "
                 + str(e)
             )
         _LOGGER.info("(" + self._name + ") End of Update")
