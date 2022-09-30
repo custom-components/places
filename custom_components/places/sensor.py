@@ -15,6 +15,7 @@ GitHub: https://github.com/custom-components/places
 import hashlib
 import json
 import logging
+import os
 from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 
@@ -32,12 +33,14 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_PLATFORM,
     CONF_SCAN_INTERVAL,
+    CONF_STATE,
     EVENT_HOMEASSISTANT_START,
     Platform,
 )
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.util import slugify
 
 try:
     use_issue_reg = True
@@ -112,9 +115,25 @@ from .const import (
     TRACKING_DOMAINS,
 )
 
+_LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
-_LOGGER = logging.getLogger(__name__)
+# PLACES_JSON_FOLDER = "custom_components/places/json_sensors"
+PLACES_JSON_FOLDER = os.path.join("custom_components", DOMAIN, "json_sensors")
+try:
+    os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
+except OSError as e:
+    _LOGGER.warning(
+        "(" + self._name + ") OSError creating folder for JSON sensor files: " + str(e)
+    )
+except Exception as e:
+    _LOGGER.warning(
+        "("
+        + self._name
+        + ") Unknown Exception creating folder for JSON sensor files: "
+        + str(e)
+    )
+ICON = "mdi:map-search-outline"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -365,6 +384,7 @@ class Places(Entity):
         self._hass = hass
         self._name = name
         self._unique_id = unique_id
+        self._icon = ICON
         self._api_key = config.setdefault(CONF_API_KEY)
         self._options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
         self._devicetracker_id = config.get(CONF_DEVICETRACKER_ID).lower()
@@ -382,9 +402,14 @@ class Places(Entity):
         self._extended_attr = config.setdefault(
             CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR
         )
-        self._state = None
-        self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
 
+        self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
+        self._json_filename = DOMAIN + "-" + slugify(str(self._unique_id)) + ".json"
+        _LOGGER.debug(
+            "(" + self._name + ") [Init] JSON Filename: " + self._json_filename
+        )
+
+        self._state = None
         home_latitude = None
         home_longitude = None
 
@@ -420,6 +445,7 @@ class Places(Entity):
             if hass.states.get(self._devicetracker_id)
             else None
         )
+
         self._street_number = None
         self._street = None
         self._city = None
@@ -460,6 +486,54 @@ class Places(Entity):
         self._osm_details_dict = None
         self._wikidata_dict = None
 
+        sensor_attributes = {}
+        try:
+            with open(
+                os.path.join(PLACES_JSON_FOLDER, self._json_filename), "r"
+            ) as jsonfile:
+                sensor_attributes = json.load(jsonfile)
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") [Init] No JSON file to import ("
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
+        except Exception as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") [Init] Unknown Exception importing JSON file ()"
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [Init] Sensor Attributes to Import: "
+        #    + str(sensor_attributes)
+        # )
+        self.import_attributes(sensor_attributes)
+        ##
+        # For debugging:
+        # sensor_attributes = {}
+        # sensor_attributes.update({CONF_NAME: self._name})
+        # sensor_attributes.update({CONF_STATE: self._state})
+        # sensor_attributes.update(self.extra_state_attributes)
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [Init] Sensor Attributes Imported: "
+        #    + str(sensor_attributes)
+        # )
+        ##
+        if not initial_update:
+            _LOGGER.debug(
+                "(" + self._name + ") [Init] Sensor Attributes Imported from JSON file"
+            )
         _LOGGER.info(
             "("
             + self._name
@@ -482,6 +556,36 @@ class Places(Entity):
             + ") [Init] Subscribed to DeviceTracker state change events"
         )
 
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when entity will be removed from hass."""
+        try:
+            os.remove(os.path.join(PLACES_JSON_FOLDER, self._json_filename))
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") OSError removing JSON sensor file ("
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
+        except Exception as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Unknown Exception removing JSON sensor file ("
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
+        else:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") JSON sensor file removed: "
+                + str(self._json_filename)
+            )
+
     @property
     def name(self):
         """Return the name of the sensor."""
@@ -496,6 +600,11 @@ class Places(Entity):
     def state(self):
         """Return the state of the sensor."""
         return self._state
+
+    @property
+    def icon(self):
+        """Return the icon for the sensor."""
+        return self._icon
 
     @property
     def entity_picture(self):
@@ -591,6 +700,85 @@ class Places(Entity):
             return_attr[ATTR_WIKIDATA_DICT] = self._wikidata_dict
         # _LOGGER.debug("(" + self._name + ") Extra State Attributes - " + return_attr)
         return return_attr
+
+    def import_attributes(self, json_attr=None):
+        """Import the JSON state attributes. Takes a Dictionary as input."""
+        if json_attr is None or not isinstance(json_attr, dict) or not json_attr:
+            return
+
+        self.initial_update = False
+        if CONF_STATE in json_attr:
+            self._state = json_attr.get(CONF_STATE)
+        if ATTR_STREET_NUMBER in json_attr:
+            self._street_number = json_attr.get(ATTR_STREET_NUMBER)
+        if ATTR_STREET in json_attr:
+            self._street = json_attr.get(ATTR_STREET)
+        if ATTR_CITY in json_attr:
+            self._city = json_attr.get(ATTR_CITY)
+        if ATTR_POSTAL_TOWN in json_attr:
+            self._postal_town = json_attr.get(ATTR_POSTAL_TOWN)
+        if ATTR_POSTAL_CODE in json_attr:
+            self._postal_code = json_attr.get(ATTR_POSTAL_CODE)
+        if ATTR_REGION in json_attr:
+            self._region = json_attr.get(ATTR_REGION)
+        if ATTR_STATE_ABBR in json_attr:
+            self._state_abbr = json_attr.get(ATTR_STATE_ABBR)
+        if ATTR_COUNTRY in json_attr:
+            self._country = json_attr.get(ATTR_COUNTRY)
+        if ATTR_COUNTY in json_attr:
+            self._county = json_attr.get(ATTR_COUNTY)
+        if ATTR_FORMATTED_ADDRESS in json_attr:
+            self._formatted_address = json_attr.get(ATTR_FORMATTED_ADDRESS)
+        if ATTR_PLACE_TYPE in json_attr:
+            self._place_type = json_attr.get(ATTR_PLACE_TYPE)
+        if ATTR_PLACE_NAME in json_attr:
+            self._place_name = json_attr.get(ATTR_PLACE_NAME)
+        if ATTR_PLACE_CATEGORY in json_attr:
+            self._place_category = json_attr.get(ATTR_PLACE_CATEGORY)
+        if ATTR_PLACE_NEIGHBOURHOOD in json_attr:
+            self._place_neighbourhood = json_attr.get(ATTR_PLACE_NEIGHBOURHOOD)
+        if ATTR_FORMATTED_PLACE in json_attr:
+            self._formatted_place = json_attr.get(ATTR_FORMATTED_PLACE)
+        if ATTR_LATITUDE_OLD in json_attr:
+            self._latitude_old = json_attr.get(ATTR_LATITUDE_OLD)
+        if ATTR_LONGITUDE_OLD in json_attr:
+            self._longitude_old = json_attr.get(ATTR_LONGITUDE_OLD)
+        if ATTR_LATITUDE in json_attr:
+            self._latitude = json_attr.get(ATTR_LATITUDE)
+        if ATTR_LONGITUDE in json_attr:
+            self._longitude = json_attr.get(ATTR_LONGITUDE)
+        if ATTR_DEVICETRACKER_ZONE in json_attr:
+            self._devicetracker_zone = json_attr.get(ATTR_DEVICETRACKER_ZONE)
+        if ATTR_DEVICETRACKER_ZONE_NAME in json_attr:
+            self._devicetracker_zone_name = json_attr.get(ATTR_DEVICETRACKER_ZONE_NAME)
+        if ATTR_DISTANCE_KM in json_attr:
+            self._distance_km = float(json_attr.get(ATTR_DISTANCE_KM))
+        if ATTR_DISTANCE_M in json_attr:
+            self._distance_m = float(json_attr.get(ATTR_DISTANCE_M))
+        if ATTR_MTIME in json_attr:
+            self._mtime = json_attr.get(ATTR_MTIME)
+        if ATTR_LAST_PLACE_NAME in json_attr:
+            self._last_place_name = json_attr.get(ATTR_LAST_PLACE_NAME)
+        if ATTR_LOCATION_CURRENT in json_attr:
+            self._location_current = json_attr.get(ATTR_LOCATION_CURRENT)
+        if ATTR_LOCATION_PREVIOUS in json_attr:
+            self._location_previous = json_attr.get(ATTR_LOCATION_PREVIOUS)
+        if ATTR_DIRECTION_OF_TRAVEL in json_attr:
+            self._direction = json_attr.get(ATTR_DIRECTION_OF_TRAVEL)
+        if ATTR_MAP_LINK in json_attr:
+            self._map_link = json_attr.get(ATTR_MAP_LINK)
+        if ATTR_OSM_ID in json_attr:
+            self._osm_id = json_attr.get(ATTR_OSM_ID)
+        if ATTR_OSM_TYPE in json_attr:
+            self._osm_type = json_attr.get(ATTR_OSM_TYPE)
+        if ATTR_WIKIDATA_ID in json_attr:
+            self._wikidata_id = json_attr.get(ATTR_WIKIDATA_ID)
+        if ATTR_OSM_DICT in json_attr:
+            self._osm_dict = json_attr.get(ATTR_OSM_DICT)
+        if ATTR_OSM_DETAILS_DICT in json_attr:
+            self._osm_details_dict = json_attr.get(ATTR_OSM_DETAILS_DICT)
+        if ATTR_WIKIDATA_DICT in json_attr:
+            self._wikidata_dict = json_attr.get(ATTR_WIKIDATA_DICT)
 
     def is_devicetracker_set(self):
         # if self._hass.states.get(self._devicetracker_id) is not None:
@@ -1145,9 +1333,7 @@ class Places(Entity):
                 _LOGGER.warning(
                     "("
                     + self._name
-                    + ") Network unreachable error when connecting to OpenStreetMaps [Error "
-                    + str(e.errno)
-                    + ": "
+                    + ") Network unreachable error when connecting to OpenStreetMaps ["
                     + str(e)
                     + "]: "
                     + str(osm_url)
@@ -1167,7 +1353,7 @@ class Places(Entity):
                 _LOGGER.warning(
                     "("
                     + self._name
-                    + ") Unknown Error connecting to OpenStreetMaps [Error: "
+                    + ") Unknown Exception connecting to OpenStreetMaps [Error: "
                     + str(e)
                     + "]: "
                     + str(osm_url)
@@ -1620,9 +1806,7 @@ class Places(Entity):
                                 _LOGGER.warning(
                                     "("
                                     + self._name
-                                    + ") Network unreachable error when connecting to OpenStreetMaps Details [Error "
-                                    + str(e.errno)
-                                    + ": "
+                                    + ") Network unreachable error when connecting to OpenStreetMaps Details ["
                                     + str(e)
                                     + "]: "
                                     + str(osm_details_url)
@@ -1642,7 +1826,7 @@ class Places(Entity):
                                 _LOGGER.warning(
                                     "("
                                     + self._name
-                                    + ") Unknown Error connecting to OpenStreetMaps Details [Error: "
+                                    + ") Unknown Exception connecting to OpenStreetMaps Details [Error: "
                                     + str(e)
                                     + "]: "
                                     + str(osm_details_url)
@@ -1742,9 +1926,7 @@ class Places(Entity):
                                         _LOGGER.warning(
                                             "("
                                             + self._name
-                                            + ") Network unreachable error when connecting to Wikidata [Error "
-                                            + str(e.errno)
-                                            + ": "
+                                            + ") Network unreachable error when connecting to Wikidata ["
                                             + str(e)
                                             + "]: "
                                             + str(wikidata_url)
@@ -1764,7 +1946,7 @@ class Places(Entity):
                                         _LOGGER.warning(
                                             "("
                                             + self._name
-                                            + ") Unknown Error connecting to Wikidata [Error: "
+                                            + ") Unknown Exception connecting to Wikidata [Error: "
                                             + str(e)
                                             + "]: "
                                             + str(wikidata_url)
@@ -1916,6 +2098,41 @@ class Places(Entity):
                         + ") No entity update needed, Previous State = New State"
                     )
             self.initial_update = False
+        sensor_attributes = {}
+        sensor_attributes.update({CONF_NAME: self._name})
+        sensor_attributes.update({CONF_STATE: self._state})
+        sensor_attributes.update(self.extra_state_attributes)
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") Sensor Attributes to Save ["
+        #    + str(type(sensor_attributes))
+        #    + "]: "
+        #    + str(sensor_attributes)
+        # )
+        try:
+            with open(
+                os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
+            ) as jsonfile:
+                json.dump(sensor_attributes, jsonfile)
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") OSError writing sensor to JSON ("
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
+        except Exception as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Unknown Exception writing sensor to JSON ("
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
