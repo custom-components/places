@@ -507,24 +507,30 @@ class Places(Entity):
                 + "): "
                 + str(e)
             )
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") [Init] Sensor Attributes to Import: "
-            + str(sensor_attributes)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [Init] Sensor Attributes to Import: "
+        #    + str(sensor_attributes)
+        # )
         self.import_attributes(sensor_attributes)
+        ##
         # For debugging:
-        sensor_attributes = {}
-        sensor_attributes.update({CONF_NAME: self._name})
-        sensor_attributes.update({CONF_STATE: self._state})
-        sensor_attributes.update(self.extra_state_attributes)
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") [Init] Sensor Attributes Imported: "
-            + str(sensor_attributes)
-        )
+        # sensor_attributes = {}
+        # sensor_attributes.update({CONF_NAME: self._name})
+        # sensor_attributes.update({CONF_STATE: self._state})
+        # sensor_attributes.update(self.extra_state_attributes)
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") [Init] Sensor Attributes Imported: "
+        #    + str(sensor_attributes)
+        # )
+        ##
+        if not initial_update:
+            _LOGGER.debug(
+                "(" + self._name + ") [Init] Sensor Attributes Imported from JSON file"
+            )
         _LOGGER.info(
             "("
             + self._name
@@ -2088,25 +2094,21 @@ class Places(Entity):
         sensor_attributes.update({CONF_NAME: self._name})
         sensor_attributes.update({CONF_STATE: self._state})
         sensor_attributes.update(self.extra_state_attributes)
-        # Remove the longer extended attributes
-        # sensor_attributes.pop(ATTR_OSM_DICT, 1)
-        # sensor_attributes.pop(ATTR_OSM_DETAILS_DICT, 1)
-        # sensor_attributes.pop(ATTR_WIKIDATA_DICT, 1)
-        _LOGGER.debug(
-            "("
-            + self._name
-            + ") Sensor Attributes to Save ["
-            + str(type(sensor_attributes))
-            + "]: "
-            + str(sensor_attributes)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self._name
+        #    + ") Sensor Attributes to Save ["
+        #    + str(type(sensor_attributes))
+        #    + "]: "
+        #    + str(sensor_attributes)
+        # )
         try:
             with open(
                 os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
             ) as jsonfile:
                 json.dump(sensor_attributes, jsonfile)
         except OSError as e:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "("
                 + self._name
                 + ") OSError writing sensor to JSON ("
@@ -2115,7 +2117,7 @@ class Places(Entity):
                 + str(e)
             )
         except Exception as e:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "("
                 + self._name
                 + ") Unknown Exception writing sensor to JSON ("
