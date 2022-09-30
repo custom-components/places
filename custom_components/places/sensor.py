@@ -530,7 +530,7 @@ class Places(Entity):
         #    + str(sensor_attributes)
         # )
         ##
-        if not initial_update:
+        if not self.initial_update:
             _LOGGER.debug(
                 "(" + self._name + ") [Init] Sensor Attributes Imported from JSON file"
             )
