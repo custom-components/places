@@ -38,6 +38,7 @@ from homeassistant.const import (
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.util import slugify
 
 try:
     use_issue_reg = True
@@ -389,6 +390,10 @@ class Places(Entity):
         )
         self._state = None
         self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
+        self._json_filename = slugify(str(self._unique_id)) + "-places.json"
+        _LOGGER.debug(
+            "(" + self._name + ") [Init] JSON Filename: " + self._json_filename
+        )
 
         home_latitude = None
         home_longitude = None
@@ -1949,6 +1954,15 @@ class Places(Entity):
                         + ") No entity update needed, Previous State = New State"
                     )
             self.initial_update = False
+        sensor_attributes = self.extra_state_attributes()
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") Sensor Attributes ["
+            + str(type(sensor_attributes))
+            + "]: "
+            + str(sensor_attributes)
+        )
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
