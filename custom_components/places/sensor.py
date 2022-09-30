@@ -33,6 +33,7 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_PLATFORM,
     CONF_SCAN_INTERVAL,
+    CONF_STATE,
     EVENT_HOMEASSISTANT_START,
     Platform,
 )
@@ -482,7 +483,7 @@ class Places(Entity):
         self._osm_details_dict = None
         self._wikidata_dict = None
 
-        sensor_attributes = None
+        sensor_attributes = {}
         try:
             with open(
                 os.path.join(PLACES_JSON_FOLDER, self._json_filename), "r"
@@ -512,7 +513,7 @@ class Places(Entity):
             + ") [Init] Sensor Attributes to Import: "
             + str(sensor_attributes)
         )
-
+        self.import_attributes(sensor_attributes)
         _LOGGER.info(
             "("
             + self._name
@@ -644,6 +645,84 @@ class Places(Entity):
             return_attr[ATTR_WIKIDATA_DICT] = self._wikidata_dict
         # _LOGGER.debug("(" + self._name + ") Extra State Attributes - " + return_attr)
         return return_attr
+
+    def import_attributes(self, json_attr=None):
+        """Import the JSON state attributes. Takes a Dictionary as input."""
+        if json_attr is None or not isinstance(json_attr, dict):
+            return
+
+        if CONF_STATE in json_attr:
+            self._state = json_attr.get(CONF_STATE)
+        if ATTR_STREET_NUMBER in json_attr:
+            self._street_number = json_attr.get(ATTR_STREET_NUMBER)
+        if ATTR_STREET in json_attr:
+            self._street = json_attr.get(ATTR_STREET)
+        if ATTR_CITY in json_attr:
+            self._city = json_attr.get(ATTR_CITY)
+        if ATTR_POSTAL_TOWN in json_attr:
+            self._postal_town = json_attr.get(ATTR_POSTAL_TOWN)
+        if ATTR_POSTAL_CODE in json_attr:
+            self._postal_code = json_attr.get(ATTR_POSTAL_CODE)
+        if ATTR_REGION in json_attr:
+            self._region = json_attr.get(ATTR_REGION)
+        if ATTR_STATE_ABBR in json_attr:
+            self._state_abbr = json_attr.get(ATTR_STATE_ABBR)
+        if ATTR_COUNTRY in json_attr:
+            self._country = json_attr.get(ATTR_COUNTRY)
+        if ATTR_COUNTY in json_attr:
+            self._county = json_attr.get(ATTR_COUNTY)
+        if ATTR_FORMATTED_ADDRESS in json_attr:
+            self._formatted_address = json_attr.get(ATTR_FORMATTED_ADDRESS)
+        if ATTR_PLACE_TYPE in json_attr:
+            self._place_type = json_attr.get(ATTR_PLACE_TYPE)
+        if ATTR_PLACE_NAME in json_attr:
+            self._place_name = json_attr.get(ATTR_PLACE_NAME)
+        if ATTR_PLACE_CATEGORY in json_attr:
+            self._place_category = json_attr.get(ATTR_PLACE_CATEGORY)
+        if ATTR_PLACE_NEIGHBOURHOOD in json_attr:
+            self._place_neighbourhood = json_attr.get(ATTR_PLACE_NEIGHBOURHOOD)
+        if ATTR_FORMATTED_PLACE in json_attr:
+            self._formatted_place = json_attr.get(ATTR_FORMATTED_PLACE)
+        if ATTR_LATITUDE_OLD in json_attr:
+            self._latitude_old = json_attr.get(ATTR_LATITUDE_OLD)
+        if ATTR_LONGITUDE_OLD in json_attr:
+            self._longitude_old = json_attr.get(ATTR_LONGITUDE_OLD)
+        if ATTR_LATITUDE in json_attr:
+            self._latitude = json_attr.get(ATTR_LATITUDE)
+        if ATTR_LONGITUDE in json_attr:
+            self._longitude = json_attr.get(ATTR_LONGITUDE)
+        if ATTR_DEVICETRACKER_ZONE in json_attr:
+            self._devicetracker_zone = json_attr.get(ATTR_DEVICETRACKER_ZONE)
+        if ATTR_DEVICETRACKER_ZONE_NAME in json_attr:
+            self._devicetracker_zone_name = json_attr.get(ATTR_DEVICETRACKER_ZONE_NAME)
+        if ATTR_DISTANCE_KM in json_attr:
+            self._distance_km = json_attr.get(ATTR_DISTANCE_KM)
+        if ATTR_DISTANCE_M in json_attr:
+            self._distance_m = json_attr.get(ATTR_DISTANCE_M)
+        if ATTR_MTIME in json_attr:
+            self._mtime = json_attr.get(ATTR_MTIME)
+        if ATTR_LAST_PLACE_NAME in json_attr:
+            self._last_place_name = json_attr.get(ATTR_LAST_PLACE_NAME)
+        if ATTR_LOCATION_CURRENT in json_attr:
+            self._location_current = json_attr.get(ATTR_LOCATION_CURRENT)
+        if ATTR_LOCATION_PREVIOUS in json_attr:
+            self._location_previous = json_attr.get(ATTR_LOCATION_PREVIOUS)
+        if ATTR_DIRECTION_OF_TRAVEL in json_attr:
+            self._direction = json_attr.get(ATTR_DIRECTION_OF_TRAVEL)
+        if ATTR_MAP_LINK in json_attr:
+            self._map_link = json_attr.get(ATTR_MAP_LINK)
+        if ATTR_OSM_ID in json_attr:
+            self._osm_id = json_attr.get(ATTR_OSM_ID)
+        if ATTR_OSM_TYPE in json_attr:
+            self._osm_type = json_attr.get(ATTR_OSM_TYPE)
+        if ATTR_WIKIDATA_ID in json_attr:
+            self._wikidata_id = json_attr.get(ATTR_WIKIDATA_ID)
+        if ATTR_OSM_DICT in json_attr:
+            self._osm_dict = json_attr.get(ATTR_OSM_DICT)
+        if ATTR_OSM_DETAILS_DICT in json_attr:
+            self._osm_details_dict = json_attr.get(ATTR_OSM_DETAILS_DICT)
+        if ATTR_WIKIDATA_DICT in json_attr:
+            self._wikidata_dict = json_attr.get(ATTR_WIKIDATA_DICT)
 
     def is_devicetracker_set(self):
         # if self._hass.states.get(self._devicetracker_id) is not None:
@@ -1969,9 +2048,10 @@ class Places(Entity):
                         + ") No entity update needed, Previous State = New State"
                     )
             self.initial_update = False
-        sensor_attributes = None
-        sensor_attributes = self.extra_state_attributes
+        sensor_attributes = {}
         sensor_attributes.update({CONF_NAME: self._name})
+        sensor_attributes.update({CONF_STATE: self._state})
+        sensor_attributes.update(self.extra_state_attributes)
         # Remove the longer extended attributes
         sensor_attributes.pop(ATTR_OSM_DICT, 1)
         sensor_attributes.pop(ATTR_OSM_DETAILS_DICT, 1)
