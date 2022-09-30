@@ -118,7 +118,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
-PLACES_JSON_FOLDER = "custom_components/places/json_sensors"
+# PLACES_JSON_FOLDER = "custom_components/places/json_sensors"
+PLACES_JSON_FOLDER = os.path.join("custom_components", DOMAIN, "json_sensors")
 try:
     os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
 except OSError as e:
@@ -403,7 +404,7 @@ class Places(Entity):
         )
 
         self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
-        self._json_filename = "places-" + slugify(str(self._unique_id)) + ".json"
+        self._json_filename = DOMAIN + "-" + slugify(str(self._unique_id)) + ".json"
         _LOGGER.debug(
             "(" + self._name + ") [Init] JSON Filename: " + self._json_filename
         )
