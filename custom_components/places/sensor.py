@@ -15,6 +15,7 @@ GitHub: https://github.com/custom-components/places
 import hashlib
 import json
 import logging
+import os
 from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 
@@ -115,6 +116,9 @@ from .const import (
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
+PLACES_JSON_FOLDER = "custom_components/places/json_sensors"
+os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
+
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -390,7 +394,8 @@ class Places(Entity):
         )
         self._state = None
         self._show_time = config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
-        self._json_filename = slugify(str(self._unique_id)) + "-places.json"
+        self._json_filename = "places-" + \
+            slugify(str(self._unique_id)) + ".json"
         _LOGGER.debug(
             "(" + self._name + ") [Init] JSON Filename: " + self._json_filename
         )
@@ -1954,7 +1959,12 @@ class Places(Entity):
                         + ") No entity update needed, Previous State = New State"
                     )
             self.initial_update = False
-        sensor_attributes = self.extra_state_attributes()
+        sensor_attributes = self.extra_state_attributes
+        sensor_attributes.update({CONF_NAME: self._name})
+        # Remove the longer extended attributes
+        sensor_attributes.pop(ATTR_OSM_DICT, 1)
+        sensor_attributes.pop(ATTR_OSM_DETAILS_DICT, 1)
+        sensor_attributes.pop(ATTR_WIKIDATA_DICT, 1)
         _LOGGER.debug(
             "("
             + self._name
@@ -1963,6 +1973,10 @@ class Places(Entity):
             + "]: "
             + str(sensor_attributes)
         )
+        with open(
+            os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
+        ) as outfile:
+            json.dump(sensor_attributes, outfile)
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
