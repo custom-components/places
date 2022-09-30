@@ -692,6 +692,7 @@ class Places(Entity):
         if json_attr is None or not isinstance(json_attr, dict) or not json_attr:
             return
 
+        self.initial_update = False
         if CONF_STATE in json_attr:
             self._state = json_attr.get(CONF_STATE)
         if ATTR_STREET_NUMBER in json_attr:
