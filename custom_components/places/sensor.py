@@ -115,6 +115,7 @@ from .const import (
     TRACKING_DOMAINS,
 )
 
+_LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
 PLACES_JSON_FOLDER = "custom_components/places/json_sensors"
@@ -122,16 +123,15 @@ try:
     os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
 except OSError as e:
     _LOGGER.warning(
-        "(" + self._name + ") Error creating folder for JSON sensor files: " + str(e)
+        "(" + self._name + ") OSError creating folder for JSON sensor files: " + str(e)
     )
 except Exception as e:
     _LOGGER.warning(
         "("
         + self._name
-        + ") Unknown Error creating folder for JSON sensor files: "
+        + ") Unknown Exception creating folder for JSON sensor files: "
         + str(e)
     )
-_LOGGER = logging.getLogger(__name__)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -502,7 +502,7 @@ class Places(Entity):
             _LOGGER.debug(
                 "("
                 + self._name
-                + ") [Init] Unknown Error importing JSON file ()"
+                + ") [Init] Unknown Exception importing JSON file ()"
                 + str(self._json_filename)
                 + "): "
                 + str(e)
@@ -514,6 +514,17 @@ class Places(Entity):
             + str(sensor_attributes)
         )
         self.import_attributes(sensor_attributes)
+        # For debugging:
+        sensor_attributes = {}
+        sensor_attributes.update({CONF_NAME: self._name})
+        sensor_attributes.update({CONF_STATE: self._state})
+        sensor_attributes.update(self.extra_state_attributes)
+        _LOGGER.debug(
+            "("
+            + self._name
+            + ") [Init] Sensor Attributes Imported: "
+            + str(sensor_attributes)
+        )
         _LOGGER.info(
             "("
             + self._name
@@ -535,6 +546,36 @@ class Places(Entity):
             + self._name
             + ") [Init] Subscribed to DeviceTracker state change events"
         )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when entity will be removed from hass."""
+        try:
+            os.remove(os.path.join(PLACES_JSON_FOLDER, self._json_filename))
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") OSError removing JSON sensor file ("
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
+        except Exception as e:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") Unknown Exception removing JSON sensor file ("
+                + str(self._json_filename)
+                + "): "
+                + str(e)
+            )
+        else:
+            _LOGGER.debug(
+                "("
+                + self._name
+                + ") JSON sensor file removed: "
+                + str(self._json_filename)
+            )
 
     @property
     def name(self):
@@ -648,7 +689,7 @@ class Places(Entity):
 
     def import_attributes(self, json_attr=None):
         """Import the JSON state attributes. Takes a Dictionary as input."""
-        if json_attr is None or not isinstance(json_attr, dict):
+        if json_attr is None or not isinstance(json_attr, dict) or not json_attr:
             return
 
         if CONF_STATE in json_attr:
@@ -696,9 +737,9 @@ class Places(Entity):
         if ATTR_DEVICETRACKER_ZONE_NAME in json_attr:
             self._devicetracker_zone_name = json_attr.get(ATTR_DEVICETRACKER_ZONE_NAME)
         if ATTR_DISTANCE_KM in json_attr:
-            self._distance_km = json_attr.get(ATTR_DISTANCE_KM)
+            self._distance_km = float(json_attr.get(ATTR_DISTANCE_KM))
         if ATTR_DISTANCE_M in json_attr:
-            self._distance_m = json_attr.get(ATTR_DISTANCE_M)
+            self._distance_m = float(json_attr.get(ATTR_DISTANCE_M))
         if ATTR_MTIME in json_attr:
             self._mtime = json_attr.get(ATTR_MTIME)
         if ATTR_LAST_PLACE_NAME in json_attr:
@@ -1277,9 +1318,7 @@ class Places(Entity):
                 _LOGGER.warning(
                     "("
                     + self._name
-                    + ") Network unreachable error when connecting to OpenStreetMaps [Error "
-                    + str(e.errno)
-                    + ": "
+                    + ") Network unreachable error when connecting to OpenStreetMaps ["
                     + str(e)
                     + "]: "
                     + str(osm_url)
@@ -1299,7 +1338,7 @@ class Places(Entity):
                 _LOGGER.warning(
                     "("
                     + self._name
-                    + ") Unknown Error connecting to OpenStreetMaps [Error: "
+                    + ") Unknown Exception connecting to OpenStreetMaps [Error: "
                     + str(e)
                     + "]: "
                     + str(osm_url)
@@ -1752,9 +1791,7 @@ class Places(Entity):
                                 _LOGGER.warning(
                                     "("
                                     + self._name
-                                    + ") Network unreachable error when connecting to OpenStreetMaps Details [Error "
-                                    + str(e.errno)
-                                    + ": "
+                                    + ") Network unreachable error when connecting to OpenStreetMaps Details ["
                                     + str(e)
                                     + "]: "
                                     + str(osm_details_url)
@@ -1774,7 +1811,7 @@ class Places(Entity):
                                 _LOGGER.warning(
                                     "("
                                     + self._name
-                                    + ") Unknown Error connecting to OpenStreetMaps Details [Error: "
+                                    + ") Unknown Exception connecting to OpenStreetMaps Details [Error: "
                                     + str(e)
                                     + "]: "
                                     + str(osm_details_url)
@@ -1874,9 +1911,7 @@ class Places(Entity):
                                         _LOGGER.warning(
                                             "("
                                             + self._name
-                                            + ") Network unreachable error when connecting to Wikidata [Error "
-                                            + str(e.errno)
-                                            + ": "
+                                            + ") Network unreachable error when connecting to Wikidata ["
                                             + str(e)
                                             + "]: "
                                             + str(wikidata_url)
@@ -1896,7 +1931,7 @@ class Places(Entity):
                                         _LOGGER.warning(
                                             "("
                                             + self._name
-                                            + ") Unknown Error connecting to Wikidata [Error: "
+                                            + ") Unknown Exception connecting to Wikidata [Error: "
                                             + str(e)
                                             + "]: "
                                             + str(wikidata_url)
@@ -2053,9 +2088,9 @@ class Places(Entity):
         sensor_attributes.update({CONF_STATE: self._state})
         sensor_attributes.update(self.extra_state_attributes)
         # Remove the longer extended attributes
-        sensor_attributes.pop(ATTR_OSM_DICT, 1)
-        sensor_attributes.pop(ATTR_OSM_DETAILS_DICT, 1)
-        sensor_attributes.pop(ATTR_WIKIDATA_DICT, 1)
+        # sensor_attributes.pop(ATTR_OSM_DICT, 1)
+        # sensor_attributes.pop(ATTR_OSM_DETAILS_DICT, 1)
+        # sensor_attributes.pop(ATTR_WIKIDATA_DICT, 1)
         _LOGGER.debug(
             "("
             + self._name
@@ -2073,7 +2108,7 @@ class Places(Entity):
             _LOGGER.warning(
                 "("
                 + self._name
-                + ") Error writing sensor to JSON ("
+                + ") OSError writing sensor to JSON ("
                 + str(self._json_filename)
                 + "): "
                 + str(e)
@@ -2082,7 +2117,7 @@ class Places(Entity):
             _LOGGER.warning(
                 "("
                 + self._name
-                + ") Unknown Error writing sensor to JSON ("
+                + ") Unknown Exception writing sensor to JSON ("
                 + str(self._json_filename)
                 + "): "
                 + str(e)
