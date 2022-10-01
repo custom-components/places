@@ -34,6 +34,7 @@ from homeassistant.const import (
     CONF_PLATFORM,
     CONF_SCAN_INTERVAL,
     CONF_STATE,
+    CONF_ZONE,
     EVENT_HOMEASSISTANT_START,
     Platform,
 )
@@ -92,6 +93,7 @@ from .const import (
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
+    ATTR_UPDATES_SKIPPED,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
     CONF_DEVICETRACKER_ID,
@@ -1177,9 +1179,9 @@ class Places(SensorEntity):
 
             devicetracker_zone_id = self._hass.states.get(
                 self._devicetracker_id
-            ).attributes.get("zone")
+            ).attributes.get(CONF_ZONE)
             if devicetracker_zone_id is not None:
-                devicetracker_zone_id = "zone." + str(devicetracker_zone_id)
+                devicetracker_zone_id = CONF_ZONE + str(devicetracker_zone_id)
                 devicetracker_zone_name_state = self._hass.states.get(
                     devicetracker_zone_id
                 )
