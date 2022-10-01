@@ -481,8 +481,9 @@ class Places(SensorEntity):
         self._location_current = None
         self._location_previous = None
         self._updateskipped = 0
-        self._direction = "stationary"
+        self._direction = None
         self._map_link = None
+        self._gps_accuracy = None
         self._formatted_place = None
         self._osm_id = None
         self._osm_type = None
@@ -666,6 +667,8 @@ class Places(SensorEntity):
             return_attr[ATTR_DIRECTION_OF_TRAVEL] = self._direction
         if self._map_link is not None:
             return_attr[ATTR_MAP_LINK] = self._map_link
+        if self._gps_accuracy is not None:
+            return_attr[ATTR_GPS_ACCURACY] = self._gps_accuracy
         if self._options is not None:
             return_attr[ATTR_OPTIONS] = self._options
         if self._osm_id is not None:
@@ -751,6 +754,8 @@ class Places(SensorEntity):
             self._direction = json_attr.pop(ATTR_DIRECTION_OF_TRAVEL)
         if ATTR_MAP_LINK in json_attr:
             self._map_link = json_attr.pop(ATTR_MAP_LINK)
+        if ATTR_GPS_ACCURACY in json_attr:
+            self._map_link = json_attr.pop(ATTR_GPS_ACCURACY)
         if ATTR_OSM_ID in json_attr:
             self._osm_id = json_attr.pop(ATTR_OSM_ID)
         if ATTR_OSM_TYPE in json_attr:
@@ -911,8 +916,7 @@ class Places(SensorEntity):
         maplink_osm = None
         last_place_name = None
         prev_last_place_name = None
-        # Will update with real value if it exists and then places will only only update if >0
-        gps_accuracy = 1
+        gps_accuracy = None
 
         _LOGGER.info("(" + self._attr_name + ") Calling update due to: " + str(reason))
         if hasattr(self, "entity_id") and self.entity_id is not None:
@@ -1231,7 +1235,7 @@ class Places(SensorEntity):
 
         if not proceed_with_update:
             proceed_with_update = False
-        elif gps_accuracy == 0:
+        elif gps_accuracy is not None and gps_accuracy == 0:
             proceed_with_update = False
             _LOGGER.info(
                 "(" + self._attr_name + ") GPS Accuracy is 0, not performing update"
@@ -1297,6 +1301,7 @@ class Places(SensorEntity):
             self._distance_km = distance_km
             self._distance_m = distance_m
             self._direction = direction
+            self._gps_accuracy = gps_accuracy
 
             if self._map_provider == "google":
                 self._map_link = maplink_google
