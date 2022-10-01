@@ -29,6 +29,7 @@ CONF_LANGUAGE = "language"
 CONF_EXTENDED_ATTR = "extended_attr"
 CONF_SHOW_TIME = "show_time"
 CONF_YAML_HASH = "yaml_hash"
+CONF_NATIVE_VALUE = "native_value"
 
 # Attributes
 ATTR_OPTIONS = "options"
