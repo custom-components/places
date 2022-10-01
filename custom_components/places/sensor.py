@@ -100,6 +100,7 @@ from .const import (
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
+    CONF_NATIVE_VALUE,
     CONF_OPTIONS,
     CONF_SHOW_TIME,
     CONF_YAML_HASH,
@@ -525,7 +526,7 @@ class Places(SensorEntity):
         # For debugging:
         # sensor_attributes = {}
         # sensor_attributes.update({CONF_NAME: self._attr_name})
-        # sensor_attributes.update({CONF_STATE: self._attr_native_value})
+        # sensor_attributes.update({CONF_NATIVE_VALUE: self._attr_native_value})
         # sensor_attributes.update(self.extra_state_attributes)
         # _LOGGER.debug(
         #    "("
@@ -688,78 +689,94 @@ class Places(SensorEntity):
             return
 
         self.initial_update = False
-        if CONF_STATE in json_attr:
-            self._attr_native_value = json_attr.get(CONF_STATE)
+        if CONF_NATIVE_VALUE in json_attr:
+            self._attr_native_value = json_attr.pop(CONF_NATIVE_VALUE)
+        elif CONF_STATE in json_attr:
+            self._attr_native_value = json_attr.pop(CONF_STATE)
         if ATTR_STREET_NUMBER in json_attr:
-            self._street_number = json_attr.get(ATTR_STREET_NUMBER)
+            self._street_number = json_attr.pop(ATTR_STREET_NUMBER)
         if ATTR_STREET in json_attr:
-            self._street = json_attr.get(ATTR_STREET)
+            self._street = json_attr.pop(ATTR_STREET)
         if ATTR_CITY in json_attr:
-            self._city = json_attr.get(ATTR_CITY)
+            self._city = json_attr.pop(ATTR_CITY)
         if ATTR_POSTAL_TOWN in json_attr:
-            self._postal_town = json_attr.get(ATTR_POSTAL_TOWN)
+            self._postal_town = json_attr.pop(ATTR_POSTAL_TOWN)
         if ATTR_POSTAL_CODE in json_attr:
-            self._postal_code = json_attr.get(ATTR_POSTAL_CODE)
+            self._postal_code = json_attr.pop(ATTR_POSTAL_CODE)
         if ATTR_REGION in json_attr:
-            self._region = json_attr.get(ATTR_REGION)
+            self._region = json_attr.pop(ATTR_REGION)
         if ATTR_STATE_ABBR in json_attr:
-            self._state_abbr = json_attr.get(ATTR_STATE_ABBR)
+            self._state_abbr = json_attr.pop(ATTR_STATE_ABBR)
         if ATTR_COUNTRY in json_attr:
-            self._country = json_attr.get(ATTR_COUNTRY)
+            self._country = json_attr.pop(ATTR_COUNTRY)
         if ATTR_COUNTY in json_attr:
-            self._county = json_attr.get(ATTR_COUNTY)
+            self._county = json_attr.pop(ATTR_COUNTY)
         if ATTR_FORMATTED_ADDRESS in json_attr:
-            self._formatted_address = json_attr.get(ATTR_FORMATTED_ADDRESS)
+            self._formatted_address = json_attr.pop(ATTR_FORMATTED_ADDRESS)
         if ATTR_PLACE_TYPE in json_attr:
-            self._place_type = json_attr.get(ATTR_PLACE_TYPE)
+            self._place_type = json_attr.pop(ATTR_PLACE_TYPE)
         if ATTR_PLACE_NAME in json_attr:
-            self._place_name = json_attr.get(ATTR_PLACE_NAME)
+            self._place_name = json_attr.pop(ATTR_PLACE_NAME)
         if ATTR_PLACE_CATEGORY in json_attr:
-            self._place_category = json_attr.get(ATTR_PLACE_CATEGORY)
+            self._place_category = json_attr.pop(ATTR_PLACE_CATEGORY)
         if ATTR_PLACE_NEIGHBOURHOOD in json_attr:
-            self._place_neighbourhood = json_attr.get(ATTR_PLACE_NEIGHBOURHOOD)
+            self._place_neighbourhood = json_attr.pop(ATTR_PLACE_NEIGHBOURHOOD)
         if ATTR_FORMATTED_PLACE in json_attr:
-            self._formatted_place = json_attr.get(ATTR_FORMATTED_PLACE)
+            self._formatted_place = json_attr.pop(ATTR_FORMATTED_PLACE)
         if ATTR_LATITUDE_OLD in json_attr:
-            self._latitude_old = json_attr.get(ATTR_LATITUDE_OLD)
+            self._latitude_old = json_attr.pop(ATTR_LATITUDE_OLD)
         if ATTR_LONGITUDE_OLD in json_attr:
-            self._longitude_old = json_attr.get(ATTR_LONGITUDE_OLD)
+            self._longitude_old = json_attr.pop(ATTR_LONGITUDE_OLD)
         if ATTR_LATITUDE in json_attr:
-            self._latitude = json_attr.get(ATTR_LATITUDE)
+            self._latitude = json_attr.pop(ATTR_LATITUDE)
         if ATTR_LONGITUDE in json_attr:
-            self._longitude = json_attr.get(ATTR_LONGITUDE)
+            self._longitude = json_attr.pop(ATTR_LONGITUDE)
         if ATTR_DEVICETRACKER_ZONE in json_attr:
-            self._devicetracker_zone = json_attr.get(ATTR_DEVICETRACKER_ZONE)
+            self._devicetracker_zone = json_attr.pop(ATTR_DEVICETRACKER_ZONE)
         if ATTR_DEVICETRACKER_ZONE_NAME in json_attr:
-            self._devicetracker_zone_name = json_attr.get(ATTR_DEVICETRACKER_ZONE_NAME)
+            self._devicetracker_zone_name = json_attr.pop(ATTR_DEVICETRACKER_ZONE_NAME)
         if ATTR_DISTANCE_KM in json_attr:
-            self._distance_km = float(json_attr.get(ATTR_DISTANCE_KM))
+            self._distance_km = float(json_attr.pop(ATTR_DISTANCE_KM))
         if ATTR_DISTANCE_M in json_attr:
-            self._distance_m = float(json_attr.get(ATTR_DISTANCE_M))
+            self._distance_m = float(json_attr.pop(ATTR_DISTANCE_M))
         if ATTR_MTIME in json_attr:
-            self._mtime = json_attr.get(ATTR_MTIME)
+            self._mtime = json_attr.pop(ATTR_MTIME)
         if ATTR_LAST_PLACE_NAME in json_attr:
-            self._last_place_name = json_attr.get(ATTR_LAST_PLACE_NAME)
+            self._last_place_name = json_attr.pop(ATTR_LAST_PLACE_NAME)
         if ATTR_LOCATION_CURRENT in json_attr:
-            self._location_current = json_attr.get(ATTR_LOCATION_CURRENT)
+            self._location_current = json_attr.pop(ATTR_LOCATION_CURRENT)
         if ATTR_LOCATION_PREVIOUS in json_attr:
-            self._location_previous = json_attr.get(ATTR_LOCATION_PREVIOUS)
+            self._location_previous = json_attr.pop(ATTR_LOCATION_PREVIOUS)
         if ATTR_DIRECTION_OF_TRAVEL in json_attr:
-            self._direction = json_attr.get(ATTR_DIRECTION_OF_TRAVEL)
+            self._direction = json_attr.pop(ATTR_DIRECTION_OF_TRAVEL)
         if ATTR_MAP_LINK in json_attr:
-            self._map_link = json_attr.get(ATTR_MAP_LINK)
+            self._map_link = json_attr.pop(ATTR_MAP_LINK)
         if ATTR_OSM_ID in json_attr:
-            self._osm_id = json_attr.get(ATTR_OSM_ID)
+            self._osm_id = json_attr.pop(ATTR_OSM_ID)
         if ATTR_OSM_TYPE in json_attr:
-            self._osm_type = json_attr.get(ATTR_OSM_TYPE)
+            self._osm_type = json_attr.pop(ATTR_OSM_TYPE)
         if ATTR_WIKIDATA_ID in json_attr:
-            self._wikidata_id = json_attr.get(ATTR_WIKIDATA_ID)
+            self._wikidata_id = json_attr.pop(ATTR_WIKIDATA_ID)
         if ATTR_OSM_DICT in json_attr:
-            self._osm_dict = json_attr.get(ATTR_OSM_DICT)
+            self._osm_dict = json_attr.pop(ATTR_OSM_DICT)
         if ATTR_OSM_DETAILS_DICT in json_attr:
-            self._osm_details_dict = json_attr.get(ATTR_OSM_DETAILS_DICT)
+            self._osm_details_dict = json_attr.pop(ATTR_OSM_DETAILS_DICT)
         if ATTR_WIKIDATA_DICT in json_attr:
-            self._wikidata_dict = json_attr.get(ATTR_WIKIDATA_DICT)
+            self._wikidata_dict = json_attr.pop(ATTR_WIKIDATA_DICT)
+
+        json_attr.pop(CONF_NAME, 1)  # Added for clarity if human reading the file
+        # Remove attributes that are part of the Config and are explicitly not imported from JSON
+        json_attr.pop(ATTR_DEVICETRACKER_ID, 1)
+        json_attr.pop(ATTR_HOME_ZONE, 1)
+        json_attr.pop(ATTR_HOME_LATITUDE, 1)
+        json_attr.pop(ATTR_HOME_LONGITUDE, 1)
+        if json_attr is None or not json_attr:
+            _LOGGER.debug(
+                "("
+                + self._attr_name
+                + ") [import_attributes] Attributes not imported: "
+                + str(json_attr)
+            )
 
     def is_devicetracker_set(self):
 
@@ -2108,7 +2125,7 @@ class Places(SensorEntity):
             self.initial_update = False
             sensor_attributes = {}
             sensor_attributes.update({CONF_NAME: self._attr_name})
-            sensor_attributes.update({CONF_STATE: self._attr_native_value})
+            sensor_attributes.update({CONF_NATIVE_VALUE: self._attr_native_value})
             sensor_attributes.update(self.extra_state_attributes)
             # _LOGGER.debug(
             #    "("
