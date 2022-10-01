@@ -2098,41 +2098,41 @@ class Places(Entity):
                         + ") No entity update needed, Previous State = New State"
                     )
             self.initial_update = False
-        sensor_attributes = {}
-        sensor_attributes.update({CONF_NAME: self._name})
-        sensor_attributes.update({CONF_STATE: self._state})
-        sensor_attributes.update(self.extra_state_attributes)
-        # _LOGGER.debug(
-        #    "("
-        #    + self._name
-        #    + ") Sensor Attributes to Save ["
-        #    + str(type(sensor_attributes))
-        #    + "]: "
-        #    + str(sensor_attributes)
-        # )
-        try:
-            with open(
-                os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
-            ) as jsonfile:
-                json.dump(sensor_attributes, jsonfile)
-        except OSError as e:
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") OSError writing sensor to JSON ("
-                + str(self._json_filename)
-                + "): "
-                + str(e)
-            )
-        except Exception as e:
-            _LOGGER.debug(
-                "("
-                + self._name
-                + ") Unknown Exception writing sensor to JSON ("
-                + str(self._json_filename)
-                + "): "
-                + str(e)
-            )
+            sensor_attributes = {}
+            sensor_attributes.update({CONF_NAME: self._name})
+            sensor_attributes.update({CONF_STATE: self._state})
+            sensor_attributes.update(self.extra_state_attributes)
+            # _LOGGER.debug(
+            #    "("
+            #    + self._name
+            #    + ") Sensor Attributes to Save ["
+            #    + str(type(sensor_attributes))
+            #    + "]: "
+            #    + str(sensor_attributes)
+            # )
+            try:
+                with open(
+                    os.path.join(PLACES_JSON_FOLDER, self._json_filename), "w"
+                ) as jsonfile:
+                    json.dump(sensor_attributes, jsonfile)
+            except OSError as e:
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") OSError writing sensor to JSON ("
+                    + str(self._json_filename)
+                    + "): "
+                    + str(e)
+                )
+            except Exception as e:
+                _LOGGER.debug(
+                    "("
+                    + self._name
+                    + ") Unknown Exception writing sensor to JSON ("
+                    + str(self._json_filename)
+                    + "): "
+                    + str(e)
+                )
         _LOGGER.info("(" + self._name + ") End of Update")
 
     def _reset_attributes(self):
