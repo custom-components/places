@@ -37,8 +37,6 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_START,
     Platform,
 )
-
-# from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.util import slugify
@@ -119,7 +117,6 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
-# PLACES_JSON_FOLDER = "custom_components/places/json_sensors"
 PLACES_JSON_FOLDER = os.path.join("custom_components", DOMAIN, "json_sensors")
 try:
     os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
@@ -387,11 +384,8 @@ class Places(SensorEntity):
         self._config = config
         self._config_entry = config_entry
         self._hass = hass
-        # self._attr_name = name
         self._attr_name = name
         self._attr_unique_id = unique_id
-        # self._unique_id = unique_id
-        # self._icon = ICON
         self._attr_icon = ICON
         self._api_key = config.setdefault(CONF_API_KEY)
         self._options = config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
@@ -598,36 +592,6 @@ class Places(SensorEntity):
                 + str(self._json_filename)
             )
 
-    # @property
-    # def name(self):
-    #    """Return the name of the sensor."""
-    #    return self._name
-
-    # @property
-    # def native_value(self) -> str:
-    #    """Return native value of entity."""
-    #    return self._state
-
-    # @property
-    # def unique_id(self):
-    #    """Return a unique ID to use for this sensor."""
-    #    return self._unique_id
-
-    # @property
-    # def state(self):
-    #    """Return the state of the sensor."""
-    #    return self._state
-
-    # @property
-    # def icon(self):
-    #    """Return the icon for the sensor."""
-    #    return self._icon
-
-    # @property
-    # def entity_picture(self):
-    #    """Return the picture of the device."""
-    #    return self._entity_picture
-
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
@@ -798,13 +762,7 @@ class Places(SensorEntity):
             self._wikidata_dict = json_attr.get(ATTR_WIKIDATA_DICT)
 
     def is_devicetracker_set(self):
-        # if self._hass.states.get(self._devicetracker_id) is not None:
-        # _LOGGER.debug(
-        #    "("
-        #    + self._attr_name
-        #    + ") [is_devicetracker_set] DeviceTracker: "
-        #    + str(self._hass.states.get(self._devicetracker_id))
-        # )
+
         if (
             hasattr(self, "_devicetracker_id")
             and self._hass.states.get(self._devicetracker_id) is not None
