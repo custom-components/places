@@ -770,12 +770,13 @@ class Places(SensorEntity):
         json_attr.pop(CONF_HOME_ZONE)
         json_attr.pop(ATTR_HOME_LATITUDE)
         json_attr.pop(ATTR_HOME_LONGITUDE)
-        _LOGGER.debug(
-            "("
-            + self._attr_name
-            + ") [import_attributes] Attributes not imported: "
-            + str(json_attr)
-        )
+        if json_attr is None or not json_attr:
+            _LOGGER.debug(
+                "("
+                + self._attr_name
+                + ") [import_attributes] Attributes not imported: "
+                + str(json_attr)
+            )
 
     def is_devicetracker_set(self):
 
