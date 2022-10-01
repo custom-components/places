@@ -764,12 +764,12 @@ class Places(SensorEntity):
         if ATTR_WIKIDATA_DICT in json_attr:
             self._wikidata_dict = json_attr.pop(ATTR_WIKIDATA_DICT)
 
-        json_attr.pop(CONF_NAME)  # Added for clarity if human reading the file
+        json_attr.pop(CONF_NAME, 1)  # Added for clarity if human reading the file
         # Remove attributes that are part of the Config and are explicitly not imported from JSON
-        json_attr.pop(CONF_DEVICETRACKER_ID)
-        json_attr.pop(CONF_HOME_ZONE)
-        json_attr.pop(ATTR_HOME_LATITUDE)
-        json_attr.pop(ATTR_HOME_LONGITUDE)
+        json_attr.pop(ATTR_DEVICETRACKER_ID, 1)
+        json_attr.pop(ATTR_HOME_ZONE, 1)
+        json_attr.pop(ATTR_HOME_LATITUDE, 1)
+        json_attr.pop(ATTR_HOME_LONGITUDE, 1)
         if json_attr is None or not json_attr:
             _LOGGER.debug(
                 "("
