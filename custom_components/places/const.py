@@ -32,7 +32,7 @@ TRACKING_DOMAINS = [
     str(Platform.SENSOR),
     "variable",
 ]
-TRACKING_DOMAINS_W_LATLONG = [
+TRACKING_DOMAINS_NEED_LATLONG = [
     str(Platform.SENSOR),
     "variable",
 ]

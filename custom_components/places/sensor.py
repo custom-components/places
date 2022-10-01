@@ -36,7 +36,6 @@ from homeassistant.const import (
     CONF_STATE,
     CONF_ZONE,
     EVENT_HOMEASSISTANT_START,
-    Platform,
 )
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
@@ -115,6 +114,7 @@ from .const import (
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
+    TRACKING_DOMAINS_NEED_LATLONG,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -235,9 +235,9 @@ async def async_setup_platform(
             _LOGGER.error(ERROR)
             return False
 
-        if import_config[CONF_DEVICETRACKER_ID].split(".")[0] in [
-            Platform.SENSOR
-        ] and not (
+        if import_config[CONF_DEVICETRACKER_ID].split(".")[
+            0
+        ] in TRACKING_DOMAINS_NEED_LATLONG and not (
             CONF_LATITUDE
             in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
             and CONF_LONGITUDE
