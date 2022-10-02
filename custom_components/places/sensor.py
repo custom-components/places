@@ -35,6 +35,7 @@ from homeassistant.const import (
     CONF_PLATFORM,
     CONF_SCAN_INTERVAL,
     CONF_STATE,
+    CONF_UNIQUE_ID,
     CONF_ZONE,
     EVENT_HOMEASSISTANT_START,
 )
@@ -55,7 +56,7 @@ from .const import (
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DISTANCE_FROM_HOME_KM,
     ATTR_DISTANCE_FROM_HOME_M,
-    ATTR_DISTANCE_TRAVELED_KM,
+    ATTR_DISTANCE_TRAVELED_M,
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
     ATTR_HOME_LATITUDE,
@@ -209,100 +210,106 @@ async def async_setup_platform(
             ERROR = "[YAML Validate] Not importing: devicetracker_id not defined in the YAML places sensor definition"
             _LOGGER.error(ERROR)
             return False
-        elif import_config[CONF_DEVICETRACKER_ID] is None:
+        elif import_config.get(CONF_DEVICETRACKER_ID) is None:
             # device_tracker not defined in config
             ERROR = "[YAML Validate] Not importing: devicetracker_id not defined in the YAML places sensor definition"
             _LOGGER.error(ERROR)
             return False
         _LOGGER.debug(
             "[YAML Validate] devicetracker_id: "
-            + str(import_config[CONF_DEVICETRACKER_ID])
+            + str(import_config.get(CONF_DEVICETRACKER_ID))
         )
-        if import_config[CONF_DEVICETRACKER_ID].split(".")[0] not in TRACKING_DOMAINS:
+        if (
+            import_config.get(CONF_DEVICETRACKER_ID).split(".")[0]
+            not in TRACKING_DOMAINS
+        ):
             # entity isn't in supported type
             ERROR = (
                 "[YAML Validate] Not importing: devicetracker_id: "
-                + str(import_config[CONF_DEVICETRACKER_ID])
+                + str(import_config.get(CONF_DEVICETRACKER_ID))
                 + " is not one of the supported types: "
                 + str(list(TRACKING_DOMAINS))
             )
             _LOGGER.error(ERROR)
             return False
-        elif not hass.states.get(import_config[CONF_DEVICETRACKER_ID]):
+        elif not hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)):
             # entity doesn't exist
             ERROR = (
                 "[YAML Validate] Not importing: devicetracker_id: "
-                + str(import_config[CONF_DEVICETRACKER_ID])
+                + str(import_config.get(CONF_DEVICETRACKER_ID))
                 + " doesn't exist"
             )
             _LOGGER.error(ERROR)
             return False
 
-        if import_config[CONF_DEVICETRACKER_ID].split(".")[
+        if import_config.get(CONF_DEVICETRACKER_ID).split(".")[
             0
         ] in TRACKING_DOMAINS_NEED_LATLONG and not (
             CONF_LATITUDE
-            in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
+            in hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)).attributes
             and CONF_LONGITUDE
-            in hass.states.get(import_config[CONF_DEVICETRACKER_ID]).attributes
+            in hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)).attributes
         ):
             _LOGGER.debug(
                 "[YAML Validate] devicetracker_id: "
-                + str(import_config[CONF_DEVICETRACKER_ID])
+                + str(import_config.get(CONF_DEVICETRACKER_ID))
                 + " - "
                 + CONF_LATITUDE
                 + "= "
                 + str(
                     hass.states.get(
-                        import_config[CONF_DEVICETRACKER_ID]
+                        import_config.get(CONF_DEVICETRACKER_ID)
                     ).attributes.get(CONF_LATITUDE)
                 )
             )
             _LOGGER.debug(
                 "[YAML Validate] devicetracker_id: "
-                + str(import_config[CONF_DEVICETRACKER_ID])
+                + str(import_config.get(CONF_DEVICETRACKER_ID))
                 + " - "
                 + CONF_LONGITUDE
                 + "= "
                 + str(
                     hass.states.get(
-                        import_config[CONF_DEVICETRACKER_ID]
+                        import_config.get(CONF_DEVICETRACKER_ID)
                     ).attributes.get(CONF_LONGITUDE)
                 )
             )
             ERROR = (
                 "[YAML Validate] Not importing: devicetracker_id: "
-                + import_config[CONF_DEVICETRACKER_ID]
+                + import_config.get(CONF_DEVICETRACKER_ID)
                 + " doesnt have latitude/longitude as attributes"
             )
             _LOGGER.error(ERROR)
             return False
 
         if CONF_HOME_ZONE in import_config:
-            if import_config[CONF_HOME_ZONE] is None:
+            if import_config.get(CONF_HOME_ZONE) is None:
                 # home zone not defined in config
                 ERROR = "[YAML Validate] Not importing: home_zone is blank in the YAML places sensor definition"
                 _LOGGER.error(ERROR)
                 return False
             _LOGGER.debug(
-                "[YAML Validate] home_zone: " + str(import_config[CONF_HOME_ZONE])
+                "[YAML Validate] home_zone: " + str(import_config.get(CONF_HOME_ZONE))
             )
 
-            if import_config[CONF_HOME_ZONE].split(".")[0] not in HOME_LOCATION_DOMAINS:
+            if (
+                import_config.get(CONF_HOME_ZONE).split(".")[0]
+                not in HOME_LOCATION_DOMAINS
+            ):
                 # entity isn't in supported type
                 ERROR = (
                     "[YAML Validate] Not importing: home_zone: "
-                    + str(import_config[CONF_HOME_ZONE])
+                    + str(import_config.get(CONF_HOME_ZONE))
                     + " is not one of the supported types: "
                     + str(list(HOME_LOCATION_DOMAINS))
                 )
                 _LOGGER.error(ERROR)
                 return False
-            elif not hass.states.get(import_config[CONF_HOME_ZONE]):
+            elif not hass.states.get(import_config.get(CONF_HOME_ZONE)):
                 # entity doesn't exist
                 ERROR = (
                     "[YAML Validate] Not importing: home_zone: "
-                    + str(import_config[CONF_HOME_ZONE])
+                    + str(import_config.get(CONF_HOME_ZONE))
                     + " doesn't exist"
                 )
                 _LOGGER.error(ERROR)
@@ -326,12 +333,12 @@ async def async_setup_platform(
         all_yaml_hashes = []
         if (
             DOMAIN in hass.data
-            and hass.data[DOMAIN] is not None
-            and hass.data[DOMAIN].values() is not None
+            and hass.data.get(DOMAIN) is not None
+            and hass.data.get(DOMAIN).values() is not None
         ):
-            for m in list(hass.data[DOMAIN].values()):
+            for m in list(hass.data.get(DOMAIN).values()):
                 if CONF_YAML_HASH in m:
-                    all_yaml_hashes.append(m[CONF_YAML_HASH])
+                    all_yaml_hashes.append(m.get(CONF_YAML_HASH))
 
         _LOGGER.debug(
             "[YAML Validate] YAML hash: " + str(import_config.get(CONF_YAML_HASH))
@@ -339,7 +346,7 @@ async def async_setup_platform(
         _LOGGER.debug(
             "[YAML Validate] All existing YAML hashes: " + str(all_yaml_hashes)
         )
-        if import_config[CONF_YAML_HASH] not in all_yaml_hashes:
+        if import_config.get(CONF_YAML_HASH) not in all_yaml_hashes:
             return True
         else:
             _LOGGER.info(
@@ -364,9 +371,9 @@ async def async_setup_entry(
     """Setup the sensor platform with a config_entry (config_flow)."""
 
     # _LOGGER.debug("[aync_setup_entity] all entities: " +
-    #              str(hass.data[DOMAIN]))
+    #              str(hass.data.get(DOMAIN)))
 
-    config = hass.data[DOMAIN][config_entry.entry_id]
+    config = hass.data.get(DOMAIN).get(config_entry.entry_id)
     unique_id = config_entry.entry_id
     name = config.get(CONF_NAME)
     # _LOGGER.debug("[async_setup_entry] name: " + str(name))
@@ -435,7 +442,7 @@ class Places(SensorEntity):
         )
         _LOGGER.debug(
             "("
-            + self._attr_name
+            + self.get_attr(CONF_NAME)
             + ") [Init] JSON Filename: "
             + str(self.get_attr(ATTR_JSON_FILENAME))
         )
@@ -509,7 +516,7 @@ class Places(SensorEntity):
         except OSError as e:
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") [Init] No JSON file to import ("
                 + str(self.get_attr(ATTR_JSON_FILENAME))
                 + "): "
@@ -518,15 +525,15 @@ class Places(SensorEntity):
         except Exception as e:
             _LOGGER.debug(
                 "("
-                + self._attr_name
-                + ") [Init] Unknown Exception importing JSON file ()"
+                + self.get_attr(CONF_NAME)
+                + ") [Init] Unknown Exception importing JSON file ("
                 + str(self.get_attr(ATTR_JSON_FILENAME))
                 + "): "
                 + str(e)
             )
         # _LOGGER.debug(
         #    "("
-        #    + self._attr_name
+        #    + self.get_attr(CONF_NAME)
         #    + ") [Init] Sensor Attributes to Import: "
         #    + str(sensor_attributes)
         # )
@@ -534,12 +541,12 @@ class Places(SensorEntity):
         ##
         # For debugging:
         # sensor_attributes = {}
-        # sensor_attributes.update({CONF_NAME: self._attr_name})
-        # sensor_attributes.update({ATTR_NATIVE_VALUE: self._attr_native_value})
+        # sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
+        # sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
         # sensor_attributes.update(self.extra_state_attributes)
         # _LOGGER.debug(
         #    "("
-        #    + self._attr_name
+        #    + self.get_attr(CONF_NAME)
         #    + ") [Init] Sensor Attributes Imported: "
         #    + str(sensor_attributes)
         # )
@@ -547,13 +554,13 @@ class Places(SensorEntity):
         if not self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") [Init] Sensor Attributes Imported from JSON file"
             )
         self.cleanup_attributes()
         _LOGGER.info(
             "("
-            + self._attr_name
+            + self.get_attr(CONF_NAME)
             + ") [Init] DeviceTracker Entity ID: "
             + self.get_attr(CONF_DEVICETRACKER_ID)
         )
@@ -569,7 +576,7 @@ class Places(SensorEntity):
         )
         _LOGGER.debug(
             "("
-            + self._attr_name
+            + self.get_attr(CONF_NAME)
             + ") [Init] Subscribed to DeviceTracker state change events"
         )
 
@@ -582,7 +589,7 @@ class Places(SensorEntity):
         except OSError as e:
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") OSError removing JSON sensor file ("
                 + str(self.get_attr(ATTR_JSON_FILENAME))
                 + "): "
@@ -591,7 +598,7 @@ class Places(SensorEntity):
         except Exception as e:
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Unknown Exception removing JSON sensor file ("
                 + str(self.get_attr(ATTR_JSON_FILENAME))
                 + "): "
@@ -600,7 +607,7 @@ class Places(SensorEntity):
         else:
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") JSON sensor file removed: "
                 + str(self.get_attr(ATTR_JSON_FILENAME))
             )
@@ -618,7 +625,7 @@ class Places(SensorEntity):
             for attr in EXTENDED_ATTRIBUTE_LIST:
                 if self.get_attr(attr):
                     return_attr.update({attr: self.get_attr(attr)})
-        # _LOGGER.debug("(" + self._attr_name + ") Extra State Attributes: " + str(return_attr))
+        # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Extra State Attributes: " + str(return_attr))
         return return_attr
 
     def import_attributes(self, json_attr=None):
@@ -628,8 +635,10 @@ class Places(SensorEntity):
 
         self.set_attr(ATTR_INITIAL_UPDATE, False)
         for attr in IMPORT_ATTRIBUTE_LIST:
-            if not self.is_attr_blank(attr):
-                self.set_attr(attr, json_attr.pop(attr))
+            if attr in json_attr:
+                self.set_attr(attr, json_attr.pop(attr, None))
+        if not self.is_attr_blank(ATTR_NATIVE_VALUE):
+            self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
 
         json_attr.pop(CONF_NAME, None)  # Added for clarity if human reading the file
         # Remove attributes that are part of the Config and are explicitly not imported from JSON
@@ -637,16 +646,17 @@ class Places(SensorEntity):
         json_attr.pop(ATTR_HOME_ZONE, None)
         json_attr.pop(ATTR_HOME_LATITUDE, None)
         json_attr.pop(ATTR_HOME_LONGITUDE, None)
-        if json_attr is None or not json_attr:
+        json_attr.pop(CONF_OPTIONS, None)
+        if json_attr is not None and json_attr:
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") [import_attributes] Attributes not imported: "
                 + str(json_attr)
             )
 
     def get_attr(self, attr, default=None):
-        if attr is None or (default is None and is_attr_blank(attr)):
+        if attr is None or (default is None and self.is_attr_blank(attr)):
             return None
         else:
             return self._internal_attr.get(attr, default)
@@ -661,7 +671,11 @@ class Places(SensorEntity):
     def is_devicetracker_set(self):
 
         if (
-            not is_attr_blank(CONF_DEVICETRACKER_ID)
+            not self.is_attr_blank(CONF_DEVICETRACKER_ID)
+            and hasattr(
+                self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)),
+                "attributes",
+            )
             and CONF_LATITUDE
             in self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes
             and CONF_LONGITUDE
@@ -674,15 +688,25 @@ class Places(SensorEntity):
                 self.get_attr(CONF_DEVICETRACKER_ID)
             ).attributes.get(CONF_LONGITUDE)
             is not None
+            and self.is_float(
+                self._hass.states.get(
+                    self.get_attr(CONF_DEVICETRACKER_ID)
+                ).attributes.get(CONF_LATITUDE)
+            )
+            and self.is_float(
+                self._hass.states.get(
+                    self.get_attr(CONF_DEVICETRACKER_ID)
+                ).attributes.get(CONF_LONGITUDE)
+            )
         ):
             # _LOGGER.debug(
-            #    "(" + self._attr_name +
+            #    "(" + self.get_attr(CONF_NAME) +
             #    ") [is_devicetracker_set] Devicetracker is set"
             # )
             return True
         else:
             # _LOGGER.debug(
-            #    "(" + self._attr_name +
+            #    "(" + self.get_attr(CONF_NAME) +
             #    ") [is_devicetracker_set] Devicetracker is not set"
             # )
             return False
@@ -692,14 +716,14 @@ class Places(SensorEntity):
         if self.is_devicetracker_set():
             # _LOGGER.debug(
             #    "("
-            #    + self._attr_name
+            #    + self.get_attr(CONF_NAME)
             #    + ") [TSC Update] Running Update - Devicetracker is set"
             # )
             self.do_update("Track State Change")
         # else:
         # _LOGGER.debug(
         #    "("
-        #    + self._attr_name
+        #    + self.get_attr(CONF_NAME)
         #    + ") [TSC Update] Not Running Update - Devicetracker is not set"
         # )
 
@@ -709,14 +733,14 @@ class Places(SensorEntity):
         if self.is_devicetracker_set():
             # _LOGGER.debug(
             #    "("
-            #    + self._attr_name
+            #    + self.get_attr(CONF_NAME)
             #    + ") [Async Update] Running Update - Devicetracker is set"
             # )
             await self._hass.async_add_executor_job(self.do_update, "Scan Interval")
         # else:
         # _LOGGER.debug(
         #    "("
-        #    + self._attr_name
+        #    + self.get_attr(CONF_NAME)
         #    + ") [Async Update] Not Running Update - Devicetracker is not set"
         # )
 
@@ -767,39 +791,41 @@ class Places(SensorEntity):
             return True
 
     def cleanup_attributes(self):
-        for attr in self._internal_attr:
+        for attr in list(self._internal_attr):
             if self.is_attr_blank(attr):
                 self.clear_attr(attr)
 
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
-        _LOGGER.info("(" + self._attr_name + ") Starting Update...")
+        _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
         self.cleanup_attributes()
-        if self._attr_native_value is not None and self.get_attr(CONF_SHOW_TIME):
-            self.set_attr(ATTR_PREVIOUS_STATE, self._attr_native_value[:-14])
+        if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
+            self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE)[:-14])
         else:
-            self.set_attr(ATTR_PREVIOUS_STATE, self._attr_native_value)
+            self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE))
 
         prev_last_place_name = None
 
-        _LOGGER.info("(" + self._attr_name + ") Calling update due to: " + str(reason))
+        _LOGGER.info(
+            "(" + self.get_attr(CONF_NAME) + ") Calling update due to: " + str(reason)
+        )
         if hasattr(self, "entity_id") and self.entity_id is not None:
-            # _LOGGER.debug("(" + self._attr_name + ") Entity ID: " + str(self.entity_id))
+            # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Entity ID: " + str(self.entity_id))
             if (
                 self._hass.states.get(str(self.entity_id)) is not None
                 and self._hass.states.get(str(self.entity_id)).attributes.get(
                     ATTR_FRIENDLY_NAME
                 )
                 is not None
-                and self._attr_name
+                and self.get_attr(CONF_NAME)
                 != self._hass.states.get(str(self.entity_id)).attributes.get(
                     ATTR_FRIENDLY_NAME
                 )
             ):
                 _LOGGER.debug(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Sensor Name Changed. Updating Name to: "
                     + str(
                         self._hass.states.get(str(self.entity_id)).attributes.get(
@@ -807,16 +833,19 @@ class Places(SensorEntity):
                         )
                     )
                 )
-                self._attr_name = self._hass.states.get(
-                    str(self.entity_id)
-                ).attributes.get(ATTR_FRIENDLY_NAME)
-                self._config[CONF_NAME] = self._attr_name
-                self.set_attr(CONF_NAME, self._attr_name)
+                self.set_attr(
+                    CONF_NAME,
+                    self._hass.states.get(str(self.entity_id)).attributes.get(
+                        ATTR_FRIENDLY_NAME
+                    ),
+                )
+                self._config.update({CONF_NAME: self.get_attr(CONF_NAME)})
+                self.set_attr(CONF_NAME, self.get_attr(CONF_NAME))
                 _LOGGER.debug(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Updated Config Name: "
-                    + str(self._config[CONF_NAME])
+                    + str(self._config.get(CONF_NAME, None))
                 )
                 self._hass.config_entries.async_update_entry(
                     self._config_entry,
@@ -825,19 +854,22 @@ class Places(SensorEntity):
                 )
                 _LOGGER.debug(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Updated ConfigEntry Name: "
-                    + str(self._config_entry.data[CONF_NAME])
+                    + str(self._config_entry.data.get(CONF_NAME))
                 )
 
         _LOGGER.info(
             "("
-            + self._attr_name
+            + self.get_attr(CONF_NAME)
             + ") Check if update req'd: "
             + str(self.get_attr(CONF_DEVICETRACKER_ID))
         )
         _LOGGER.debug(
-            "(" + self._attr_name + ") Previous State: " + str(previous_state)
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Previous State: "
+            + str(self.get_attr(ATTR_PREVIOUS_STATE))
         )
 
         now = datetime.now()
@@ -888,18 +920,24 @@ class Places(SensorEntity):
                 ).attributes.get(ATTR_GPS_ACCURACY)
             )
         ):
-            gps_accuracy = float(
-                self._hass.states.get(
-                    self.get_attr(CONF_DEVICETRACKER_ID)
-                ).attributes.get(ATTR_GPS_ACCURACY)
+            self.set_attr(
+                ATTR_GPS_ACCURACY,
+                float(
+                    self._hass.states.get(
+                        self.get_attr(CONF_DEVICETRACKER_ID)
+                    ).attributes.get(ATTR_GPS_ACCURACY)
+                ),
             )
             _LOGGER.debug(
-                "(" + self._attr_name + ") GPS Accuracy: " + str(gps_accuracy)
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") GPS Accuracy: "
+                + str(self.get_attr(ATTR_GPS_ACCURACY))
             )
         else:
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") GPS Accuracy attribute not found in: "
                 + str(self.get_attr(CONF_DEVICETRACKER_ID))
             )
@@ -941,7 +979,7 @@ class Places(SensorEntity):
         prev_last_place_name = self.get_attr(ATTR_LAST_PLACE_NAME)
         _LOGGER.debug(
             "("
-            + self._attr_name
+            + self.get_attr(CONF_NAME)
             + ") Previous last_place_name: "
             + str(self.get_attr(ATTR_LAST_PLACE_NAME))
         )
@@ -950,10 +988,10 @@ class Places(SensorEntity):
             # Not in a Zone
             if not self.is_attr_blank(ATTR_PLACE_NAME):
                 # If place name is set
-                last_place_name = self.get_attr(ATTR_PLACE_NAME)
+                self.set_attr(ATTR_LAST_PLACE_NAME, self.get_attr(ATTR_PLACE_NAME))
                 _LOGGER.debug(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Previous Place Name is set: "
                     + str(self.get_attr(ATTR_LAST_PLACE_NAME))
                 )
@@ -961,21 +999,23 @@ class Places(SensorEntity):
                 # If blank, keep previous last place name
                 _LOGGER.debug(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Previous Place Name is None, keeping prior"
                 )
         else:
             # In a Zone
-            last_place_name = self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
+            self.set_attr(
+                ATTR_LAST_PLACE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
+            )
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Previous Place is Zone: "
                 + str(self.get_attr(ATTR_LAST_PLACE_NAME))
             )
         _LOGGER.debug(
             "("
-            + self._attr_name
+            + self.get_attr(CONF_NAME)
             + ") Last Place Name (Initial): "
             + str(self.get_attr(ATTR_LAST_PLACE_NAME))
         )
@@ -1023,25 +1063,25 @@ class Places(SensorEntity):
 
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Previous Location: "
                 + str(self.get_attr(ATTR_LOCATION_PREVIOUS))
             )
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Current Location: "
                 + str(self.get_attr(ATTR_LOCATION_CURRENT))
             )
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Home Location: "
                 + str(self.get_attr(ATTR_HOME_LOCATION))
             )
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Distance from home ["
                 + (self.get_attr(CONF_HOME_ZONE)).split(".")[1]
                 + "]: "
@@ -1049,7 +1089,10 @@ class Places(SensorEntity):
                 + " km"
             )
             _LOGGER.info(
-                "(" + self._attr_name + ") Travel Direction: " + str(direction)
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Travel Direction: "
+                + str(self.get_attr(ATTR_DIRECTION_OF_TRAVEL))
             )
 
             self.set_attr(
@@ -1058,19 +1101,34 @@ class Places(SensorEntity):
             )
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") DeviceTracker Zone: "
                 + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
             )
 
+            devicetracker_zone_name_state = None
             devicetracker_zone_id = self._hass.states.get(
                 self.get_attr(CONF_DEVICETRACKER_ID)
             ).attributes.get(CONF_ZONE)
             if devicetracker_zone_id is not None:
-                devicetracker_zone_id = CONF_ZONE + str(devicetracker_zone_id)
+                devicetracker_zone_id = (
+                    str(CONF_ZONE) + "." + str(devicetracker_zone_id)
+                )
                 devicetracker_zone_name_state = self._hass.states.get(
                     devicetracker_zone_id
                 )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") DeviceTracker Zone ID: "
+            #    + str(devicetracker_zone_id)
+            # )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") DeviceTracker Zone Name State: "
+            #    + str(devicetracker_zone_name_state)
+            # )
             if devicetracker_zone_name_state is not None:
                 self.set_attr(
                     ATTR_DEVICETRACKER_ZONE_NAME, devicetracker_zone_name_state.name
@@ -1079,39 +1137,44 @@ class Places(SensorEntity):
                 self.set_attr(
                     ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
                 )
-            if (
-                not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME)
-                and devicetracker_zone_name.lower() == devicetracker_zone_name
-            ):
-                devicetracker_zone_name = devicetracker_zone_name.title()
+            if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME) and self.get_attr(
+                ATTR_DEVICETRACKER_ZONE_NAME
+            ).lower() == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
+                self.set_attr(
+                    ATTR_DEVICETRACKER_ZONE_NAME,
+                    self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).title(),
+                )
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") DeviceTracker Zone Name: "
-                + str(devicetracker_zone_name)
+                + str(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
             )
-
+            self.set_attr(ATTR_DISTANCE_TRAVELED_M, 0)
             if not self.is_attr_blank(ATTR_LATITUDE_OLD) and not self.is_attr_blank(
                 ATTR_LONGITUDE_OLD
             ):
-                distance_traveled = distance(
-                    float(self.get_attr(ATTR_LATITUDE)),
-                    float(self.get_attr(ATTR_LONGITUDE)),
-                    float(self.get_attr(ATTR_LATITUDE_OLD)),
-                    float(self.get_attr(ATTR_LONGITUDE_OLD)),
+                self.set_attr(
+                    ATTR_DISTANCE_TRAVELED_M,
+                    distance(
+                        float(self.get_attr(ATTR_LATITUDE)),
+                        float(self.get_attr(ATTR_LONGITUDE)),
+                        float(self.get_attr(ATTR_LATITUDE_OLD)),
+                        float(self.get_attr(ATTR_LONGITUDE_OLD)),
+                    ),
                 )
 
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Meters traveled since last update: "
-                + str(round(distance_traveled, 1))
+                + str(round(self.get_attr(ATTR_DISTANCE_TRAVELED_M), 1))
             )
         else:
             proceed_with_update = False
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Problem with updated lat/long, not performing update: "
                 + "old_latitude="
                 + str(self.get_attr(ATTR_LATITUDE_OLD))
@@ -1135,11 +1198,15 @@ class Places(SensorEntity):
         ):
             proceed_with_update = False
             _LOGGER.info(
-                "(" + self._attr_name + ") GPS Accuracy is 0, not performing update"
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") GPS Accuracy is 0, not performing update"
             )
         elif self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.info(
-                "(" + self._attr_name + ") Performing Initial Update for user..."
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Performing Initial Update for user..."
             )
             proceed_with_update = True
         elif self.get_attr(ATTR_LOCATION_CURRENT) == self.get_attr(
@@ -1147,24 +1214,27 @@ class Places(SensorEntity):
         ):
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Not performing update because coordinates are identical"
             )
             proceed_with_update = False
-        elif int(distance_traveled) > 0 and self.get_attr(ATTR_UPDATES_SKIPPED) > 3:
+        elif (
+            int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) > 0
+            and self.get_attr(ATTR_UPDATES_SKIPPED) > 3
+        ):
             proceed_with_update = True
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Allowing update after 3 skips even with distance traveled < 10m"
             )
-        elif int(distance_traveled) < 10:
+        elif int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) < 10:
             self.set_attr(ATTR_UPDATES_SKIPPED, self.get_attr(ATTR_UPDATES_SKIPPED) + 1)
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Not performing update because location changed "
-                + str(round(distance_traveled, 1))
+                + str(round(self.get_attr(ATTR_DISTANCE_TRAVELED_M), 1))
                 + " < 10m  ("
                 + str(self.get_attr(ATTR_UPDATES_SKIPPED))
                 + ")"
@@ -1174,13 +1244,13 @@ class Places(SensorEntity):
         if proceed_with_update and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Meets criteria, proceeding with OpenStreetMap query"
             )
 
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") DeviceTracker Zone: "
                 + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
                 + " / Skipped Updates: "
@@ -1230,13 +1300,13 @@ class Places(SensorEntity):
                 )
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Map Link Type: "
                 + str(self.get_attr(CONF_MAP_PROVIDER))
             )
             _LOGGER.debug(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") Map Link URL: "
                 + str(self.get_attr(ATTR_MAP_LINK))
             )
@@ -1247,31 +1317,35 @@ class Places(SensorEntity):
                 + "&lon="
                 + str(self.get_attr(ATTR_LONGITUDE))
                 + (
-                    "&accept-language=" + str(self._language)
-                    if self._language is not None
+                    "&accept-language=" + str(self.get_attr(CONF_LANGUAGE))
+                    if not self.is_attr_blank(CONF_LANGUAGE)
                     else ""
                 )
                 + "&addressdetails=1&namedetails=1&zoom=18&limit=1"
-                + ("&email=" + str(self._api_key) if self._api_key is not None else "")
+                + (
+                    "&email=" + str(self.get_attr(CONF_API_KEY))
+                    if not self.is_attr_blank(CONF_API_KEY)
+                    else ""
+                )
             )
 
             self.set_attr(ATTR_OSM_DICT, {})
             _LOGGER.info(
                 "("
-                + self._attr_name
+                + self.get_attr(CONF_NAME)
                 + ") OpenStreetMap Request: lat="
                 + str(self.get_attr(ATTR_LATITUDE))
                 + " and lon="
                 + str(self.get_attr(ATTR_LONGITUDE))
             )
-            _LOGGER.debug("(" + self._attr_name + ") OSM URL: " + str(osm_url))
+            _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") OSM URL: " + str(osm_url))
             try:
                 osm_response = requests.get(osm_url)
             except requests.exceptions.Timeout as e:
                 osm_response = None
                 _LOGGER.warning(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Timeout connecting to OpenStreetMaps [Error: "
                     + str(e)
                     + "]: "
@@ -1282,7 +1356,7 @@ class Places(SensorEntity):
                 osm_response = None
                 _LOGGER.warning(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Network unreachable error when connecting to OpenStreetMaps ["
                     + str(e)
                     + "]: "
@@ -1292,7 +1366,7 @@ class Places(SensorEntity):
                 osm_response = None
                 _LOGGER.warning(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Connection Error connecting to OpenStreetMaps [Error: "
                     + str(e)
                     + "]: "
@@ -1302,7 +1376,7 @@ class Places(SensorEntity):
                 osm_response = None
                 _LOGGER.warning(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Unknown Exception connecting to OpenStreetMaps [Error: "
                     + str(e)
                     + "]: "
@@ -1313,7 +1387,7 @@ class Places(SensorEntity):
             if osm_response is not None and osm_response:
                 osm_json_input = osm_response.text
                 _LOGGER.debug(
-                    "(" + self._attr_name + ") OSM Response: " + osm_json_input
+                    "(" + self.get_attr(CONF_NAME) + ") OSM Response: " + osm_json_input
                 )
 
             if osm_json_input is not None and osm_json_input:
@@ -1323,7 +1397,7 @@ class Places(SensorEntity):
                     self.clear_attr(ATTR_OSM_DICT)
                     _LOGGER.warning(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") JSON Decode Error with OSM info [Error: "
                         + str(e)
                         + "]: "
@@ -1509,16 +1583,18 @@ class Places(SensorEntity):
                 if self.get_attr(ATTR_INITIAL_UPDATE):
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") Runnining initial update after load, using prior last_place_name"
                     )
-                elif self.get_attr(ATTR_LAST_PLACE_NAME) == place_name or self.get_attr(
-                    ATTR_LAST_PLACE_NAME
-                ) == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
+                elif self.get_attr(ATTR_LAST_PLACE_NAME) == self.get_attr(
+                    ATTR_PLACE_NAME
+                ) or self.get_attr(ATTR_LAST_PLACE_NAME) == self.get_attr(
+                    ATTR_DEVICETRACKER_ZONE_NAME
+                ):
                     # If current place name/zone are the same as previous, keep older last place name
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") Initial last_place_name is same as new: place_name="
                         + str(self.get_attr(ATTR_PLACE_NAME))
                         + " or devicetracker_zone_name="
@@ -1527,11 +1603,13 @@ class Places(SensorEntity):
                     )
                 else:
                     _LOGGER.debug(
-                        "(" + self._attr_name + ") Keeping initial last_place_name"
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") Keeping initial last_place_name"
                     )
                 _LOGGER.info(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Last Place Name: "
                     + str(self.get_attr(ATTR_LAST_PLACE_NAME))
                 )
@@ -1621,11 +1699,12 @@ class Places(SensorEntity):
 
                 if "error_message" in self.get_attr(ATTR_OSM_DICT):
                     self.set_attr(
-                        ATTR_NATIVE_VALUE, self.get_attr(ATTR_OSM_DICT)["error_message"]
+                        ATTR_NATIVE_VALUE,
+                        self.get_attr(ATTR_OSM_DICT).get("error_message", None),
                     )
                     _LOGGER.warning(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") An error occurred contacting the web service for OpenStreetMap"
                     )
                 elif "formatted_place" in display_options:
@@ -1634,7 +1713,7 @@ class Places(SensorEntity):
                     )
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") New State using formatted_place: "
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
@@ -1644,7 +1723,7 @@ class Places(SensorEntity):
 
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") Building State from Display Options: "
                         + str(self.get_attr(ATTR_OPTIONS))
                     )
@@ -1745,7 +1824,7 @@ class Places(SensorEntity):
                         )
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") New State from Display Options: "
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
@@ -1757,15 +1836,17 @@ class Places(SensorEntity):
                     )
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") New State from DeviceTracker Zone Name: "
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 elif not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
-                    self.set_attr(ATTR_NATIVE_VALUE, devicetracker_zone)
+                    self.set_attr(
+                        ATTR_NATIVE_VALUE, self.get_attr(ATTR_DEVICETRACKER_ZONE)
+                    )
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") New State from DeviceTracker Zone: "
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
@@ -1824,7 +1905,7 @@ class Places(SensorEntity):
 
                             _LOGGER.info(
                                 "("
-                                + self._attr_name
+                                + self.get_attr(CONF_NAME)
                                 + ") OpenStreetMap Details Request: type="
                                 + str(self.get_attr(ATTR_OSM_TYPE))
                                 + " ("
@@ -1834,7 +1915,7 @@ class Places(SensorEntity):
                             )
                             _LOGGER.debug(
                                 "("
-                                + self._attr_name
+                                + self.get_attr(CONF_NAME)
                                 + ") OSM Details URL: "
                                 + str(osm_details_url)
                             )
@@ -1844,7 +1925,7 @@ class Places(SensorEntity):
                                 osm_details_response = None
                                 _LOGGER.warning(
                                     "("
-                                    + self._attr_name
+                                    + self.get_attr(CONF_NAME)
                                     + ") Timeout connecting to OpenStreetMaps Details [Error: "
                                     + str(e)
                                     + "]: "
@@ -1855,7 +1936,7 @@ class Places(SensorEntity):
                                 osm_details_response = None
                                 _LOGGER.warning(
                                     "("
-                                    + self._attr_name
+                                    + self.get_attr(CONF_NAME)
                                     + ") Network unreachable error when connecting to OpenStreetMaps Details ["
                                     + str(e)
                                     + "]: "
@@ -1865,7 +1946,7 @@ class Places(SensorEntity):
                                 osm_details_response = None
                                 _LOGGER.warning(
                                     "("
-                                    + self._attr_name
+                                    + self.get_attr(CONF_NAME)
                                     + ") Connection Error connecting to OpenStreetMaps Details [Error: "
                                     + str(e)
                                     + "]: "
@@ -1875,7 +1956,7 @@ class Places(SensorEntity):
                                 osm_details_response = None
                                 _LOGGER.warning(
                                     "("
-                                    + self._attr_name
+                                    + self.get_attr(CONF_NAME)
                                     + ") Unknown Exception connecting to OpenStreetMaps Details [Error: "
                                     + str(e)
                                     + "]: "
@@ -1888,11 +1969,11 @@ class Places(SensorEntity):
                             ):
                                 self.set_attr(
                                     ATTR_OSM_DETAILS_DICT,
-                                    osm_details_response["error_message"],
+                                    osm_details_response.get("error_message"),
                                 )
                                 _LOGGER.info(
                                     "("
-                                    + self._attr_name
+                                    + self.get_attr(CONF_NAME)
                                     + ") An error occurred contacting the web service for OSM Details"
                                 )
                             else:
@@ -1905,7 +1986,7 @@ class Places(SensorEntity):
                                     osm_details_json_input = osm_details_response.text
                                     _LOGGER.debug(
                                         "("
-                                        + self._attr_name
+                                        + self.get_attr(CONF_NAME)
                                         + ") OSM Details JSON: "
                                         + osm_details_json_input
                                     )
@@ -1923,13 +2004,13 @@ class Places(SensorEntity):
                                         self.clear_attr(ATTR_OSM_DETAILS_DICT)
                                         _LOGGER.warning(
                                             "("
-                                            + self._attr_name
+                                            + self.get_attr(CONF_NAME)
                                             + ") JSON Decode Error with OSM Details info [Error: "
                                             + str(e)
                                             + "]: "
                                             + str(osm_details_json_input)
                                         )
-                                # _LOGGER.debug("(" + self._attr_name + ") OSM Details Dict: " + str(osm_details_dict))
+                                # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") OSM Details Dict: " + str(osm_details_dict))
 
                                 if (
                                     not self.is_attr_blank(ATTR_OSM_DETAILS_DICT)
@@ -1957,13 +2038,13 @@ class Places(SensorEntity):
 
                                     _LOGGER.info(
                                         "("
-                                        + self._attr_name
+                                        + self.get_attr(CONF_NAME)
                                         + ") Wikidata Request: id="
                                         + str(self.get_attr(ATTR_WIKIDATA_ID))
                                     )
                                     _LOGGER.debug(
                                         "("
-                                        + self._attr_name
+                                        + self.get_attr(CONF_NAME)
                                         + ") Wikidata URL: "
                                         + str(wikidata_url)
                                     )
@@ -1973,7 +2054,7 @@ class Places(SensorEntity):
                                         wikidata_response = None
                                         _LOGGER.warning(
                                             "("
-                                            + self._attr_name
+                                            + self.get_attr(CONF_NAME)
                                             + ") Timeout connecting to Wikidata [Error: "
                                             + str(e)
                                             + "]: "
@@ -1984,7 +2065,7 @@ class Places(SensorEntity):
                                         wikidata_response = None
                                         _LOGGER.warning(
                                             "("
-                                            + self._attr_name
+                                            + self.get_attr(CONF_NAME)
                                             + ") Network unreachable error when connecting to Wikidata ["
                                             + str(e)
                                             + "]: "
@@ -1994,7 +2075,7 @@ class Places(SensorEntity):
                                         wikidata_response = None
                                         _LOGGER.warning(
                                             "("
-                                            + self._attr_name
+                                            + self.get_attr(CONF_NAME)
                                             + ") Connection Error connecting to Wikidata [Error: "
                                             + str(e)
                                             + "]: "
@@ -2004,7 +2085,7 @@ class Places(SensorEntity):
                                         wikidata_response = None
                                         _LOGGER.warning(
                                             "("
-                                            + self._attr_name
+                                            + self.get_attr(CONF_NAME)
                                             + ") Unknown Exception connecting to Wikidata [Error: "
                                             + str(e)
                                             + "]: "
@@ -2017,11 +2098,11 @@ class Places(SensorEntity):
                                     ):
                                         self.set_attr(
                                             ATTR_WIKIDATA_DICT,
-                                            wikidata_response["error_message"],
+                                            wikidata_response.get("error_message"),
                                         )
                                         _LOGGER.info(
                                             "("
-                                            + self._attr_name
+                                            + self.get_attr(CONF_NAME)
                                             + ") An error occurred contacting the web service for Wikidata"
                                         )
                                     else:
@@ -2034,7 +2115,7 @@ class Places(SensorEntity):
                                             wikidata_json_input = wikidata_response.text
                                             _LOGGER.debug(
                                                 "("
-                                                + self._attr_name
+                                                + self.get_attr(CONF_NAME)
                                                 + ") Wikidata JSON: "
                                                 + wikidata_json_input
                                             )
@@ -2052,7 +2133,7 @@ class Places(SensorEntity):
                                                 self.clear_attr(ATTR_WIKIDATA_DICT)
                                                 _LOGGER.warning(
                                                     "("
-                                                    + self._attr_name
+                                                    + self.get_attr(CONF_NAME)
                                                     + ") JSON Decode Error with Wikidata info [Error: "
                                                     + str(e)
                                                     + "]: "
@@ -2060,13 +2141,13 @@ class Places(SensorEntity):
                                                 )
                                         _LOGGER.debug(
                                             "("
-                                            + self._attr_name
+                                            + self.get_attr(CONF_NAME)
                                             + ") Wikidata JSON: "
                                             + str(wikidata_json_input)
                                         )
                                         # _LOGGER.debug(
                                         #    "("
-                                        #    + self._attr_name
+                                        #    + self.get_attr(CONF_NAME)
                                         #    + ") Wikidata Dict: "
                                         #    + str(wikidata_dict)
                                         # )
@@ -2087,51 +2168,55 @@ class Places(SensorEntity):
                             )
                         _LOGGER.info(
                             "("
-                            + self._attr_name
+                            + self.get_attr(CONF_NAME)
                             + ") New State: "
                             + str(self.get_attr(ATTR_NATIVE_VALUE))
                         )
                     else:
                         self.clear_attr(ATTR_NATIVE_VALUE)
-                        _LOGGER.warning("(" + self._attr_name + ") New State is None")
-                    if not is_attr_blank(ATTR_NATIVE_VALUE):
+                        _LOGGER.warning(
+                            "(" + self.get_attr(CONF_NAME) + ") New State is None"
+                        )
+                    if not self.is_attr_blank(ATTR_NATIVE_VALUE):
                         self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
                     else:
                         self._attr_native_value = None
-                    _LOGGER.debug("(" + self._attr_name + ") Building Event Data")
+                    _LOGGER.debug(
+                        "(" + self.get_attr(CONF_NAME) + ") Building Event Data"
+                    )
                     event_data = {}
-                    if not is_attr_blank(CONF_NAME):
+                    if not self.is_attr_blank(CONF_NAME):
                         event_data.update({"entity": self.get_attr(CONF_NAME)})
-                    if not is_attr_blank(ATTR_PREVIOUS_STATE):
+                    if not self.is_attr_blank(ATTR_PREVIOUS_STATE):
                         event_data.update(
                             {"from_state": self.get_attr(ATTR_PREVIOUS_STATE)}
                         )
-                    if not is_attr_blank(ATTR_NATIVE_VALUE):
+                    if not self.is_attr_blank(ATTR_NATIVE_VALUE):
                         event_data.update(
                             {"to_state": self.get_attr(ATTR_NATIVE_VALUE)}
                         )
 
                     for attr in EVENT_ATTRIBUTE_LIST:
-                        if not is_attr_blank(attr):
+                        if not self.is_attr_blank(attr):
                             event_data.update({attr: self.get_attr(attr)})
 
                     if (
                         not self.is_attr_blank(ATTR_LAST_PLACE_NAME)
                         and self.get_attr(ATTR_LAST_PLACE_NAME) != prev_last_place_name
                     ):
-                        event_data[ATTR_LAST_PLACE_NAME] = self.get_attr(
-                            ATTR_LAST_PLACE_NAME
+                        event_data.update(
+                            {ATTR_LAST_PLACE_NAME: self.get_attr(ATTR_LAST_PLACE_NAME)}
                         )
 
                     if self.get_attr(CONF_EXTENDED_ATTR):
                         for attr in EXTENDED_ATTRIBUTE_LIST:
-                            if not is_attr_blank(attr):
+                            if not self.is_attr_blank(attr):
                                 event_data.update({attr: self.get_attr(attr)})
 
                     self._hass.bus.fire(DOMAIN + "_state_update", event_data)
                     _LOGGER.debug(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") Event Details [event_type: "
                         + DOMAIN
                         + "_state_update]: "
@@ -2139,7 +2224,7 @@ class Places(SensorEntity):
                     )
                     _LOGGER.info(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") Event Fired [event_type: "
                         + DOMAIN
                         + "_state_update]"
@@ -2148,17 +2233,19 @@ class Places(SensorEntity):
                 else:
                     _LOGGER.info(
                         "("
-                        + self._attr_name
+                        + self.get_attr(CONF_NAME)
                         + ") No entity update needed, Previous State = New State"
                     )
             self.set_attr(ATTR_INITIAL_UPDATE, False)
             sensor_attributes = {}
-            sensor_attributes.update({CONF_NAME: self._attr_name})
-            sensor_attributes.update({ATTR_NATIVE_VALUE: self._attr_native_value})
+            sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
+            sensor_attributes.update(
+                {ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)}
+            )
             sensor_attributes.update(self.extra_state_attributes)
             # _LOGGER.debug(
             #    "("
-            #    + self._attr_name
+            #    + self.get_attr(CONF_NAME)
             #    + ") Sensor Attributes to Save ["
             #    + str(type(sensor_attributes))
             #    + "]: "
@@ -2173,7 +2260,7 @@ class Places(SensorEntity):
             except OSError as e:
                 _LOGGER.debug(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") OSError writing sensor to JSON ("
                     + str(self.get_attr(ATTR_JSON_FILENAME))
                     + "): "
@@ -2182,13 +2269,13 @@ class Places(SensorEntity):
             except Exception as e:
                 _LOGGER.debug(
                     "("
-                    + self._attr_name
+                    + self.get_attr(CONF_NAME)
                     + ") Unknown Exception writing sensor to JSON ("
                     + str(self.get_attr(ATTR_JSON_FILENAME))
                     + "): "
                     + str(e)
                 )
-        _LOGGER.info("(" + self._attr_name + ") End of Update")
+        _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
 
     def _reset_attributes(self):
         """Resets attributes."""
