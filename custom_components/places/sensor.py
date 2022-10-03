@@ -34,7 +34,6 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_PLATFORM,
     CONF_SCAN_INTERVAL,
-    CONF_STATE,
     CONF_UNIQUE_ID,
     CONF_ZONE,
     EVENT_HOMEASSISTANT_START,
@@ -106,7 +105,6 @@ from .const import (
     CONF_OPTIONS,
     CONF_SHOW_TIME,
     CONF_YAML_HASH,
-    CONFIG_ATTRIBUTES_LIST,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
@@ -124,13 +122,17 @@ from .const import (
     TRACKING_DOMAINS_NEED_LATLONG,
 )
 
+_LOGGER = logging.getLogger(__name__)
 try:
     use_issue_reg = True
     from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
-except:
+except Exception as e:
+    _LOGGER.debug(
+        "Unknown Exception trying to import issue_registry. Is HA version <2022.9?: "
+        + str(e)
+    )
     use_issue_reg = False
 
-_LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
 PLACES_JSON_FOLDER = os.path.join("custom_components", DOMAIN, "json_sensors")
@@ -1046,7 +1048,7 @@ class Places(SensorEntity):
                     + " info [Error: "
                     + str(e)
                     + "]: "
-                    + str(osm_json_input)
+                    + str(get_json_input)
                 )
                 return {}
         if "error_message" in get_dict:
@@ -1408,7 +1410,7 @@ class Places(SensorEntity):
         elif (
             "zone" in display_options
             and "do_not_show_not_home" not in display_options
-            and not is_attr_blank(ATTR_DEVICETRACKER_ZONE)
+            and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE)
         ):
             user_display.append(self.get_attr(ATTR_DEVICETRACKER_ZONE))
 
@@ -1428,18 +1430,18 @@ class Places(SensorEntity):
             ):
                 user_display.append(self.get_attr(ATTR_PLACE_TYPE))
             if not self.is_attr_blank(ATTR_PLACE_NEIGHBOURHOOD):
-                user_display.append(place_neighbourhood)
+                user_display.append(self.get_attr(ATTR_PLACE_NEIGHBOURHOOD))
             if not self.is_attr_blank(ATTR_STREET_NUMBER):
-                user_display.append(street_number)
+                user_display.append(self.get_attr(ATTR_STREET_NUMBER))
             if not self.is_attr_blank(ATTR_STREET):
-                user_display.append(street)
+                user_display.append(self.get_attr(ATTR_STREET))
         else:
             if "street_number" in display_options and not self.is_attr_blank(
                 ATTR_STREET_NUMBER
             ):
-                user_display.append(street_number)
+                user_display.append(self.get_attr(ATTR_STREET_NUMBER))
             if "street" in display_options and not self.is_attr_blank(ATTR_STREET):
-                user_display.append(street)
+                user_display.append(self.get_attr(ATTR_STREET))
         if "city" in display_options and not self.is_attr_blank(ATTR_CITY):
             user_display.append(self.get_attr(ATTR_CITY))
         if "county" in display_options and not self.is_attr_blank(ATTR_COUNTY):

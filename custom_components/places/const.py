@@ -1,17 +1,9 @@
 from homeassistant.const import (
-    ATTR_FRIENDLY_NAME,
     ATTR_GPS_ACCURACY,
     CONF_API_KEY,
     CONF_ICON,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
     CONF_NAME,
-    CONF_PLATFORM,
-    CONF_SCAN_INTERVAL,
-    CONF_STATE,
-    CONF_UNIQUE_ID,
     CONF_ZONE,
-    EVENT_HOMEASSISTANT_START,
     Platform,
 )
 
