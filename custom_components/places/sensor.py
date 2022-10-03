@@ -1326,7 +1326,7 @@ class Places(SensorEntity):
         formatted_place_array = []
         display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
         if not self.in_zone():
-            if self.get_state(ATTR_IS_DRIVING) and "driving" in display_options:
+            if self.get_attr(ATTR_IS_DRIVING) and "driving" in display_options:
                 formatted_place_array.append("Driving")
             if self.is_attr_blank(ATTR_PLACE_NAME):
                 if (
