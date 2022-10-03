@@ -34,7 +34,6 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_PLATFORM,
     CONF_SCAN_INTERVAL,
-    CONF_STATE,
     CONF_UNIQUE_ID,
     CONF_ZONE,
     EVENT_HOMEASSISTANT_START,
@@ -54,6 +53,7 @@ from .const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
+    ATTR_DISPLAY_OPTIONS,
     ATTR_DISTANCE_FROM_HOME_KM,
     ATTR_DISTANCE_FROM_HOME_M,
     ATTR_DISTANCE_TRAVELED_M,
@@ -64,6 +64,7 @@ from .const import (
     ATTR_HOME_LONGITUDE,
     ATTR_HOME_ZONE,
     ATTR_INITIAL_UPDATE,
+    ATTR_IS_DRIVING,
     ATTR_JSON_FILENAME,
     ATTR_LAST_PLACE_NAME,
     ATTR_LATITUDE,
@@ -104,7 +105,6 @@ from .const import (
     CONF_OPTIONS,
     CONF_SHOW_TIME,
     CONF_YAML_HASH,
-    CONFIG_ATTRIBUTES_LIST,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
@@ -122,14 +122,17 @@ from .const import (
     TRACKING_DOMAINS_NEED_LATLONG,
 )
 
+_LOGGER = logging.getLogger(__name__)
 try:
     use_issue_reg = True
     from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
-except:
+except Exception as e:
+    _LOGGER.debug(
+        "Unknown Exception trying to import issue_registry. Is HA version <2022.9?: "
+        + str(e)
+    )
     use_issue_reg = False
 
-
-_LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
 PLACES_JSON_FOLDER = os.path.join("custom_components", DOMAIN, "json_sensors")
@@ -438,7 +441,7 @@ class Places(SensorEntity):
         )
         self.set_attr(
             ATTR_JSON_FILENAME,
-            (DOMAIN + "-" + slugify(str(self._attr_unique_id)) + ".json"),
+            (DOMAIN + "-" + slugify(str(self.get_attr(CONF_UNIQUE_ID))) + ".json"),
         )
         _LOGGER.debug(
             "("
@@ -506,31 +509,7 @@ class Places(SensorEntity):
         self.set_attr(ATTR_MTIME, str(datetime.now()))
         self.set_attr(ATTR_UPDATES_SKIPPED, 0)
 
-        sensor_attributes = {}
-        try:
-            with open(
-                os.path.join(PLACES_JSON_FOLDER, self.get_attr(ATTR_JSON_FILENAME)),
-                "r",
-            ) as jsonfile:
-                sensor_attributes = json.load(jsonfile)
-        except OSError as e:
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [Init] No JSON file to import ("
-                + str(self.get_attr(ATTR_JSON_FILENAME))
-                + "): "
-                + str(e)
-            )
-        except Exception as e:
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [Init] Unknown Exception importing JSON file ("
-                + str(self.get_attr(ATTR_JSON_FILENAME))
-                + "): "
-                + str(e)
-            )
+        sensor_attributes = self.get_dict_from_json_file()
         # _LOGGER.debug(
         #    "("
         #    + self.get_attr(CONF_NAME)
@@ -564,6 +543,36 @@ class Places(SensorEntity):
             + ") [Init] DeviceTracker Entity ID: "
             + self.get_attr(CONF_DEVICETRACKER_ID)
         )
+
+    def get_dict_from_json_file(self):
+        sensor_attributes = {}
+        try:
+            with open(
+                os.path.join(PLACES_JSON_FOLDER, self.get_attr(ATTR_JSON_FILENAME)),
+                "r",
+            ) as jsonfile:
+                sensor_attributes = json.load(jsonfile)
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [Init] No JSON file to import ("
+                + str(self.get_attr(ATTR_JSON_FILENAME))
+                + "): "
+                + str(e)
+            )
+            return {}
+        except Exception as e:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [Init] Unknown Exception importing JSON file ("
+                + str(self.get_attr(ATTR_JSON_FILENAME))
+                + "): "
+                + str(e)
+            )
+            return {}
+        return sensor_attributes
 
     async def async_added_to_hass(self) -> None:
         """Added to hass."""
@@ -640,7 +649,8 @@ class Places(SensorEntity):
         if not self.is_attr_blank(ATTR_NATIVE_VALUE):
             self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
 
-        json_attr.pop(CONF_NAME, None)  # Added for clarity if human reading the file
+        # Added for clarity if human reading the file
+        json_attr.pop(CONF_NAME, None)
         # Remove attributes that are part of the Config and are explicitly not imported from JSON
         json_attr.pop(ATTR_DEVICETRACKER_ID, None)
         json_attr.pop(ATTR_HOME_ZONE, None)
@@ -795,21 +805,7 @@ class Places(SensorEntity):
             if self.is_attr_blank(attr):
                 self.clear_attr(attr)
 
-    def do_update(self, reason):
-        """Get the latest data and updates the states."""
-
-        _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
-        self.cleanup_attributes()
-        if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
-            self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE)[:-14])
-        else:
-            self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE))
-
-        prev_last_place_name = None
-
-        _LOGGER.info(
-            "(" + self.get_attr(CONF_NAME) + ") Calling update due to: " + str(reason)
-        )
+    def check_for_updated_entity_name(self):
         if hasattr(self, "entity_id") and self.entity_id is not None:
             # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Entity ID: " + str(self.entity_id))
             if (
@@ -859,52 +855,268 @@ class Places(SensorEntity):
                     + str(self._config_entry.data.get(CONF_NAME))
                 )
 
-        _LOGGER.info(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Check if update req'd: "
-            + str(self.get_attr(CONF_DEVICETRACKER_ID))
+    def get_zone_details(self):
+        self.set_attr(
+            ATTR_DEVICETRACKER_ZONE,
+            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).state,
         )
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
-            + ") Previous State: "
-            + str(self.get_attr(ATTR_PREVIOUS_STATE))
+            + ") DeviceTracker Zone: "
+            + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
         )
 
-        now = datetime.now()
-        if self.is_float(self.get_attr(ATTR_LATITUDE)):
-            self.set_attr(ATTR_LATITUDE_OLD, str(self.get_attr(ATTR_LATITUDE)))
-        if self.is_float(self.get_attr(ATTR_LONGITUDE)):
-            self.set_attr(ATTR_LONGITUDE_OLD, str(self.get_attr(ATTR_LONGITUDE)))
-        if self.is_float(
-            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                CONF_LATITUDE
-            )
-        ):
+        devicetracker_zone_name_state = None
+        devicetracker_zone_id = self._hass.states.get(
+            self.get_attr(CONF_DEVICETRACKER_ID)
+        ).attributes.get(CONF_ZONE)
+        if devicetracker_zone_id is not None:
+            devicetracker_zone_id = str(CONF_ZONE) + "." + str(devicetracker_zone_id)
+            devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") DeviceTracker Zone ID: "
+        #    + str(devicetracker_zone_id)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") DeviceTracker Zone Name State: "
+        #    + str(devicetracker_zone_name_state)
+        # )
+        if devicetracker_zone_name_state is not None:
             self.set_attr(
-                ATTR_LATITUDE,
-                str(
-                    self._hass.states.get(
-                        self.get_attr(CONF_DEVICETRACKER_ID)
-                    ).attributes.get(CONF_LATITUDE)
-                ),
+                ATTR_DEVICETRACKER_ZONE_NAME, devicetracker_zone_name_state.name
             )
-        if self.is_float(
-            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                CONF_LONGITUDE
-            )
-        ):
+        else:
             self.set_attr(
-                ATTR_LONGITUDE,
-                str(
-                    self._hass.states.get(
-                        self.get_attr(CONF_DEVICETRACKER_ID)
-                    ).attributes.get(CONF_LONGITUDE)
-                ),
+                ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
+            )
+        if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME) and self.get_attr(
+            ATTR_DEVICETRACKER_ZONE_NAME
+        ).lower() == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
+            self.set_attr(
+                ATTR_DEVICETRACKER_ZONE_NAME,
+                self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).title(),
+            )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") DeviceTracker Zone Name: "
+            + str(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
+        )
+
+    def determine_if_update_needed(self):
+        proceed_with_update = True
+        if (
+            not self.is_attr_blank(ATTR_GPS_ACCURACY)
+            and self.get_attr(ATTR_GPS_ACCURACY) == 0
+        ):
+            proceed_with_update = False
+            _LOGGER.info(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") GPS Accuracy is 0, not performing update"
+            )
+        elif self.get_attr(ATTR_INITIAL_UPDATE):
+            _LOGGER.info(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Performing Initial Update for user..."
+            )
+            proceed_with_update = True
+        elif self.get_attr(ATTR_LOCATION_CURRENT) == self.get_attr(
+            ATTR_LOCATION_PREVIOUS
+        ):
+            _LOGGER.info(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Not performing update because coordinates are identical"
+            )
+            proceed_with_update = False
+        elif (
+            int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) > 0
+            and self.get_attr(ATTR_UPDATES_SKIPPED) > 3
+        ):
+            proceed_with_update = True
+            _LOGGER.info(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Allowing update after 3 skips even with distance traveled < 10m"
+            )
+        elif int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) < 10:
+            self.set_attr(ATTR_UPDATES_SKIPPED, self.get_attr(ATTR_UPDATES_SKIPPED) + 1)
+            _LOGGER.info(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Not performing update because location changed "
+                + str(round(self.get_attr(ATTR_DISTANCE_TRAVELED_M), 1))
+                + " < 10m  ("
+                + str(self.get_attr(ATTR_UPDATES_SKIPPED))
+                + ")"
+            )
+            proceed_with_update = False
+        return proceed_with_update
+
+    def get_dict_from_url(self, url, name):
+        get_dict = {}
+        _LOGGER.info(
+            "(" + self.get_attr(CONF_NAME) + ") Requesting data for " + str(name)
+        )
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") " + str(name) + " URL: " + str(url)
+        )
+        try:
+            get_response = requests.get(url)
+        except requests.exceptions.Timeout as e:
+            get_response = None
+            _LOGGER.warning(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Timeout connecting to "
+                + str(name)
+                + " [Error: "
+                + str(e)
+                + "]: "
+                + str(url)
+            )
+            return {}
+        except OSError as e:
+            # Includes error code 101, network unreachable
+            get_response = None
+            _LOGGER.warning(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Network unreachable error when connecting to "
+                + str(name)
+                + " ["
+                + str(e)
+                + "]: "
+                + str(url)
+            )
+            return {}
+        except NewConnectionError as e:
+            get_response = None
+            _LOGGER.warning(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Connection Error connecting to "
+                + str(name)
+                + " [Error: "
+                + str(e)
+                + "]: "
+                + str(url)
+            )
+            return {}
+        except Exception as e:
+            get_response = None
+            _LOGGER.warning(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Unknown Exception connecting to "
+                + str(name)
+                + " [Error: "
+                + str(e)
+                + "]: "
+                + str(url)
+            )
+            return {}
+
+        get_json_input = {}
+        if get_response is not None and get_response:
+            get_json_input = get_response.text
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") "
+                + str(name)
+                + " Response: "
+                + get_json_input
             )
 
-        # GPS Accuracy
+        if get_json_input is not None and get_json_input:
+            try:
+                get_dict = json.loads(get_json_input)
+            except json.decoder.JSONDecodeError as e:
+                _LOGGER.warning(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") JSON Decode Error with "
+                    + str(name)
+                    + " info [Error: "
+                    + str(e)
+                    + "]: "
+                    + str(get_json_input)
+                )
+                return {}
+        if "error_message" in get_dict:
+            _LOGGER.warning(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") An error occurred contacting the web service for "
+                + str(name)
+                + ": "
+                + str(get_dict.get("error_message"))
+            )
+            return {}
+        return get_dict
+
+    def get_map_link(self):
+
+        if self.get_attr(CONF_MAP_PROVIDER) == "google":
+            self.set_attr(
+                ATTR_MAP_LINK,
+                (
+                    "https://maps.google.com/?q="
+                    + str(self.get_attr(ATTR_LOCATION_CURRENT))
+                    + "&ll="
+                    + str(self.get_attr(ATTR_LOCATION_CURRENT))
+                    + "&z="
+                    + str(self.get_attr(CONF_MAP_ZOOM))
+                ),
+            )
+        elif self.get_attr(CONF_MAP_PROVIDER) == "osm":
+            self.set_attr(
+                ATTR_MAP_LINK,
+                (
+                    "https://www.openstreetmap.org/?mlat="
+                    + str(self.get_attr(ATTR_LATITUDE))
+                    + "&mlon="
+                    + str(self.get_attr(ATTR_LONGITUDE))
+                    + "#map="
+                    + str(self.get_attr(CONF_MAP_ZOOM))
+                    + "/"
+                    + str(self.get_attr(ATTR_LATITUDE))[:8]
+                    + "/"
+                    + str(self.get_attr(ATTR_LONGITUDE))[:9]
+                ),
+            )
+        else:
+            self.set_attr(
+                ATTR_MAP_LINK,
+                (
+                    "https://maps.apple.com/maps/?q="
+                    + str(self.get_attr(ATTR_LOCATION_CURRENT))
+                    + "&z="
+                    + str(self.get_attr(CONF_MAP_ZOOM))
+                ),
+            )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Map Link Type: "
+            + str(self.get_attr(CONF_MAP_PROVIDER))
+        )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Map Link URL: "
+            + str(self.get_attr(ATTR_MAP_LINK))
+        )
+
+    def get_gps_accuracy(self):
         if (
             self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID))
             and self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes
@@ -942,7 +1154,479 @@ class Places(SensorEntity):
                 + str(self.get_attr(CONF_DEVICETRACKER_ID))
             )
 
+    def get_driving_status(self):
+        isDriving = False
+        if not self.in_zone():
+            if self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary" and (
+                self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
+                or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
+            ):
+                isDriving = True
+        self.set_attr(ATTR_IS_DRIVING, isDriving)
+
+    def parse_osm_dict(self):
+        if "place" in str(self.get_attr(ATTR_OPTIONS)):
+            self.set_attr(ATTR_PLACE_TYPE, self.get_attr(ATTR_OSM_DICT).get("type"))
+            if self.get_attr(ATTR_PLACE_TYPE) == "yes":
+                self.set_attr(
+                    ATTR_PLACE_TYPE,
+                    self.get_attr(ATTR_OSM_DICT).get("addresstype"),
+                )
+            if self.get_attr(ATTR_PLACE_TYPE) in self.get_attr(ATTR_OSM_DICT).get(
+                "address"
+            ):
+                self.set_attr(
+                    ATTR_PLACE_NAME,
+                    self.get_attr(ATTR_OSM_DICT)
+                    .get("address")
+                    .get(self.get_attr(ATTR_PLACE_TYPE)),
+                )
+            if "category" in self.get_attr(ATTR_OSM_DICT):
+                self.set_attr(
+                    ATTR_PLACE_CATEGORY,
+                    self.get_attr(ATTR_OSM_DICT).get("category"),
+                )
+                if self.get_attr(ATTR_PLACE_CATEGORY) in self.get_attr(
+                    ATTR_OSM_DICT
+                ).get("address"):
+                    self.set_attr(
+                        ATTR_PLACE_NAME,
+                        self.get_attr(ATTR_OSM_DICT)
+                        .get("address")
+                        .get(self.get_attr(ATTR_PLACE_CATEGORY)),
+                    )
+            if "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
+                self.set_attr(
+                    ATTR_PLACE_NAME,
+                    self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
+                )
+            if not self.is_attr_blank(CONF_LANGUAGE):
+                for language in self.get_attr(CONF_LANGUAGE).split(","):
+                    if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
+                        "namedetails"
+                    ):
+                        self.set_attr(
+                            ATTR_PLACE_NAME,
+                            self.get_attr(ATTR_OSM_DICT)
+                            .get("namedetails")
+                            .get("name:" + language),
+                        )
+                        break
+            if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
+                self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
+
+        if "house_number" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_STREET_NUMBER,
+                (self.get_attr(ATTR_OSM_DICT).get("address").get("house_number")),
+            )
+        if "road" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_STREET,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("road"),
+            )
+
+        if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_PLACE_NEIGHBOURHOOD,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("neighbourhood"),
+            )
+        elif "hamlet" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_PLACE_NEIGHBOURHOOD,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("hamlet"),
+            )
+
+        if "city" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_CITY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("city"),
+            )
+        elif "town" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_CITY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("town"),
+            )
+        elif "village" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_CITY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("village"),
+            )
+        elif "township" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_CITY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("township"),
+            )
+        elif "municipality" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_CITY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("municipality"),
+            )
+        elif "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_CITY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
+            )
+        if not self.is_attr_blank(ATTR_CITY) and self.get_attr(ATTR_CITY).startswith(
+            "City of"
+        ):
+            self.set_attr(ATTR_CITY, self.get_attr(ATTR_CITY)[8:] + " City")
+
+        if "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_POSTAL_TOWN,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
+            )
+        if "suburb" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_POSTAL_TOWN,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("suburb"),
+            )
+        if "state" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_REGION,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("state"),
+            )
+        if "ISO3166-2-lvl4" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_STATE_ABBR,
+                (
+                    self.get_attr(ATTR_OSM_DICT)
+                    .get("address")
+                    .get("ISO3166-2-lvl4")
+                    .split("-")[1]
+                    .upper()
+                ),
+            )
+        if "county" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_COUNTY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("county"),
+            )
+        if "country" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_COUNTRY,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("country"),
+            )
+        if "postcode" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_POSTAL_CODE,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("postcode"),
+            )
+        if "display_name" in self.get_attr(ATTR_OSM_DICT):
+            self.set_attr(
+                ATTR_FORMATTED_ADDRESS,
+                self.get_attr(ATTR_OSM_DICT).get("display_name"),
+            )
+
+        if "osm_id" in self.get_attr(ATTR_OSM_DICT):
+            self.set_attr(ATTR_OSM_ID, str(self.get_attr(ATTR_OSM_DICT).get("osm_id")))
+        if "osm_type" in self.get_attr(ATTR_OSM_DICT):
+            self.set_attr(ATTR_OSM_TYPE, self.get_attr(ATTR_OSM_DICT).get("osm_type"))
+
+    def build_formatted_place(self):
+        formatted_place_array = []
+        display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
+        if not self.in_zone():
+            if self.get_attr(ATTR_IS_DRIVING) and "driving" in display_options:
+                formatted_place_array.append("Driving")
+            if self.is_attr_blank(ATTR_PLACE_NAME):
+                if (
+                    not self.is_attr_blank(ATTR_PLACE_TYPE)
+                    and self.get_attr(ATTR_PLACE_TYPE).lower() != "unclassified"
+                    and self.get_attr(ATTR_PLACE_CATEGORY).lower() != "highway"
+                ):
+                    formatted_place_array.append(
+                        self.get_attr(ATTR_PLACE_TYPE)
+                        .title()
+                        .replace("Proposed", "")
+                        .replace("Construction", "")
+                        .strip()
+                    )
+                elif (
+                    not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+                    and self.get_attr(ATTR_PLACE_CATEGORY).lower() != "highway"
+                ):
+                    formatted_place_array.append(
+                        self.get_attr(ATTR_PLACE_CATEGORY).title().strip()
+                    )
+                if not self.is_attr_blank(ATTR_STREET):
+                    if self.is_attr_blank(ATTR_STREET_NUMBER):
+                        formatted_place_array.append(self.get_attr(ATTR_STREET).strip())
+                    else:
+                        formatted_place_array.append(
+                            self.get_attr(ATTR_STREET_NUMBER).strip()
+                            + " "
+                            + self.get_attr(ATTR_STREET).strip()
+                        )
+                if (
+                    not self.is_attr_blank(ATTR_PLACE_TYPE)
+                    and self.get_attr(ATTR_PLACE_TYPE).lower() == "house"
+                    and not self.is_attr_blank(ATTR_PLACE_NEIGHBOURHOOD)
+                ):
+                    formatted_place_array.append(
+                        self.get_attr(ATTR_PLACE_NEIGHBOURHOOD).strip()
+                    )
+
+            else:
+                formatted_place_array.append(self.get_attr(ATTR_PLACE_NAME).strip())
+            if not self.is_attr_blank(ATTR_CITY):
+                formatted_place_array.append(
+                    self.get_attr(ATTR_CITY).replace(" Township", "").strip()
+                )
+            elif not self.is_attr_blank(ATTR_COUNTY):
+                formatted_place_array.append(self.get_attr(ATTR_COUNTY).strip())
+            if not self.is_attr_blank(ATTR_STATE_ABBR):
+                formatted_place_array.append(self.get_attr(ATTR_STATE_ABBR))
+        else:
+            formatted_place_array.append(
+                self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).strip()
+            )
+        formatted_place = ", ".join(item for item in formatted_place_array)
+        formatted_place = formatted_place.replace("\n", " ").replace("  ", " ").strip()
+        self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
+
+    def build_state_from_display_options(self):
+        # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
+
+        display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Building State from Display Options: "
+            + str(self.get_attr(ATTR_OPTIONS))
+        )
+
+        user_display = []
+        if "driving" in display_options and self.get_attr(ATTR_IS_DRIVING):
+            user_display.append("Driving")
+
+        if (
+            "zone_name" in display_options
+            and "do_not_show_not_home" not in display_options
+            and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME)
+        ):
+            user_display.append(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
+        elif (
+            "zone" in display_options
+            and "do_not_show_not_home" not in display_options
+            and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE)
+        ):
+            user_display.append(self.get_attr(ATTR_DEVICETRACKER_ZONE))
+
+        if "place_name" in display_options and not self.is_attr_blank(ATTR_PLACE_NAME):
+            user_display.append(self.get_attr(ATTR_PLACE_NAME))
+        if "place" in display_options:
+            if not self.is_attr_blank(ATTR_PLACE_NAME):
+                user_display.append(self.get_attr(ATTR_PLACE_NAME))
+            if (
+                not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+                and self.get_attr(ATTR_PLACE_CATEGORY).lower() != "place"
+            ):
+                user_display.append(self.get_attr(ATTR_PLACE_CATEGORY))
+            if (
+                not self.is_attr_blank(ATTR_PLACE_TYPE)
+                and self.get_attr(ATTR_PLACE_TYPE).lower() != "yes"
+            ):
+                user_display.append(self.get_attr(ATTR_PLACE_TYPE))
+            if not self.is_attr_blank(ATTR_PLACE_NEIGHBOURHOOD):
+                user_display.append(self.get_attr(ATTR_PLACE_NEIGHBOURHOOD))
+            if not self.is_attr_blank(ATTR_STREET_NUMBER):
+                user_display.append(self.get_attr(ATTR_STREET_NUMBER))
+            if not self.is_attr_blank(ATTR_STREET):
+                user_display.append(self.get_attr(ATTR_STREET))
+        else:
+            if "street_number" in display_options and not self.is_attr_blank(
+                ATTR_STREET_NUMBER
+            ):
+                user_display.append(self.get_attr(ATTR_STREET_NUMBER))
+            if "street" in display_options and not self.is_attr_blank(ATTR_STREET):
+                user_display.append(self.get_attr(ATTR_STREET))
+        if "city" in display_options and not self.is_attr_blank(ATTR_CITY):
+            user_display.append(self.get_attr(ATTR_CITY))
+        if "county" in display_options and not self.is_attr_blank(ATTR_COUNTY):
+            user_display.append(self.get_attr(ATTR_COUNTY))
+        if "state" in display_options and not self.is_attr_blank(ATTR_REGION):
+            user_display.append(self.get_attr(ATTR_REGION))
+        elif "region" in display_options and not self.is_attr_blank(ATTR_REGION):
+            user_display.append(self.get_attr(ATTR_REGION))
+        if "postal_code" in display_options and not self.is_attr_blank(
+            ATTR_POSTAL_CODE
+        ):
+            user_display.append(self.get_attr(ATTR_POSTAL_CODE))
+        if "country" in display_options and not self.is_attr_blank(ATTR_COUNTRY):
+            user_display.append(self.get_attr(ATTR_COUNTRY))
+        if "formatted_address" in display_options and not self.is_attr_blank(
+            ATTR_FORMATTED_ADDRESS
+        ):
+            user_display.append(self.get_attr(ATTR_FORMATTED_ADDRESS))
+
+        if "do_not_reorder" in display_options:
+            user_display = []
+            display_options.remove("do_not_reorder")
+            for option in display_options:
+                if option == "state":
+                    target_option = "region"
+                if option == "place_neighborhood":
+                    target_option = "place_neighbourhood"
+                if option in locals():
+                    user_display.append(target_option)
+
+        if user_display:
+            self.set_attr(ATTR_NATIVE_VALUE, ", ".join(item for item in user_display))
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") New State from Display Options: "
+            + str(self.get_attr(ATTR_NATIVE_VALUE))
+        )
+
+    def get_extended_attr(self):
+        if not self.is_attr_blank(ATTR_OSM_ID) and not self.is_attr_blank(
+            ATTR_OSM_TYPE
+        ):
+            if self.get_attr(ATTR_OSM_TYPE).lower() == "node":
+                osm_type_abbr = "N"
+            elif self.get_attr(ATTR_OSM_TYPE).lower() == "way":
+                osm_type_abbr = "W"
+            elif self.get_attr(ATTR_OSM_TYPE).lower() == "relation":
+                osm_type_abbr = "R"
+
+            osm_details_url = (
+                "https://nominatim.openstreetmap.org/details.php?osmtype="
+                + str(osm_type_abbr)
+                + "&osmid="
+                + str(self.get_attr(ATTR_OSM_ID))
+                + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
+                + (
+                    "&email=" + str(self.get_attr(CONF_API_KEY))
+                    if self.is_attr_blank(CONF_API_KEY)
+                    else ""
+                )
+                + (
+                    "&accept-language=" + str(self.get_attr(CONF_LANGUAGE))
+                    if not self.is_attr_blank(CONF_LANGUAGE)
+                    else ""
+                )
+            )
+            self.set_attr(
+                ATTR_OSM_DETAILS_DICT,
+                self.get_dict_from_url(osm_details_url, "OpenStreetMaps Details"),
+            )
+
+            if not self.is_attr_blank(ATTR_OSM_DETAILS_DICT):
+                # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") OSM Details Dict: " + str(osm_details_dict))
+
+                if (
+                    not self.is_attr_blank(ATTR_OSM_DETAILS_DICT)
+                    and "extratags" in self.get_attr(ATTR_OSM_DETAILS_DICT)
+                    and "wikidata"
+                    in self.get_attr(ATTR_OSM_DETAILS_DICT).get("extratags")
+                ):
+                    self.set_attr(
+                        ATTR_WIKIDATA_ID,
+                        self.get_attr(ATTR_OSM_DETAILS_DICT)
+                        .get("extratags")
+                        .get("wikidata"),
+                    )
+
+                self.set_attr(ATTR_WIKIDATA_DICT, {})
+                if not self.is_attr_blank(ATTR_WIKIDATA_ID):
+                    wikidata_url = (
+                        "https://www.wikidata.org/wiki/Special:EntityData/"
+                        + str(self.get_attr(ATTR_WIKIDATA_ID))
+                        + ".json"
+                    )
+                    self.set_attr(
+                        ATTR_WIKIDATA_DICT,
+                        self.get_dict_from_url(wikidata_url, "Wikidata"),
+                    )
+
+    def fire_event_data(self, prev_last_place_name):
+        _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Building Event Data")
+        event_data = {}
+        if not self.is_attr_blank(CONF_NAME):
+            event_data.update({"entity": self.get_attr(CONF_NAME)})
+        if not self.is_attr_blank(ATTR_PREVIOUS_STATE):
+            event_data.update({"from_state": self.get_attr(ATTR_PREVIOUS_STATE)})
+        if not self.is_attr_blank(ATTR_NATIVE_VALUE):
+            event_data.update({"to_state": self.get_attr(ATTR_NATIVE_VALUE)})
+
+        for attr in EVENT_ATTRIBUTE_LIST:
+            if not self.is_attr_blank(attr):
+                event_data.update({attr: self.get_attr(attr)})
+
+        if (
+            not self.is_attr_blank(ATTR_LAST_PLACE_NAME)
+            and self.get_attr(ATTR_LAST_PLACE_NAME) != prev_last_place_name
+        ):
+            event_data.update(
+                {ATTR_LAST_PLACE_NAME: self.get_attr(ATTR_LAST_PLACE_NAME)}
+            )
+
+        if self.get_attr(CONF_EXTENDED_ATTR):
+            for attr in EXTENDED_ATTRIBUTE_LIST:
+                if not self.is_attr_blank(attr):
+                    event_data.update({attr: self.get_attr(attr)})
+
+        self._hass.bus.fire(DOMAIN + "_state_update", event_data)
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Event Details [event_type: "
+            + DOMAIN
+            + "_state_update]: "
+            + str(event_data)
+        )
+        _LOGGER.info(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Event Fired [event_type: "
+            + DOMAIN
+            + "_state_update]"
+        )
+
+    def write_sensor_to_json(self):
+        sensor_attributes = {}
+        sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
+        sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
+        sensor_attributes.update(self.extra_state_attributes)
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Sensor Attributes to Save ["
+        #    + str(type(sensor_attributes))
+        #    + "]: "
+        #    + str(sensor_attributes)
+        # )
+        try:
+            with open(
+                os.path.join(PLACES_JSON_FOLDER, self.get_attr(ATTR_JSON_FILENAME)),
+                "w",
+            ) as jsonfile:
+                json.dump(sensor_attributes, jsonfile)
+        except OSError as e:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") OSError writing sensor to JSON ("
+                + str(self.get_attr(ATTR_JSON_FILENAME))
+                + "): "
+                + str(e)
+            )
+        except Exception as e:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Unknown Exception writing sensor to JSON ("
+                + str(self.get_attr(ATTR_JSON_FILENAME))
+                + "): "
+                + str(e)
+            )
+
+    def update_coordinates_and_distance(self):
         last_distance_m = self.get_attr(ATTR_DISTANCE_FROM_HOME_M)
+        proceed_with_update = True
         if not self.is_attr_blank(ATTR_LATITUDE) and not self.is_attr_blank(
             ATTR_LONGITUDE
         ):
@@ -976,7 +1660,6 @@ class Places(SensorEntity):
                     + str(self.get_attr(ATTR_HOME_LONGITUDE))
                 ),
             )
-        prev_last_place_name = self.get_attr(ATTR_LAST_PLACE_NAME)
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
@@ -1020,7 +1703,6 @@ class Places(SensorEntity):
             + str(self.get_attr(ATTR_LAST_PLACE_NAME))
         )
 
-        proceed_with_update = True
         if (
             not self.is_attr_blank(ATTR_LATITUDE)
             and not self.is_attr_blank(ATTR_LONGITUDE)
@@ -1095,61 +1777,6 @@ class Places(SensorEntity):
                 + str(self.get_attr(ATTR_DIRECTION_OF_TRAVEL))
             )
 
-            self.set_attr(
-                ATTR_DEVICETRACKER_ZONE,
-                self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).state,
-            )
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") DeviceTracker Zone: "
-                + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
-            )
-
-            devicetracker_zone_name_state = None
-            devicetracker_zone_id = self._hass.states.get(
-                self.get_attr(CONF_DEVICETRACKER_ID)
-            ).attributes.get(CONF_ZONE)
-            if devicetracker_zone_id is not None:
-                devicetracker_zone_id = (
-                    str(CONF_ZONE) + "." + str(devicetracker_zone_id)
-                )
-                devicetracker_zone_name_state = self._hass.states.get(
-                    devicetracker_zone_id
-                )
-            # _LOGGER.debug(
-            #    "("
-            #    + self.get_attr(CONF_NAME)
-            #    + ") DeviceTracker Zone ID: "
-            #    + str(devicetracker_zone_id)
-            # )
-            # _LOGGER.debug(
-            #    "("
-            #    + self.get_attr(CONF_NAME)
-            #    + ") DeviceTracker Zone Name State: "
-            #    + str(devicetracker_zone_name_state)
-            # )
-            if devicetracker_zone_name_state is not None:
-                self.set_attr(
-                    ATTR_DEVICETRACKER_ZONE_NAME, devicetracker_zone_name_state.name
-                )
-            else:
-                self.set_attr(
-                    ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
-                )
-            if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME) and self.get_attr(
-                ATTR_DEVICETRACKER_ZONE_NAME
-            ).lower() == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
-                self.set_attr(
-                    ATTR_DEVICETRACKER_ZONE_NAME,
-                    self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).title(),
-                )
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") DeviceTracker Zone Name: "
-                + str(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
-            )
             self.set_attr(ATTR_DISTANCE_TRAVELED_M, 0)
             if not self.is_attr_blank(ATTR_LATITUDE_OLD) and not self.is_attr_blank(
                 ATTR_LONGITUDE_OLD
@@ -1189,57 +1816,73 @@ class Places(SensorEntity):
                 + ", home_longitude="
                 + str(self.get_attr(ATTR_HOME_LONGITUDE))
             )
+        return proceed_with_update
 
-        if not proceed_with_update:
-            proceed_with_update = False
-        elif (
-            not self.is_attr_blank(ATTR_GPS_ACCURACY)
-            and self.get_attr(ATTR_GPS_ACCURACY) == 0
+    def do_update(self, reason):
+        """Get the latest data and updates the states."""
+
+        _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
+        self.check_for_updated_entity_name()
+        self.cleanup_attributes()
+        if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
+            self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE)[:-14])
+        else:
+            self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE))
+        if self.is_float(self.get_attr(ATTR_LATITUDE)):
+            self.set_attr(ATTR_LATITUDE_OLD, str(self.get_attr(ATTR_LATITUDE)))
+        if self.is_float(self.get_attr(ATTR_LONGITUDE)):
+            self.set_attr(ATTR_LONGITUDE_OLD, str(self.get_attr(ATTR_LONGITUDE)))
+        prev_last_place_name = self.get_attr(ATTR_LAST_PLACE_NAME)
+
+        _LOGGER.info(
+            "(" + self.get_attr(CONF_NAME) + ") Calling update due to: " + str(reason)
+        )
+        _LOGGER.info(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Check if update required for: "
+            + str(self.get_attr(CONF_DEVICETRACKER_ID))
+        )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Previous State: "
+            + str(self.get_attr(ATTR_PREVIOUS_STATE))
+        )
+
+        if self.is_float(
+            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
+                CONF_LATITUDE
+            )
         ):
-            proceed_with_update = False
-            _LOGGER.info(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") GPS Accuracy is 0, not performing update"
+            self.set_attr(
+                ATTR_LATITUDE,
+                str(
+                    self._hass.states.get(
+                        self.get_attr(CONF_DEVICETRACKER_ID)
+                    ).attributes.get(CONF_LATITUDE)
+                ),
             )
-        elif self.get_attr(ATTR_INITIAL_UPDATE):
-            _LOGGER.info(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Performing Initial Update for user..."
+        if self.is_float(
+            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
+                CONF_LONGITUDE
             )
-            proceed_with_update = True
-        elif self.get_attr(ATTR_LOCATION_CURRENT) == self.get_attr(
-            ATTR_LOCATION_PREVIOUS
         ):
-            _LOGGER.info(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Not performing update because coordinates are identical"
+            self.set_attr(
+                ATTR_LONGITUDE,
+                str(
+                    self._hass.states.get(
+                        self.get_attr(CONF_DEVICETRACKER_ID)
+                    ).attributes.get(CONF_LONGITUDE)
+                ),
             )
-            proceed_with_update = False
-        elif (
-            int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) > 0
-            and self.get_attr(ATTR_UPDATES_SKIPPED) > 3
-        ):
-            proceed_with_update = True
-            _LOGGER.info(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Allowing update after 3 skips even with distance traveled < 10m"
-            )
-        elif int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) < 10:
-            self.set_attr(ATTR_UPDATES_SKIPPED, self.get_attr(ATTR_UPDATES_SKIPPED) + 1)
-            _LOGGER.info(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Not performing update because location changed "
-                + str(round(self.get_attr(ATTR_DISTANCE_TRAVELED_M), 1))
-                + " < 10m  ("
-                + str(self.get_attr(ATTR_UPDATES_SKIPPED))
-                + ")"
-            )
-            proceed_with_update = False
+
+        self.get_gps_accuracy()
+        self.get_zone_details()
+        proceed_with_update = self.update_coordinates_and_distance()
+
+        if proceed_with_update:
+            proceed_with_update = self.determine_if_update_needed()
 
         if proceed_with_update and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
             _LOGGER.info(
@@ -1258,58 +1901,7 @@ class Places(SensorEntity):
             )
 
             self._reset_attributes()
-
-            if self.get_attr(CONF_MAP_PROVIDER) == "google":
-                self.set_attr(
-                    ATTR_MAP_LINK,
-                    (
-                        "https://maps.google.com/?q="
-                        + str(self.get_attr(ATTR_LOCATION_CURRENT))
-                        + "&ll="
-                        + str(self.get_attr(ATTR_LOCATION_CURRENT))
-                        + "&z="
-                        + str(self.get_attr(CONF_MAP_ZOOM))
-                    ),
-                )
-
-            elif self.get_attr(CONF_MAP_PROVIDER) == "osm":
-                self.set_attr(
-                    ATTR_MAP_LINK,
-                    (
-                        "https://www.openstreetmap.org/?mlat="
-                        + str(self.get_attr(ATTR_LATITUDE))
-                        + "&mlon="
-                        + str(self.get_attr(ATTR_LONGITUDE))
-                        + "#map="
-                        + str(self.get_attr(CONF_MAP_ZOOM))
-                        + "/"
-                        + str(self.get_attr(ATTR_LATITUDE))[:8]
-                        + "/"
-                        + str(self.get_attr(ATTR_LONGITUDE))[:9]
-                    ),
-                )
-            else:
-                self.set_attr(
-                    ATTR_MAP_LINK,
-                    (
-                        "https://maps.apple.com/maps/?q="
-                        + str(self.get_attr(ATTR_LOCATION_CURRENT))
-                        + "&z="
-                        + str(self.get_attr(CONF_MAP_ZOOM))
-                    ),
-                )
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Map Link Type: "
-                + str(self.get_attr(CONF_MAP_PROVIDER))
-            )
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Map Link URL: "
-                + str(self.get_attr(ATTR_MAP_LINK))
-            )
+            self.get_map_link()
 
             osm_url = (
                 "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="
@@ -1329,257 +1921,12 @@ class Places(SensorEntity):
                 )
             )
 
-            self.set_attr(ATTR_OSM_DICT, {})
-            _LOGGER.info(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") OpenStreetMap Request: lat="
-                + str(self.get_attr(ATTR_LATITUDE))
-                + " and lon="
-                + str(self.get_attr(ATTR_LONGITUDE))
+            self.set_attr(
+                ATTR_OSM_DICT, self.get_dict_from_url(osm_url, "OpenStreetMaps")
             )
-            _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") OSM URL: " + str(osm_url))
-            try:
-                osm_response = requests.get(osm_url)
-            except requests.exceptions.Timeout as e:
-                osm_response = None
-                _LOGGER.warning(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Timeout connecting to OpenStreetMaps [Error: "
-                    + str(e)
-                    + "]: "
-                    + str(osm_url)
-                )
-            except OSError as e:
-                # Includes error code 101, network unreachable
-                osm_response = None
-                _LOGGER.warning(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Network unreachable error when connecting to OpenStreetMaps ["
-                    + str(e)
-                    + "]: "
-                    + str(osm_url)
-                )
-            except NewConnectionError as e:
-                osm_response = None
-                _LOGGER.warning(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Connection Error connecting to OpenStreetMaps [Error: "
-                    + str(e)
-                    + "]: "
-                    + str(osm_url)
-                )
-            except Exception as e:
-                osm_response = None
-                _LOGGER.warning(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Unknown Exception connecting to OpenStreetMaps [Error: "
-                    + str(e)
-                    + "]: "
-                    + str(osm_url)
-                )
-
-            osm_json_input = {}
-            if osm_response is not None and osm_response:
-                osm_json_input = osm_response.text
-                _LOGGER.debug(
-                    "(" + self.get_attr(CONF_NAME) + ") OSM Response: " + osm_json_input
-                )
-
-            if osm_json_input is not None and osm_json_input:
-                try:
-                    self.set_attr(ATTR_OSM_DICT, json.loads(osm_json_input))
-                except json.decoder.JSONDecodeError as e:
-                    self.clear_attr(ATTR_OSM_DICT)
-                    _LOGGER.warning(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") JSON Decode Error with OSM info [Error: "
-                        + str(e)
-                        + "]: "
-                        + str(osm_json_input)
-                    )
             if not self.is_attr_blank(ATTR_OSM_DICT):
 
-                if "place" in str(self.get_attr(ATTR_OPTIONS)):
-                    self.set_attr(
-                        ATTR_PLACE_TYPE, self.get_attr(ATTR_OSM_DICT).get("type")
-                    )
-                    if self.get_attr(ATTR_PLACE_TYPE) == "yes":
-                        self.set_attr(
-                            ATTR_PLACE_TYPE,
-                            self.get_attr(ATTR_OSM_DICT).get("addresstype"),
-                        )
-                    if self.get_attr(ATTR_PLACE_TYPE) in self.get_attr(
-                        ATTR_OSM_DICT
-                    ).get("address"):
-                        self.set_attr(
-                            ATTR_PLACE_NAME,
-                            self.get_attr(ATTR_OSM_DICT)
-                            .get("address")
-                            .get(self.get_attr(ATTR_PLACE_TYPE)),
-                        )
-                    if "category" in self.get_attr(ATTR_OSM_DICT):
-                        self.set_attr(
-                            ATTR_PLACE_CATEGORY,
-                            self.get_attr(ATTR_OSM_DICT).get("category"),
-                        )
-                        if self.get_attr(ATTR_PLACE_CATEGORY) in self.get_attr(
-                            ATTR_OSM_DICT
-                        ).get("address"):
-                            self.set_attr(
-                                ATTR_PLACE_NAME,
-                                self.get_attr(ATTR_OSM_DICT)
-                                .get("address")
-                                .get(self.get_attr(ATTR_PLACE_CATEGORY)),
-                            )
-                    if "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
-                        self.set_attr(
-                            ATTR_PLACE_NAME,
-                            self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
-                        )
-                    if not self.is_attr_blank(CONF_LANGUAGE):
-                        for language in self.get_attr(CONF_LANGUAGE).split(","):
-                            if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
-                                "namedetails"
-                            ):
-                                self.set_attr(
-                                    ATTR_PLACE_NAME,
-                                    self.get_attr(ATTR_OSM_DICT)
-                                    .get("namedetails")
-                                    .get("name:" + language),
-                                )
-                                break
-                    if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
-                        self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
-
-                if "house_number" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_STREET_NUMBER,
-                        (
-                            self.get_attr(ATTR_OSM_DICT)
-                            .get("address")
-                            .get("house_number")
-                        ),
-                    )
-                if "road" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_STREET,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("road"),
-                    )
-
-                if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_PLACE_NEIGHBOURHOOD,
-                        self.get_attr(ATTR_OSM_DICT)
-                        .get("address")
-                        .get("neighbourhood"),
-                    )
-                elif "hamlet" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_PLACE_NEIGHBOURHOOD,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("hamlet"),
-                    )
-
-                if "city" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_CITY,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("city"),
-                    )
-                elif "town" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_CITY,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("town"),
-                    )
-                elif "village" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_CITY,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("village"),
-                    )
-                elif "township" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_CITY,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("township"),
-                    )
-                elif "municipality" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_CITY,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("municipality"),
-                    )
-                elif "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_CITY,
-                        self.get_attr(ATTR_OSM_DICT)
-                        .get("address")
-                        .get("city_district"),
-                    )
-                if not self.is_attr_blank(ATTR_CITY) and self.get_attr(
-                    ATTR_CITY
-                ).startswith("City of"):
-                    self.set_attr(ATTR_CITY, self.get_attr(ATTR_CITY)[8:] + " City")
-
-                if "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_POSTAL_TOWN,
-                        self.get_attr(ATTR_OSM_DICT)
-                        .get("address")
-                        .get("city_district"),
-                    )
-                if "suburb" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_POSTAL_TOWN,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("suburb"),
-                    )
-                if "state" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_REGION,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("state"),
-                    )
-                if "ISO3166-2-lvl4" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_STATE_ABBR,
-                        (
-                            self.get_attr(ATTR_OSM_DICT)
-                            .get("address")
-                            .get("ISO3166-2-lvl4")
-                            .split("-")[1]
-                            .upper()
-                        ),
-                    )
-                if "county" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_COUNTY,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("county"),
-                    )
-                if "country" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_COUNTRY,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("country"),
-                    )
-                if "postcode" in self.get_attr(ATTR_OSM_DICT).get("address"):
-                    self.set_attr(
-                        ATTR_POSTAL_CODE,
-                        self.get_attr(ATTR_OSM_DICT).get("address").get("postcode"),
-                    )
-                if "display_name" in self.get_attr(ATTR_OSM_DICT):
-                    self.set_attr(
-                        ATTR_FORMATTED_ADDRESS,
-                        self.get_attr(ATTR_OSM_DICT).get("display_name"),
-                    )
-
-                if "osm_id" in self.get_attr(ATTR_OSM_DICT):
-                    self.set_attr(
-                        ATTR_OSM_ID, str(self.get_attr(ATTR_OSM_DICT).get("osm_id"))
-                    )
-                if "osm_type" in self.get_attr(ATTR_OSM_DICT):
-                    self.set_attr(
-                        ATTR_OSM_TYPE, self.get_attr(ATTR_OSM_DICT).get("osm_type")
-                    )
-
+                self.parse_osm_dict()
                 if self.get_attr(ATTR_INITIAL_UPDATE):
                     _LOGGER.debug(
                         "("
@@ -1614,100 +1961,17 @@ class Places(SensorEntity):
                     + str(self.get_attr(ATTR_LAST_PLACE_NAME))
                 )
 
-                isDriving = False
-
                 display_options = []
                 if not self.is_attr_blank(CONF_OPTIONS):
                     options_array = self.get_attr(ATTR_OPTIONS).split(",")
                     for option in options_array:
                         display_options.append(option.strip())
+                self.set_attr(ATTR_DISPLAY_OPTIONS, display_options)
 
-                # Formatted Place
-                formatted_place_array = []
-                if not self.in_zone():
-                    if (
-                        self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
-                        and (
-                            self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
-                            or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
-                        )
-                        and "driving" in display_options
-                    ):
-                        formatted_place_array.append("Driving")
-                        isDriving = True
-                    if self.is_attr_blank(ATTR_PLACE_NAME):
-                        if (
-                            not self.is_attr_blank(ATTR_PLACE_TYPE)
-                            and self.get_attr(ATTR_PLACE_TYPE).lower() != "unclassified"
-                            and self.get_attr(ATTR_PLACE_CATEGORY).lower() != "highway"
-                        ):
-                            formatted_place_array.append(
-                                self.get_attr(ATTR_PLACE_TYPE)
-                                .title()
-                                .replace("Proposed", "")
-                                .replace("Construction", "")
-                                .strip()
-                            )
-                        elif (
-                            not self.is_attr_blank(ATTR_PLACE_CATEGORY)
-                            and self.get_attr(ATTR_PLACE_CATEGORY).lower() != "highway"
-                        ):
-                            formatted_place_array.append(
-                                self.get_attr(ATTR_PLACE_CATEGORY).title().strip()
-                            )
-                        if not self.is_attr_blank(ATTR_STREET):
-                            if self.is_attr_blank(ATTR_STREET_NUMBER):
-                                formatted_place_array.append(
-                                    self.get_attr(ATTR_STREET).strip()
-                                )
-                            else:
-                                formatted_place_array.append(
-                                    self.get_attr(ATTR_STREET_NUMBER).strip()
-                                    + " "
-                                    + self.get_attr(ATTR_STREET).strip()
-                                )
-                        if (
-                            not self.is_attr_blank(ATTR_PLACE_TYPE)
-                            and self.get_attr(ATTR_PLACE_TYPE).lower() == "house"
-                            and not self.is_attr_blank(ATTR_PLACE_NEIGHBOURHOOD)
-                        ):
-                            formatted_place_array.append(
-                                self.get_attr(ATTR_PLACE_NEIGHBOURHOOD).strip()
-                            )
+                self.get_driving_status()
 
-                    else:
-                        formatted_place_array.append(
-                            self.get_attr(ATTR_PLACE_NAME).strip()
-                        )
-                    if not self.is_attr_blank(ATTR_CITY):
-                        formatted_place_array.append(
-                            self.get_attr(ATTR_CITY).replace(" Township", "").strip()
-                        )
-                    elif not self.is_attr_blank(ATTR_COUNTY):
-                        formatted_place_array.append(self.get_attr(ATTR_COUNTY).strip())
-                    if not self.is_attr_blank(ATTR_STATE_ABBR):
-                        formatted_place_array.append(self.get_attr(ATTR_STATE_ABBR))
-                else:
-                    formatted_place_array.append(
-                        self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).strip()
-                    )
-                formatted_place = ", ".join(item for item in formatted_place_array)
-                formatted_place = (
-                    formatted_place.replace("\n", " ").replace("  ", " ").strip()
-                )
-                self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
-
-                if "error_message" in self.get_attr(ATTR_OSM_DICT):
-                    self.set_attr(
-                        ATTR_NATIVE_VALUE,
-                        self.get_attr(ATTR_OSM_DICT).get("error_message", None),
-                    )
-                    _LOGGER.warning(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") An error occurred contacting the web service for OpenStreetMap"
-                    )
-                elif "formatted_place" in display_options:
+                if "formatted_place" in display_options:
+                    self.build_formatted_place()
                     self.set_attr(
                         ATTR_NATIVE_VALUE, self.get_attr(ATTR_FORMATTED_PLACE)
                     )
@@ -1718,116 +1982,7 @@ class Places(SensorEntity):
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 elif not self.in_zone():
-
-                    # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
-
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") Building State from Display Options: "
-                        + str(self.get_attr(ATTR_OPTIONS))
-                    )
-
-                    user_display = []
-
-                    if "driving" in display_options and isDriving:
-                        user_display.append("Driving")
-
-                    if (
-                        "zone_name" in display_options
-                        and "do_not_show_not_home" not in display_options
-                        and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME)
-                    ):
-                        user_display.append(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
-                    elif (
-                        "zone" in display_options
-                        and "do_not_show_not_home" not in display_options
-                        and not is_attr_blank(ATTR_DEVICETRACKER_ZONE)
-                    ):
-                        user_display.append(self.get_attr(ATTR_DEVICETRACKER_ZONE))
-
-                    if "place_name" in display_options and not self.is_attr_blank(
-                        ATTR_PLACE_NAME
-                    ):
-                        user_display.append(self.get_attr(ATTR_PLACE_NAME))
-                    if "place" in display_options:
-                        if not self.is_attr_blank(ATTR_PLACE_NAME):
-                            user_display.append(self.get_attr(ATTR_PLACE_NAME))
-                        if (
-                            not self.is_attr_blank(ATTR_PLACE_CATEGORY)
-                            and self.get_attr(ATTR_PLACE_CATEGORY).lower() != "place"
-                        ):
-                            user_display.append(self.get_attr(ATTR_PLACE_CATEGORY))
-                        if (
-                            not self.is_attr_blank(ATTR_PLACE_TYPE)
-                            and self.get_attr(ATTR_PLACE_TYPE).lower() != "yes"
-                        ):
-                            user_display.append(self.get_attr(ATTR_PLACE_TYPE))
-                        if not self.is_attr_blank(ATTR_PLACE_NEIGHBOURHOOD):
-                            user_display.append(place_neighbourhood)
-                        if not self.is_attr_blank(ATTR_STREET_NUMBER):
-                            user_display.append(street_number)
-                        if not self.is_attr_blank(ATTR_STREET):
-                            user_display.append(street)
-                    else:
-                        if (
-                            "street_number" in display_options
-                            and not self.is_attr_blank(ATTR_STREET_NUMBER)
-                        ):
-                            user_display.append(street_number)
-                        if "street" in display_options and not self.is_attr_blank(
-                            ATTR_STREET
-                        ):
-                            user_display.append(street)
-                    if "city" in display_options and not self.is_attr_blank(ATTR_CITY):
-                        user_display.append(self.get_attr(ATTR_CITY))
-                    if "county" in display_options and not self.is_attr_blank(
-                        ATTR_COUNTY
-                    ):
-                        user_display.append(self.get_attr(ATTR_COUNTY))
-                    if "state" in display_options and not self.is_attr_blank(
-                        ATTR_REGION
-                    ):
-                        user_display.append(self.get_attr(ATTR_REGION))
-                    elif "region" in display_options and not self.is_attr_blank(
-                        ATTR_REGION
-                    ):
-                        user_display.append(self.get_attr(ATTR_REGION))
-                    if "postal_code" in display_options and not self.is_attr_blank(
-                        ATTR_POSTAL_CODE
-                    ):
-                        user_display.append(self.get_attr(ATTR_POSTAL_CODE))
-                    if "country" in display_options and not self.is_attr_blank(
-                        ATTR_COUNTRY
-                    ):
-                        user_display.append(self.get_attr(ATTR_COUNTRY))
-                    if (
-                        "formatted_address" in display_options
-                        and not self.is_attr_blank(ATTR_FORMATTED_ADDRESS)
-                    ):
-                        user_display.append(self.get_attr(ATTR_FORMATTED_ADDRESS))
-
-                    if "do_not_reorder" in display_options:
-                        user_display = []
-                        display_options.remove("do_not_reorder")
-                        for option in display_options:
-                            if option == "state":
-                                target_option = "region"
-                            if option == "place_neighborhood":
-                                target_option = "place_neighbourhood"
-                            if option in locals():
-                                user_display.append(target_option)
-
-                    if user_display:
-                        self.set_attr(
-                            ATTR_NATIVE_VALUE, ", ".join(item for item in user_display)
-                        )
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") New State from Display Options: "
-                        + str(self.get_attr(ATTR_NATIVE_VALUE))
-                    )
+                    self.build_state_from_display_options()
                 elif "zone_name" in display_options and not self.is_attr_blank(
                     ATTR_DEVICETRACKER_ZONE_NAME
                 ):
@@ -1850,7 +2005,7 @@ class Places(SensorEntity):
                         + ") New State from DeviceTracker Zone: "
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
-
+                now = datetime.now()
                 current_time = "%02d:%02d" % (now.hour, now.minute)
 
                 if (
@@ -1873,284 +2028,7 @@ class Places(SensorEntity):
                 ):
 
                     if self.get_attr(CONF_EXTENDED_ATTR):
-                        self.set_attr(ATTR_OSM_DETAILS_DICT, {})
-                        if not self.is_attr_blank(
-                            ATTR_OSM_ID
-                        ) and not self.is_attr_blank(ATTR_OSM_TYPE):
-                            if self.get_attr(ATTR_OSM_TYPE).lower() == "node":
-                                osm_type_abbr = "N"
-                            elif self.get_attr(ATTR_OSM_TYPE).lower() == "way":
-                                osm_type_abbr = "W"
-                            elif self.get_attr(ATTR_OSM_TYPE).lower() == "relation":
-                                osm_type_abbr = "R"
-
-                            osm_details_url = (
-                                "https://nominatim.openstreetmap.org/details.php?osmtype="
-                                + str(osm_type_abbr)
-                                + "&osmid="
-                                + str(self.get_attr(ATTR_OSM_ID))
-                                + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
-                                + (
-                                    "&email=" + str(self.get_attr(CONF_API_KEY))
-                                    if self.is_attr_blank(CONF_API_KEY)
-                                    else ""
-                                )
-                                + (
-                                    "&accept-language="
-                                    + str(self.get_attr(CONF_LANGUAGE))
-                                    if not self.is_attr_blank(CONF_LANGUAGE)
-                                    else ""
-                                )
-                            )
-
-                            _LOGGER.info(
-                                "("
-                                + self.get_attr(CONF_NAME)
-                                + ") OpenStreetMap Details Request: type="
-                                + str(self.get_attr(ATTR_OSM_TYPE))
-                                + " ("
-                                + str(osm_type_abbr)
-                                + ") and id="
-                                + str(self.get_attr(ATTR_OSM_ID))
-                            )
-                            _LOGGER.debug(
-                                "("
-                                + self.get_attr(CONF_NAME)
-                                + ") OSM Details URL: "
-                                + str(osm_details_url)
-                            )
-                            try:
-                                osm_details_response = requests.get(osm_details_url)
-                            except requests.exceptions.Timeout as e:
-                                osm_details_response = None
-                                _LOGGER.warning(
-                                    "("
-                                    + self.get_attr(CONF_NAME)
-                                    + ") Timeout connecting to OpenStreetMaps Details [Error: "
-                                    + str(e)
-                                    + "]: "
-                                    + str(osm_details_url)
-                                )
-                            except OSError as e:
-                                # Includes error code 101, network unreachable
-                                osm_details_response = None
-                                _LOGGER.warning(
-                                    "("
-                                    + self.get_attr(CONF_NAME)
-                                    + ") Network unreachable error when connecting to OpenStreetMaps Details ["
-                                    + str(e)
-                                    + "]: "
-                                    + str(osm_details_url)
-                                )
-                            except NewConnectionError as e:
-                                osm_details_response = None
-                                _LOGGER.warning(
-                                    "("
-                                    + self.get_attr(CONF_NAME)
-                                    + ") Connection Error connecting to OpenStreetMaps Details [Error: "
-                                    + str(e)
-                                    + "]: "
-                                    + str(osm_details_url)
-                                )
-                            except Exception as e:
-                                osm_details_response = None
-                                _LOGGER.warning(
-                                    "("
-                                    + self.get_attr(CONF_NAME)
-                                    + ") Unknown Exception connecting to OpenStreetMaps Details [Error: "
-                                    + str(e)
-                                    + "]: "
-                                    + str(osm_details_url)
-                                )
-
-                            if (
-                                osm_details_response is not None
-                                and "error_message" in osm_details_response
-                            ):
-                                self.set_attr(
-                                    ATTR_OSM_DETAILS_DICT,
-                                    osm_details_response.get("error_message"),
-                                )
-                                _LOGGER.info(
-                                    "("
-                                    + self.get_attr(CONF_NAME)
-                                    + ") An error occurred contacting the web service for OSM Details"
-                                )
-                            else:
-                                osm_details_json_input = {}
-
-                                if (
-                                    osm_details_response is not None
-                                    and osm_details_response
-                                ):
-                                    osm_details_json_input = osm_details_response.text
-                                    _LOGGER.debug(
-                                        "("
-                                        + self.get_attr(CONF_NAME)
-                                        + ") OSM Details JSON: "
-                                        + osm_details_json_input
-                                    )
-
-                                if (
-                                    osm_details_json_input is not None
-                                    and osm_details_json_input
-                                ):
-                                    try:
-                                        self.set_attr(
-                                            ATTR_OSM_DETAILS_DICT,
-                                            json.loads(osm_details_json_input),
-                                        )
-                                    except json.decoder.JSONDecodeError as e:
-                                        self.clear_attr(ATTR_OSM_DETAILS_DICT)
-                                        _LOGGER.warning(
-                                            "("
-                                            + self.get_attr(CONF_NAME)
-                                            + ") JSON Decode Error with OSM Details info [Error: "
-                                            + str(e)
-                                            + "]: "
-                                            + str(osm_details_json_input)
-                                        )
-                                # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") OSM Details Dict: " + str(osm_details_dict))
-
-                                if (
-                                    not self.is_attr_blank(ATTR_OSM_DETAILS_DICT)
-                                    and "extratags"
-                                    in self.get_attr(ATTR_OSM_DETAILS_DICT)
-                                    and "wikidata"
-                                    in self.get_attr(ATTR_OSM_DETAILS_DICT).get(
-                                        "extratags"
-                                    )
-                                ):
-                                    self.set_attr(
-                                        ATTR_WIKIDATA_ID,
-                                        self.get_attr(ATTR_OSM_DETAILS_DICT)
-                                        .get("extratags")
-                                        .get("wikidata"),
-                                    )
-
-                                self.set_attr(ATTR_WIKIDATA_DICT, {})
-                                if not self.is_attr_blank(ATTR_WIKIDATA_ID):
-                                    wikidata_url = (
-                                        "https://www.wikidata.org/wiki/Special:EntityData/"
-                                        + str(self.get_attr(ATTR_WIKIDATA_ID))
-                                        + ".json"
-                                    )
-
-                                    _LOGGER.info(
-                                        "("
-                                        + self.get_attr(CONF_NAME)
-                                        + ") Wikidata Request: id="
-                                        + str(self.get_attr(ATTR_WIKIDATA_ID))
-                                    )
-                                    _LOGGER.debug(
-                                        "("
-                                        + self.get_attr(CONF_NAME)
-                                        + ") Wikidata URL: "
-                                        + str(wikidata_url)
-                                    )
-                                    try:
-                                        wikidata_response = requests.get(wikidata_url)
-                                    except requests.exceptions.Timeout as e:
-                                        wikidata_response = None
-                                        _LOGGER.warning(
-                                            "("
-                                            + self.get_attr(CONF_NAME)
-                                            + ") Timeout connecting to Wikidata [Error: "
-                                            + str(e)
-                                            + "]: "
-                                            + str(wikidata_url)
-                                        )
-                                    except OSError as e:
-                                        # Includes error code 101, network unreachable
-                                        wikidata_response = None
-                                        _LOGGER.warning(
-                                            "("
-                                            + self.get_attr(CONF_NAME)
-                                            + ") Network unreachable error when connecting to Wikidata ["
-                                            + str(e)
-                                            + "]: "
-                                            + str(wikidata_url)
-                                        )
-                                    except NewConnectionError as e:
-                                        wikidata_response = None
-                                        _LOGGER.warning(
-                                            "("
-                                            + self.get_attr(CONF_NAME)
-                                            + ") Connection Error connecting to Wikidata [Error: "
-                                            + str(e)
-                                            + "]: "
-                                            + str(wikidata_url)
-                                        )
-                                    except Exception as e:
-                                        wikidata_response = None
-                                        _LOGGER.warning(
-                                            "("
-                                            + self.get_attr(CONF_NAME)
-                                            + ") Unknown Exception connecting to Wikidata [Error: "
-                                            + str(e)
-                                            + "]: "
-                                            + str(wikidata_url)
-                                        )
-
-                                    if (
-                                        wikidata_response is not None
-                                        and "error_message" in wikidata_response
-                                    ):
-                                        self.set_attr(
-                                            ATTR_WIKIDATA_DICT,
-                                            wikidata_response.get("error_message"),
-                                        )
-                                        _LOGGER.info(
-                                            "("
-                                            + self.get_attr(CONF_NAME)
-                                            + ") An error occurred contacting the web service for Wikidata"
-                                        )
-                                    else:
-                                        wikidata_json_input = {}
-
-                                        if (
-                                            wikidata_response is not None
-                                            and wikidata_response
-                                        ):
-                                            wikidata_json_input = wikidata_response.text
-                                            _LOGGER.debug(
-                                                "("
-                                                + self.get_attr(CONF_NAME)
-                                                + ") Wikidata JSON: "
-                                                + wikidata_json_input
-                                            )
-
-                                        if (
-                                            wikidata_json_input is not None
-                                            and wikidata_json_input
-                                        ):
-                                            try:
-                                                self.set_attr(
-                                                    ATTR_WIKIDATA_DICT,
-                                                    json.loads(wikidata_json_input),
-                                                )
-                                            except json.decoder.JSONDecodeError as e:
-                                                self.clear_attr(ATTR_WIKIDATA_DICT)
-                                                _LOGGER.warning(
-                                                    "("
-                                                    + self.get_attr(CONF_NAME)
-                                                    + ") JSON Decode Error with Wikidata info [Error: "
-                                                    + str(e)
-                                                    + "]: "
-                                                    + str(wikidata_json_input)
-                                                )
-                                        _LOGGER.debug(
-                                            "("
-                                            + self.get_attr(CONF_NAME)
-                                            + ") Wikidata JSON: "
-                                            + str(wikidata_json_input)
-                                        )
-                                        # _LOGGER.debug(
-                                        #    "("
-                                        #    + self.get_attr(CONF_NAME)
-                                        #    + ") Wikidata Dict: "
-                                        #    + str(wikidata_dict)
-                                        # )
+                        self.get_extended_attr()
                     self.cleanup_attributes()
                     if not self.is_attr_blank(ATTR_NATIVE_VALUE):
                         if self.get_attr(CONF_SHOW_TIME):
@@ -2181,54 +2059,7 @@ class Places(SensorEntity):
                         self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
                     else:
                         self._attr_native_value = None
-                    _LOGGER.debug(
-                        "(" + self.get_attr(CONF_NAME) + ") Building Event Data"
-                    )
-                    event_data = {}
-                    if not self.is_attr_blank(CONF_NAME):
-                        event_data.update({"entity": self.get_attr(CONF_NAME)})
-                    if not self.is_attr_blank(ATTR_PREVIOUS_STATE):
-                        event_data.update(
-                            {"from_state": self.get_attr(ATTR_PREVIOUS_STATE)}
-                        )
-                    if not self.is_attr_blank(ATTR_NATIVE_VALUE):
-                        event_data.update(
-                            {"to_state": self.get_attr(ATTR_NATIVE_VALUE)}
-                        )
-
-                    for attr in EVENT_ATTRIBUTE_LIST:
-                        if not self.is_attr_blank(attr):
-                            event_data.update({attr: self.get_attr(attr)})
-
-                    if (
-                        not self.is_attr_blank(ATTR_LAST_PLACE_NAME)
-                        and self.get_attr(ATTR_LAST_PLACE_NAME) != prev_last_place_name
-                    ):
-                        event_data.update(
-                            {ATTR_LAST_PLACE_NAME: self.get_attr(ATTR_LAST_PLACE_NAME)}
-                        )
-
-                    if self.get_attr(CONF_EXTENDED_ATTR):
-                        for attr in EXTENDED_ATTRIBUTE_LIST:
-                            if not self.is_attr_blank(attr):
-                                event_data.update({attr: self.get_attr(attr)})
-
-                    self._hass.bus.fire(DOMAIN + "_state_update", event_data)
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") Event Details [event_type: "
-                        + DOMAIN
-                        + "_state_update]: "
-                        + str(event_data)
-                    )
-                    _LOGGER.info(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") Event Fired [event_type: "
-                        + DOMAIN
-                        + "_state_update]"
-                    )
+                    self.fire_event_data(prev_last_place_name)
 
                 else:
                     _LOGGER.info(
@@ -2237,44 +2068,7 @@ class Places(SensorEntity):
                         + ") No entity update needed, Previous State = New State"
                     )
             self.set_attr(ATTR_INITIAL_UPDATE, False)
-            sensor_attributes = {}
-            sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
-            sensor_attributes.update(
-                {ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)}
-            )
-            sensor_attributes.update(self.extra_state_attributes)
-            # _LOGGER.debug(
-            #    "("
-            #    + self.get_attr(CONF_NAME)
-            #    + ") Sensor Attributes to Save ["
-            #    + str(type(sensor_attributes))
-            #    + "]: "
-            #    + str(sensor_attributes)
-            # )
-            try:
-                with open(
-                    os.path.join(PLACES_JSON_FOLDER, self.get_attr(ATTR_JSON_FILENAME)),
-                    "w",
-                ) as jsonfile:
-                    json.dump(sensor_attributes, jsonfile)
-            except OSError as e:
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") OSError writing sensor to JSON ("
-                    + str(self.get_attr(ATTR_JSON_FILENAME))
-                    + "): "
-                    + str(e)
-                )
-            except Exception as e:
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Unknown Exception writing sensor to JSON ("
-                    + str(self.get_attr(ATTR_JSON_FILENAME))
-                    + "): "
-                    + str(e)
-                )
+            self.write_sensor_to_json()
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
 
     def _reset_attributes(self):

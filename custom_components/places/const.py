@@ -1,17 +1,9 @@
 from homeassistant.const import (
-    ATTR_FRIENDLY_NAME,
     ATTR_GPS_ACCURACY,
     CONF_API_KEY,
     CONF_ICON,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
     CONF_NAME,
-    CONF_PLATFORM,
-    CONF_SCAN_INTERVAL,
-    CONF_STATE,
-    CONF_UNIQUE_ID,
     CONF_ZONE,
-    EVENT_HOMEASSISTANT_START,
     Platform,
 )
 
@@ -101,6 +93,8 @@ ATTR_LAST_PLACE_NAME = "last_place_name"
 ATTR_UPDATES_SKIPPED = "updates_skipped"
 ATTR_INITIAL_UPDATE = "initial_update"
 ATTR_JSON_FILENAME = "json_filename"
+ATTR_IS_DRIVING = "is_driving"
+ATTR_DISPLAY_OPTIONS = "display_options"
 
 
 # Attribute Lists
@@ -142,6 +136,7 @@ RESET_ATTRIBUTE_LIST = [
     ATTR_OSM_DICT,
     ATTR_OSM_DETAILS_DICT,
     ATTR_WIKIDATA_DICT,
+    ATTR_IS_DRIVING,
 ]
 EXTRA_STATE_ATTRIBUTE_LIST = [
     ATTR_STREET_NUMBER,
