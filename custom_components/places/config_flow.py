@@ -5,13 +5,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries, core
-from homeassistant.const import (
-    CONF_API_KEY,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
-    CONF_NAME,
-    Platform,
-)
+from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -33,6 +27,7 @@ from .const import (
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
+    TRACKING_DOMAINS_NEED_LATLONG,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,7 +52,7 @@ def get_devicetracker_id_entities(
     for dom in TRACKING_DOMAINS:
         # _LOGGER.debug("Geting entities for domain: " + str(dom))
         for ent in hass.states.async_all(dom):
-            if dom not in [Platform.SENSOR] or (
+            if dom not in TRACKING_DOMAINS_NEED_LATLONG or (
                 CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
                 and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
             ):
