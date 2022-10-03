@@ -54,6 +54,7 @@ from .const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
+    ATTR_DISPLAY_OPTIONS,
     ATTR_DISTANCE_FROM_HOME_KM,
     ATTR_DISTANCE_FROM_HOME_M,
     ATTR_DISTANCE_TRAVELED_M,
@@ -64,6 +65,7 @@ from .const import (
     ATTR_HOME_LONGITUDE,
     ATTR_HOME_ZONE,
     ATTR_INITIAL_UPDATE,
+    ATTR_IS_DRIVING,
     ATTR_JSON_FILENAME,
     ATTR_LAST_PLACE_NAME,
     ATTR_LATITUDE,
@@ -127,7 +129,6 @@ try:
     from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
 except:
     use_issue_reg = False
-
 
 _LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
@@ -646,7 +647,8 @@ class Places(SensorEntity):
         if not self.is_attr_blank(ATTR_NATIVE_VALUE):
             self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
 
-        json_attr.pop(CONF_NAME, None)  # Added for clarity if human reading the file
+        # Added for clarity if human reading the file
+        json_attr.pop(CONF_NAME, None)
         # Remove attributes that are part of the Config and are explicitly not imported from JSON
         json_attr.pop(ATTR_DEVICETRACKER_ID, None)
         json_attr.pop(ATTR_HOME_ZONE, None)
@@ -1150,6 +1152,16 @@ class Places(SensorEntity):
                 + str(self.get_attr(CONF_DEVICETRACKER_ID))
             )
 
+    def get_driving_status(self):
+        isDriving = False
+        if not self.in_zone():
+            if self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary" and (
+                self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
+                or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
+            ):
+                isDriving = True
+        self.set_attr(ATTR_IS_DRIVING, isDriving)
+
     def parse_osm_dict(self):
         if "place" in str(self.get_attr(ATTR_OPTIONS)):
             self.set_attr(ATTR_PLACE_TYPE, self.get_attr(ATTR_OSM_DICT).get("type"))
@@ -1311,19 +1323,11 @@ class Places(SensorEntity):
             self.set_attr(ATTR_OSM_TYPE, self.get_attr(ATTR_OSM_DICT).get("osm_type"))
 
     def build_formatted_place(self):
-        isDriving = False
         formatted_place_array = []
+        display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
         if not self.in_zone():
-            if (
-                self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
-                and (
-                    self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
-                    or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
-                )
-                and "driving" in display_options
-            ):
+            if self.get_state(ATTR_IS_DRIVING) and "driving" in display_options:
                 formatted_place_array.append("Driving")
-                isDriving = True
             if self.is_attr_blank(ATTR_PLACE_NAME):
                 if (
                     not self.is_attr_blank(ATTR_PLACE_TYPE)
@@ -1379,11 +1383,11 @@ class Places(SensorEntity):
         formatted_place = ", ".join(item for item in formatted_place_array)
         formatted_place = formatted_place.replace("\n", " ").replace("  ", " ").strip()
         self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
-        return isDriving
 
-    def build_state_from_display_options(self, display_options, isDriving):
+    def build_state_from_display_options(self):
         # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
 
+        display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
@@ -1392,7 +1396,7 @@ class Places(SensorEntity):
         )
 
         user_display = []
-        if "driving" in display_options and isDriving:
+        if "driving" in display_options and self.get_attr(ATTR_IS_DRIVING):
             user_display.append("Driving")
 
         if (
@@ -1960,10 +1964,12 @@ class Places(SensorEntity):
                     options_array = self.get_attr(ATTR_OPTIONS).split(",")
                     for option in options_array:
                         display_options.append(option.strip())
+                self.set_attr(ATTR_DISPLAY_OPTIONS, display_options)
 
-                isDriving = self.build_formatted_place()
+                self.get_driving_status()
 
                 if "formatted_place" in display_options:
+                    self.build_formatted_place()
                     self.set_attr(
                         ATTR_NATIVE_VALUE, self.get_attr(ATTR_FORMATTED_PLACE)
                     )
@@ -1974,7 +1980,7 @@ class Places(SensorEntity):
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 elif not self.in_zone():
-                    self.build_state_from_display_options(display_options, isDriving)
+                    self.build_state_from_display_options()
                 elif "zone_name" in display_options and not self.is_attr_blank(
                     ATTR_DEVICETRACKER_ZONE_NAME
                 ):
