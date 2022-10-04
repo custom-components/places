@@ -5,7 +5,13 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries, core
-from homeassistant.const import CONF_API_KEY, CONF_LATITUDE, CONF_LONGITUDE, CONF_NAME
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    CONF_API_KEY,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_NAME,
+)
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -48,7 +54,7 @@ def get_devicetracker_id_entities(
     hass: core.HomeAssistant, current_entity=None
 ) -> list[str]:
     """Get the list of valid entities. For sensors, only include ones with latitude and longitude attributes. For the devicetracker selector"""
-    clean_list = []
+    dt_list = []
     for dom in TRACKING_DOMAINS:
         # _LOGGER.debug("Geting entities for domain: " + str(dom))
         for ent in hass.states.async_all(dom):
@@ -56,16 +62,82 @@ def get_devicetracker_id_entities(
                 CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
                 and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
             ):
-                clean_list.append(str(ent.entity_id))
+                # _LOGGER.debug("Entity: " + str(ent))
+                dt_list.append(
+                    selector.SelectOptionDict(
+                        value=str(ent.entity_id),
+                        label=(
+                            str(ent.attributes.get(ATTR_FRIENDLY_NAME))
+                            + " ("
+                            + str(ent.entity_id)
+                            + ")"
+                        ),
+                    )
+                )
     # Optional: Include the current entity in the list as well.
     if current_entity is not None:
-        clean_list.append(current_entity)
-    clean_list = [*set(clean_list)]
-    clean_list.sort()
+        _LOGGER.debug("current_entity: " + str(current_entity))
+        dt_list_entities = [d["value"] for d in dt_list]
+        if current_entity not in dt_list_entities:
+            if (
+                current_entity in hass.states
+                and ATTR_FRIENDLY_NAME in hass.states.get(current_entity).attributes
+                and hass.states.get(current_entity).attributes.get(ATTR_FRIENDLY_NAME)
+                is not None
+            ):
+                current_name = hass.states.get(current_entity).attributes.get(
+                    ATTR_FRIENDLY_NAME
+                )
+                _LOGGER.debug("current_name: " + str(current_name))
+                dt_list.append(
+                    selector.SelectOptionDict(
+                        value=str(current_entity),
+                        label=(str(current_name) + " (" + str(current_entity) + ")"),
+                    )
+                )
+            else:
+                dt_list.append(
+                    selector.SelectOptionDict(
+                        value=str(current_entity),
+                        label=(str(current_entity)),
+                    )
+                )
+    if dt_list:
+        dt_list_sorted = sorted(dt_list, key=lambda d: d["label"])
+    else:
+        dt_list_sorted = []
+
     _LOGGER.debug(
-        "Devicetracker_id entities including sensors with lat/long: " + str(clean_list)
+        "Devicetracker_id name/entities including sensors with lat/long: "
+        + str(dt_list_sorted)
     )
-    return clean_list
+    return dt_list_sorted
+
+
+def get_home_zone_entities(hass: core.HomeAssistant) -> list[str]:
+    """Get the list of valid zones."""
+    zone_list = []
+    for dom in HOME_LOCATION_DOMAINS:
+        # _LOGGER.debug("Geting entities for domain: " + str(dom))
+        for ent in hass.states.async_all(dom):
+            # _LOGGER.debug("Entity: " + str(ent))
+            zone_list.append(
+                selector.SelectOptionDict(
+                    value=str(ent.entity_id),
+                    label=(
+                        str(ent.attributes.get(ATTR_FRIENDLY_NAME))
+                        + " ("
+                        + str(ent.entity_id)
+                        + ")"
+                    ),
+                )
+            )
+    if zone_list:
+        zone_list_sorted = sorted(zone_list, key=lambda d: d["label"])
+    else:
+        zone_list_sorted = []
+    _LOGGER.debug("Zones: " + str(zone_list_sorted))
+    return zone_list_sorted
 
 
 async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]:
@@ -106,15 +178,19 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
                 errors["base"] = "unknown"
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
+        zone_list = get_home_zone_entities(self.hass)
         # _LOGGER.debug(
         #    "Devicetracker entities with lat/long: " + str(devicetracker_id_list)
         # )
         DATA_SCHEMA = vol.Schema(
             {
                 vol.Required(CONF_NAME): str,
-                vol.Required(CONF_DEVICETRACKER_ID): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(
-                        include_entities=devicetracker_id_list
+                vol.Required(CONF_DEVICETRACKER_ID): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=devicetracker_id_list,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
                 vol.Optional(CONF_API_KEY): str,
@@ -130,8 +206,13 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(
                     CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
-                ): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAINS)
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=zone_list,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
@@ -230,6 +311,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             if CONF_DEVICETRACKER_ID in self.config_entry.data
             else None,
         )
+        zone_list = get_home_zone_entities(self.hass)
         # _LOGGER.debug(
         #    "Devicetracker_id entities including sensors with lat/long: "
         #    + str(devicetracker_id_list)
@@ -244,9 +326,12 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         if CONF_DEVICETRACKER_ID in self.config_entry.data
                         else None
                     ),
-                ): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(
-                        include_entities=devicetracker_id_list
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=devicetracker_id_list,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
                 vol.Optional(
@@ -282,8 +367,13 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         if CONF_HOME_ZONE in self.config_entry.data
                         else None
                     },
-                ): selector.EntitySelector(
-                    selector.SingleEntitySelectorConfig(domain=HOME_LOCATION_DOMAINS)
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=zone_list,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
                 ),
                 vol.Optional(
                     CONF_MAP_PROVIDER,
