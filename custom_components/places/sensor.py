@@ -1983,19 +1983,10 @@ class Places(SensorEntity):
                     )
                 elif not self.in_zone():
                     self.build_state_from_display_options()
-                elif "zone_name" in display_options and not self.is_attr_blank(
-                    ATTR_DEVICETRACKER_ZONE_NAME
-                ):
-                    self.set_attr(
-                        ATTR_NATIVE_VALUE, self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
-                    )
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") New State from DeviceTracker Zone Name: "
-                        + str(self.get_attr(ATTR_NATIVE_VALUE))
-                    )
-                elif not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
+                elif (
+                    "zone" in display_options
+                    and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE)
+                ) or self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
                     self.set_attr(
                         ATTR_NATIVE_VALUE, self.get_attr(ATTR_DEVICETRACKER_ZONE)
                     )
@@ -2003,6 +1994,16 @@ class Places(SensorEntity):
                         "("
                         + self.get_attr(CONF_NAME)
                         + ") New State from DeviceTracker Zone: "
+                        + str(self.get_attr(ATTR_NATIVE_VALUE))
+                    )
+                elif not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
+                    self.set_attr(
+                        ATTR_NATIVE_VALUE, self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
+                    )
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") New State from DeviceTracker Zone Name: "
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 now = datetime.now()
