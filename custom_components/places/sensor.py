@@ -56,7 +56,9 @@ from .const import (
     ATTR_DISPLAY_OPTIONS,
     ATTR_DISTANCE_FROM_HOME_KM,
     ATTR_DISTANCE_FROM_HOME_M,
+    ATTR_DISTANCE_FROM_HOME_MI,
     ATTR_DISTANCE_TRAVELED_M,
+    ATTR_DISTANCE_TRAVELED_MI,
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
     ATTR_HOME_LATITUDE,
@@ -1718,10 +1720,15 @@ class Places(SensorEntity):
                     float(self.get_attr(ATTR_HOME_LONGITUDE)),
                 ),
             )
-            self.set_attr(
-                ATTR_DISTANCE_FROM_HOME_KM,
-                round(self.get_attr(ATTR_DISTANCE_FROM_HOME_M) / 1000, 3),
-            )
+            if not self.is_attr_blank(ATTR_DISTANCE_FROM_HOME_M):
+                self.set_attr(
+                    ATTR_DISTANCE_FROM_HOME_KM,
+                    round(self.get_attr(ATTR_DISTANCE_FROM_HOME_M) / 1000, 3),
+                )
+                self.set_attr(
+                    ATTR_DISTANCE_FROM_HOME_MI,
+                    round(self.get_attr(ATTR_DISTANCE_FROM_HOME_M) / 1609, 3),
+                )
 
             if not self.is_attr_blank(ATTR_LATITUDE_OLD) and not self.is_attr_blank(
                 ATTR_LONGITUDE_OLD
@@ -1790,6 +1797,11 @@ class Places(SensorEntity):
                         float(self.get_attr(ATTR_LONGITUDE_OLD)),
                     ),
                 )
+                if not self.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
+                    self.set_attr(
+                        ATTR_DISTANCE_TRAVELED_MI,
+                        round(self.get_attr(ATTR_DISTANCE_TRAVELED_M) / 1609, 3),
+                    )
 
             _LOGGER.info(
                 "("
