@@ -56,9 +56,7 @@ from .const import (
     ATTR_DISPLAY_OPTIONS,
     ATTR_DISTANCE_FROM_HOME_KM,
     ATTR_DISTANCE_FROM_HOME_M,
-    ATTR_DISTANCE_FROM_HOME_MI,
     ATTR_DISTANCE_TRAVELED_M,
-    ATTR_DISTANCE_TRAVELED_MI,
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
     ATTR_HOME_LATITUDE,
@@ -1677,7 +1675,7 @@ class Places(SensorEntity):
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
-                    + ") Previous Place Name is set: "
+                    + ") Previous place is Place Name, last_place_name is set: "
                     + str(self.get_attr(ATTR_LAST_PLACE_NAME))
                 )
             else:
@@ -1720,15 +1718,10 @@ class Places(SensorEntity):
                     float(self.get_attr(ATTR_HOME_LONGITUDE)),
                 ),
             )
-            if not self.is_attr_blank(ATTR_DISTANCE_FROM_HOME_M):
-                self.set_attr(
-                    ATTR_DISTANCE_FROM_HOME_KM,
-                    round(self.get_attr(ATTR_DISTANCE_FROM_HOME_M) / 1000, 3),
-                )
-                self.set_attr(
-                    ATTR_DISTANCE_FROM_HOME_MI,
-                    round(self.get_attr(ATTR_DISTANCE_FROM_HOME_M) / 1609, 3),
-                )
+            self.set_attr(
+                ATTR_DISTANCE_FROM_HOME_KM,
+                round(self.get_attr(ATTR_DISTANCE_FROM_HOME_M) / 1000, 3),
+            )
 
             if not self.is_attr_blank(ATTR_LATITUDE_OLD) and not self.is_attr_blank(
                 ATTR_LONGITUDE_OLD
@@ -1797,11 +1790,6 @@ class Places(SensorEntity):
                         float(self.get_attr(ATTR_LONGITUDE_OLD)),
                     ),
                 )
-                if not self.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
-                    self.set_attr(
-                        ATTR_DISTANCE_TRAVELED_MI,
-                        round(self.get_attr(ATTR_DISTANCE_TRAVELED_M) / 1609, 3),
-                    )
 
             _LOGGER.info(
                 "("
@@ -1832,12 +1820,20 @@ class Places(SensorEntity):
 
     def do_update(self, reason):
         """Get the latest data and updates the states."""
+        
+        previous_attr = self._internal_attr
 
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
         self.check_for_updated_entity_name()
         self.cleanup_attributes()
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") Previous entity attributes: " + str(self._internal_attr)
+        )
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") Previous Native Value: " + str(self.get_attr(ATTR_NATIVE_VALUE))
+        )
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
-            self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE)[:-14])
+            self.set_attr(ATTR_PREVIOUS_STATE, str(self.get_attr(ATTR_NATIVE_VALUE)[:-14]))
         else:
             self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE))
         if self.is_float(self.get_attr(ATTR_LATITUDE)):
@@ -1897,6 +1893,7 @@ class Places(SensorEntity):
             proceed_with_update = self.determine_if_update_needed()
 
         if proceed_with_update and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
+            updated_happened = True
             _LOGGER.info(
                 "("
                 + self.get_attr(CONF_NAME)
@@ -2020,7 +2017,10 @@ class Places(SensorEntity):
                     )
                 now = datetime.now()
                 current_time = "%02d:%02d" % (now.hour, now.minute)
-
+                
+                # Final check to see if the New State is different from the Previous State and should update or not. 
+                # If not, attributes are reset to what they were before the update started.
+                
                 if (
                     (
                         not self.is_attr_blank(ATTR_PREVIOUS_STATE)
@@ -2073,15 +2073,27 @@ class Places(SensorEntity):
                     else:
                         self._attr_native_value = None
                     self.fire_event_data(prev_last_place_name)
-
+                    self.set_attr(ATTR_INITIAL_UPDATE, False)
+                    self.write_sensor_to_json()
                 else:
+                    self._internal_attr = previous_attr
                     _LOGGER.info(
                         "("
                         + self.get_attr(CONF_NAME)
                         + ") No entity update needed, Previous State = New State"
                     )
-            self.set_attr(ATTR_INITIAL_UPDATE, False)
-            self.write_sensor_to_json()
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") Reverting attributes back to before the update started"
+                    )
+        else:
+            self._internal_attr = previous_attr
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Reverting attributes back to before the update started"
+            )            
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
 
     def _reset_attributes(self):
