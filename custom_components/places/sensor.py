@@ -12,6 +12,7 @@ Description:
 GitHub: https://github.com/custom-components/places
 """
 
+import copy
 import hashlib
 import json
 import logging
@@ -1832,7 +1833,7 @@ class Places(SensorEntity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
-        previous_attr = self._internal_attr
+        previous_attr = copy.deepcopy(self._internal_attr)
 
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
         self.check_for_updated_entity_name()
@@ -1955,6 +1956,7 @@ class Places(SensorEntity):
 
                 self.parse_osm_dict()
                 if self.get_attr(ATTR_INITIAL_UPDATE):
+                    self.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
                     _LOGGER.debug(
                         "("
                         + self.get_attr(CONF_NAME)
@@ -1966,6 +1968,7 @@ class Places(SensorEntity):
                     ATTR_DEVICETRACKER_ZONE_NAME
                 ):
                     # If current place name/zone are the same as previous, keep older last place name
+                    self.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
                     _LOGGER.debug(
                         "("
                         + self.get_attr(CONF_NAME)
@@ -2112,6 +2115,12 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Final entity attributes: "
+            + str(self._internal_attr)
+        )
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
 
     def _reset_attributes(self):
