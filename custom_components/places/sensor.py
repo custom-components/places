@@ -92,6 +92,7 @@ from .const import (
     ATTR_POSTAL_CODE,
     ATTR_POSTAL_TOWN,
     ATTR_PREVIOUS_STATE,
+    ATTR_REAL_LAST_CHANGED,
     ATTR_REGION,
     ATTR_STATE_ABBR,
     ATTR_STREET,
@@ -2038,6 +2039,7 @@ class Places(SensorEntity):
                     )
                 now = datetime.now()
                 current_time = "%02d:%02d" % (now.hour, now.minute)
+                self.set_attr(ATTR_REAL_LAST_CHANGED, now)
 
                 # Final check to see if the New State is different from the Previous State and should update or not.
                 # If not, attributes are reset to what they were before the update started.
