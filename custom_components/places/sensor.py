@@ -1838,18 +1838,18 @@ class Places(SensorEntity):
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
         self.check_for_updated_entity_name()
         self.cleanup_attributes()
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Previous entity attributes: "
-            + str(self._internal_attr)
-        )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Previous Native Value: "
-            + str(self.get_attr(ATTR_NATIVE_VALUE))
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Previous entity attributes: "
+        #    + str(self._internal_attr)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Previous Native Value: "
+        #    + str(self.get_attr(ATTR_NATIVE_VALUE))
+        # )
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
             self.set_attr(
                 ATTR_PREVIOUS_STATE, str(self.get_attr(ATTR_NATIVE_VALUE)[:-14])
@@ -2115,12 +2115,12 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Final entity attributes: "
-            + str(self._internal_attr)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Final entity attributes: "
+        #    + str(self._internal_attr)
+        # )
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
 
     def _reset_attributes(self):
