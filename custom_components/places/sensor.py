@@ -124,6 +124,7 @@ from .const import (
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
+    ATTR_LAST_UPDATED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -2113,6 +2114,7 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
+        self.set_attr(ATTR_LAST_UPDATED, str(now))
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
