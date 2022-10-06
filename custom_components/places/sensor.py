@@ -1838,18 +1838,18 @@ class Places(SensorEntity):
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
         self.check_for_updated_entity_name()
         self.cleanup_attributes()
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Previous entity attributes: "
-            + str(self._internal_attr)
-        )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Previous Native Value: "
-            + str(self.get_attr(ATTR_NATIVE_VALUE))
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Previous entity attributes: "
+        #    + str(self._internal_attr)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Previous Native Value: "
+        #    + str(self.get_attr(ATTR_NATIVE_VALUE))
+        # )
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
             self.set_attr(
                 ATTR_PREVIOUS_STATE, str(self.get_attr(ATTR_NATIVE_VALUE)[:-14])
@@ -1956,6 +1956,7 @@ class Places(SensorEntity):
 
                 self.parse_osm_dict()
                 if self.get_attr(ATTR_INITIAL_UPDATE):
+                    self.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
                     _LOGGER.debug(
                         "("
                         + self.get_attr(CONF_NAME)
@@ -1967,6 +1968,7 @@ class Places(SensorEntity):
                     ATTR_DEVICETRACKER_ZONE_NAME
                 ):
                     # If current place name/zone are the same as previous, keep older last place name
+                    self.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
                     _LOGGER.debug(
                         "("
                         + self.get_attr(CONF_NAME)
