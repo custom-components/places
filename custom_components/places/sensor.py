@@ -1837,6 +1837,7 @@ class Places(SensorEntity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
+        now = datetime.now()
         previous_attr = copy.deepcopy(self._internal_attr)
 
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
@@ -2034,7 +2035,6 @@ class Places(SensorEntity):
                         + ") New State from DeviceTracker Zone Name: "
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
-                now = datetime.now()
                 current_time = "%02d:%02d" % (now.hour, now.minute)
                 self.set_attr(ATTR_LAST_CHANGED, str(now))
 
