@@ -65,10 +65,10 @@ from .const import (
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
-    ATTR_HOME_ZONE,
     ATTR_INITIAL_UPDATE,
     ATTR_IS_DRIVING,
     ATTR_JSON_FILENAME,
+    ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
     ATTR_LATITUDE,
     ATTR_LATITUDE_OLD,
@@ -77,7 +77,6 @@ from .const import (
     ATTR_LONGITUDE,
     ATTR_LONGITUDE_OLD,
     ATTR_MAP_LINK,
-    ATTR_MTIME,
     ATTR_NATIVE_VALUE,
     ATTR_OPTIONS,
     ATTR_OSM_DETAILS_DICT,
@@ -92,7 +91,6 @@ from .const import (
     ATTR_POSTAL_CODE,
     ATTR_POSTAL_TOWN,
     ATTR_PREVIOUS_STATE,
-    ATTR_REAL_LAST_CHANGED,
     ATTR_REGION,
     ATTR_STATE_ABBR,
     ATTR_STREET,
@@ -109,6 +107,7 @@ from .const import (
     CONF_OPTIONS,
     CONF_SHOW_TIME,
     CONF_YAML_HASH,
+    CONFIG_ATTRIBUTES_LIST,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
@@ -120,7 +119,8 @@ from .const import (
     EXTENDED_ATTRIBUTE_LIST,
     EXTRA_STATE_ATTRIBUTE_LIST,
     HOME_LOCATION_DOMAINS,
-    IMPORT_ATTRIBUTE_LIST,
+    JSON_ATTRIBUTE_LIST,
+    JSON_IGNORE_ATTRIBUTE_LIST,
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
@@ -510,29 +510,28 @@ class Places(SensorEntity):
             else None
         )
 
-        self.set_attr(ATTR_MTIME, str(datetime.now()))
         self.set_attr(ATTR_UPDATES_SKIPPED, 0)
 
         sensor_attributes = self.get_dict_from_json_file()
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") [Init] Sensor Attributes to Import: "
-        #    + str(sensor_attributes)
-        # )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") [Init] Sensor Attributes to Import: "
+            + str(sensor_attributes)
+        )
         self.import_attributes(sensor_attributes)
         ##
         # For debugging:
-        # sensor_attributes = {}
-        # sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
-        # sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
-        # sensor_attributes.update(self.extra_state_attributes)
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") [Init] Sensor Attributes Imported: "
-        #    + str(sensor_attributes)
-        # )
+        sensor_attributes = {}
+        sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
+        sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
+        sensor_attributes.update(self.extra_state_attributes)
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") [Init] Sensor Attributes Imported: "
+            + str(sensor_attributes)
+        )
         ##
         if not self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.debug(
@@ -647,20 +646,16 @@ class Places(SensorEntity):
             return
 
         self.set_attr(ATTR_INITIAL_UPDATE, False)
-        for attr in IMPORT_ATTRIBUTE_LIST:
+        for attr in JSON_ATTRIBUTE_LIST:
             if attr in json_attr:
                 self.set_attr(attr, json_attr.pop(attr, None))
         if not self.is_attr_blank(ATTR_NATIVE_VALUE):
             self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
 
-        # Added for clarity if human reading the file
-        json_attr.pop(CONF_NAME, None)
         # Remove attributes that are part of the Config and are explicitly not imported from JSON
-        json_attr.pop(ATTR_DEVICETRACKER_ID, None)
-        json_attr.pop(ATTR_HOME_ZONE, None)
-        json_attr.pop(ATTR_HOME_LATITUDE, None)
-        json_attr.pop(ATTR_HOME_LONGITUDE, None)
-        json_attr.pop(CONF_OPTIONS, None)
+        for attr in CONFIG_ATTRIBUTES_LIST + JSON_IGNORE_ATTRIBUTE_LIST:
+            if attr in json_attr:
+                json_attr.pop(attr, None)
         if json_attr is not None and json_attr:
             _LOGGER.debug(
                 "("
@@ -1591,18 +1586,25 @@ class Places(SensorEntity):
         )
 
     def write_sensor_to_json(self):
-        sensor_attributes = {}
-        sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
-        sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
-        sensor_attributes.update(self.extra_state_attributes)
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") Sensor Attributes to Save ["
-        #    + str(type(sensor_attributes))
-        #    + "]: "
-        #    + str(sensor_attributes)
-        # )
+        sensor_attributes = copy.deepcopy(self._internal_attr)
+        # sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
+        # sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
+        # sensor_attributes.update(self.extra_state_attributes)
+        for k, v in list(sensor_attributes.items()):
+            if isinstance(v, (datetime)):
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Removing Sensor Attribute: "
+                    + str(k)
+                )
+                sensor_attributes.pop(k)
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Sensor Attributes to Save: "
+            + str(sensor_attributes)
+        )
         try:
             with open(
                 os.path.join(PLACES_JSON_FOLDER, self.get_attr(ATTR_JSON_FILENAME)),
@@ -1839,18 +1841,12 @@ class Places(SensorEntity):
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
         self.check_for_updated_entity_name()
         self.cleanup_attributes()
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") Previous entity attributes: "
-        #    + str(self._internal_attr)
-        # )
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") Previous Native Value: "
-        #    + str(self.get_attr(ATTR_NATIVE_VALUE))
-        # )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Previous entity attributes: "
+            + str(self._internal_attr)
+        )
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
             self.set_attr(
                 ATTR_PREVIOUS_STATE, str(self.get_attr(ATTR_NATIVE_VALUE)[:-14])
@@ -2039,7 +2035,7 @@ class Places(SensorEntity):
                     )
                 now = datetime.now()
                 current_time = "%02d:%02d" % (now.hour, now.minute)
-                self.set_attr(ATTR_REAL_LAST_CHANGED, now)
+                self.set_attr(ATTR_LAST_CHANGED, str(now))
 
                 # Final check to see if the New State is different from the Previous State and should update or not.
                 # If not, attributes are reset to what they were before the update started.
@@ -2117,12 +2113,12 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") Final entity attributes: "
-        #    + str(self._internal_attr)
-        # )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Final entity attributes: "
+            + str(self._internal_attr)
+        )
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
 
     def _reset_attributes(self):
