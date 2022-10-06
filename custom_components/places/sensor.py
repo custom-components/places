@@ -1587,9 +1587,6 @@ class Places(SensorEntity):
 
     def write_sensor_to_json(self):
         sensor_attributes = copy.deepcopy(self._internal_attr)
-        # sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
-        # sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
-        # sensor_attributes.update(self.extra_state_attributes)
         for k, v in list(sensor_attributes.items()):
             if isinstance(v, (datetime)):
                 _LOGGER.debug(
