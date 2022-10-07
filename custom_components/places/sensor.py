@@ -514,25 +514,25 @@ class Places(SensorEntity):
         self.set_attr(ATTR_UPDATES_SKIPPED, 0)
 
         sensor_attributes = self.get_dict_from_json_file()
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") [Init] Sensor Attributes to Import: "
-            + str(sensor_attributes)
-        )
-        self.import_attributes(sensor_attributes)
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [Init] Sensor Attributes to Import: "
+        #    + str(sensor_attributes)
+        # )
+        self.import_attributes_from_json(sensor_attributes)
         ##
         # For debugging:
-        sensor_attributes = {}
-        sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
-        sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
-        sensor_attributes.update(self.extra_state_attributes)
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") [Init] Sensor Attributes Imported: "
-            + str(sensor_attributes)
-        )
+        # sensor_attributes = {}
+        # sensor_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
+        # sensor_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
+        # sensor_attributes.update(self.extra_state_attributes)
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [Init] Sensor Attributes Imported: "
+        #    + str(sensor_attributes)
+        # )
         ##
         if not self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.debug(
@@ -641,7 +641,7 @@ class Places(SensorEntity):
         # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Extra State Attributes: " + str(return_attr))
         return return_attr
 
-    def import_attributes(self, json_attr=None):
+    def import_attributes_from_json(self, json_attr=None):
         """Import the JSON state attributes. Takes a Dictionary as input."""
         if json_attr is None or not isinstance(json_attr, dict) or not json_attr:
             return
@@ -1597,12 +1597,12 @@ class Places(SensorEntity):
                     + str(k)
                 )
                 sensor_attributes.pop(k)
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Sensor Attributes to Save: "
-            + str(sensor_attributes)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Sensor Attributes to Save: "
+        #    + str(sensor_attributes)
+        # )
         try:
             with open(
                 os.path.join(PLACES_JSON_FOLDER, self.get_attr(ATTR_JSON_FILENAME)),
@@ -1840,12 +1840,12 @@ class Places(SensorEntity):
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") Starting Update...")
         self.check_for_updated_entity_name()
         self.cleanup_attributes()
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Previous entity attributes: "
-            + str(self._internal_attr)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Previous entity attributes: "
+        #    + str(self._internal_attr)
+        # )
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
             self.set_attr(
                 ATTR_PREVIOUS_STATE, str(self.get_attr(ATTR_NATIVE_VALUE)[:-14])
@@ -2112,12 +2112,12 @@ class Places(SensorEntity):
                 + ") Reverting attributes back to before the update started"
             )
         self.set_attr(ATTR_LAST_UPDATED, str(now))
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Final entity attributes: "
-            + str(self._internal_attr)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Final entity attributes: "
+        #    + str(self._internal_attr)
+        # )
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
 
     def _reset_attributes(self):
