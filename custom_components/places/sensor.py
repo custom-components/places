@@ -1341,6 +1341,12 @@ class Places(SensorEntity):
                 + ") Street Ref: "
                 + str(self.get_attr(ATTR_STREET_REF))
             )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Entity attributes after parsing OSM Dict: "
+            + str(self._internal_attr)
+        )
 
     def build_formatted_place(self):
         formatted_place_array = []
@@ -1446,7 +1452,9 @@ class Places(SensorEntity):
         if "place_name" in display_options and not self.is_attr_blank(ATTR_PLACE_NAME):
             user_display.append(self.get_attr(ATTR_PLACE_NAME))
         if "place" in display_options:
-            if not self.is_attr_blank(ATTR_PLACE_NAME):
+            if not self.is_attr_blank(ATTR_PLACE_NAME) and self.get_attr(
+                ATTR_PLACE_NAME
+            ) != self.get_attr(ATTR_STREET):
                 user_display.append(self.get_attr(ATTR_PLACE_NAME))
             if (
                 not self.is_attr_blank(ATTR_PLACE_CATEGORY)
