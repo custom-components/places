@@ -1370,13 +1370,24 @@ class Places(SensorEntity):
                         self.get_attr(ATTR_PLACE_CATEGORY).title().strip()
                     )
                 if not self.is_attr_blank(ATTR_STREET):
+                    if (
+                        not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+                        and self.get_attr(ATTR_PLACE_CATEGORY).lower() == "highway"
+                        and not self.is_attr_blank(ATTR_PLACE_TYPE)
+                        and self.get_attr(ATTR_PLACE_TYPE).lower()
+                        in ["motorway", "trunk"]
+                        and not self.is_attr_blank(ATTR_STREET_REF)
+                    ):
+                        street = self.get_attr(ATTR_STREET_REF).strip()
+                    else:
+                        street = self.get_attr(ATTR_STREET).strip()
                     if self.is_attr_blank(ATTR_STREET_NUMBER):
-                        formatted_place_array.append(self.get_attr(ATTR_STREET).strip())
+                        formatted_place_array.append(street)
                     else:
                         formatted_place_array.append(
-                            self.get_attr(ATTR_STREET_NUMBER).strip()
+                            str(self.get_attr(ATTR_STREET_NUMBER)).strip()
                             + " "
-                            + self.get_attr(ATTR_STREET).strip()
+                            + str(street)
                         )
                 if (
                     not self.is_attr_blank(ATTR_PLACE_TYPE)
