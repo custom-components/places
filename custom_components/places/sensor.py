@@ -1166,7 +1166,7 @@ class Places(SensorEntity):
         self.set_attr(ATTR_IS_DRIVING, isDriving)
 
     def parse_osm_dict(self):
-        if "place" in str(self.get_attr(ATTR_OPTIONS)):
+        if "type" in self.get_attr(ATTR_OSM_DICT):
             self.set_attr(ATTR_PLACE_TYPE, self.get_attr(ATTR_OSM_DICT).get("type"))
             if self.get_attr(ATTR_PLACE_TYPE) == "yes":
                 self.set_attr(
@@ -1182,39 +1182,39 @@ class Places(SensorEntity):
                     .get("address")
                     .get(self.get_attr(ATTR_PLACE_TYPE)),
                 )
-            if "category" in self.get_attr(ATTR_OSM_DICT):
+        if "category" in self.get_attr(ATTR_OSM_DICT):
+            self.set_attr(
+                ATTR_PLACE_CATEGORY,
+                self.get_attr(ATTR_OSM_DICT).get("category"),
+            )
+            if self.get_attr(ATTR_PLACE_CATEGORY) in self.get_attr(ATTR_OSM_DICT).get(
+                "address"
+            ):
                 self.set_attr(
-                    ATTR_PLACE_CATEGORY,
-                    self.get_attr(ATTR_OSM_DICT).get("category"),
+                    ATTR_PLACE_NAME,
+                    self.get_attr(ATTR_OSM_DICT)
+                    .get("address")
+                    .get(self.get_attr(ATTR_PLACE_CATEGORY)),
                 )
-                if self.get_attr(ATTR_PLACE_CATEGORY) in self.get_attr(
-                    ATTR_OSM_DICT
-                ).get("address"):
+        if "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
+            self.set_attr(
+                ATTR_PLACE_NAME,
+                self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
+            )
+        if not self.is_attr_blank(CONF_LANGUAGE):
+            for language in self.get_attr(CONF_LANGUAGE).split(","):
+                if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
+                    "namedetails"
+                ):
                     self.set_attr(
                         ATTR_PLACE_NAME,
                         self.get_attr(ATTR_OSM_DICT)
-                        .get("address")
-                        .get(self.get_attr(ATTR_PLACE_CATEGORY)),
+                        .get("namedetails")
+                        .get("name:" + language),
                     )
-            if "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
-                self.set_attr(
-                    ATTR_PLACE_NAME,
-                    self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
-                )
-            if not self.is_attr_blank(CONF_LANGUAGE):
-                for language in self.get_attr(CONF_LANGUAGE).split(","):
-                    if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
-                        "namedetails"
-                    ):
-                        self.set_attr(
-                            ATTR_PLACE_NAME,
-                            self.get_attr(ATTR_OSM_DICT)
-                            .get("namedetails")
-                            .get("name:" + language),
-                        )
-                        break
-            if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
-                self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
+                    break
+        if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
+            self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
 
         if "house_number" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
