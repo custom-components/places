@@ -96,6 +96,7 @@ from .const import (
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
+    ATTR_STREET_REF,
     ATTR_UPDATES_SKIPPED,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
@@ -1323,6 +1324,24 @@ class Places(SensorEntity):
             self.set_attr(ATTR_OSM_ID, str(self.get_attr(ATTR_OSM_DICT).get("osm_id")))
         if "osm_type" in self.get_attr(ATTR_OSM_DICT):
             self.set_attr(ATTR_OSM_TYPE, self.get_attr(ATTR_OSM_DICT).get("osm_type"))
+
+        if (
+            not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+            and self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
+        ):
+            if "namedetails" in self.get_attr(ATTR_OSM_DICT) and "ref" in self.get_attr(
+                ATTR_OSM_DICT
+            ).get("namedetails"):
+                self.set_attr(
+                    ATTR_STREET_REF,
+                    self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref"),
+                )
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Street Ref: "
+                    + str(self.get_attr(ATTR_STREET_REF))
+                )
 
     def build_formatted_place(self):
         formatted_place_array = []
