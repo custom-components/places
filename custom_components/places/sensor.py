@@ -1341,6 +1341,17 @@ class Places(SensorEntity):
                 + ") Street Ref: "
                 + str(self.get_attr(ATTR_STREET_REF))
             )
+        # Clear place name if the same as another attributes
+        sensor_attributes = self.extra_state_attributes
+        sensor_attributes_values = list(sensor_attributes.values())
+        if self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Clearing Place Name: "
+                + str(self.get_attr(ATTR_PLACE_NAME))
+            )
+            self.clear_attr(ATTR_PLACE_NAME)
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
