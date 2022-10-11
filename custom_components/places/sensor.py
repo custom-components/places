@@ -16,6 +16,7 @@ import copy
 import hashlib
 import json
 import logging
+import re
 import os
 from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
@@ -1169,12 +1170,14 @@ class Places(SensorEntity):
     def parse_osm_dict(self):
         if "type" in self.get_attr(ATTR_OSM_DICT):
             self.set_attr(ATTR_PLACE_TYPE, self.get_attr(ATTR_OSM_DICT).get("type"))
-            if self.get_attr(ATTR_PLACE_TYPE) == "yes":
+            if self.get_attr(ATTR_PLACE_TYPE) == "yes" and "addresstype" in self.get_attr(ATTR_OSM_DICT):
                 self.set_attr(
                     ATTR_PLACE_TYPE,
                     self.get_attr(ATTR_OSM_DICT).get("addresstype"),
                 )
-            if self.get_attr(ATTR_PLACE_TYPE) in self.get_attr(ATTR_OSM_DICT).get(
+            else:
+                self.clear_attribute(ATTR_PLACE_TYPE)
+            if "address" in self.get_attr(ATTR_OSM_DICT) and self.get_attr(ATTR_PLACE_TYPE) in self.get_attr(ATTR_OSM_DICT).get(
                 "address"
             ):
                 self.set_attr(
@@ -1188,7 +1191,7 @@ class Places(SensorEntity):
                 ATTR_PLACE_CATEGORY,
                 self.get_attr(ATTR_OSM_DICT).get("category"),
             )
-            if self.get_attr(ATTR_PLACE_CATEGORY) in self.get_attr(ATTR_OSM_DICT).get(
+            if "address" in self.get_attr(ATTR_OSM_DICT) and self.get_attr(ATTR_PLACE_CATEGORY) in self.get_attr(ATTR_OSM_DICT).get(
                 "address"
             ):
                 self.set_attr(
@@ -1197,7 +1200,7 @@ class Places(SensorEntity):
                     .get("address")
                     .get(self.get_attr(ATTR_PLACE_CATEGORY)),
                 )
-        if "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
+        if "namedetails" in self.get_attr(ATTR_OSM_DICT) and "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
             self.set_attr(
                 ATTR_PLACE_NAME,
                 self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
@@ -1332,6 +1335,15 @@ class Places(SensorEntity):
             and "namedetails" in self.get_attr(ATTR_OSM_DICT)
             and "ref" in self.get_attr(ATTR_OSM_DICT).get("namedetails")
         ):
+            ## Testing for now
+            street_refs = re.split(r"[\;\\\/\,\.\:]", self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref"))
+            _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Testing Street Refs: "
+                    + str(street_refs)
+                )
+            ##
             street_ref = self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref")
             exclude_chars = [",", "\\", "/", ";", ":"]
             if 1 in [c in street_ref for c in exclude_chars]:
@@ -1374,6 +1386,22 @@ class Places(SensorEntity):
         for attr in PLACE_NAME_DUPLICATE_LIST:
             if not self.is_attr_blank(attr):
                 sensor_attributes_values.append(self.get_attr(attr))
+        if (not self.is_attr_blank(ATTR_PLACE_NAME)):
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Duplicated List [Place Name: "
+                + str(self.get_attr(ATTR_PLACE_NAME))
+                + " ]: "
+                + str(sensor_attributes_values)
+            )
+        else:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Place Name is None"
+            )
+            use_place_name = False
         if (
             not self.is_attr_blank(ATTR_PLACE_NAME)
             and self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values
@@ -1384,8 +1412,6 @@ class Places(SensorEntity):
                 + ") Not Using Place Name: "
                 + str(self.get_attr(ATTR_PLACE_NAME))
             )
-            use_place_name = False
-        else:
             use_place_name = False
 
         display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
