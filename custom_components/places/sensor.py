@@ -1331,14 +1331,31 @@ class Places(SensorEntity):
             and "namedetails" in self.get_attr(ATTR_OSM_DICT)
             and "ref" in self.get_attr(ATTR_OSM_DICT).get("namedetails")
         ):
+            street_ref = self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref")
+            exclude_chars = [",", "\\", "/", ";", ":"]
+            if 1 in [c in street_ref for c in exclude_chars]:
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Initial Street Ref: "
+                    + str(street_ref)
+                )
+                lowest_nums = []
+                for char in exclude_chars:
+                    if find_num := street_ref.find(char) != -1:
+                        lowest_nums.append(int(find_num))
+                lowest_num = int(min(lowest_nums))
+                street_ref = street_ref[:lowest_num]
             self.set_attr(
                 ATTR_STREET_REF,
-                self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref"),
+                street_ref,
             )
             _LOGGER.debug(
                 "("
                 + self.get_attr(CONF_NAME)
-                + ") Street Ref: "
+                + ") Street: "
+                + str(self.get_attr(ATTR_STREET))
+                + " / Street Ref: "
                 + str(self.get_attr(ATTR_STREET_REF))
             )
         _LOGGER.debug(
