@@ -123,6 +123,7 @@ from .const import (
     HOME_LOCATION_DOMAINS,
     JSON_ATTRIBUTE_LIST,
     JSON_IGNORE_ATTRIBUTE_LIST,
+    PLACE_NAME_DUPLICATE_LIST,
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
@@ -1369,10 +1370,10 @@ class Places(SensorEntity):
         formatted_place_array = []
         # Don't use place name if the same as another attributes
         use_place_name = True
-        sensor_attributes = self.extra_state_attributes
-        sensor_attributes_values = list(sensor_attributes.values()) + [
-            self.get_attr(ATTR_STREET_REF)
-        ]
+        sensor_attributes_values = []
+        for attr in PLACE_NAME_DUPLICATE_LIST:
+            if not self.is_attr_blank(attr):
+                sensor_attributes_values.append(self.get_attr(attr))
         if (
             not self.is_attr_blank(ATTR_PLACE_NAME)
             and self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values
