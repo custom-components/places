@@ -1367,11 +1367,31 @@ class Places(SensorEntity):
 
     def build_formatted_place(self):
         formatted_place_array = []
+        # Don't use place name if the same as another attributes
+        use_place_name = True
+        sensor_attributes = self.extra_state_attributes
+        sensor_attributes_values = list(sensor_attributes.values()) + [
+            self.get_attr(ATTR_STREET_REF)
+        ]
+        if (
+            not self.is_attr_blank(ATTR_PLACE_NAME)
+            and self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values
+        ):
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Not Using Place Name: "
+                + str(self.get_attr(ATTR_PLACE_NAME))
+            )
+            use_place_name = False
+        else:
+            use_place_name = False
+
         display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
         if not self.in_zone():
             if self.get_attr(ATTR_IS_DRIVING) and "driving" in display_options:
                 formatted_place_array.append("Driving")
-            if self.is_attr_blank(ATTR_PLACE_NAME):
+            if not use_place_name:
                 if (
                     not self.is_attr_blank(ATTR_PLACE_TYPE)
                     and self.get_attr(ATTR_PLACE_TYPE).lower() != "unclassified"
