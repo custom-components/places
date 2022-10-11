@@ -13,7 +13,7 @@ DOMAIN = "places"
 # Defaults
 DEFAULT_EXTENDED_ATTR = False
 DEFAULT_HOME_ZONE = "zone.home"
-DEFAULT_ICON = "mdi:map-marker-circle"
+DEFAULT_ICON = "mdi:map-search-outline"
 DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
 DEFAULT_OPTION = "zone_name, place"

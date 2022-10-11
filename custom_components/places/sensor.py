@@ -113,6 +113,7 @@ from .const import (
     CONFIG_ATTRIBUTES_LIST,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
+    DEFAULT_ICON,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
@@ -152,7 +153,6 @@ except Exception as e:
     _LOGGER.warning(
         "Unknown Exception creating folder for JSON sensor files: " + str(e)
     )
-ICON = "mdi:map-search-outline"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -413,8 +413,8 @@ class Places(SensorEntity):
         self._attr_name = name
         self.set_attr(CONF_UNIQUE_ID, unique_id)
         self._attr_unique_id = unique_id
-        self.set_attr(CONF_ICON, ICON)
-        self._attr_icon = ICON
+        self.set_attr(CONF_ICON, DEFAULT_ICON)
+        self._attr_icon = DEFAULT_ICON
         self.set_attr(CONF_API_KEY, config.get(CONF_API_KEY))
         self.set_attr(
             CONF_OPTIONS, config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
