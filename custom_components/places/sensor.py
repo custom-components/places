@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 
@@ -96,6 +97,7 @@ from .const import (
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
+    ATTR_STREET_REF,
     ATTR_UPDATES_SKIPPED,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
@@ -122,6 +124,7 @@ from .const import (
     HOME_LOCATION_DOMAINS,
     JSON_ATTRIBUTE_LIST,
     JSON_IGNORE_ATTRIBUTE_LIST,
+    PLACE_NAME_DUPLICATE_LIST,
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
@@ -1165,55 +1168,61 @@ class Places(SensorEntity):
         self.set_attr(ATTR_IS_DRIVING, isDriving)
 
     def parse_osm_dict(self):
-        if "place" in str(self.get_attr(ATTR_OPTIONS)):
+        if "type" in self.get_attr(ATTR_OSM_DICT):
             self.set_attr(ATTR_PLACE_TYPE, self.get_attr(ATTR_OSM_DICT).get("type"))
-            if self.get_attr(ATTR_PLACE_TYPE) == "yes":
+            if self.get_attr(
+                ATTR_PLACE_TYPE
+            ) == "yes" and "addresstype" in self.get_attr(ATTR_OSM_DICT):
                 self.set_attr(
                     ATTR_PLACE_TYPE,
                     self.get_attr(ATTR_OSM_DICT).get("addresstype"),
                 )
-            if self.get_attr(ATTR_PLACE_TYPE) in self.get_attr(ATTR_OSM_DICT).get(
-                "address"
-            ):
+            else:
+                self.clear_attribute(ATTR_PLACE_TYPE)
+            if "address" in self.get_attr(ATTR_OSM_DICT) and self.get_attr(
+                ATTR_PLACE_TYPE
+            ) in self.get_attr(ATTR_OSM_DICT).get("address"):
                 self.set_attr(
                     ATTR_PLACE_NAME,
                     self.get_attr(ATTR_OSM_DICT)
                     .get("address")
                     .get(self.get_attr(ATTR_PLACE_TYPE)),
                 )
-            if "category" in self.get_attr(ATTR_OSM_DICT):
+        if "category" in self.get_attr(ATTR_OSM_DICT):
+            self.set_attr(
+                ATTR_PLACE_CATEGORY,
+                self.get_attr(ATTR_OSM_DICT).get("category"),
+            )
+            if "address" in self.get_attr(ATTR_OSM_DICT) and self.get_attr(
+                ATTR_PLACE_CATEGORY
+            ) in self.get_attr(ATTR_OSM_DICT).get("address"):
                 self.set_attr(
-                    ATTR_PLACE_CATEGORY,
-                    self.get_attr(ATTR_OSM_DICT).get("category"),
+                    ATTR_PLACE_NAME,
+                    self.get_attr(ATTR_OSM_DICT)
+                    .get("address")
+                    .get(self.get_attr(ATTR_PLACE_CATEGORY)),
                 )
-                if self.get_attr(ATTR_PLACE_CATEGORY) in self.get_attr(
-                    ATTR_OSM_DICT
-                ).get("address"):
+        if "namedetails" in self.get_attr(ATTR_OSM_DICT) and "name" in self.get_attr(
+            ATTR_OSM_DICT
+        ).get("namedetails"):
+            self.set_attr(
+                ATTR_PLACE_NAME,
+                self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
+            )
+        if not self.is_attr_blank(CONF_LANGUAGE):
+            for language in self.get_attr(CONF_LANGUAGE).split(","):
+                if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
+                    "namedetails"
+                ):
                     self.set_attr(
                         ATTR_PLACE_NAME,
                         self.get_attr(ATTR_OSM_DICT)
-                        .get("address")
-                        .get(self.get_attr(ATTR_PLACE_CATEGORY)),
+                        .get("namedetails")
+                        .get("name:" + language),
                     )
-            if "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
-                self.set_attr(
-                    ATTR_PLACE_NAME,
-                    self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
-                )
-            if not self.is_attr_blank(CONF_LANGUAGE):
-                for language in self.get_attr(CONF_LANGUAGE).split(","):
-                    if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
-                        "namedetails"
-                    ):
-                        self.set_attr(
-                            ATTR_PLACE_NAME,
-                            self.get_attr(ATTR_OSM_DICT)
-                            .get("namedetails")
-                            .get("name:" + language),
-                        )
-                        break
-            if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
-                self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
+                    break
+        if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
+            self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
 
         if "house_number" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
@@ -1324,13 +1333,95 @@ class Places(SensorEntity):
         if "osm_type" in self.get_attr(ATTR_OSM_DICT):
             self.set_attr(ATTR_OSM_TYPE, self.get_attr(ATTR_OSM_DICT).get("osm_type"))
 
+        if (
+            not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+            and self.get_attr(ATTR_PLACE_CATEGORY).lower() == "highway"
+            and "namedetails" in self.get_attr(ATTR_OSM_DICT)
+            and "ref" in self.get_attr(ATTR_OSM_DICT).get("namedetails")
+        ):
+            # Testing for now
+            street_refs = re.split(
+                r"[\;\\\/\,\.\:]",
+                self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref"),
+            )
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Testing Street Refs: "
+                + str(street_refs)
+            )
+            ##
+            street_ref = self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref")
+            exclude_chars = [",", "\\", "/", ";", ":"]
+            if 1 in [c in street_ref for c in exclude_chars]:
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Initial Street Ref: "
+                    + str(street_ref)
+                )
+                lowest_nums = []
+                for char in exclude_chars:
+                    if find_num := street_ref.find(char) != -1:
+                        lowest_nums.append(int(find_num))
+                lowest_num = int(min(lowest_nums))
+                street_ref = street_ref[:lowest_num]
+            self.set_attr(
+                ATTR_STREET_REF,
+                street_ref,
+            )
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Street: "
+                + str(self.get_attr(ATTR_STREET))
+                + " / Street Ref: "
+                + str(self.get_attr(ATTR_STREET_REF))
+            )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Entity attributes after parsing OSM Dict: "
+            + str(self._internal_attr)
+        )
+
     def build_formatted_place(self):
         formatted_place_array = []
+        # Don't use place name if the same as another attributes
+        use_place_name = True
+        sensor_attributes_values = []
+        for attr in PLACE_NAME_DUPLICATE_LIST:
+            if not self.is_attr_blank(attr):
+                sensor_attributes_values.append(self.get_attr(attr))
+        if not self.is_attr_blank(ATTR_PLACE_NAME):
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Duplicated List [Place Name: "
+                + str(self.get_attr(ATTR_PLACE_NAME))
+                + " ]: "
+                + str(sensor_attributes_values)
+            )
+        else:
+            _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Place Name is None")
+            use_place_name = False
+        if (
+            not self.is_attr_blank(ATTR_PLACE_NAME)
+            and self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values
+        ):
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Not Using Place Name: "
+                + str(self.get_attr(ATTR_PLACE_NAME))
+            )
+            use_place_name = False
+
         display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
         if not self.in_zone():
             if self.get_attr(ATTR_IS_DRIVING) and "driving" in display_options:
                 formatted_place_array.append("Driving")
-            if self.is_attr_blank(ATTR_PLACE_NAME):
+            if not use_place_name:
                 if (
                     not self.is_attr_blank(ATTR_PLACE_TYPE)
                     and self.get_attr(ATTR_PLACE_TYPE).lower() != "unclassified"
@@ -1351,13 +1442,24 @@ class Places(SensorEntity):
                         self.get_attr(ATTR_PLACE_CATEGORY).title().strip()
                     )
                 if not self.is_attr_blank(ATTR_STREET):
+                    if (
+                        not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+                        and self.get_attr(ATTR_PLACE_CATEGORY).lower() == "highway"
+                        and not self.is_attr_blank(ATTR_PLACE_TYPE)
+                        and self.get_attr(ATTR_PLACE_TYPE).lower()
+                        in ["motorway", "trunk"]
+                        and not self.is_attr_blank(ATTR_STREET_REF)
+                    ):
+                        street = self.get_attr(ATTR_STREET_REF).strip()
+                    else:
+                        street = self.get_attr(ATTR_STREET).strip()
                     if self.is_attr_blank(ATTR_STREET_NUMBER):
-                        formatted_place_array.append(self.get_attr(ATTR_STREET).strip())
+                        formatted_place_array.append(street)
                     else:
                         formatted_place_array.append(
-                            self.get_attr(ATTR_STREET_NUMBER).strip()
+                            str(self.get_attr(ATTR_STREET_NUMBER)).strip()
                             + " "
-                            + self.get_attr(ATTR_STREET).strip()
+                            + str(street)
                         )
                 if (
                     not self.is_attr_blank(ATTR_PLACE_TYPE)
@@ -1417,7 +1519,9 @@ class Places(SensorEntity):
         if "place_name" in display_options and not self.is_attr_blank(ATTR_PLACE_NAME):
             user_display.append(self.get_attr(ATTR_PLACE_NAME))
         if "place" in display_options:
-            if not self.is_attr_blank(ATTR_PLACE_NAME):
+            if not self.is_attr_blank(ATTR_PLACE_NAME) and self.get_attr(
+                ATTR_PLACE_NAME
+            ) != self.get_attr(ATTR_STREET):
                 user_display.append(self.get_attr(ATTR_PLACE_NAME))
             if (
                 not self.is_attr_blank(ATTR_PLACE_CATEGORY)
