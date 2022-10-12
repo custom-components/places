@@ -1141,7 +1141,7 @@ class Places(SensorEntity):
                     + self.get_attr(CONF_NAME)
                     + ") GPS Accuracy is 0.0, not performing update"
                 )
-            else: 
+            else:
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
@@ -1335,15 +1335,15 @@ class Places(SensorEntity):
                 r"[\;\\\/\,\.\:]",
                 self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref"),
             )
-            street_refs = [i for i in street_refs if i.strip()] # Remove blank strings
+            street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
             _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Street Refs: "
-                + str(street_refs)
+                "(" + self.get_attr(CONF_NAME) + ") Street Refs: " + str(street_refs)
             )
-            if len(street_refs) > 0:
-                self.set_attr(ATTR_STREET_REF, street_refs[0])
+            for ref in street_refs:
+                if bool(re.search(r"\d", ref)):
+                    self.set_attr(ATTR_STREET_REF, ref)
+                    break
+            if not self.is_attr_blank(ATTR_STREET_REF):
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
@@ -1352,10 +1352,10 @@ class Places(SensorEntity):
                     + " / Street Ref: "
                     + str(self.get_attr(ATTR_STREET_REF))
                 )
-            ## Switching to list
+            # Switching to list
             # street_ref = self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref")
-            #exclude_chars = [",", "\\", "/", ";", ":"]
-            #if 1 in [c in street_ref for c in exclude_chars]:
+            # exclude_chars = [",", "\\", "/", ";", ":"]
+            # if 1 in [c in street_ref for c in exclude_chars]:
             #    _LOGGER.debug(
             #        "("
             #        + self.get_attr(CONF_NAME)
@@ -1368,10 +1368,10 @@ class Places(SensorEntity):
             #            lowest_nums.append(int(find_num))
             #    lowest_num = int(min(lowest_nums))
             #    street_ref = street_ref[:lowest_num]
-            #self.set_attr(
+            # self.set_attr(
             #    ATTR_STREET_REF,
             #    street_ref,
-            #)
+            # )
 
         _LOGGER.debug(
             "("
@@ -1408,9 +1408,13 @@ class Places(SensorEntity):
             #    + str(self.get_attr(ATTR_PLACE_NAME))
             # )
             use_place_name = False
-        _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") use_place_name: " + str(use_place_name))
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") use_place_name: " + str(use_place_name)
+        )
         if not self.in_zone():
-            if self.get_attr(ATTR_IS_DRIVING) and "driving" in self.get_attr(ATTR_DISPLAY_OPTIONS):
+            if self.get_attr(ATTR_IS_DRIVING) and "driving" in self.get_attr(
+                ATTR_DISPLAY_OPTIONS
+            ):
                 formatted_place_array.append("Driving")
             if not use_place_name:
                 if (
@@ -1442,18 +1446,20 @@ class Places(SensorEntity):
                         and not self.is_attr_blank(ATTR_STREET_REF)
                     ):
                         street = self.get_attr(ATTR_STREET_REF).strip()
-                        _LOGGER.debug("(" 
+                        _LOGGER.debug(
+                            "("
                             + self.get_attr(CONF_NAME)
                             + ") Using street_ref: "
-                            + str(street)                            
+                            + str(street)
                         )
                     else:
                         street = self.get_attr(ATTR_STREET).strip()
-                        _LOGGER.debug("(" 
+                        _LOGGER.debug(
+                            "("
                             + self.get_attr(CONF_NAME)
                             + ") Using street: "
                             + str(street)
-                        )                        
+                        )
                     if self.is_attr_blank(ATTR_STREET_NUMBER):
                         formatted_place_array.append(street)
                     else:
@@ -1775,7 +1781,7 @@ class Places(SensorEntity):
             + self.get_attr(CONF_NAME)
             + ") Last Place Name (Initial): "
             + str(self.get_attr(ATTR_LAST_PLACE_NAME))
-        )        
+        )
 
     def update_coordinates_and_distance(self):
         last_distance_m = self.get_attr(ATTR_DISTANCE_FROM_HOME_M)
@@ -1938,7 +1944,7 @@ class Places(SensorEntity):
             )
         return proceed_with_update
 
-    def finalize_last_place_name(self, prev_last_place_name = None):
+    def finalize_last_place_name(self, prev_last_place_name=None):
         if self.get_attr(ATTR_INITIAL_UPDATE):
             self.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
@@ -1964,9 +1970,7 @@ class Places(SensorEntity):
             )
         else:
             _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Keeping initial last_place_name"
+                "(" + self.get_attr(CONF_NAME) + ") Keeping initial last_place_name"
             )
         _LOGGER.info(
             "("
