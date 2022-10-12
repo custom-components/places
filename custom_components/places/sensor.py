@@ -1367,40 +1367,43 @@ class Places(SensorEntity):
 
     def build_formatted_place(self):
         formatted_place_array = []
-        # Don't use place name if the same as another attributes
-        use_place_name = True
-        sensor_attributes_values = []
-        for attr in PLACE_NAME_DUPLICATE_LIST:
-            if not self.is_attr_blank(attr):
-                sensor_attributes_values.append(self.get_attr(attr))
-        # if not self.is_attr_blank(ATTR_PLACE_NAME):
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") Duplicated List [Place Name: "
-        #    + str(self.get_attr(ATTR_PLACE_NAME))
-        #    + " ]: "
-        #    + str(sensor_attributes_values)
-        # )
-        if self.is_attr_blank(ATTR_PLACE_NAME):
-            use_place_name = False
-            # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Place Name is None")
-        elif self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values:
-            # _LOGGER.debug(
-            #    "("
-            #    + self.get_attr(CONF_NAME)
-            #    + ") Not Using Place Name: "
-            #    + str(self.get_attr(ATTR_PLACE_NAME))
-            # )
-            use_place_name = False
-        _LOGGER.debug(
-            "(" + self.get_attr(CONF_NAME) + ") use_place_name: " + str(use_place_name)
-        )
         if not self.in_zone():
             if self.get_attr(ATTR_IS_DRIVING) and "driving" in self.get_attr(
                 ATTR_DISPLAY_OPTIONS
             ):
                 formatted_place_array.append("Driving")
+            # Don't use place name if the same as another attributes
+            use_place_name = True
+            sensor_attributes_values = []
+            for attr in PLACE_NAME_DUPLICATE_LIST:
+                if not self.is_attr_blank(attr):
+                    sensor_attributes_values.append(self.get_attr(attr))
+            # if not self.is_attr_blank(ATTR_PLACE_NAME):
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") Duplicated List [Place Name: "
+            #    + str(self.get_attr(ATTR_PLACE_NAME))
+            #    + " ]: "
+            #    + str(sensor_attributes_values)
+            # )
+            if self.is_attr_blank(ATTR_PLACE_NAME):
+                use_place_name = False
+                # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Place Name is None")
+            elif self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values:
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") Not Using Place Name: "
+                #    + str(self.get_attr(ATTR_PLACE_NAME))
+                # )
+                use_place_name = False
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") use_place_name: "
+                + str(use_place_name)
+            )
             if not use_place_name:
                 if (
                     not self.is_attr_blank(ATTR_PLACE_TYPE)
