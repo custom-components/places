@@ -1213,12 +1213,6 @@ class Places(SensorEntity):
                         .get("name:" + language),
                     )
                     break
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Place Name: "
-            + str(self.get_attr(ATTR_PLACE_NAME))
-        )
         # if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
         #    self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
 
@@ -1232,7 +1226,28 @@ class Places(SensorEntity):
                 ATTR_STREET,
                 self.get_attr(ATTR_OSM_DICT).get("address").get("road"),
             )
-
+        if (
+            (
+                self.is_attr_blank(ATTR_PLACE_NAME)
+                or (
+                    not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+                    and self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
+                    and self.get_attr(ATTR_STREET) == self.get_attr(ATTR_PLACE_NAME)
+                )
+            )
+            and "address" in self.get_attr(ATTR_OSM_DICT)
+            and "retail" in self.get_attr(ATTR_OSM_DICT).get("address")
+        ):
+            self.set_attr(
+                ATTR_PLACE_NAME,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("retail"),
+            )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Place Name: "
+            + str(self.get_attr(ATTR_PLACE_NAME))
+        )
         if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
                 ATTR_PLACE_NEIGHBOURHOOD,
