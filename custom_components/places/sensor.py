@@ -1213,8 +1213,8 @@ class Places(SensorEntity):
                         .get("name:" + language),
                     )
                     break
-        if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
-            self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
+        # if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
+        #    self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
 
         if "house_number" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
@@ -1352,27 +1352,6 @@ class Places(SensorEntity):
                     + " / Street Ref: "
                     + str(self.get_attr(ATTR_STREET_REF))
                 )
-            # Switching to list
-            # street_ref = self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref")
-            # exclude_chars = [",", "\\", "/", ";", ":"]
-            # if 1 in [c in street_ref for c in exclude_chars]:
-            #    _LOGGER.debug(
-            #        "("
-            #        + self.get_attr(CONF_NAME)
-            #        + ") Initial Street Ref: "
-            #        + str(street_ref)
-            #    )
-            #    lowest_nums = []
-            #    for char in exclude_chars:
-            #        if find_num := street_ref.find(char) != -1:
-            #            lowest_nums.append(int(find_num))
-            #    lowest_num = int(min(lowest_nums))
-            #    street_ref = street_ref[:lowest_num]
-            # self.set_attr(
-            #    ATTR_STREET_REF,
-            #    street_ref,
-            # )
-
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
@@ -1743,6 +1722,12 @@ class Places(SensorEntity):
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
+            + ") Previous State: "
+            + str(self.get_attr(ATTR_PREVIOUS_STATE))
+        )
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
             + ") Previous last_place_name: "
             + str(self.get_attr(ATTR_LAST_PLACE_NAME))
         )
@@ -1759,7 +1744,7 @@ class Places(SensorEntity):
                     + str(self.get_attr(ATTR_LAST_PLACE_NAME))
                 )
             else:
-                # If blank, keep previous last place name
+                # If blank, keep previous last_place_name
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
@@ -1779,7 +1764,7 @@ class Places(SensorEntity):
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
-            + ") Last Place Name (Initial): "
+            + ") last_place_name (Initial): "
             + str(self.get_attr(ATTR_LAST_PLACE_NAME))
         )
 
@@ -1957,7 +1942,7 @@ class Places(SensorEntity):
         ) or self.get_attr(ATTR_LAST_PLACE_NAME) == self.get_attr(
             ATTR_DEVICETRACKER_ZONE_NAME
         ):
-            # If current place name/zone are the same as previous, keep older last place name
+            # If current place name/zone are the same as previous, keep older last_place_name
             self.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
                 "("
@@ -1975,7 +1960,7 @@ class Places(SensorEntity):
         _LOGGER.info(
             "("
             + self.get_attr(CONF_NAME)
-            + ") Last Place Name: "
+            + ") last_place_name: "
             + str(self.get_attr(ATTR_LAST_PLACE_NAME))
         )
 
@@ -2007,19 +1992,12 @@ class Places(SensorEntity):
         prev_last_place_name = self.get_attr(ATTR_LAST_PLACE_NAME)
 
         _LOGGER.info(
-            "(" + self.get_attr(CONF_NAME) + ") Calling update due to: " + str(reason)
-        )
-        _LOGGER.info(
             "("
             + self.get_attr(CONF_NAME)
-            + ") Check if update required for: "
+            + ") Calling update for "
             + str(self.get_attr(CONF_DEVICETRACKER_ID))
-        )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Previous State: "
-            + str(self.get_attr(ATTR_PREVIOUS_STATE))
+            + " due to: "
+            + str(reason)
         )
 
         if self.is_float(
