@@ -264,21 +264,13 @@ async def async_setup_platform(
             _LOGGER.debug(
                 "[YAML Validate] devicetracker_id: "
                 + str(import_config.get(CONF_DEVICETRACKER_ID))
-                + " - "
-                + CONF_LATITUDE
-                + "= "
+                + ": Lat/Long: "
                 + str(
                     hass.states.get(
                         import_config.get(CONF_DEVICETRACKER_ID)
                     ).attributes.get(CONF_LATITUDE)
                 )
-            )
-            _LOGGER.debug(
-                "[YAML Validate] devicetracker_id: "
-                + str(import_config.get(CONF_DEVICETRACKER_ID))
-                + " - "
-                + CONF_LONGITUDE
-                + "= "
+                + " / "
                 + str(
                     hass.states.get(
                         import_config.get(CONF_DEVICETRACKER_ID)
