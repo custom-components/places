@@ -861,47 +861,51 @@ class Places(SensorEntity):
             + ") DeviceTracker Zone: "
             + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
         )
-
-        devicetracker_zone_name_state = None
-        devicetracker_zone_id = self._hass.states.get(
-            self.get_attr(CONF_DEVICETRACKER_ID)
-        ).attributes.get(CONF_ZONE)
-        if devicetracker_zone_id is not None:
-            devicetracker_zone_id = str(CONF_ZONE) + "." + str(devicetracker_zone_id)
-            devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") DeviceTracker Zone ID: "
-        #    + str(devicetracker_zone_id)
-        # )
-        # _LOGGER.debug(
-        #    "("
-        #    + self.get_attr(CONF_NAME)
-        #    + ") DeviceTracker Zone Name State: "
-        #    + str(devicetracker_zone_name_state)
-        # )
-        if devicetracker_zone_name_state is not None:
-            self.set_attr(
-                ATTR_DEVICETRACKER_ZONE_NAME, devicetracker_zone_name_state.name
+        if self.in_zone():
+            devicetracker_zone_name_state = None
+            devicetracker_zone_id = self._hass.states.get(
+                self.get_attr(CONF_DEVICETRACKER_ID)
+            ).attributes.get(CONF_ZONE)
+            if devicetracker_zone_id is not None:
+                devicetracker_zone_id = (
+                    str(CONF_ZONE) + "." + str(devicetracker_zone_id)
+                )
+                devicetracker_zone_name_state = self._hass.states.get(
+                    devicetracker_zone_id
+                )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") DeviceTracker Zone ID: "
+            #    + str(devicetracker_zone_id)
+            # )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") DeviceTracker Zone Name State: "
+            #    + str(devicetracker_zone_name_state)
+            # )
+            if devicetracker_zone_name_state is not None:
+                self.set_attr(
+                    ATTR_DEVICETRACKER_ZONE_NAME, devicetracker_zone_name_state.name
+                )
+            else:
+                self.set_attr(
+                    ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
+                )
+            if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME) and self.get_attr(
+                ATTR_DEVICETRACKER_ZONE_NAME
+            ).lower() == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
+                self.set_attr(
+                    ATTR_DEVICETRACKER_ZONE_NAME,
+                    self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).title(),
+                )
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") DeviceTracker Zone Name: "
+                + str(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
             )
-        else:
-            self.set_attr(
-                ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
-            )
-        if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME) and self.get_attr(
-            ATTR_DEVICETRACKER_ZONE_NAME
-        ).lower() == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
-            self.set_attr(
-                ATTR_DEVICETRACKER_ZONE_NAME,
-                self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).title(),
-            )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") DeviceTracker Zone Name: "
-            + str(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
-        )
 
     def determine_if_update_needed(self):
         proceed_with_update = True
@@ -1231,6 +1235,7 @@ class Places(SensorEntity):
                 self.is_attr_blank(ATTR_PLACE_NAME)
                 or (
                     not self.is_attr_blank(ATTR_PLACE_CATEGORY)
+                    and not self.is_attr_blank(ATTR_STREET)
                     and self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
                     and self.get_attr(ATTR_STREET) == self.get_attr(ATTR_PLACE_NAME)
                 )
