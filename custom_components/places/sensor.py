@@ -1170,7 +1170,7 @@ class Places(SensorEntity):
                     self.get_attr(ATTR_OSM_DICT).get("addresstype"),
                 )
             else:
-                self.clear_attribute(ATTR_PLACE_TYPE)
+                self.clear_attr(ATTR_PLACE_TYPE)
             if "address" in self.get_attr(ATTR_OSM_DICT) and self.get_attr(
                 ATTR_PLACE_TYPE
             ) in self.get_attr(ATTR_OSM_DICT).get("address"):
@@ -1370,12 +1370,12 @@ class Places(SensorEntity):
                 + " / Street Ref: "
                 + str(self.get_attr(ATTR_STREET_REF))
             )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") Entity attributes after parsing OSM Dict: "
-            + str(self._internal_attr)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Entity attributes after parsing OSM Dict: "
+        #    + str(self._internal_attr)
+        # )
 
     def build_formatted_place(self):
         formatted_place_array = []
@@ -1385,28 +1385,29 @@ class Places(SensorEntity):
         for attr in PLACE_NAME_DUPLICATE_LIST:
             if not self.is_attr_blank(attr):
                 sensor_attributes_values.append(self.get_attr(attr))
-        if not self.is_attr_blank(ATTR_PLACE_NAME):
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Duplicated List [Place Name: "
-                + str(self.get_attr(ATTR_PLACE_NAME))
-                + " ]: "
-                + str(sensor_attributes_values)
-            )
-        else:
-            _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Place Name is None")
+        # if not self.is_attr_blank(ATTR_PLACE_NAME):
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") Duplicated List [Place Name: "
+        #    + str(self.get_attr(ATTR_PLACE_NAME))
+        #    + " ]: "
+        #    + str(sensor_attributes_values)
+        # )
+        if self.is_attr_blank(ATTR_PLACE_NAME):
             use_place_name = False
+            # _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Place Name is None")
+
         if (
             not self.is_attr_blank(ATTR_PLACE_NAME)
             and self.get_attr(ATTR_PLACE_NAME) in sensor_attributes_values
         ):
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Not Using Place Name: "
-                + str(self.get_attr(ATTR_PLACE_NAME))
-            )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") Not Using Place Name: "
+            #    + str(self.get_attr(ATTR_PLACE_NAME))
+            # )
             use_place_name = False
 
         display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
@@ -1686,12 +1687,12 @@ class Places(SensorEntity):
         sensor_attributes = copy.deepcopy(self._internal_attr)
         for k, v in list(sensor_attributes.items()):
             if isinstance(v, (datetime)):
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Removing Sensor Attribute: "
-                    + str(k)
-                )
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") Removing Sensor Attribute: "
+                #    + str(k)
+                # )
                 sensor_attributes.pop(k)
         # _LOGGER.debug(
         #    "("
