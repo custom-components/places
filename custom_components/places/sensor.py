@@ -855,12 +855,6 @@ class Places(SensorEntity):
             ATTR_DEVICETRACKER_ZONE,
             self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).state,
         )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") DeviceTracker Zone: "
-            + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
-        )
         if self.in_zone():
             devicetracker_zone_name_state = None
             devicetracker_zone_id = self._hass.states.get(
@@ -905,6 +899,16 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") DeviceTracker Zone Name: "
                 + str(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
+            )
+        else:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") DeviceTracker Zone: "
+                + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
+            )
+            self.set_attr(
+                ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
             )
 
     def determine_if_update_needed(self):
