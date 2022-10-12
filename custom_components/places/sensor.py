@@ -1213,6 +1213,12 @@ class Places(SensorEntity):
                         .get("name:" + language),
                     )
                     break
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Place Name: "
+            + str(self.get_attr(ATTR_PLACE_NAME))
+        )
         # if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
         #    self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
 
