@@ -1,4 +1,7 @@
-# ![Places Logo](https://github.com/custom-components/places/raw/master/logo/icon.png) places
+# places 
+<picture>
+  <img alt="places Logo" src="https://github.com/custom-components/places/raw/master/logo/icon.png">
+</picture>
 
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
