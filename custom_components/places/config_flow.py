@@ -76,7 +76,7 @@ def get_devicetracker_id_entities(
                 )
     # Optional: Include the current entity in the list as well.
     if current_entity is not None:
-        _LOGGER.debug("current_entity: " + str(current_entity))
+        # _LOGGER.debug("current_entity: " + str(current_entity))
         dt_list_entities = [d["value"] for d in dt_list]
         if current_entity not in dt_list_entities:
             if (
@@ -88,7 +88,7 @@ def get_devicetracker_id_entities(
                 current_name = hass.states.get(current_entity).attributes.get(
                     ATTR_FRIENDLY_NAME
                 )
-                _LOGGER.debug("current_name: " + str(current_name))
+                # _LOGGER.debug("current_name: " + str(current_name))
                 dt_list.append(
                     selector.SelectOptionDict(
                         value=str(current_entity),
@@ -107,10 +107,10 @@ def get_devicetracker_id_entities(
     else:
         dt_list_sorted = []
 
-    _LOGGER.debug(
-        "Devicetracker_id name/entities including sensors with lat/long: "
-        + str(dt_list_sorted)
-    )
+    # _LOGGER.debug(
+    #    "Devicetracker_id name/entities including sensors with lat/long: "
+    #    + str(dt_list_sorted)
+    # )
     return dt_list_sorted
 
 
@@ -136,7 +136,7 @@ def get_home_zone_entities(hass: core.HomeAssistant) -> list[str]:
         zone_list_sorted = sorted(zone_list, key=lambda d: d["label"])
     else:
         zone_list_sorted = []
-    _LOGGER.debug("Zones: " + str(zone_list_sorted))
+    # _LOGGER.debug("Zones: " + str(zone_list_sorted))
     return zone_list_sorted
 
 
@@ -169,7 +169,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 info = await validate_input(self.hass, user_input)
-                _LOGGER.debug("[New Sensor] info: " + str(info))
+                # _LOGGER.debug("[New Sensor] info: " + str(info))
                 _LOGGER.debug("[New Sensor] user_input: " + str(user_input))
                 return self.async_create_entry(title=info["title"], data=user_input)
             except Exception as err:
@@ -256,7 +256,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_import(self, import_config=None) -> FlowResult:
         """Import a config entry from configuration.yaml."""
 
-        _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
+        # _LOGGER.debug("[async_step_import] import_config: " + str(import_config))
         return await self.async_step_user(import_config)
 
     @staticmethod
@@ -296,7 +296,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 # )
                 if isinstance(user_input.get(m), str) and not user_input.get(m):
                     user_input.pop(m)
-            _LOGGER.debug("[Options Update] updated config: " + str(user_input))
+            # _LOGGER.debug("[Options Update] updated config: " + str(user_input))
 
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
@@ -434,7 +434,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
             }
         )
 
-        _LOGGER.debug("[Options Update] initial config: " + str(self.config_entry.data))
+        # _LOGGER.debug("[Options Update] initial config: " + str(self.config_entry.data))
 
         return self.async_show_form(
             step_id="init",
