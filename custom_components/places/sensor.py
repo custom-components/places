@@ -1453,7 +1453,18 @@ class Places(SensorEntity):
                     formatted_place_array.append(
                         self.get_attr(ATTR_PLACE_CATEGORY).title().strip()
                     )
-                if not self.is_attr_blank(ATTR_STREET):
+                street = None
+                if self.is_attr_blank(ATTR_STREET) and not self.is_attr_blank(
+                    ATTR_STREET_REF
+                ):
+                    street = self.get_attr(ATTR_STREET_REF).strip()
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") Using street_ref: "
+                        + str(street)
+                    )
+                elif not self.is_attr_blank(ATTR_STREET):
                     if (
                         not self.is_attr_blank(ATTR_PLACE_CATEGORY)
                         and self.get_attr(ATTR_PLACE_CATEGORY).lower() == "highway"
@@ -1477,14 +1488,14 @@ class Places(SensorEntity):
                             + ") Using street: "
                             + str(street)
                         )
-                    if self.is_attr_blank(ATTR_STREET_NUMBER):
-                        formatted_place_array.append(street)
-                    else:
-                        formatted_place_array.append(
-                            str(self.get_attr(ATTR_STREET_NUMBER)).strip()
-                            + " "
-                            + str(street)
-                        )
+                if street and self.is_attr_blank(ATTR_STREET_NUMBER):
+                    formatted_place_array.append(street)
+                elif street and not self.is_attr_blank(ATTR_STREET_NUMBER):
+                    formatted_place_array.append(
+                        str(self.get_attr(ATTR_STREET_NUMBER)).strip()
+                        + " "
+                        + str(street)
+                    )
                 if (
                     not self.is_attr_blank(ATTR_PLACE_TYPE)
                     and self.get_attr(ATTR_PLACE_TYPE).lower() == "house"
