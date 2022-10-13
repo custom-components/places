@@ -1267,6 +1267,11 @@ class Places(SensorEntity):
                 ATTR_PLACE_NEIGHBOURHOOD,
                 self.get_attr(ATTR_OSM_DICT).get("address").get("hamlet"),
             )
+        elif "residential" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_PLACE_NEIGHBOURHOOD,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("residential"),
+            )
 
         if "city" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
