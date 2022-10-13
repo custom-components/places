@@ -104,6 +104,7 @@ from .const import (
     CONF_DEVICETRACKER_ID,
     CONF_EXTENDED_ATTR,
     CONF_HOME_ZONE,
+    CONF_IGNORE_GPS,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
@@ -114,6 +115,7 @@ from .const import (
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_ICON,
+    DEFAULT_IGNORE_GPS,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
@@ -430,14 +432,15 @@ class Places(SensorEntity):
             self.set_attr(
                 CONF_LANGUAGE, self.get_attr(CONF_LANGUAGE).replace(" ", "").strip()
             )
-
         self.set_attr(
             CONF_EXTENDED_ATTR,
             config.setdefault(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR),
         )
-
         self.set_attr(
             CONF_SHOW_TIME, config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
+        )
+        self.set_attr(
+            CONF_IGNORE_GPS, config.setdefault(CONF_IGNORE_GPS, DEFAULT_IGNORE_GPS)
         )
         self.set_attr(
             ATTR_JSON_FILENAME,
@@ -782,6 +785,7 @@ class Places(SensorEntity):
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "away"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_home"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "notset"
+                or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_set"
             ):
                 return False
             else:
@@ -1142,7 +1146,10 @@ class Places(SensorEntity):
             )
         proceed_with_update = True
         if not self.is_attr_blank(ATTR_GPS_ACCURACY):
-            if self.get_attr(ATTR_GPS_ACCURACY) == 0:
+            if (
+                not self.get_attr(CONF_IGNORE_GPS)
+                and self.get_attr(ATTR_GPS_ACCURACY) == 0
+            ):
                 proceed_with_update = False
                 _LOGGER.info(
                     "("
