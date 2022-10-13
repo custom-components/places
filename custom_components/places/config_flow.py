@@ -169,7 +169,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 info = await validate_input(self.hass, user_input)
-                _LOGGER.debug("[New Sensor] info: " + str(info))
+                # _LOGGER.debug("[New Sensor] info: " + str(info))
                 _LOGGER.debug("[New Sensor] user_input: " + str(user_input))
                 return self.async_create_entry(title=info["title"], data=user_input)
             except Exception as err:
