@@ -24,12 +24,14 @@ from .const import (
     CONF_MAP_ZOOM,
     CONF_OPTIONS,
     CONF_SHOW_TIME,
+    CONF_USE_GPS,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
     DEFAULT_SHOW_TIME,
+    DEFAULT_USE_GPS,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -240,6 +242,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_USE_GPS, default=DEFAULT_USE_GPS
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
@@ -429,6 +434,14 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         self.config_entry.data[CONF_SHOW_TIME]
                         if CONF_SHOW_TIME in self.config_entry.data
                         else DEFAULT_SHOW_TIME
+                    ),
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_USE_GPS,
+                    default=(
+                        self.config_entry.data[CONF_USE_GPS]
+                        if CONF_USE_GPS in self.config_entry.data
+                        else DEFAULT_USE_GPS
                     ),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
