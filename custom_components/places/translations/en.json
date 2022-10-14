@@ -14,7 +14,8 @@
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes",
-                    "show_time": "Show last updated time at end of state '(since xx:yy)'"
+                    "show_time": "Show last updated time at end of state '(since xx:yy)'",
+                    "use_gps_accuracy": "Use GPS Accuracy"
                 },
                 "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }
@@ -33,7 +34,8 @@
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes",
-                    "show_time": "Show last updated time at end of state '(since xx:yy)'"
+                    "show_time": "Show last updated time at end of state '(since xx:yy)'",
+                    "use_gps_accuracy": "Use GPS Accuracy"
                 },
                 "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }

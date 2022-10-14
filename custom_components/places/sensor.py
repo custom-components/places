@@ -109,6 +109,7 @@ from .const import (
     CONF_MAP_ZOOM,
     CONF_OPTIONS,
     CONF_SHOW_TIME,
+    CONF_USE_GPS,
     CONF_YAML_HASH,
     CONFIG_ATTRIBUTES_LIST,
     DEFAULT_EXTENDED_ATTR,
@@ -118,6 +119,7 @@ from .const import (
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
     DEFAULT_SHOW_TIME,
+    DEFAULT_USE_GPS,
     DOMAIN,
     EVENT_ATTRIBUTE_LIST,
     EXTENDED_ATTRIBUTE_LIST,
@@ -430,15 +432,14 @@ class Places(SensorEntity):
             self.set_attr(
                 CONF_LANGUAGE, self.get_attr(CONF_LANGUAGE).replace(" ", "").strip()
             )
-
         self.set_attr(
             CONF_EXTENDED_ATTR,
             config.setdefault(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR),
         )
-
         self.set_attr(
             CONF_SHOW_TIME, config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
         )
+        self.set_attr(CONF_USE_GPS, config.setdefault(CONF_USE_GPS, DEFAULT_USE_GPS))
         self.set_attr(
             ATTR_JSON_FILENAME,
             (DOMAIN + "-" + slugify(str(self.get_attr(CONF_UNIQUE_ID))) + ".json"),
@@ -782,6 +783,7 @@ class Places(SensorEntity):
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "away"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_home"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "notset"
+                or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_set"
             ):
                 return False
             else:
@@ -1142,7 +1144,7 @@ class Places(SensorEntity):
             )
         proceed_with_update = True
         if not self.is_attr_blank(ATTR_GPS_ACCURACY):
-            if self.get_attr(ATTR_GPS_ACCURACY) == 0:
+            if self.get_attr(CONF_USE_GPS) and self.get_attr(ATTR_GPS_ACCURACY) == 0:
                 proceed_with_update = False
                 _LOGGER.info(
                     "("
