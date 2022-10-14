@@ -15,7 +15,7 @@
                     "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes",
                     "show_time": "Show last updated time at end of state '(since xx:yy)'",
-                    "ignore_gps": "Ignore GPS Accuracy"
+                    "use_gps_accuracy": "Use GPS Accuracy"
                 },
                 "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }
@@ -35,7 +35,7 @@
                     "language": "Language (optional)",
                     "extended_attr": "Enable Extended Attributes",
                     "show_time": "Show last updated time at end of state '(since xx:yy)'",
-                    "ignore_gps": "Ignore GPS Accuracy"
+                    "use_gps_accuracy": "Use GPS Accuracy"
                 },
                 "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }

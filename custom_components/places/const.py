@@ -18,7 +18,7 @@ DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
 DEFAULT_OPTION = "zone_name, place"
 DEFAULT_SHOW_TIME = False
-DEFAULT_IGNORE_GPS = False
+DEFAULT_USE_GPS = True
 
 # Settings
 
@@ -44,7 +44,7 @@ CONF_MAP_ZOOM = "map_zoom"
 CONF_NATIVE_VALUE = "native_value"
 CONF_OPTIONS = "options"
 CONF_SHOW_TIME = "show_time"
-CONF_IGNORE_GPS = "ignore_gps"
+CONF_USE_GPS = "use_gps_accuracy"
 CONF_YAML_HASH = "yaml_hash"
 
 # Attributes
@@ -117,7 +117,7 @@ CONFIG_ATTRIBUTES_LIST = [
     CONF_NAME,
     CONF_OPTIONS,
     CONF_SHOW_TIME,
-    CONF_IGNORE_GPS,
+    CONF_USE_GPS,
     CONF_UNIQUE_ID,
 ]
 RESET_ATTRIBUTE_LIST = [

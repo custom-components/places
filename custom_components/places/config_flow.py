@@ -19,19 +19,19 @@ from .const import (
     CONF_DEVICETRACKER_ID,
     CONF_EXTENDED_ATTR,
     CONF_HOME_ZONE,
-    CONF_IGNORE_GPS,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
     CONF_OPTIONS,
     CONF_SHOW_TIME,
+    CONF_USE_GPS,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
-    DEFAULT_IGNORE_GPS,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_OPTION,
     DEFAULT_SHOW_TIME,
+    DEFAULT_USE_GPS,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -243,7 +243,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 vol.Optional(
-                    CONF_IGNORE_GPS, default=DEFAULT_IGNORE_GPS
+                    CONF_USE_GPS, default=DEFAULT_USE_GPS
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )
@@ -437,11 +437,11 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 vol.Optional(
-                    CONF_IGNORE_GPS,
+                    CONF_USE_GPS,
                     default=(
-                        self.config_entry.data[CONF_IGNORE_GPS]
-                        if CONF_IGNORE_GPS in self.config_entry.data
-                        else DEFAULT_IGNORE_GPS
+                        self.config_entry.data[CONF_USE_GPS]
+                        if CONF_USE_GPS in self.config_entry.data
+                        else DEFAULT_USE_GPS
                     ),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }

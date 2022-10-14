@@ -59,10 +59,10 @@ Key | Type | Required | Description | Default |
 `api_key` | `string` | `False` | OpenStreetMap API key (your email address). | None
 `map_provider` | `string` | `False` | `google`, `apple`, `osm` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
-`language` | `string` | `False` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br><sup>\*</sup>Refer to [Notes](#notes) | location's local language
+`language` | `string` | `False` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) | location's local language
 `extended_attr` | `boolean` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, will make the attributes very long!** | `False`
 `show_time` | `boolean` | `False` | Show last updated time at end of state `(since xx:yy)` | `False`
-`ignore_gps_accuracy` | `boolean` | `False` | Ignore GPS Accuracy even if the devicetracker_id reports it.<br />_Set this to true if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `False`
+`use_gps_accuracy` | `boolean` | `False` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
 `options` | `string` | `False` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone`, `place`
 
 Sample attributes that can be used in notifications, alerts, automations, etc:
