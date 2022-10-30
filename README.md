@@ -12,7 +12,7 @@
 <!--- [![Discord][discord-shield]][discord] -->
 <!--- [![Community Forum][forum-shield]][forum] -->
 
-_Component to integrate with OpenStreetMap Reverse Geocode_
+_Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device tracker, person, or sensor_
 
 ## Installation
 
@@ -20,15 +20,17 @@ _Component to integrate with OpenStreetMap Reverse Geocode_
 
 Unless you have a good reason not to, you probably want to install this component via HACS (Home Assistant Community Store)
 1. Ensure that [HACS](https://hacs.xyz/) is installed
-1. [Click Here](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-components&repository=places) to open `places` in HACS or
-$emsp;a. Navigate to HACS
-$emsp;b. Click `+ Explore & Download Repositories`
-$emsp;c. Find the `places` integration </ br>
+1. [Click Here](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-components&repository=places) to directly open `places` in HACS **or**<br/>
+  a. Navigate to HACS<br/>
+  b. Click `+ Explore & Download Repositories`<br/>
+  c. Find the `places` integration <br/>
 1. Click `Download`
-1. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)
-1. Click `+ Add Integrations` and select `places`
-1. Add your configuration ([see details on options below](#configuration-options))
-1. Click `Submit`
+2. Restart Home Assistant
+3. [Click Here](https://my.home-assistant.io/redirect/config_flow_start/?domain=places) to directly add a `places` sensor **or**<br/>
+  a. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)<br/>
+  b. Click `+ Add Integrations` and select `places`<br/>
+6. Add your configuration ([see details on options below](#configuration-options))
+7. Click `Submit`
 
 ### Manual Installation
 
@@ -39,8 +41,11 @@ You probably do not want to do this! Use the HACS method above unless you have a
 1. In the `custom_components` directory (folder) create a new folder called `places`
 1. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository
 1. Place the files you downloaded in the new directory (folder) you created
-1. Add your configuration
-1. Restart Home Assistant
+2. Restart Home Assistant
+3. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)
+4. Click `+ Add Integrations` and select `places`
+5. Add your configuration ([see details on options below](#configuration-options))
+6. Click `Submit`
 
 Using your HA configuration directory (folder) as a starting point you should now also have this:
 
@@ -177,7 +182,7 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [commits-shield]: https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge
 [commits]: https://github.com/custom-components/places/commits/master
 [hacs]: https://github.com/hacs/integration
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
+[hacsbadge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge
 [discord]: https://discord.gg/Qa5fW2R
 [discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
 [forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
