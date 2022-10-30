@@ -5,8 +5,9 @@
 
 [![GitHub Release](https://img.shields.io/github/release/custom-components/places.svg?style=for-the-badge)](https://github.com/custom-components/places/releases)
 [![GitHub Commit Activity](https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge)](https://github.com/custom-components/places/commits/master)
-[![License](https://img.shields.io/github/license/custom-components/places?color=blue&style=for-the-badge)](LICENSE)
-[![HACS](https://img.shields.io/badge/HACS-Default-blue.svg?style=for-the-badge)](https://github.com/hacs/integration)<br/>
+[![License](https://img.shields.io/github/license/custom-components/places?color=blue&style=for-the-badge)](LICENSE)<br/>
+[![HACS](https://img.shields.io/badge/HACS-Default-blue.svg?style=for-the-badge)](https://github.com/hacs/integration)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/custom-components/places/hacs_validate?label=HACS%20Validate&style=for-the-badge)<br/>
 [![Community Forum](https://img.shields.io/badge/community-forum-blue.svg?style=for-the-badge)](https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component)
 
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device tracker, person, or sensor_
