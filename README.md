@@ -20,14 +20,15 @@ _Component to integrate with OpenStreetMap Reverse Geocode_
 
 Unless you have a good reason not to, you probably want to install this component via HACS (Home Assistant Community Store)
 1. Ensure that [HACS](https://hacs.xyz/) is installed
-1. Navigate to HACS -> Integrations
-1. Open the three-dot menu and select 'Custom Repositories'
-1. Put 'https://github.com/custom-components/places' into the 'Repository' textbox.
-1. Select 'Integration' as the category
-1. Press 'Add'.
-1. Find the Places integration in the HACS integration list and install it
-1. Add your configuration
-1. Restart Home Assistant
+1. [Click Here](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-components&repository=places) to open `places` in HACS or
+$emsp;a. Navigate to HACS
+$emsp;b. Click `+ Explore & Download Repositories`
+$emsp;c. Find the `places` integration </ br>
+1. Click `Download`
+1. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)
+1. Click `+ Add Integrations` and select `places`
+1. Add your configuration ([see details on options below](#configuration-options))
+1. Click `Submit`
 
 ### Manual Installation
 
