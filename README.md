@@ -3,59 +3,58 @@
   <img alt="places Logo" src="https://github.com/custom-components/places/raw/master/logo/icon.png">
 </picture>
 
-[![GitHub Release][releases-shield]][releases]
-[![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]](LICENSE)
-
-[![hacs][hacsbadge]][hacs]
-
-<!--- [![Discord][discord-shield]][discord] -->
-<!--- [![Community Forum][forum-shield]][forum] -->
+[![GitHub Release](https://img.shields.io/github/release/custom-components/places.svg?style=for-the-badge)](https://github.com/custom-components/places/releases)
+[![GitHub Commit Activity](https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge)](https://github.com/custom-components/places/commits/master)
+[![License](https://img.shields.io/github/license/custom-components/places?color=blue&style=for-the-badge)](LICENSE)
+[![HACS](https://img.shields.io/badge/HACS-Default-blue.svg?style=for-the-badge)](https://github.com/hacs/integration)<br/>
+[![Community Forum](https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge)](https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component)
 
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device tracker, person, or sensor_
 
 ## Installation
-
-### Installation via HACS
-
-Unless you have a good reason not to, you probably want to install this component via HACS (Home Assistant Community Store)
+### HACS (recommended)
 1. Ensure that [HACS](https://hacs.xyz/) is installed
 1. [Click Here](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-components&repository=places) to directly open `places` in HACS **or**<br/>
   a. Navigate to HACS<br/>
   b. Click `+ Explore & Download Repositories`<br/>
   c. Find the `places` integration <br/>
 1. Click `Download`
-2. Restart Home Assistant
-3. [Click Here](https://my.home-assistant.io/redirect/config_flow_start/?domain=places) to directly add a `places` sensor **or**<br/>
-  a. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)<br/>
-  b. Click `+ Add Integrations` and select `places`<br/>
-6. Add your configuration ([see details on options below](#configuration-options))
-7. Click `Submit`
+1. Restart Home Assistant
+1. See [Configuration](#configuration) below
 
-### Manual Installation
-
-You probably do not want to do this! Use the HACS method above unless you have a very good reason why you are installing manually
+### Manual
+You probably <u>do not</u> want to do this! Use the HACS method above unless you know what you are doing and have a good reason as to why you are installing manually
 
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`)
-1. If you do not have a `custom_components` directory (folder) there, you need to create it
-1. In the `custom_components` directory (folder) create a new folder called `places`
-1. Download _all_ the files from the `custom_components/places/` directory (folder) in this repository
-1. Place the files you downloaded in the new directory (folder) you created
-2. Restart Home Assistant
-3. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)
-4. Click `+ Add Integrations` and select `places`
-5. Add your configuration ([see details on options below](#configuration-options))
-6. Click `Submit`
+1. If you do not have a `custom_components` directory there, you need to create it
+1. In the `custom_components` directory create a new folder called `places`
+1. Download _all_ the files from the `custom_components/places/` directory in this repository
+1. Place the files you downloaded in the new directory you created
+1. Restart Home Assistant
+1. See [Configuration](#configuration) below
 
-Using your HA configuration directory (folder) as a starting point you should now also have this:
-
+Using your HA configuration directory as a starting point you should now also have this:
 ```text
 custom_components/places/__init__.py
+custom_components/places/config_flow.py
+custom_components/places/const.py
 custom_components/places/manifest.json
 custom_components/places/sensor.py
+custom_components/places/strings.json
+custom_components/places/translations
+custom_components/places/translations/en.json
 ```
+## Configuration
+**Configuration is done in the Integrations section of Home Assistant. Configuration with configuration.yaml is no longer supported.**
+1. [Click Here](https://my.home-assistant.io/redirect/config_flow_start/?domain=places) to directly add a `places` sensor **or**<br/>
+  a. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)<br/>
+  b. Click `+ Add Integrations` and select `places`<br/>
+2. Add your configuration ([see Configuration Options below](#configuration-options))
+3. Click `Submit`
+* Repeat as needed to create additional `places` sensors
+* Options can be changed in Home Assistant Integrations by selecting `Configure` under the desired  `places` sensor.
 
-## Configuration options
+### Configuration Options
 
 Key | Type | Required | Description | Default |
 -- | -- | -- | -- | --
@@ -66,7 +65,7 @@ Key | Type | Required | Description | Default |
 `map_provider` | `string` | `False` | `google`, `apple`, `osm` | `apple`
 `map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
 `language` | `string` | `False` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) | location's local language
-`extended_attr` | `boolean` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, will make the attributes very long!** | `False`
+`extended_attr` | `boolean` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!** | `False`
 `show_time` | `boolean` | `False` | Show last updated time at end of state `(since xx:yy)` | `False`
 `use_gps_accuracy` | `boolean` | `False` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
 `options` | `string` | `False` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone`, `place`
@@ -107,7 +106,7 @@ Sample attributes that can be used in notifications, alerts, automations, etc:
 }
 ```
 
-Sample generic automations.yaml snippet to send an iOS notify on any device state change:
+Sample generic `automations.yaml` snippet to send an iOS notify on any device state change:
 (the only difference is the second one uses a condition to only trigger for a specific user)
 ```yaml
 - alias: ReverseLocateEveryone
@@ -152,20 +151,19 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
           hide_thumbnail: false
 ```
 
-## Notes:
-
+## Notes
 * This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude coordinates (such as Owntracks or iCloud).
 * The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of coordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
 * The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
 * The map link that gets generated for Google, Apple or OpenStreetMaps has a push pin marking the users location. Note that when opening the Apple link on a non-Apple device, it will open in Google Maps.
 * When no `language` value is given, default language will be location's local language. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
 * Translations are partial in OpenStreetMap database. For each field, if a translation is missing in first requested language it will be resolved with a language following in the provided list, defaulting to local language if no matching translations were found for the list.
-* To enable detailed logging for this component, add the following to your configuration.yaml file
+* To enable detailed logging for this component, add the following to your `configuration.yaml` file
 ```yaml
-  logger:
-    default: warning
-    logs:
-      custom_components.places: debug  
+logger:
+  default: warning
+  logs:
+    custom_components.places: debug  
 ```
 
 ## Prior Contributions:
@@ -173,21 +171,8 @@ Sample generic automations.yaml snippet to send an iOS notify on any device stat
 * Subsequent Authors: [Ian Richardson](https://github.com/iantrich) & [Snuffy2](https://github.com/Snuffy2)
 
 ## Contributions are welcome!
-
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
-
 ***
-
 [places]: https://github.com/custom-components/places
-[commits-shield]: https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge
-[commits]: https://github.com/custom-components/places/commits/master
-[hacs]: https://github.com/hacs/integration
-[hacsbadge]: https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge
-[discord]: https://discord.gg/Qa5fW2R
-[discord-shield]: https://img.shields.io/discord/330944238910963714.svg?style=for-the-badge
-[forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge
-[forum]: https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component
-[license-shield]: https://img.shields.io/github/license/custom-components/places.svg?style=for-the-badge
-[maintenance-shield]: https://img.shields.io/badge/maintainer-Ian%20Richardson%20%40iantrich-blue.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/custom-components/places.svg?style=for-the-badge
-[releases]: https://github.com/custom-components/places/releases
+<!--- ![GitHub all releases](https://img.shields.io/github/downloads/custom-components/places/total?style=for-the-badge)
+![GitHub release (latest by SemVer)](https://img.shields.io/github/downloads/custom-components/places/latest/total?style=for-the-badge)<br/> -->
