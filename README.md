@@ -12,7 +12,7 @@
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device tracker, person, or sensor_
 
 ## Installation
-### HACS (recommended)
+### HACS *(recommended)*
 1. Ensure that [HACS](https://hacs.xyz/) is installed
 1. [Click Here](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-components&repository=places) to directly open `places` in HACS **or**<br/>
   a. Navigate to HACS<br/>
@@ -53,28 +53,30 @@ custom_components/places/translations/en.json
 1. [Click Here](https://my.home-assistant.io/redirect/config_flow_start/?domain=places) to directly add a `places` sensor **or**<br/>
   a. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)<br/>
   b. Click `+ Add Integrations` and select `places`<br/>
-2. Add your configuration ([see Configuration Options below](#configuration-options))
-3. Click `Submit`
+1. Add your configuration ([see Configuration Options below](#configuration-options))
+1. Click `Submit`
 * Repeat as needed to create additional `places` sensors
 * Options can be changed in Home Assistant Integrations by selecting `Configure` under the desired  `places` sensor.
 
-### Configuration Options
+## Configuration Options
 
 Key | Type | Required | Description | Default |
 -- | -- | -- | -- | --
-`devicetracker_id` | `entity_id` | `True` | The location device to track | None
-`name` | `string` | `True` | Friendly name of the places sensor | None
-`home_zone` | `entity_id` | `False` | Used to calculate distance from home and direction of travel | `zone.home`
-`api_key` | `string` | `False` | OpenStreetMap API key (your email address). | None
-`map_provider` | `string` | `False` | `google`, `apple`, `osm` | `apple`
-`map_zoom` | `number` | `False` | Level of zoom for the generated map link <1-20> | `18`
-`language` | `string` | `False` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) | location's local language
-`extended_attr` | `boolean` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!** | `False`
-`show_time` | `boolean` | `False` | Show last updated time at end of state `(since xx:yy)` | `False`
-`use_gps_accuracy` | `boolean` | `False` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
-`options` | `string` | `False` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone`, `place`
+`devicetracker_id` | `entity_id` | `Yes` | The location device to track | None
+`name` | `string` | `Yes` | Friendly name of the places sensor | None
+`home_zone` | `entity_id` | `No` | Used to calculate distance from home and direction of travel | `zone.home`
+`api_key` | `string` | `No` | OpenStreetMap API key (your email address). | None
+`map_provider` | `string` | `No` | `google`, `apple`, `osm` | `apple`
+`map_zoom` | `number` | `No` | Level of zoom for the generated map link <1-20> | `18`
+`language` | `string` | `No` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) | location's local language
+`extended_attr` | `boolean` | `No` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!** | `False`
+`show_time` | `boolean` | `No` | Show last updated time at end of state `(since xx:yy)` | `False`
+`use_gps_accuracy` | `boolean` | `No` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
+`options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone_name`, `place`
 
-Sample attributes that can be used in notifications, alerts, automations, etc:
+<details>
+<summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>
+
 ```json
 {
   "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
@@ -109,8 +111,11 @@ Sample attributes that can be used in notifications, alerts, automations, etc:
   "home_zone": "zone.sharon_home"
 }
 ```
+</details>
 
-Sample generic `automations.yaml` snippet to send an iOS notify on any device state change:
+<details>
+<summary>Sample generic `automations.yaml` snippet to send an iOS notify on any device state change</summary>
+
 (the only difference is the second one uses a condition to only trigger for a specific user)
 ```yaml
 - alias: ReverseLocateEveryone
@@ -154,6 +159,7 @@ Sample generic `automations.yaml` snippet to send an iOS notify on any device st
           url: '{{ trigger.event.data.map_link }}'
           hide_thumbnail: false
 ```
+</details>
 
 ## Notes
 * This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude coordinates (such as Owntracks or iCloud).
