@@ -22,7 +22,9 @@ _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor w
 1. Restart Home Assistant
 1. See [Configuration](#configuration) below
 
-### Manual
+<details>
+<summary><h3>Manual</h3></summary>
+
 You probably <u>do not</u> want to do this! Use the HACS method above unless you know what you are doing and have a good reason as to why you are installing manually
 
 1. Using the tool of choice open the directory (folder) for your HA configuration (where you find `configuration.yaml`)
@@ -44,6 +46,8 @@ custom_components/places/strings.json
 custom_components/places/translations
 custom_components/places/translations/en.json
 ```
+</details>
+
 ## Configuration
 **Configuration is done in the Integrations section of Home Assistant. Configuration with configuration.yaml is no longer supported.**
 1. [Click Here](https://my.home-assistant.io/redirect/config_flow_start/?domain=places) to directly add a `places` sensor **or**<br/>
