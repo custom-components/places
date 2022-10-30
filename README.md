@@ -7,7 +7,7 @@
 [![GitHub Commit Activity](https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge)](https://github.com/custom-components/places/commits/master)
 [![License](https://img.shields.io/github/license/custom-components/places?color=blue&style=for-the-badge)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Default-blue.svg?style=for-the-badge)](https://github.com/hacs/integration)<br/>
-[![Community Forum](https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge)](https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component)
+[![Community Forum](https://img.shields.io/badge/community-forum-blue.svg?style=for-the-badge)](https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component)
 
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device tracker, person, or sensor_
 
@@ -56,7 +56,7 @@ custom_components/places/translations/en.json
 1. Add your configuration ([see Configuration Options below](#configuration-options))
 1. Click `Submit`
 * Repeat as needed to create additional `places` sensors
-* Options can be changed in Home Assistant Integrations by selecting `Configure` under the desired  `places` sensor.
+* Options can be changed for existing `places` sensors in Home Assistant Integrations by selecting `Configure` under the desired  `places` sensor.
 
 ## Configuration Options
 
