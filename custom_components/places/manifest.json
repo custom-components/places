@@ -6,7 +6,7 @@
   "documentation": "https://github.com/custom-components/places",
   "issue_tracker": "https://github.com/custom-components/places/issues",
   "dependencies": ["device_tracker"],
-  "codeowners": ["@tenly2000","@iantrich","@Snuffy2"],
+  "codeowners": ["@Snuffy2","@iantrich"],
   "requirements": [],
   "iot_class": "cloud_polling"
 }
