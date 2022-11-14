@@ -1525,6 +1525,160 @@ class Places(SensorEntity):
         formatted_place = formatted_place.replace("\n", " ").replace("  ", " ").strip()
         self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
 
+    def build_from_advanced_options(self, curr_options):
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") Options: " + str(curr_options)
+        )
+        if curr_options is None or not curr_options:
+            return
+        elif "," in curr_options and ("[" in curr_options or "(" in curr_options):
+            _LOGGER.debug(
+                "(" + self.get_attr(CONF_NAME) + ") Options has a , plus [ or ("
+            )
+            comma_num = curr_options.rfind(",")
+            bracket_num = curr_options.rfind("[")
+            paren_num = curr_options.rfind("(")
+            if (
+                comma_num != -1
+                and (bracket_num == -1 or comma_num < bracket_num)
+                and (paren_num == -1 or comma_num < paren_num)
+            ):
+                # Comma is first symbol
+                opt = curr_options[:comma_num]
+                _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Option: " + str(opt))
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(opt.strip())
+                    if ret_state is not None and ret_state:
+                        self.adv_options.append(ret_state)
+                next_opt = curr_options[(comma_num + 1):]
+                _LOGGER.debug(
+                    "(" + self.get_attr(CONF_NAME) + ") Next Options: " + str(next_opt)
+                )
+                if next_opt is not None and next_opt:
+                    self.build_from_advanced_options(next_opt.strip())
+                return
+            elif (
+                bracket_num != -1
+                and (comma_num == -1 or bracket_num < comma_num)
+                and (paren_num == -1 or bracket_num < paren_num)
+            ):
+                # Bracket is first symbol
+                opt = curr_options[:bracket_num]
+                _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Option: " + str(opt))
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(curr_options.strip())
+                    if ret_state is not None and ret_state:
+                        self.adv_options.append(ret_state)
+                    else:
+                        temp_bracket_num = bracket_num
+                        bracket_count = 1
+                        while bracket_count > 0:
+                            temp_bracket_num = curr_options.find(
+                                "[", (temp_bracket_num + 1)
+                            )
+                            close_bracket_num = curr_options.find(
+                                "]", (temp_bracket_num + 1)
+                            )
+                            if temp_bracket_num < close_bracket_num:
+                                bracket_count += 1
+                            else:
+                                bracket_count -= 1
+                        none_opt = curr_options[(bracket_num + 1): close_bracket_num]
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") None Options: "
+                            + str(none_opt)
+                        )
+                        if none_opt is not None and none_opt:
+                            self.build_from_advanced_options(none_opt.strip())
+                        if curr_options[(close_bracket_num + 1)] == ",":
+                            next_opt = curr_options[(close_bracket_num + 2):]
+                            _LOGGER.debug(
+                                "("
+                                + self.get_attr(CONF_NAME)
+                                + ") Next Options: "
+                                + str(next_opt)
+                            )
+                            if next_opt is not None and next_opt:
+                                self.build_from_advanced_options(next_opt.strip())
+            return
+        elif "," in curr_options:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Options has , but no [ or (, splitting"
+            )
+            for opt in curr_options.split(","):
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(curr_options.strip())
+                    if ret_state is not None and ret_state:
+                        self.adv_options.append(ret_state)
+            return
+        elif "[" in curr_options or "(" in curr_options:
+            _LOGGER.debug(
+                "(" + self.get_attr(CONF_NAME) + ") Options has [ or ( but no ,"
+            )
+            bracket_num = curr_options.rfind("[")
+            paren_num = curr_options.rfind("(")
+            opt = curr_options[:bracket_num]
+            _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Option: " + str(opt))
+            if opt is not None and opt:
+                ret_state = self.get_option_state(opt.strip())
+                if ret_state is not None and ret_state:
+                    self.adv_options.append(ret_state)
+                else:
+                    temp_bracket_num = bracket_num
+                    bracket_count = 1
+                    while bracket_count > 0:
+                        temp_bracket_num = curr_options.find(
+                            "[", (temp_bracket_num + 1)
+                        )
+                        close_bracket_num = curr_options.find(
+                            "]", (temp_bracket_num + 1)
+                        )
+                        if temp_bracket_num < close_bracket_num:
+                            bracket_count += 1
+                        else:
+                            bracket_count -= 1
+                    none_opt = curr_options[(bracket_num + 1): close_bracket_num]
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") None Options: "
+                        + str(none_opt)
+                    )
+                    if none_opt is not None and none_opt:
+                        self.build_from_advanced_options(none_opt.strip())
+                    if curr_options[(close_bracket_num + 1)] == ",":
+                        next_opt = curr_options[(close_bracket_num + 2):]
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Next Options: "
+                            + str(next_opt)
+                        )
+                        if next_opt is not None and next_opt:
+                            self.build_from_advanced_options(next_opt.strip())
+            return
+        else:
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Options should just be a single term"
+            )
+            ret_state = self.get_option_state(curr_options.strip())
+            if ret_state is not None and ret_state:
+                self.adv_options.append(ret_state)
+            return
+        return
+
+    def get_option_state(self, opt):
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") Get the state of option: " + str(opt)
+        )
+        return None
+
     def build_state_from_display_options(self):
         # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
 
@@ -2153,7 +2307,14 @@ class Places(SensorEntity):
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 elif not self.in_zone():
-                    self.build_state_from_display_options()
+                    if any(
+                        ext in self.get_attr(ATTR_OPTIONS)
+                        for ext in ["(", ")", "[", "]"]
+                    ):
+                        self.adv_options = []
+                        self.build_from_advanced_options(self.get_attr(ATTR_OPTIONS))
+                    else:
+                        self.build_state_from_display_options()
                 elif (
                     "zone" in display_options
                     and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE)
