@@ -286,3 +286,26 @@ PLACE_NAME_DUPLICATE_LIST = [
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
 ]
+
+DISPLAY_OPTIONS_MAP = {
+    "place_name": ATTR_PLACE_NAME,
+    "place_type": ATTR_PLACE_TYPE,
+    "place_category": ATTR_PLACE_CATEGORY,
+    "street_number": ATTR_STREET_NUMBER,
+    "street": ATTR_STREET,
+    "street_ref": ATTR_STREET_REF,
+    "neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
+    "neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
+    "city": ATTR_CITY,
+    "region": ATTR_REGION,
+    "state": ATTR_REGION,
+    "state_abbr": ATTR_STATE_ABBR,
+    "county": ATTR_COUNTY,
+    "country": ATTR_COUNTRY,
+    "postal_code": ATTR_POSTAL_CODE,
+    "zip_code": ATTR_POSTAL_CODE,
+    "latitude": ATTR_LATITUDE,
+    "longitude": ATTR_LONGITUDE,
+    "zone": ATTR_DEVICETRACKER_ZONE,
+    "zone_name": ATTR_DEVICETRACKER_ZONE_NAME,
+}

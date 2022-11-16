@@ -120,6 +120,7 @@ from .const import (
     DEFAULT_OPTION,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
+    DISPLAY_OPTIONS_MAP,
     DOMAIN,
     EVENT_ATTRIBUTE_LIST,
     EXTENDED_ATTRIBUTE_LIST,
@@ -1529,33 +1530,63 @@ class Places(SensorEntity):
         _LOGGER.debug(
             "(" + self.get_attr(CONF_NAME) + ") Options: " + str(curr_options)
         )
+        if curr_options.count("[") != curr_options.count("]"):
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Bracket Count Mismatch: "
+                + str(curr_options)
+            )
+            return
+        elif curr_options.count("(") != curr_options.count(")"):
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Parenthesis Count Mismatch: "
+                + str(curr_options)
+            )
+            return
+        incl = []
+        excl = []
+        none_opt = None
+        next_opt = None
         if curr_options is None or not curr_options:
             return
-        elif "," in curr_options and ("[" in curr_options or "(" in curr_options):
+        elif "[" in curr_options or "(" in curr_options:
             _LOGGER.debug(
-                "(" + self.get_attr(CONF_NAME) + ") Options has a , plus [ or ("
+                "(" + self.get_attr(CONF_NAME) + ") Options has a [ or ( and optional ,"
             )
-            comma_num = curr_options.rfind(",")
-            bracket_num = curr_options.rfind("[")
-            paren_num = curr_options.rfind("(")
+            comma_num = curr_options.find(",")
+            bracket_num = curr_options.find("[")
+            paren_num = curr_options.find("(")
             if (
                 comma_num != -1
                 and (bracket_num == -1 or comma_num < bracket_num)
                 and (paren_num == -1 or comma_num < paren_num)
             ):
                 # Comma is first symbol
+                _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Comma is First")
                 opt = curr_options[:comma_num]
                 _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Option: " + str(opt))
                 if opt is not None and opt:
                     ret_state = self.get_option_state(opt.strip())
                     if ret_state is not None and ret_state:
-                        self.adv_options.append(ret_state)
+                        self.adv_options_state_list.append(ret_state)
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Updated state list: "
+                            + str(self.adv_options_state_list)
+                        )
                 next_opt = curr_options[(comma_num + 1):]
                 _LOGGER.debug(
                     "(" + self.get_attr(CONF_NAME) + ") Next Options: " + str(next_opt)
                 )
                 if next_opt is not None and next_opt:
                     self.build_from_advanced_options(next_opt.strip())
+                    _LOGGER.debug(
+                        "(" + self.get_attr(CONF_NAME) + ") Back from recursion"
+                    )
                 return
             elif (
                 bracket_num != -1
@@ -1563,45 +1594,108 @@ class Places(SensorEntity):
                 and (paren_num == -1 or bracket_num < paren_num)
             ):
                 # Bracket is first symbol
+                _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Bracket is First")
                 opt = curr_options[:bracket_num]
                 _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Option: " + str(opt))
+                none_opt, next_opt = self.parse_bracket(curr_options[bracket_num:])
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == "("
+                ):
+                    # Parse Parenthesis
+                    incl, excl, next_opt = self.parse_parens(next_opt)
+
                 if opt is not None and opt:
-                    ret_state = self.get_option_state(curr_options.strip())
+                    ret_state = self.get_option_state(opt.strip(), incl, excl)
                     if ret_state is not None and ret_state:
-                        self.adv_options.append(ret_state)
-                    else:
-                        temp_bracket_num = bracket_num
-                        bracket_count = 1
-                        while bracket_count > 0:
-                            temp_bracket_num = curr_options.find(
-                                "[", (temp_bracket_num + 1)
-                            )
-                            close_bracket_num = curr_options.find(
-                                "]", (temp_bracket_num + 1)
-                            )
-                            if temp_bracket_num < close_bracket_num:
-                                bracket_count += 1
-                            else:
-                                bracket_count -= 1
-                        none_opt = curr_options[(bracket_num + 1): close_bracket_num]
+                        self.adv_options_state_list.append(ret_state)
                         _LOGGER.debug(
                             "("
                             + self.get_attr(CONF_NAME)
-                            + ") None Options: "
-                            + str(none_opt)
+                            + ") Updated state list: "
+                            + str(self.adv_options_state_list)
                         )
-                        if none_opt is not None and none_opt:
-                            self.build_from_advanced_options(none_opt.strip())
-                        if curr_options[(close_bracket_num + 1)] == ",":
-                            next_opt = curr_options[(close_bracket_num + 2):]
-                            _LOGGER.debug(
-                                "("
-                                + self.get_attr(CONF_NAME)
-                                + ") Next Options: "
-                                + str(next_opt)
-                            )
-                            if next_opt is not None and next_opt:
-                                self.build_from_advanced_options(next_opt.strip())
+                    elif none_opt is not None and none_opt:
+                        self.build_from_advanced_options(none_opt.strip())
+                        _LOGGER.debug(
+                            "(" + self.get_attr(CONF_NAME) + ") Back from recursion"
+                        )
+
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == ","
+                ):
+                    next_opt = next_opt[1:]
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") Next Options: "
+                        + str(next_opt)
+                    )
+                    if next_opt is not None and next_opt:
+                        self.build_from_advanced_options(next_opt.strip())
+                        _LOGGER.debug(
+                            "(" + self.get_attr(CONF_NAME) + ") Back from recursion"
+                        )
+                return
+            elif (
+                paren_num != -1
+                and (comma_num == -1 or paren_num < comma_num)
+                and (bracket_num == -1 or paren_num < bracket_num)
+            ):
+                # Parenthesis is first symbol
+                _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Parenthesis is First")
+                opt = curr_options[:paren_num]
+                _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Option: " + str(opt))
+                incl, excl, next_opt = self.parse_parens(curr_options[paren_num:])
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == "["
+                ):
+                    # Parse Bracket
+                    none_opt, next_opt = self.parse_bracket(next_opt)
+
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(opt.strip(), incl, excl)
+                    if ret_state is not None and ret_state:
+                        self.adv_options_state_list.append(ret_state)
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Updated state list: "
+                            + str(self.adv_options_state_list)
+                        )
+                    elif none_opt is not None and none_opt:
+                        self.build_from_advanced_options(none_opt.strip())
+                        _LOGGER.debug(
+                            "(" + self.get_attr(CONF_NAME) + ") Back from recursion"
+                        )
+
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == ","
+                ):
+                    next_opt = next_opt[1:]
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") Next Options: "
+                        + str(next_opt)
+                    )
+                    if next_opt is not None and next_opt:
+                        self.build_from_advanced_options(next_opt.strip())
+                        _LOGGER.debug(
+                            "(" + self.get_attr(CONF_NAME) + ") Back from recursion"
+                        )
+                return
             return
         elif "," in curr_options:
             _LOGGER.debug(
@@ -1611,55 +1705,15 @@ class Places(SensorEntity):
             )
             for opt in curr_options.split(","):
                 if opt is not None and opt:
-                    ret_state = self.get_option_state(curr_options.strip())
+                    ret_state = self.get_option_state(opt.strip())
                     if ret_state is not None and ret_state:
-                        self.adv_options.append(ret_state)
-            return
-        elif "[" in curr_options or "(" in curr_options:
-            _LOGGER.debug(
-                "(" + self.get_attr(CONF_NAME) + ") Options has [ or ( but no ,"
-            )
-            bracket_num = curr_options.rfind("[")
-            paren_num = curr_options.rfind("(")
-            opt = curr_options[:bracket_num]
-            _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Option: " + str(opt))
-            if opt is not None and opt:
-                ret_state = self.get_option_state(opt.strip())
-                if ret_state is not None and ret_state:
-                    self.adv_options.append(ret_state)
-                else:
-                    temp_bracket_num = bracket_num
-                    bracket_count = 1
-                    while bracket_count > 0:
-                        temp_bracket_num = curr_options.find(
-                            "[", (temp_bracket_num + 1)
-                        )
-                        close_bracket_num = curr_options.find(
-                            "]", (temp_bracket_num + 1)
-                        )
-                        if temp_bracket_num < close_bracket_num:
-                            bracket_count += 1
-                        else:
-                            bracket_count -= 1
-                    none_opt = curr_options[(bracket_num + 1): close_bracket_num]
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") None Options: "
-                        + str(none_opt)
-                    )
-                    if none_opt is not None and none_opt:
-                        self.build_from_advanced_options(none_opt.strip())
-                    if curr_options[(close_bracket_num + 1)] == ",":
-                        next_opt = curr_options[(close_bracket_num + 2):]
+                        self.adv_options_state_list.append(ret_state)
                         _LOGGER.debug(
                             "("
                             + self.get_attr(CONF_NAME)
-                            + ") Next Options: "
-                            + str(next_opt)
+                            + ") Updated state list: "
+                            + str(self.adv_options_state_list)
                         )
-                        if next_opt is not None and next_opt:
-                            self.build_from_advanced_options(next_opt.strip())
             return
         else:
             _LOGGER.debug(
@@ -1669,15 +1723,157 @@ class Places(SensorEntity):
             )
             ret_state = self.get_option_state(curr_options.strip())
             if ret_state is not None and ret_state:
-                self.adv_options.append(ret_state)
+                self.adv_options_state_list.append(ret_state)
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Updated state list: "
+                    + str(self.adv_options_state_list)
+                )
             return
         return
 
-    def get_option_state(self, opt):
+    def parse_parens(self, curr_options):
+        incl = []
+        excl = []
+        next_opt = None
+        close_paren_num = curr_options.find(")")
+        if close_paren_num == -1:
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") Open Parenthesis without Close: "
+                + str(curr_options)
+            )
+        else:
+            incl_excl_string = curr_options[1:close_paren_num]
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") incl_excl_string: "
+                + str(incl_excl_string)
+            )
+            if (
+                "[" in incl_excl_string
+                or "]" in incl_excl_string
+                or "(" in incl_excl_string
+                or ")" in incl_excl_string
+            ):
+                _LOGGER.error(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Invalid Character within Parenthesis: "
+                    + str(curr_options)
+                )
+            else:
+                for item in incl_excl_string.split(","):
+                    _LOGGER.debug(
+                        "(" + self.get_attr(CONF_NAME) + ") item: " + str(item)
+                    )
+                    if item is not None and item and len(item) > 1:
+                        if item[0] == "+":
+                            incl.append(item[1:])
+                        elif item[0] == "-":
+                            excl.append(item[1:])
+                next_opt = curr_options[(close_paren_num + 1):]
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Raw Next Options: "
+                    + str(next_opt)
+                )
+        return incl, excl, next_opt
+
+    def parse_bracket(self, curr_options):
+        none_opt = None
+        next_opt = None
+        temp_bracket_num = 0
+        bracket_count = 1
+        while bracket_count > 0:
+            temp_bracket_num = curr_options.find("[", (temp_bracket_num + 1))
+            close_bracket_num = curr_options.find("]", (temp_bracket_num + 1))
+            if temp_bracket_num != -1 and temp_bracket_num < close_bracket_num:
+                bracket_count += 1
+            else:
+                bracket_count -= 1
+            if bracket_count >= 100:
+                _LOGGER.error(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Bracket Mismatch Error: "
+                    + str(curr_options)
+                )
+                close_bracket_num = -1
+                break
+        if close_bracket_num > 0:
+            none_opt = curr_options[1:close_bracket_num].strip()
+            _LOGGER.debug(
+                "(" + self.get_attr(CONF_NAME) + ") None Options: " + str(none_opt)
+            )
+            next_opt = curr_options[(close_bracket_num + 1):].strip()
+            _LOGGER.debug(
+                "(" + self.get_attr(CONF_NAME) + ") Raw Next Options: " + str(next_opt)
+            )
+        return none_opt, next_opt
+
+    def get_option_state(self, opt, incl=[], excl=[]):
         _LOGGER.debug(
             "(" + self.get_attr(CONF_NAME) + ") Get the state of option: " + str(opt)
         )
-        return None
+        out = self.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
+        _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") State: " + str(out))
+        if incl and out not in incl:
+            out = None
+        elif excl and out in excl:
+            out = None
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") State after incl/excl: " + str(out)
+        )
+        if out is not None and out:
+            if opt == "street_number":
+                self.street_num_i = self.temp_i
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") street_num_i: "
+                    + str(self.street_num_i)
+                )
+            self.temp_i += 1
+            return out
+        else:
+            return None
+
+    def compile_state_from_advanced_options(self):
+        street_and_num = False
+        if re.search(r"street_number[\s]*\,[\s]*street", self.get_attr(ATTR_OPTIONS)):
+            street_and_num = True
+            self.street_num_i += 1
+            _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") Num and Street is True")
+        first = True
+        for i, opt in enumerate(self.adv_options_state_list):
+            if opt is not None and opt:
+                if first:
+                    self.set_attr(ATTR_NATIVE_VALUE, str(opt))
+                    first = False
+                else:
+                    if street_and_num and i == self.street_num_i:
+                        self.set_attr(
+                            ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + " "
+                        )
+                    else:
+                        self.set_attr(
+                            ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + ", "
+                        )
+                    self.set_attr(
+                        ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + str(opt)
+                    )
+
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") New State from Advanced Display Options: "
+            + str(self.get_attr(ATTR_NATIVE_VALUE))
+        )
 
     def build_state_from_display_options(self):
         # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
@@ -2311,8 +2507,23 @@ class Places(SensorEntity):
                         ext in self.get_attr(ATTR_OPTIONS)
                         for ext in ["(", ")", "[", "]"]
                     ):
-                        self.adv_options = []
+                        self.adv_options_state_list = []
+                        self.street_num_i = -1
+                        self.temp_i = 0
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Initial Advanced Display Options: "
+                            + str(self.get_attr(ATTR_OPTIONS))
+                        )
                         self.build_from_advanced_options(self.get_attr(ATTR_OPTIONS))
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Back from initial advanced build: "
+                            + str(self.adv_options_state_list)
+                        )
+                        self.compile_state_from_advanced_options()
                     else:
                         self.build_state_from_display_options()
                 elif (
