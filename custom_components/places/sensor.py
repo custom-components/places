@@ -1742,7 +1742,7 @@ class Places(SensorEntity):
             _LOGGER.error(
                 "("
                 + self.get_attr(CONF_NAME)
-                + ") Open Parenthesis without Close: "
+                + ") [parse_parens] Open Parenthesis without Close: "
                 + str(curr_options)
             )
         else:
@@ -1750,7 +1750,7 @@ class Places(SensorEntity):
             _LOGGER.debug(
                 "("
                 + self.get_attr(CONF_NAME)
-                + ") incl_excl_string: "
+                + ") [parse_parens] incl_excl_string: "
                 + str(incl_excl_string)
             )
             if (
@@ -1762,13 +1762,16 @@ class Places(SensorEntity):
                 _LOGGER.error(
                     "("
                     + self.get_attr(CONF_NAME)
-                    + ") Invalid Character within Parenthesis: "
+                    + ") [parse_parens] Invalid Character within Parenthesis: "
                     + str(curr_options)
                 )
             else:
                 for item in incl_excl_string.split(","):
                     _LOGGER.debug(
-                        "(" + self.get_attr(CONF_NAME) + ") item: " + str(item)
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") [parse_parens] item: "
+                        + str(item)
                     )
                     if item is not None and item and len(item) > 1:
                         if item[0] == "+":
@@ -1779,63 +1782,88 @@ class Places(SensorEntity):
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
-                    + ") Raw Next Options: "
+                    + ") [parse_parens] Raw Next Options: "
                     + str(next_opt)
                 )
         return incl, excl, next_opt
 
     def parse_bracket(self, curr_options):
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") [parse_bracket] curr_options: "
+            + str(curr_options)
+        )
         none_opt = None
         next_opt = None
-        temp_bracket_num = 0
         bracket_count = 1
-        while bracket_count > 0:
-            temp_bracket_num = curr_options.find("[", (temp_bracket_num + 1))
-            close_bracket_num = curr_options.find("]", (temp_bracket_num + 1))
-            if temp_bracket_num != -1 and temp_bracket_num < close_bracket_num:
+        close_bracket_num = 0
+        if curr_options[0] == "[":
+            curr_options = curr_options[1:]
+        for i, c in enumerate(curr_options):
+            if c == "[":
                 bracket_count += 1
-            else:
+            elif c == "]":
                 bracket_count -= 1
-            if bracket_count >= 100:
-                _LOGGER.error(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Bracket Mismatch Error: "
-                    + str(curr_options)
-                )
-                close_bracket_num = -1
+            if bracket_count == 0:
+                close_bracket_num = i
                 break
-        if close_bracket_num > 0:
-            none_opt = curr_options[1:close_bracket_num].strip()
+
+        if close_bracket_num > 0 and bracket_count == 0:
+            none_opt = curr_options[:close_bracket_num].strip()
             _LOGGER.debug(
-                "(" + self.get_attr(CONF_NAME) + ") None Options: " + str(none_opt)
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [parse_bracket] None Options: "
+                + str(none_opt)
             )
             next_opt = curr_options[(close_bracket_num + 1):].strip()
             _LOGGER.debug(
-                "(" + self.get_attr(CONF_NAME) + ") Raw Next Options: " + str(next_opt)
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [parse_bracket] Raw Next Options: "
+                + str(next_opt)
+            )
+        else:
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [parse_bracket] Bracket Mismatch Error: "
+                + str(curr_options)
             )
         return none_opt, next_opt
 
-    def get_option_state(self, opt, incl=[], excl=[]):
+    def get_option_state(
+        self, opt, incl=[], excl=[], other_attr_eq={}, other_attr_neq={}
+    ):
         _LOGGER.debug(
-            "(" + self.get_attr(CONF_NAME) + ") Get the state of option: " + str(opt)
+            "(" + self.get_attr(CONF_NAME) + ") [get_option_state] Option: " + str(opt)
         )
         out = self.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
-        _LOGGER.debug("(" + self.get_attr(CONF_NAME) + ") State: " + str(out))
-        if incl and out not in incl:
-            out = None
-        elif excl and out in excl:
-            out = None
         _LOGGER.debug(
-            "(" + self.get_attr(CONF_NAME) + ") State after incl/excl: " + str(out)
+            "(" + self.get_attr(CONF_NAME) + ") [get_option_state] State: " + str(out)
         )
+        if out is not None and out:
+            if incl and out not in incl:
+                out = None
+            elif excl and out in excl:
+                out = None
+            if other_attr_eq:
+                for attr, state in other_attr_eq.items():
+                    continue
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [get_option_state] State after incl/excl: "
+                + str(out)
+            )
         if out is not None and out:
             if opt == "street_number":
                 self.street_num_i = self.temp_i
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
-                    + ") street_num_i: "
+                    + ") [get_option_state] street_num_i: "
                     + str(self.street_num_i)
                 )
             self.temp_i += 1
