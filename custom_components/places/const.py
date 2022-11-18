@@ -291,6 +291,7 @@ PLACE_NAME_DUPLICATE_LIST = [
 DISPLAY_OPTIONS_MAP = {
     "driving": ATTR_DRIVING,
     "place_name": ATTR_PLACE_NAME,
+    "name": ATTR_PLACE_NAME,
     "place_type": ATTR_PLACE_TYPE,
     "place_category": ATTR_PLACE_CATEGORY,
     "type": ATTR_PLACE_TYPE,
