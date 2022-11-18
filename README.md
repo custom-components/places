@@ -18,9 +18,9 @@ _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor w
 ### HACS *(recommended)*
 1. Ensure that [HACS](https://hacs.xyz/) is installed
 1. [Click Here](https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-components&repository=places) to directly open `places` in HACS **or**<br/>
-  a. Navigate to HACS<br/>
-  b. Click `+ Explore & Download Repositories`<br/>
-  c. Find the `places` integration <br/>
+  a. Navigate to HACS<br/>
+  b. Click `+ Explore & Download Repositories`<br/>
+  c. Find the `places` integration <br/>
 1. Click `Download`
 1. Restart Home Assistant
 1. See [Configuration](#configuration) below
@@ -54,8 +54,8 @@ custom_components/places/translations/en.json
 ## Configuration
 **Configuration is done in the Integrations section of Home Assistant. Configuration with configuration.yaml is no longer supported.**
 1. [Click Here](https://my.home-assistant.io/redirect/config_flow_start/?domain=places) to directly add a `places` sensor **or**<br/>
-  a. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)<br/>
-  b. Click `+ Add Integrations` and select `places`<br/>
+  a. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)<br/>
+  b. Click `+ Add Integrations` and select `places`<br/>
 1. Add your configuration ([see Configuration Options below](#configuration-options))
 1. Click `Submit`
 * Repeat as needed to create additional `places` sensors
@@ -87,8 +87,8 @@ __Tip:__ _Build your advanced display options string in a text editor and copy/p
 These can be nested.
 #### Examples
 
-* `place_name[place_type]` will show the place_name, but if place_name is blank, will show the place_type instead. If place_type is also blank, nothing will show for that field
-* `place_name[place_type[place_category]]` will show the place_name, but if place_name is blank, will show the place_type instead, but if place_type is blank, will show the place_category. If place_category is also blank, nothing will show for that field.
+* `name[type]` will show the name, but if name is blank, will show the type instead. If type is also blank, nothing will show for that field
+* `name[type[category]]` will show the name, but if name is blank, will show the type instead, but if type is blank, will show the category. If category is also blank, nothing will show for that field.
 
 ### __Parenthesis ( ):__ Inclusion/Exclusion Logic to filter the field<br />
 #### To include/exclude based on the main field
@@ -99,11 +99,11 @@ These can be nested.
 
   #### Examples
 
-  * `place_type(-, house)` will show place_type if it is anything but "house"
-  * `place_type(+, house)` will show place_type only if it is "house"
-  * `place_type(house)` same as `place_type(+, house)`
-  * `place_type(-, house, retail)` will show place_type if it is anything but "house" or "retail"
-  * `place_type(+, house, retail)` will show place_type only if it is "house" or "retail"
+  * `type(-, house)` will show type if it is anything but "house"
+  * `type(+, house)` will show type only if it is "house"
+  * `type(house)` same as `type(+, house)`
+  * `type(-, house, retail)` will show type if it is anything but "house" or "retail"
+  * `type(+, house, retail)` will show type only if it is "house" or "retail"
 
 #### To include/exclude based on other fields
 
@@ -113,15 +113,15 @@ These can be nested.
 
   #### Examples
 
-  * `place_type(place_category(-, highway))` will show place_type if place_category is anything but "highway"
-  * `place_type(place_category(+, highway))` will show place_type only if place_category is "highway"
-  * `place_type(place_category(highway))` same as `place_type(place_category(+, highway))`
-  * `place_type(place_category(-, highway, building))` will show place_type if place_category is anything but "highway" or "building"
-  * `place_type(place_category(+, highway, building))` will show place_type only if place_category is "highway" or "building"
+  * `type(category(-, highway))` will show type if category is anything but "highway"
+  * `type(category(+, highway))` will show type only if category is "highway"
+  * `type(category(highway))` same as `type(category(+, highway))`
+  * `type(category(-, highway, building))` will show type if category is anything but "highway" or "building"
+  * `type(category(+, highway, building))` will show type only if category is "highway" or "building"
 
 #### The two types of include/excludes can also be combined
 
-* `place_type(-,motorway, place_category(-, highway, building))` will show place_type if it is not "motorway" and if place_category is not "highway" or "building"
+* `type(-,motorway, category(-, highway, building))` will show type if it is not "motorway" and if category is not "highway" or "building"
 
 ### Brackets and Parenthesis can also be combined
 
@@ -157,9 +157,9 @@ driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, hi
 * `zone_name`
 
 __Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples above for how to recreate them.
-</details>
 
 -------
+</details>
 
 <details>
 <summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>
@@ -258,9 +258,9 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 * To enable detailed logging for this component, add the following to your `configuration.yaml` file
 ```yaml
 logger:
-  default: warning
-  logs:
-    custom_components.places: debug  
+  default: warning
+  logs:
+    custom_components.places: debug  
 ```
 
 ## Prior Contributions:
