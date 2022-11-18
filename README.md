@@ -75,7 +75,90 @@ Key | Type | Required | Description | Default |
 `extended_attr` | `boolean` | `No` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!** | `False`
 `show_time` | `boolean` | `No` | Show last updated time at end of state `(since xx:yy)` | `False`
 `use_gps_accuracy` | `boolean` | `No` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
-`options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone_name`, `place`
+`display_options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.** | `zone_name`, `place`
+
+<details>
+<summary><h3>Advanced Display Options</h3></summary>
+
+To use, simply enter your advanced options into the `display_options` text area. Any display_options that contain `[]` or `()` will be processed with the Advanced Display Options.<br />
+__Tip:__ _Build your advanced display options string in a text editor and copy/paste it into display_options field as it is pretty small._
+
+### __Brackets [ ]:__ Fields to show if initial field is blank or empty<br />
+These can be nested.
+#### Examples
+
+* `place_name[place_type]` will show the place_name, but if place_name is blank, will show the place_type instead. If place_type is also blank, nothing will show for that field
+* `place_name[place_type[place_category]]` will show the place_name, but if place_name is blank, will show the place_type instead, but if place_type is blank, will show the place_category. If place_category is also blank, nothing will show for that field.
+
+### __Parenthesis ( ):__ Inclusion/Exclusion Logic to filter the field<br />
+#### To include/exclude based on the main field
+
+* __Include:__ Set the first item inside the parenthesis to + to only show the field if it equals one of the states listed
+* __Exclude:__ Set the first item inside the parenthesis to - to only show the field if doesn't equal one of the states listed
+* If + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
+
+  #### Examples
+
+  * `place_type(-, house)` will show place_type if it is anything but "house"
+  * `place_type(+, house)` will show place_type only if it is "house"
+  * `place_type(house)` same as `place_type(+, house)`
+  * `place_type(-, house, retail)` will show place_type if it is anything but "house" or "retail"
+  * `place_type(+, house, retail)` will show place_type only if it is "house" or "retail"
+
+#### To include/exclude based on other fields
+
+* __Include:__ List the field to test followed by another set of parenthesis. In there, set the first item inside the parenthesis to + to only show the main field if the field to be tested equals one of the states listed
+* __Exclude:__ List the field to test followed by another set of parenthesis. In there, set the first item inside the parenthesis to - to only show the main field if the field to be tested doesn't equal one of the states listed
+* As above, if + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
+
+  #### Examples
+
+  * `place_type(place_category(-, highway))` will show place_type if place_category is anything but "highway"
+  * `place_type(place_category(+, highway))` will show place_type only if place_category is "highway"
+  * `place_type(place_category(highway))` same as `place_type(place_category(+, highway))`
+  * `place_type(place_category(-, highway, building))` will show place_type if place_category is anything but "highway" or "building"
+  * `place_type(place_category(+, highway, building))` will show place_type only if place_category is "highway" or "building"
+
+#### The two types of include/excludes can also be combined
+
+* `place_type(-,motorway, place_category(-, highway, building))` will show place_type if it is not "motorway" and if place_category is not "highway" or "building"
+
+### Brackets and Parenthesis can also be combined
+
+* To recreate `place`:
+```
+place_name,place_category(-,place),place_type(-,yes),neighborhood,street_number,street
+```
+* To recreate `formatted_place` _(as close as possible)_:
+```
+driving, place_name[place_type(-,unclassified,place_category(-,highway))[place_category(-,highway)],street_number, street_ref(place_type(+,motorway,trunk))[street[street_ref]], neighborhood(place_type(house))], city[county], state_abbr
+```
+
+### Fields
+
+* `driving`
+* `name` (Synonym: `place_name`)
+* `type` (Synonym: `place_type`)
+* `category` (Synonym: `place_category`)
+* `street_number`
+* `street`
+* `street_ref` (Shows the Route Number ex. I-70)
+* `neighborhood` (Synonyms: `neighbourhood`, `place_neighborhood`, `place_neighbourhood`)
+* `city`
+* `state` (Synonym: `region`)
+* `state_abbr`
+* `county`
+* `country`
+* `zip_code` (Synonym: `postal_code`)
+* `latitude`
+* `longitude`
+* `zone`
+* `zone_name`
+
+__Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples above for how to recreate them.
+</details>
+
+-------
 
 <details>
 <summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>
