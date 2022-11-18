@@ -97,13 +97,13 @@ These can be nested.
 * __Exclude:__ Set the first item inside the parenthesis to - to only show the field if doesn't equal one of the states listed
 * If + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
 
-##### Examples
+  #### Examples
 
-    * `place_type(-, house)` will show place_type if it is anything but "house"
-    * `place_type(+, house)` will show place_type only if it is "house"
-    * `place_type(house)` same as `place_type(+, house)`
-    * `place_type(-, house, retail)` will show place_type if it is anything but "house" or "retail"
-    * `place_type(+, house, retail)` will show place_type only if it is "house" or "retail"
+  * `place_type(-, house)` will show place_type if it is anything but "house"
+  * `place_type(+, house)` will show place_type only if it is "house"
+  * `place_type(house)` same as `place_type(+, house)`
+  * `place_type(-, house, retail)` will show place_type if it is anything but "house" or "retail"
+  * `place_type(+, house, retail)` will show place_type only if it is "house" or "retail"
 
 #### To include/exclude based on other fields
 
@@ -111,13 +111,13 @@ These can be nested.
 * __Exclude:__ List the field to test followed by another set of parenthesis. In there, set the first item inside the parenthesis to - to only show the main field if the field to be tested doesn't equal one of the states listed
 * As above, if + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
 
-##### Examples
+  #### Examples
 
-    * `place_type(place_category(-, highway))` will show place_type if place_category is anything but "highway"
-    * `place_type(place_category(+, highway))` will show place_type only if place_category is "highway"
-    * `place_type(place_category(highway))` same as `place_type(place_category(+, highway))`
-    * `place_type(place_category(-, highway, building))` will show place_type if place_category is anything but "highway" or "building"
-    * `place_type(place_category(+, highway, building))` will show place_type only if place_category is "highway" or "building"
+  * `place_type(place_category(-, highway))` will show place_type if place_category is anything but "highway"
+  * `place_type(place_category(+, highway))` will show place_type only if place_category is "highway"
+  * `place_type(place_category(highway))` same as `place_type(place_category(+, highway))`
+  * `place_type(place_category(-, highway, building))` will show place_type if place_category is anything but "highway" or "building"
+  * `place_type(place_category(+, highway, building))` will show place_type only if place_category is "highway" or "building"
 
 #### The two types of include/excludes can also be combined
 
