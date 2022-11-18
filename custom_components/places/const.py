@@ -16,7 +16,7 @@ DEFAULT_HOME_ZONE = "zone.home"
 DEFAULT_ICON = "mdi:map-search-outline"
 DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
-DEFAULT_OPTION = "zone_name, place"
+DEFAULT_DISPLAY_OPTIONS = "zone_name, place"
 DEFAULT_SHOW_TIME = False
 DEFAULT_USE_GPS = True
 
@@ -42,7 +42,7 @@ CONF_LANGUAGE = "language"
 CONF_MAP_PROVIDER = "map_provider"
 CONF_MAP_ZOOM = "map_zoom"
 CONF_NATIVE_VALUE = "native_value"
-CONF_OPTIONS = "options"
+CONF_DISPLAY_OPTIONS = "display_options"
 CONF_SHOW_TIME = "show_time"
 CONF_USE_GPS = "use_gps_accuracy"
 CONF_YAML_HASH = "yaml_hash"
@@ -55,12 +55,13 @@ ATTR_DEVICETRACKER_ID = "devicetracker_entityid"
 ATTR_DEVICETRACKER_ZONE = "devicetracker_zone"
 ATTR_DEVICETRACKER_ZONE_NAME = "devicetracker_zone_name"
 ATTR_DIRECTION_OF_TRAVEL = "direction_of_travel"
-ATTR_DISPLAY_OPTIONS = "display_options"
+ATTR_DISPLAY_OPTIONS_LIST = "display_options_list"
 ATTR_DISTANCE_FROM_HOME_KM = "distance_from_home_km"
 ATTR_DISTANCE_FROM_HOME_M = "distance_from_home_m"
 ATTR_DISTANCE_FROM_HOME_MI = "distance_from_home_mi"
 ATTR_DISTANCE_TRAVELED_M = "distance_traveled_m"
 ATTR_DISTANCE_TRAVELED_MI = "distance_traveled_mi"
+ATTR_DRIVING = "driving"
 ATTR_FORMATTED_ADDRESS = "formatted_address"
 ATTR_FORMATTED_PLACE = "formatted_place"
 ATTR_HOME_LATITUDE = "home_latitude"
@@ -68,7 +69,6 @@ ATTR_HOME_LOCATION = "home_location"
 ATTR_HOME_LONGITUDE = "home_longitude"
 ATTR_HOME_ZONE = "home_zone"
 ATTR_INITIAL_UPDATE = "initial_update"
-ATTR_IS_DRIVING = "is_driving"
 ATTR_JSON_FILENAME = "json_filename"
 ATTR_LAST_CHANGED = "last_changed"
 ATTR_LAST_PLACE_NAME = "last_place_name"
@@ -81,7 +81,7 @@ ATTR_LONGITUDE = "current_longitude"
 ATTR_LONGITUDE_OLD = "previous_longitude"
 ATTR_MAP_LINK = "map_link"
 ATTR_NATIVE_VALUE = "native_value"
-ATTR_OPTIONS = CONF_OPTIONS
+ATTR_DISPLAY_OPTIONS = CONF_DISPLAY_OPTIONS
 ATTR_OSM_DETAILS_DICT = "osm_details_dict"
 ATTR_OSM_DICT = "osm_dict"
 ATTR_OSM_ID = "osm_id"
@@ -115,7 +115,7 @@ CONFIG_ATTRIBUTES_LIST = [
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
     CONF_NAME,
-    CONF_OPTIONS,
+    CONF_DISPLAY_OPTIONS,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     CONF_UNIQUE_ID,
@@ -124,9 +124,9 @@ RESET_ATTRIBUTE_LIST = [
     ATTR_CITY,
     ATTR_COUNTRY,
     ATTR_COUNTY,
+    ATTR_DRIVING,
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
-    ATTR_IS_DRIVING,
     ATTR_MAP_LINK,
     ATTR_OSM_DETAILS_DICT,
     ATTR_OSM_DICT,
@@ -192,11 +192,12 @@ EXTRA_STATE_ATTRIBUTE_LIST = [
 JSON_IGNORE_ATTRIBUTE_LIST = [
     ATTR_DEVICETRACKER_ID,
     ATTR_DISPLAY_OPTIONS,
+    ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
-    ATTR_IS_DRIVING,
+    ATTR_DRIVING,
     ATTR_JSON_FILENAME,
     ATTR_LOCATION_CURRENT,
     ATTR_LOCATION_PREVIOUS,
@@ -288,6 +289,7 @@ PLACE_NAME_DUPLICATE_LIST = [
 ]
 
 DISPLAY_OPTIONS_MAP = {
+    "driving": ATTR_DRIVING,
     "place_name": ATTR_PLACE_NAME,
     "place_type": ATTR_PLACE_TYPE,
     "place_category": ATTR_PLACE_CATEGORY,
