@@ -149,6 +149,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 </details>
 
 -------
+
 <details>
 <summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>
 
