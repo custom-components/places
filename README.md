@@ -157,9 +157,9 @@ driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, hi
 * `zone_name`
 
 __Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples above for how to recreate them.
-</details>
 
 -------
+</details>
 
 <details>
 <summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>
