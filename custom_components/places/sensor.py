@@ -446,6 +446,7 @@ class Places(SensorEntity):
             ATTR_JSON_FILENAME,
             (DOMAIN + "-" + slugify(str(self.get_attr(CONF_UNIQUE_ID))) + ".json"),
         )
+        self.set_attr(ATTR_DISPLAY_OPTIONS, self.get_attr(CONF_DISPLAY_OPTIONS))
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
