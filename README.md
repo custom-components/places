@@ -140,9 +140,9 @@ driving, place_name[place_type(-,unclassified,place_category(-,highway))[place_c
 * `name` (Synonym: `place_name`)
 * `type` (Synonym: `place_type`)
 * `category` (Synonym: `place_category`)
-* `street_number`
+* `street_number` (Synonym: `house_number`)
 * `street`
-* `street_ref` (Shows the Route Number ex. I-70)
+* `route_number` (Synonym: `street_ref`)
 * `neighborhood` (Synonyms: `neighbourhood`, `place_neighborhood`, `place_neighbourhood`)
 * `city`
 * `state` (Synonym: `region`)
