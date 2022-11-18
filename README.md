@@ -75,10 +75,9 @@ Key | Type | Required | Description | Default |
 `extended_attr` | `boolean` | `No` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!** | `False`
 `show_time` | `boolean` | `No` | Show last updated time at end of state `(since xx:yy)` | `False`
 `use_gps_accuracy` | `boolean` | `No` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
-`display_options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />See optional Advanced Display Options below to use more complex display logic. | `zone_name`, `place`
+`display_options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.** | `zone_name`, `place`
 
 <details>
-
 <summary><h3>Advanced Display Options</h3></summary>
 
 To use, simply enter your advanced options into the `display_options` text area. Any display_options that contain `[]` or `()` will be processed with the Advanced Display Options.<br />
@@ -147,9 +146,9 @@ driving, place_name[place_type(-,unclassified,place_category(-,highway))[place_c
 * `zone_name`
 
 __Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples above for how to recreate them.
-
 </details>
 
+-------
 <details>
 <summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>
 
