@@ -2637,6 +2637,14 @@ class Places(SensorEntity):
                         ext in self.get_attr(ATTR_DISPLAY_OPTIONS)
                         for ext in ["(", ")", "[", "]"]
                     ):
+                        # Replace place option with expanded definition
+                        # temp_opt = self.get_attr(ATTR_DISPLAY_OPTIONS)
+                        # re.sub(
+                        #    r"place(?=[\[\(\]\)\,\s])",
+                        #    "place_name,place_category(-,place),place_type(-,yes),neighborhood,street_number,street",
+                        #    temp_opt,
+                        # )
+                        # self.set_attr(ATTR_DISPLAY_OPTIONS, temp_opt)
                         self.clear_attr(ATTR_DISPLAY_OPTIONS_LIST)
                         display_options = None
                         self.adv_options_state_list = []
