@@ -127,11 +127,11 @@ These can be nested.
 
 * To recreate `place`:
 ```
-name, category(-, place), type(-, yes), neighborhood, house_number, street
+name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, street
 ```
 * To recreate `formatted_place` _(as close as possible)_:
 ```
-driving, name[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city[county], state_abbr
+driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city[county], state_abbr
 ```
 
 ### Fields
