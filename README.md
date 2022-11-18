@@ -127,22 +127,23 @@ These can be nested.
 
 * To recreate `place`:
 ```
-place_name,place_category(-,place),place_type(-,yes),neighborhood,street_number,street
+name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, street
 ```
 * To recreate `formatted_place` _(as close as possible)_:
 ```
-driving, place_name[place_type(-,unclassified,place_category(-,highway))[place_category(-,highway)],street_number, street_ref(place_type(+,motorway,trunk))[street[street_ref]], neighborhood(place_type(house))], city[county], state_abbr
+driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city[county], state_abbr
 ```
 
 ### Fields
 
 * `driving`
 * `name` (Synonym: `place_name`)
+* `name_no_dupe` (Synonym: `place_name_no_dupe` - _Will be blank if the name is the same as one of the other attributes_)
 * `type` (Synonym: `place_type`)
 * `category` (Synonym: `place_category`)
-* `street_number`
+* `street_number` (Synonym: `house_number`)
 * `street`
-* `street_ref` (Shows the Route Number ex. I-70)
+* `route_number` (Synonym: `street_ref`)
 * `neighborhood` (Synonyms: `neighbourhood`, `place_neighborhood`, `place_neighbourhood`)
 * `city`
 * `state` (Synonym: `region`)

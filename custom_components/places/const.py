@@ -89,6 +89,7 @@ ATTR_OSM_TYPE = "osm_type"
 ATTR_PICTURE = "entity_picture"
 ATTR_PLACE_CATEGORY = "place_category"
 ATTR_PLACE_NAME = "place_name"
+ATTR_PLACE_NAME_NO_DUPE = "place_name_no_dupe"
 ATTR_PLACE_NEIGHBOURHOOD = "neighbourhood"
 ATTR_PLACE_TYPE = "place_type"
 ATTR_POSTAL_CODE = "postal_code"
@@ -134,6 +135,7 @@ RESET_ATTRIBUTE_LIST = [
     ATTR_OSM_TYPE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_NAME,
+    ATTR_PLACE_NAME_NO_DUPE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_PLACE_TYPE,
     ATTR_POSTAL_CODE,
@@ -234,6 +236,7 @@ JSON_ATTRIBUTE_LIST = [
     ATTR_OSM_TYPE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_NAME,
+    ATTR_PLACE_NAME_NO_DUPE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_PLACE_TYPE,
     ATTR_POSTAL_CODE,
@@ -292,13 +295,17 @@ DISPLAY_OPTIONS_MAP = {
     "driving": ATTR_DRIVING,
     "place_name": ATTR_PLACE_NAME,
     "name": ATTR_PLACE_NAME,
+    "place_name_no_dupe": ATTR_PLACE_NAME_NO_DUPE,
+    "name_no_dupe": ATTR_PLACE_NAME_NO_DUPE,
     "place_type": ATTR_PLACE_TYPE,
     "place_category": ATTR_PLACE_CATEGORY,
     "type": ATTR_PLACE_TYPE,
     "category": ATTR_PLACE_CATEGORY,
     "street_number": ATTR_STREET_NUMBER,
+    "house_number": ATTR_STREET_NUMBER,
     "street": ATTR_STREET,
     "street_ref": ATTR_STREET_REF,
+    "route_number": ATTR_STREET_REF,
     "neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
     "neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
     "place_neighborhood": ATTR_PLACE_NEIGHBOURHOOD,

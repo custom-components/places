@@ -88,6 +88,7 @@ from .const import (
     ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_NAME,
+    ATTR_PLACE_NAME_NO_DUPE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_PLACE_TYPE,
     ATTR_POSTAL_CODE,
@@ -1264,6 +1265,16 @@ class Places(SensorEntity):
             + ") Place Name: "
             + str(self.get_attr(ATTR_PLACE_NAME))
         )
+        dupe_attributes_check = []
+        for attr in PLACE_NAME_DUPLICATE_LIST:
+            if not self.is_attr_blank(attr):
+                dupe_attributes_check.append(self.get_attr(attr))
+        if (
+            not self.is_attr_blank(ATTR_PLACE_NAME)
+            and self.get_attr(ATTR_PLACE_NAME) not in dupe_attributes_check
+        ):
+            self.set_attr(ATTR_PLACE_NAME_NO_DUPE, self.get_attr(ATTR_PLACE_NAME))
+
         if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
                 ATTR_PLACE_NEIGHBOURHOOD,
