@@ -86,6 +86,7 @@ __Tip:__ _Build your advanced display options string in a text editor and copy/p
 ### __Brackets [ ]:__ Fields to show if initial field is blank or empty<br />
 These can be nested.
 #### Examples
+
 * `place_name[place_type]` will show the place_name, but if place_name is blank, will show the place_type instead. If place_type is also blank, nothing will show for that field
 * `place_name[place_type[place_category]]` will show the place_name, but if place_name is blank, will show the place_type instead, but if place_type is blank, will show the place_category. If place_category is also blank, nothing will show for that field.
 
@@ -95,6 +96,7 @@ These can be nested.
 * __Exclude:__ Set the first item inside the parenthesis to - to only show the field if doesn't equal one of the states listed
 * If + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
 ##### Examples
+
     * `place_type(-, house)` will show place_type if it is anything but "house"
     * `place_type(+, house)` will show place_type only if it is "house"
     * `place_type(house)` same as `place_type(+, house)`
@@ -106,6 +108,7 @@ These can be nested.
 * __Exclude:__ List the field to test followed by another set of parenthesis. In there, set the first item inside the parenthesis to - to only show the main field if the field to be tested doesn't equal one of the states listed
 * As above, if + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
 ##### Examples
+
     * `place_type(place_category(-, highway))` will show place_type if place_category is anything but "highway"
     * `place_type(place_category(+, highway))` will show place_type only if place_category is "highway"
     * `place_type(place_category(highway))` same as `place_type(place_category(+, highway))`
