@@ -2071,6 +2071,17 @@ class Places(SensorEntity):
             ):
                 out = out.title()
             out = out.strip()
+            if (
+                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_REF
+            ):
+                self.street_i = self.temp_i
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") [get_option_state] street_i: "
+                    + str(self.street_i)
+                )
             if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
                 self.street_num_i = self.temp_i
                 _LOGGER.debug(
@@ -2085,17 +2096,17 @@ class Places(SensorEntity):
             return None
 
     def compile_state_from_advanced_options(self):
-        street_and_num = False
-        if re.search(
-            r"street_number[\s]*\,[\s]*street", self.get_attr(ATTR_DISPLAY_OPTIONS)
-        ):
-            street_and_num = True
-            self.street_num_i += 1
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [compile_adv] Num and Street is True"
-            )
+        # street_and_num = False
+        # if re.search(
+        #    r"street_number[\s]*\,[\s]*street", self.get_attr(ATTR_DISPLAY_OPTIONS)
+        # ):
+        #    street_and_num = True
+        self.street_num_i += 1
+        #    _LOGGER.debug(
+        #        "("
+        #        + self.get_attr(CONF_NAME)
+        #        + ") [compile_adv] Num and Street is True"
+        #    )
         first = True
         for i, out in enumerate(self.adv_options_state_list):
             if out is not None and out:
@@ -2104,7 +2115,7 @@ class Places(SensorEntity):
                     self.set_attr(ATTR_NATIVE_VALUE, str(out))
                     first = False
                 else:
-                    if street_and_num and i == self.street_num_i:
+                    if i == self.street_i and i == self.street_num_i:
                         self.set_attr(
                             ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + " "
                         )
@@ -2767,6 +2778,7 @@ class Places(SensorEntity):
                         display_options = None
                         self.adv_options_state_list = []
                         self.street_num_i = -1
+                        self.street_i = -1
                         self.temp_i = 0
                         _LOGGER.debug(
                             "("
