@@ -2058,14 +2058,14 @@ class Places(SensorEntity):
                 + str(out)
             )
         if out is not None and out:
-            if out == out.lower() and opt in [
-                ATTR_DEVICETRACKER_ZONE_NAME,
-                ATTR_PLACE_TYPE,
-                ATTR_PLACE_CATEGORY,
-            ]:
+            if out == out.lower() and (
+                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_DEVICETRACKER_ZONE_NAME
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_TYPE
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_CATEGORY
+            ):
                 out = out.title()
             out = out.strip()
-            if opt == "street_number":
+            if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
                 self.street_num_i = self.temp_i
                 _LOGGER.debug(
                     "("
