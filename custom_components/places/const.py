@@ -49,6 +49,7 @@ CONF_YAML_HASH = "yaml_hash"
 
 # Attributes
 ATTR_CITY = "city"
+ATTR_CITY_CLEAN = "city_clean"
 ATTR_COUNTRY = "country"
 ATTR_COUNTY = "county"
 ATTR_DEVICETRACKER_ID = "devicetracker_entityid"
@@ -123,6 +124,7 @@ CONFIG_ATTRIBUTES_LIST = [
 ]
 RESET_ATTRIBUTE_LIST = [
     ATTR_CITY,
+    ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
     ATTR_COUNTY,
     ATTR_DRIVING,
@@ -208,6 +210,7 @@ JSON_IGNORE_ATTRIBUTE_LIST = [
 ]
 JSON_ATTRIBUTE_LIST = [
     ATTR_CITY,
+    ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
     ATTR_COUNTY,
     ATTR_DEVICETRACKER_ZONE_NAME,
@@ -311,6 +314,7 @@ DISPLAY_OPTIONS_MAP = {
     "place_neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
     "place_neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
     "city": ATTR_CITY,
+    "city_clean": ATTR_CITY_CLEAN,
     "region": ATTR_REGION,
     "state": ATTR_REGION,
     "state_abbr": ATTR_STATE_ABBR,

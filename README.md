@@ -131,14 +131,15 @@ name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, stre
 ```
 * To recreate `formatted_place` _(as close as possible)_:
 ```
-driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city[county], state_abbr
+driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city_clean[county], state_abbr
 ```
 
 ### Fields
 
 * `driving`
 * `name` (Synonym: `place_name`)
-* `name_no_dupe` (Synonym: `place_name_no_dupe` - _Will be blank if the name is the same as one of the other attributes_)
+* `name_no_dupe` (Synonym: `place_name_no_dupe`)
+  * _Will be blank if the name is the same as one of the other attributes_
 * `type` (Synonym: `place_type`)
 * `category` (Synonym: `place_category`)
 * `street_number` (Synonym: `house_number`)
@@ -146,6 +147,8 @@ driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, hi
 * `route_number` (Synonym: `street_ref`)
 * `neighborhood` (Synonyms: `neighbourhood`, `place_neighborhood`, `place_neighbourhood`)
 * `city`
+* `city_clean`
+  * _`city` but removes "Township" and moves "City" to the end it it stats with "City of"_
 * `state` (Synonym: `region`)
 * `state_abbr`
 * `county`

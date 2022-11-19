@@ -49,6 +49,7 @@ from urllib3.exceptions import NewConnectionError
 
 from .const import (
     ATTR_CITY,
+    ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
     ATTR_COUNTY,
     ATTR_DEVICETRACKER_ID,
@@ -1321,10 +1322,15 @@ class Places(SensorEntity):
                 ATTR_CITY,
                 self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
             )
-        if not self.is_attr_blank(ATTR_CITY) and self.get_attr(ATTR_CITY).startswith(
-            "City of"
-        ):
-            self.set_attr(ATTR_CITY, self.get_attr(ATTR_CITY)[8:] + " City")
+        if not self.is_attr_blank(ATTR_CITY):
+            self.set_attr(
+                ATTR_CITY_CLEAN,
+                self.get_attr(ATTR_CITY).replace(" Township", "").strip(),
+            )
+            if self.get_attr(ATTR_CITY_CLEAN).startswith("City of"):
+                self.set_attr(
+                    ATTR_CITY_CLEAN, self.get_attr(ATTR_CITY_CLEAN)[8:] + " City"
+                )
 
         if "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
