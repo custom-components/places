@@ -49,6 +49,7 @@ from urllib3.exceptions import NewConnectionError
 
 from .const import (
     ATTR_CITY,
+    ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
     ATTR_COUNTY,
     ATTR_DEVICETRACKER_ID,
@@ -1265,15 +1266,6 @@ class Places(SensorEntity):
             + ") Place Name: "
             + str(self.get_attr(ATTR_PLACE_NAME))
         )
-        dupe_attributes_check = []
-        for attr in PLACE_NAME_DUPLICATE_LIST:
-            if not self.is_attr_blank(attr):
-                dupe_attributes_check.append(self.get_attr(attr))
-        if (
-            not self.is_attr_blank(ATTR_PLACE_NAME)
-            and self.get_attr(ATTR_PLACE_NAME) not in dupe_attributes_check
-        ):
-            self.set_attr(ATTR_PLACE_NAME_NO_DUPE, self.get_attr(ATTR_PLACE_NAME))
 
         if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
@@ -1321,10 +1313,15 @@ class Places(SensorEntity):
                 ATTR_CITY,
                 self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
             )
-        if not self.is_attr_blank(ATTR_CITY) and self.get_attr(ATTR_CITY).startswith(
-            "City of"
-        ):
-            self.set_attr(ATTR_CITY, self.get_attr(ATTR_CITY)[8:] + " City")
+        if not self.is_attr_blank(ATTR_CITY):
+            self.set_attr(
+                ATTR_CITY_CLEAN,
+                self.get_attr(ATTR_CITY).replace(" Township", "").strip(),
+            )
+            if self.get_attr(ATTR_CITY_CLEAN).startswith("City of"):
+                self.set_attr(
+                    ATTR_CITY_CLEAN, self.get_attr(ATTR_CITY_CLEAN)[8:] + " City"
+                )
 
         if "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
@@ -1405,6 +1402,16 @@ class Places(SensorEntity):
                     + " / Street Ref: "
                     + str(self.get_attr(ATTR_STREET_REF))
                 )
+        dupe_attributes_check = []
+        for attr in PLACE_NAME_DUPLICATE_LIST:
+            if not self.is_attr_blank(attr):
+                dupe_attributes_check.append(self.get_attr(attr))
+        if (
+            not self.is_attr_blank(ATTR_PLACE_NAME)
+            and self.get_attr(ATTR_PLACE_NAME) not in dupe_attributes_check
+        ):
+            self.set_attr(ATTR_PLACE_NAME_NO_DUPE, self.get_attr(ATTR_PLACE_NAME))
+
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
@@ -2058,14 +2065,25 @@ class Places(SensorEntity):
                 + str(out)
             )
         if out is not None and out:
-            if out == out.lower() and opt in [
-                ATTR_DEVICETRACKER_ZONE_NAME,
-                ATTR_PLACE_TYPE,
-                ATTR_PLACE_CATEGORY,
-            ]:
+            if out == out.lower() and (
+                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_DEVICETRACKER_ZONE_NAME
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_TYPE
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_CATEGORY
+            ):
                 out = out.title()
             out = out.strip()
-            if opt == "street_number":
+            if (
+                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_REF
+            ):
+                self.street_i = self.temp_i
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") [get_option_state] street_i: "
+                    + str(self.street_i)
+                )
+            if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
                 self.street_num_i = self.temp_i
                 _LOGGER.debug(
                     "("
@@ -2079,17 +2097,17 @@ class Places(SensorEntity):
             return None
 
     def compile_state_from_advanced_options(self):
-        street_and_num = False
-        if re.search(
-            r"street_number[\s]*\,[\s]*street", self.get_attr(ATTR_DISPLAY_OPTIONS)
-        ):
-            street_and_num = True
-            self.street_num_i += 1
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [compile_adv] Num and Street is True"
-            )
+        # street_and_num = False
+        # if re.search(
+        #    r"street_number[\s]*\,[\s]*street", self.get_attr(ATTR_DISPLAY_OPTIONS)
+        # ):
+        #    street_and_num = True
+        self.street_num_i += 1
+        #    _LOGGER.debug(
+        #        "("
+        #        + self.get_attr(CONF_NAME)
+        #        + ") [compile_adv] Num and Street is True"
+        #    )
         first = True
         for i, out in enumerate(self.adv_options_state_list):
             if out is not None and out:
@@ -2098,7 +2116,7 @@ class Places(SensorEntity):
                     self.set_attr(ATTR_NATIVE_VALUE, str(out))
                     first = False
                 else:
-                    if street_and_num and i == self.street_num_i:
+                    if i == self.street_i and i == self.street_num_i:
                         self.set_attr(
                             ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + " "
                         )
@@ -2761,6 +2779,7 @@ class Places(SensorEntity):
                         display_options = None
                         self.adv_options_state_list = []
                         self.street_num_i = -1
+                        self.street_i = -1
                         self.temp_i = 0
                         _LOGGER.debug(
                             "("
