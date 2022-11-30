@@ -51,6 +51,7 @@ from .const import (
     ATTR_CITY,
     ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
+    ATTR_COUNTRY_CODE,
     ATTR_COUNTY,
     ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
@@ -1358,6 +1359,11 @@ class Places(SensorEntity):
             self.set_attr(
                 ATTR_COUNTRY,
                 self.get_attr(ATTR_OSM_DICT).get("address").get("country"),
+            )
+        if "country_code" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_COUNTRY_CODE,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("country_code").upper(),
             )
         if "postcode" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
