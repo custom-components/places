@@ -153,6 +153,7 @@ driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, hi
 * `state_abbr`
 * `county`
 * `country`
+* `country_code`
 * `zip_code` (Synonym: `postal_code`)
 * `latitude`
 * `longitude`
