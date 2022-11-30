@@ -1586,11 +1586,11 @@ class Places(SensorEntity):
         if curr_options is None or not curr_options:
             return
         elif "[" in curr_options or "(" in curr_options:
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [adv_options] Options has a [ or ( and optional ,"
-            )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [adv_options] Options has a [ or ( and optional ,"
+            # )
             comma_num = curr_options.find(",")
             bracket_num = curr_options.find("[")
             paren_num = curr_options.find("(")
@@ -1600,9 +1600,9 @@ class Places(SensorEntity):
                 and (paren_num == -1 or comma_num < paren_num)
             ):
                 # Comma is first symbol
-                _LOGGER.debug(
-                    "(" + self.get_attr(CONF_NAME) + ") [adv_options] Comma is First"
-                )
+                # _LOGGER.debug(
+                #    "(" + self.get_attr(CONF_NAME) + ") [adv_options] Comma is First"
+                # )
                 opt = curr_options[:comma_num]
                 _LOGGER.debug(
                     "("
@@ -1629,11 +1629,11 @@ class Places(SensorEntity):
                 )
                 if next_opt is not None and next_opt:
                     self.build_from_advanced_options(next_opt.strip())
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") [adv_options] Back from recursion"
-                    )
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [adv_options] Back from recursion"
+                    # )
                 return
             elif (
                 bracket_num != -1
@@ -1641,9 +1641,9 @@ class Places(SensorEntity):
                 and (paren_num == -1 or bracket_num < paren_num)
             ):
                 # Bracket is first symbol
-                _LOGGER.debug(
-                    "(" + self.get_attr(CONF_NAME) + ") [adv_options] Bracket is First"
-                )
+                # _LOGGER.debug(
+                #    "(" + self.get_attr(CONF_NAME) + ") [adv_options] Bracket is First"
+                # )
                 opt = curr_options[:bracket_num]
                 _LOGGER.debug(
                     "("
@@ -1677,11 +1677,11 @@ class Places(SensorEntity):
                         )
                     elif none_opt is not None and none_opt:
                         self.build_from_advanced_options(none_opt.strip())
-                        _LOGGER.debug(
-                            "("
-                            + self.get_attr(CONF_NAME)
-                            + ") [adv_options] Back from recursion"
-                        )
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
 
                 if (
                     next_opt is not None
@@ -1698,11 +1698,11 @@ class Places(SensorEntity):
                     )
                     if next_opt is not None and next_opt:
                         self.build_from_advanced_options(next_opt.strip())
-                        _LOGGER.debug(
-                            "("
-                            + self.get_attr(CONF_NAME)
-                            + ") [adv_options] Back from recursion"
-                        )
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
                 return
             elif (
                 paren_num != -1
@@ -1710,11 +1710,11 @@ class Places(SensorEntity):
                 and (bracket_num == -1 or paren_num < bracket_num)
             ):
                 # Parenthesis is first symbol
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") [adv_options] Parenthesis is First"
-                )
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [adv_options] Parenthesis is First"
+                # )
                 opt = curr_options[:paren_num]
                 _LOGGER.debug(
                     "("
@@ -1748,11 +1748,11 @@ class Places(SensorEntity):
                         )
                     elif none_opt is not None and none_opt:
                         self.build_from_advanced_options(none_opt.strip())
-                        _LOGGER.debug(
-                            "("
-                            + self.get_attr(CONF_NAME)
-                            + ") [adv_options] Back from recursion"
-                        )
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
 
                 if (
                     next_opt is not None
@@ -1769,19 +1769,19 @@ class Places(SensorEntity):
                     )
                     if next_opt is not None and next_opt:
                         self.build_from_advanced_options(next_opt.strip())
-                        _LOGGER.debug(
-                            "("
-                            + self.get_attr(CONF_NAME)
-                            + ") [adv_options] Back from recursion"
-                        )
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
                 return
             return
         elif "," in curr_options:
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [adv_options] Options has , but no [ or (, splitting"
-            )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [adv_options] Options has , but no [ or (, splitting"
+            # )
             for opt in curr_options.split(","):
                 if opt is not None and opt:
                     ret_state = self.get_option_state(opt.strip())
@@ -1795,11 +1795,11 @@ class Places(SensorEntity):
                         )
             return
         else:
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [adv_options] Options should just be a single term"
-            )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [adv_options] Options should just be a single term"
+            # )
             ret_state = self.get_option_state(curr_options.strip())
             if ret_state is not None and ret_state:
                 self.adv_options_state_list.append(ret_state)
@@ -1837,12 +1837,12 @@ class Places(SensorEntity):
                 break
 
         if close_paren_num > 0 and paren_count == 0 and incl_excl_list:
-            _LOGGER.debug(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") [parse_parens] incl_excl_list: "
-                + str(incl_excl_list)
-            )
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [parse_parens] incl_excl_list: "
+            #    + str(incl_excl_list)
+            # )
             paren_first = True
             paren_incl = True
             for item in incl_excl_list:
@@ -1850,22 +1850,22 @@ class Places(SensorEntity):
                     paren_first = False
                     if item == "-":
                         paren_incl = False
-                        _LOGGER.debug(
-                            "(" + self.get_attr(CONF_NAME) + ") [parse_parens] excl"
-                        )
+                        # _LOGGER.debug(
+                        #    "(" + self.get_attr(CONF_NAME) + ") [parse_parens] excl"
+                        # )
                         continue
-                    else:
-                        _LOGGER.debug(
-                            "(" + self.get_attr(CONF_NAME) + ") [parse_parens] incl"
-                        )
+                    # else:
+                    #    _LOGGER.debug(
+                    #        "(" + self.get_attr(CONF_NAME) + ") [parse_parens] incl"
+                    #    )
                     if item == "+":
                         continue
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") [parse_parens] item: "
-                    + str(item)
-                )
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [parse_parens] item: "
+                #    + str(item)
+                # )
                 if item is not None and item:
                     if "(" in item:
                         if (
@@ -1892,28 +1892,28 @@ class Places(SensorEntity):
                                 paren_attr_first = False
                                 if attr_item == "-":
                                     paren_attr_incl = False
-                                    _LOGGER.debug(
-                                        "("
-                                        + self.get_attr(CONF_NAME)
-                                        + ") [parse_parens] attr_excl"
-                                    )
+                                    # _LOGGER.debug(
+                                    #    "("
+                                    #    + self.get_attr(CONF_NAME)
+                                    #    + ") [parse_parens] attr_excl"
+                                    # )
                                     continue
-                                else:
-                                    _LOGGER.debug(
-                                        "("
-                                        + self.get_attr(CONF_NAME)
-                                        + ") [parse_parens] attr_incl"
-                                    )
+                                # else:
+                                # _LOGGER.debug(
+                                #    "("
+                                #    + self.get_attr(CONF_NAME)
+                                #    + ") [parse_parens] attr_incl"
+                                # )
                                 if attr_item == "+":
                                     continue
-                            _LOGGER.debug(
-                                "("
-                                + self.get_attr(CONF_NAME)
-                                + ") [parse_parens] attr: "
-                                + str(paren_attr)
-                                + " / item: "
-                                + str(attr_item)
-                            )
+                            # _LOGGER.debug(
+                            #    "("
+                            #    + self.get_attr(CONF_NAME)
+                            #    + ") [parse_parens] attr: "
+                            #    + str(paren_attr)
+                            #    + " / item: "
+                            #    + str(attr_item)
+                            # )
                             paren_attr_list.append(attr_item.strip())
                         if paren_attr_incl:
                             incl_attr.update({paren_attr: paren_attr_list})
@@ -1944,7 +1944,7 @@ class Places(SensorEntity):
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
-            + ") [parse_bracket] curr_options: "
+            + ") [parse_bracket] Options: "
             + str(curr_options)
         )
         none_opt = None
@@ -1996,30 +1996,30 @@ class Places(SensorEntity):
         _LOGGER.debug(
             "(" + self.get_attr(CONF_NAME) + ") [get_option_state] State: " + str(out)
         )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") [get_option_state] incl list: "
-            + str(incl)
-        )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") [get_option_state] excl list: "
-            + str(excl)
-        )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") [get_option_state] incl_attr dict: "
-            + str(incl_attr)
-        )
-        _LOGGER.debug(
-            "("
-            + self.get_attr(CONF_NAME)
-            + ") [get_option_state] excl_attr dict: "
-            + str(excl_attr)
-        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] incl list: "
+        #    + str(incl)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] excl list: "
+        #    + str(excl)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] incl_attr dict: "
+        #    + str(incl_attr)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] excl_attr dict: "
+        #    + str(excl_attr)
+        # )
         if out is not None and out:
             if incl and out not in incl:
                 out = None
@@ -2027,20 +2027,20 @@ class Places(SensorEntity):
                 out = None
             if incl_attr:
                 for attr, states in incl_attr.items():
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") [get_option_state] incl_attr: "
-                        + str(attr)
-                        + " / State: "
-                        + str(self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)))
-                    )
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") [get_option_state] incl_states: "
-                        + str(states)
-                    )
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] incl_attr: "
+                    #    + str(attr)
+                    #    + " / State: "
+                    #    + str(self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)))
+                    # )
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] incl_states: "
+                    #    + str(states)
+                    # )
                     if (
                         self.is_attr_blank(DISPLAY_OPTIONS_MAP.get(attr))
                         or self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)) not in states
@@ -2048,20 +2048,20 @@ class Places(SensorEntity):
                         out = None
             if excl_attr:
                 for attr, states in excl_attr.items():
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") [get_option_state] excl_attr: "
-                        + str(attr)
-                        + " / State: "
-                        + str(self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)))
-                    )
-                    _LOGGER.debug(
-                        "("
-                        + self.get_attr(CONF_NAME)
-                        + ") [get_option_state] excl_states: "
-                        + str(states)
-                    )
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] excl_attr: "
+                    #    + str(attr)
+                    #    + " / State: "
+                    #    + str(self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)))
+                    # )
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] excl_states: "
+                    #    + str(states)
+                    # )
                     if self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)) in states:
                         out = None
             _LOGGER.debug(
@@ -2083,37 +2083,27 @@ class Places(SensorEntity):
                 or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_REF
             ):
                 self.street_i = self.temp_i
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") [get_option_state] street_i: "
-                    + str(self.street_i)
-                )
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [get_option_state] street_i: "
+                #    + str(self.street_i)
+                # )
             if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
                 self.street_num_i = self.temp_i
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") [get_option_state] street_num_i: "
-                    + str(self.street_num_i)
-                )
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [get_option_state] street_num_i: "
+                #    + str(self.street_num_i)
+                # )
             self.temp_i += 1
             return out
         else:
             return None
 
     def compile_state_from_advanced_options(self):
-        # street_and_num = False
-        # if re.search(
-        #    r"street_number[\s]*\,[\s]*street", self.get_attr(ATTR_DISPLAY_OPTIONS)
-        # ):
-        #    street_and_num = True
         self.street_num_i += 1
-        #    _LOGGER.debug(
-        #        "("
-        #        + self.get_attr(CONF_NAME)
-        #        + ") [compile_adv] Num and Street is True"
-        #    )
         first = True
         for i, out in enumerate(self.adv_options_state_list):
             if out is not None and out:
