@@ -17,19 +17,19 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_DEVICETRACKER_ID,
+    CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
     CONF_HOME_ZONE,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
-    CONF_OPTIONS,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
+    DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
-    DEFAULT_OPTION,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
     DOMAIN,
@@ -197,7 +197,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(CONF_API_KEY): str,
                 vol.Optional(
-                    CONF_OPTIONS, default=DEFAULT_OPTION
+                    CONF_DISPLAY_OPTIONS, default=DEFAULT_DISPLAY_OPTIONS
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=STATE_OPTIONS,
@@ -349,12 +349,12 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     },
                 ): str,
                 vol.Optional(
-                    CONF_OPTIONS,
-                    default=DEFAULT_OPTION,
+                    CONF_DISPLAY_OPTIONS,
+                    default=DEFAULT_DISPLAY_OPTIONS,
                     description={
-                        "suggested_value": self.config_entry.data[CONF_OPTIONS]
-                        if CONF_OPTIONS in self.config_entry.data
-                        else DEFAULT_OPTION
+                        "suggested_value": self.config_entry.data[CONF_DISPLAY_OPTIONS]
+                        if CONF_DISPLAY_OPTIONS in self.config_entry.data
+                        else DEFAULT_DISPLAY_OPTIONS
                     },
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(

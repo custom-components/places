@@ -75,7 +75,95 @@ Key | Type | Required | Description | Default |
 `extended_attr` | `boolean` | `No` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!** | `False`
 `show_time` | `boolean` | `No` | Show last updated time at end of state `(since xx:yy)` | `False`
 `use_gps_accuracy` | `boolean` | `No` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
-`options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home` | `zone_name`, `place`
+`display_options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.** | `zone_name`, `place`
+
+<details>
+<summary><h3>Advanced Display Options</h3></summary>
+
+To use, simply enter your advanced options into the `display_options` text area. Any display_options that contain `[]` or `()` will be processed with the Advanced Display Options.<br />
+__Tip:__ _Build your advanced display options string in a text editor and copy/paste it into display_options field as it is pretty small._
+
+### __Brackets [ ]:__ Fields to show if initial field is blank or empty<br />
+These can be nested.
+#### Examples
+
+* `name[type]` will show the name, but if name is blank, will show the type instead. If type is also blank, nothing will show for that field
+* `name[type[category]]` will show the name, but if name is blank, will show the type instead, but if type is blank, will show the category. If category is also blank, nothing will show for that field.
+
+### __Parenthesis ( ):__ Inclusion/Exclusion Logic to filter the field<br />
+#### To include/exclude based on the main field
+
+* __Include:__ Set the first item inside the parenthesis to + to only show the field if it equals one of the states listed
+* __Exclude:__ Set the first item inside the parenthesis to - to only show the field if doesn't equal one of the states listed
+* If + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
+
+  #### Examples
+
+  * `type(-, house)` will show type if it is anything but "house"
+  * `type(+, house)` will show type only if it is "house"
+  * `type(house)` same as `type(+, house)`
+  * `type(-, house, retail)` will show type if it is anything but "house" or "retail"
+  * `type(+, house, retail)` will show type only if it is "house" or "retail"
+
+#### To include/exclude based on other fields
+
+* __Include:__ List the field to test followed by another set of parenthesis. In there, set the first item inside the parenthesis to + to only show the main field if the field to be tested equals one of the states listed
+* __Exclude:__ List the field to test followed by another set of parenthesis. In there, set the first item inside the parenthesis to - to only show the main field if the field to be tested doesn't equal one of the states listed
+* As above, if + or - isn't listed as the first item inside the parenthesis, include(+) is assumed.
+
+  #### Examples
+
+  * `type(category(-, highway))` will show type if category is anything but "highway"
+  * `type(category(+, highway))` will show type only if category is "highway"
+  * `type(category(highway))` same as `type(category(+, highway))`
+  * `type(category(-, highway, building))` will show type if category is anything but "highway" or "building"
+  * `type(category(+, highway, building))` will show type only if category is "highway" or "building"
+
+#### The two types of include/excludes can also be combined
+
+* `type(-,motorway, category(-, highway, building))` will show type if it is not "motorway" and if category is not "highway" or "building"
+
+### Brackets and Parenthesis can also be combined
+
+* To recreate `place`:
+```
+name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, street
+```
+* To recreate `formatted_place` _(as close as possible)_:
+```
+driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city_clean[county], state_abbr
+```
+
+### Fields
+
+* `driving`
+* `name` (Synonym: `place_name`)
+* `name_no_dupe` (Synonym: `place_name_no_dupe`)
+  * _Will be blank if the name is the same as one of the other attributes_
+* `type` (Synonym: `place_type`)
+* `category` (Synonym: `place_category`)
+* `street_number` (Synonym: `house_number`)
+* `street`
+* `route_number` (Synonym: `street_ref`)
+* `neighborhood` (Synonyms: `neighbourhood`, `place_neighborhood`, `place_neighbourhood`)
+* `city`
+* `city_clean`
+  * _`city` but removes "Township" and moves "City" to the end it it stats with "City of"_
+* `state` (Synonym: `region`)
+* `state_abbr`
+* `county`
+* `country`
+* `country_code`
+* `zip_code` (Synonym: `postal_code`)
+* `latitude`
+* `longitude`
+* `zone`
+* `zone_name`
+
+__Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples above for how to recreate them.
+
+-------
+</details>
 
 <details>
 <summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>

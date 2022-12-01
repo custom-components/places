@@ -49,25 +49,28 @@ from urllib3.exceptions import NewConnectionError
 
 from .const import (
     ATTR_CITY,
+    ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
+    ATTR_COUNTRY_CODE,
     ATTR_COUNTY,
     ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DISPLAY_OPTIONS,
+    ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_DISTANCE_FROM_HOME_KM,
     ATTR_DISTANCE_FROM_HOME_M,
     ATTR_DISTANCE_FROM_HOME_MI,
     ATTR_DISTANCE_TRAVELED_M,
     ATTR_DISTANCE_TRAVELED_MI,
+    ATTR_DRIVING,
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
-    ATTR_IS_DRIVING,
     ATTR_JSON_FILENAME,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
@@ -80,7 +83,6 @@ from .const import (
     ATTR_LONGITUDE_OLD,
     ATTR_MAP_LINK,
     ATTR_NATIVE_VALUE,
-    ATTR_OPTIONS,
     ATTR_OSM_DETAILS_DICT,
     ATTR_OSM_DICT,
     ATTR_OSM_ID,
@@ -88,6 +90,7 @@ from .const import (
     ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_NAME,
+    ATTR_PLACE_NAME_NO_DUPE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_PLACE_TYPE,
     ATTR_POSTAL_CODE,
@@ -102,24 +105,25 @@ from .const import (
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
     CONF_DEVICETRACKER_ID,
+    CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
     CONF_HOME_ZONE,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
-    CONF_OPTIONS,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     CONF_YAML_HASH,
     CONFIG_ATTRIBUTES_LIST,
+    DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
     DEFAULT_ICON,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
-    DEFAULT_OPTION,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
+    DISPLAY_OPTIONS_MAP,
     DOMAIN,
     EVENT_ATTRIBUTE_LIST,
     EXTENDED_ATTRIBUTE_LIST,
@@ -160,7 +164,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_DEVICETRACKER_ID): cv.string,
         vol.Optional(CONF_API_KEY): cv.string,
-        vol.Optional(CONF_OPTIONS, default=DEFAULT_OPTION): cv.string,
+        vol.Optional(CONF_DISPLAY_OPTIONS, default=DEFAULT_DISPLAY_OPTIONS): cv.string,
         vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): cv.string,
         vol.Optional(CONF_NAME): cv.string,
         vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
@@ -411,7 +415,8 @@ class Places(SensorEntity):
         self._attr_icon = DEFAULT_ICON
         self.set_attr(CONF_API_KEY, config.get(CONF_API_KEY))
         self.set_attr(
-            CONF_OPTIONS, config.setdefault(CONF_OPTIONS, DEFAULT_OPTION).lower()
+            CONF_DISPLAY_OPTIONS,
+            config.setdefault(CONF_DISPLAY_OPTIONS, DEFAULT_DISPLAY_OPTIONS).lower(),
         )
         self.set_attr(CONF_DEVICETRACKER_ID, config.get(CONF_DEVICETRACKER_ID).lower())
         # Consider reconciling this in the future
@@ -444,6 +449,7 @@ class Places(SensorEntity):
             ATTR_JSON_FILENAME,
             (DOMAIN + "-" + slugify(str(self.get_attr(CONF_UNIQUE_ID))) + ".json"),
         )
+        self.set_attr(ATTR_DISPLAY_OPTIONS, self.get_attr(CONF_DISPLAY_OPTIONS))
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
@@ -1161,6 +1167,7 @@ class Places(SensorEntity):
         return proceed_with_update
 
     def get_driving_status(self):
+        self.clear_attr(ATTR_DRIVING)
         isDriving = False
         if not self.in_zone():
             if self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary" and (
@@ -1168,7 +1175,8 @@ class Places(SensorEntity):
                 or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
             ):
                 isDriving = True
-        self.set_attr(ATTR_IS_DRIVING, isDriving)
+        if isDriving:
+            self.set_attr(ATTR_DRIVING, "Driving")
 
     def parse_osm_dict(self):
         if "type" in self.get_attr(ATTR_OSM_DICT):
@@ -1259,6 +1267,7 @@ class Places(SensorEntity):
             + ") Place Name: "
             + str(self.get_attr(ATTR_PLACE_NAME))
         )
+
         if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
                 ATTR_PLACE_NEIGHBOURHOOD,
@@ -1305,10 +1314,15 @@ class Places(SensorEntity):
                 ATTR_CITY,
                 self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
             )
-        if not self.is_attr_blank(ATTR_CITY) and self.get_attr(ATTR_CITY).startswith(
-            "City of"
-        ):
-            self.set_attr(ATTR_CITY, self.get_attr(ATTR_CITY)[8:] + " City")
+        if not self.is_attr_blank(ATTR_CITY):
+            self.set_attr(
+                ATTR_CITY_CLEAN,
+                self.get_attr(ATTR_CITY).replace(" Township", "").strip(),
+            )
+            if self.get_attr(ATTR_CITY_CLEAN).startswith("City of"):
+                self.set_attr(
+                    ATTR_CITY_CLEAN, self.get_attr(ATTR_CITY_CLEAN)[8:] + " City"
+                )
 
         if "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
@@ -1345,6 +1359,11 @@ class Places(SensorEntity):
             self.set_attr(
                 ATTR_COUNTRY,
                 self.get_attr(ATTR_OSM_DICT).get("address").get("country"),
+            )
+        if "country_code" in self.get_attr(ATTR_OSM_DICT).get("address"):
+            self.set_attr(
+                ATTR_COUNTRY_CODE,
+                self.get_attr(ATTR_OSM_DICT).get("address").get("country_code").upper(),
             )
         if "postcode" in self.get_attr(ATTR_OSM_DICT).get("address"):
             self.set_attr(
@@ -1389,6 +1408,16 @@ class Places(SensorEntity):
                     + " / Street Ref: "
                     + str(self.get_attr(ATTR_STREET_REF))
                 )
+        dupe_attributes_check = []
+        for attr in PLACE_NAME_DUPLICATE_LIST:
+            if not self.is_attr_blank(attr):
+                dupe_attributes_check.append(self.get_attr(attr))
+        if (
+            not self.is_attr_blank(ATTR_PLACE_NAME)
+            and self.get_attr(ATTR_PLACE_NAME) not in dupe_attributes_check
+        ):
+            self.set_attr(ATTR_PLACE_NAME_NO_DUPE, self.get_attr(ATTR_PLACE_NAME))
+
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
@@ -1399,10 +1428,10 @@ class Places(SensorEntity):
     def build_formatted_place(self):
         formatted_place_array = []
         if not self.in_zone():
-            if self.get_attr(ATTR_IS_DRIVING) and "driving" in self.get_attr(
-                ATTR_DISPLAY_OPTIONS
+            if not self.is_attr_blank(ATTR_DRIVING) and "driving" in self.get_attr(
+                ATTR_DISPLAY_OPTIONS_LIST
             ):
-                formatted_place_array.append("Driving")
+                formatted_place_array.append(self.get_attr(ATTR_DRIVING))
             # Don't use place name if the same as another attributes
             use_place_name = True
             sensor_attributes_values = []
@@ -1525,20 +1554,597 @@ class Places(SensorEntity):
         formatted_place = formatted_place.replace("\n", " ").replace("  ", " ").strip()
         self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
 
+    def build_from_advanced_options(self, curr_options):
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") [adv_options] Options: "
+            + str(curr_options)
+        )
+        if curr_options.count("[") != curr_options.count("]"):
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [adv_options] Bracket Count Mismatch: "
+                + str(curr_options)
+            )
+            return
+        elif curr_options.count("(") != curr_options.count(")"):
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [adv_options] Parenthesis Count Mismatch: "
+                + str(curr_options)
+            )
+            return
+        incl = []
+        excl = []
+        incl_attr = {}
+        excl_attr = {}
+        none_opt = None
+        next_opt = None
+        if curr_options is None or not curr_options:
+            return
+        elif "[" in curr_options or "(" in curr_options:
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [adv_options] Options has a [ or ( and optional ,"
+            # )
+            comma_num = curr_options.find(",")
+            bracket_num = curr_options.find("[")
+            paren_num = curr_options.find("(")
+            if (
+                comma_num != -1
+                and (bracket_num == -1 or comma_num < bracket_num)
+                and (paren_num == -1 or comma_num < paren_num)
+            ):
+                # Comma is first symbol
+                # _LOGGER.debug(
+                #    "(" + self.get_attr(CONF_NAME) + ") [adv_options] Comma is First"
+                # )
+                opt = curr_options[:comma_num]
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") [adv_options] Option: "
+                    + str(opt)
+                )
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(opt.strip())
+                    if ret_state is not None and ret_state:
+                        self.adv_options_state_list.append(ret_state)
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") [adv_options] Updated state list: "
+                            + str(self.adv_options_state_list)
+                        )
+                next_opt = curr_options[(comma_num + 1):]
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") [adv_options] Next Options: "
+                    + str(next_opt)
+                )
+                if next_opt is not None and next_opt:
+                    self.build_from_advanced_options(next_opt.strip())
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [adv_options] Back from recursion"
+                    # )
+                return
+            elif (
+                bracket_num != -1
+                and (comma_num == -1 or bracket_num < comma_num)
+                and (paren_num == -1 or bracket_num < paren_num)
+            ):
+                # Bracket is first symbol
+                # _LOGGER.debug(
+                #    "(" + self.get_attr(CONF_NAME) + ") [adv_options] Bracket is First"
+                # )
+                opt = curr_options[:bracket_num]
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") [adv_options] Option: "
+                    + str(opt)
+                )
+                none_opt, next_opt = self.parse_bracket(curr_options[bracket_num:])
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == "("
+                ):
+                    # Parse Parenthesis
+                    incl, excl, incl_attr, excl_attr, next_opt = self.parse_parens(
+                        next_opt
+                    )
+
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(
+                        opt.strip(), incl, excl, incl_attr, excl_attr
+                    )
+                    if ret_state is not None and ret_state:
+                        self.adv_options_state_list.append(ret_state)
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") [adv_options] Updated state list: "
+                            + str(self.adv_options_state_list)
+                        )
+                    elif none_opt is not None and none_opt:
+                        self.build_from_advanced_options(none_opt.strip())
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
+
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == ","
+                ):
+                    next_opt = next_opt[1:]
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") [adv_options] Next Options: "
+                        + str(next_opt)
+                    )
+                    if next_opt is not None and next_opt:
+                        self.build_from_advanced_options(next_opt.strip())
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
+                return
+            elif (
+                paren_num != -1
+                and (comma_num == -1 or paren_num < comma_num)
+                and (bracket_num == -1 or paren_num < bracket_num)
+            ):
+                # Parenthesis is first symbol
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [adv_options] Parenthesis is First"
+                # )
+                opt = curr_options[:paren_num]
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") [adv_options] Option: "
+                    + str(opt)
+                )
+                incl, excl, incl_attr, excl_attr, next_opt = self.parse_parens(
+                    curr_options[paren_num:]
+                )
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == "["
+                ):
+                    # Parse Bracket
+                    none_opt, next_opt = self.parse_bracket(next_opt)
+
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(
+                        opt.strip(), incl, excl, incl_attr, excl_attr
+                    )
+                    if ret_state is not None and ret_state:
+                        self.adv_options_state_list.append(ret_state)
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") [adv_options] Updated state list: "
+                            + str(self.adv_options_state_list)
+                        )
+                    elif none_opt is not None and none_opt:
+                        self.build_from_advanced_options(none_opt.strip())
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
+
+                if (
+                    next_opt is not None
+                    and next_opt
+                    and len(next_opt) > 1
+                    and next_opt[0] == ","
+                ):
+                    next_opt = next_opt[1:]
+                    _LOGGER.debug(
+                        "("
+                        + self.get_attr(CONF_NAME)
+                        + ") [adv_options] Next Options: "
+                        + str(next_opt)
+                    )
+                    if next_opt is not None and next_opt:
+                        self.build_from_advanced_options(next_opt.strip())
+                        # _LOGGER.debug(
+                        #    "("
+                        #    + self.get_attr(CONF_NAME)
+                        #    + ") [adv_options] Back from recursion"
+                        # )
+                return
+            return
+        elif "," in curr_options:
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [adv_options] Options has , but no [ or (, splitting"
+            # )
+            for opt in curr_options.split(","):
+                if opt is not None and opt:
+                    ret_state = self.get_option_state(opt.strip())
+                    if ret_state is not None and ret_state:
+                        self.adv_options_state_list.append(ret_state)
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") [adv_options] Updated state list: "
+                            + str(self.adv_options_state_list)
+                        )
+            return
+        else:
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [adv_options] Options should just be a single term"
+            # )
+            ret_state = self.get_option_state(curr_options.strip())
+            if ret_state is not None and ret_state:
+                self.adv_options_state_list.append(ret_state)
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") [adv_options] Updated state list: "
+                    + str(self.adv_options_state_list)
+                )
+            return
+        return
+
+    def parse_parens(self, curr_options):
+        incl = []
+        excl = []
+        incl_attr = {}
+        excl_attr = {}
+        incl_excl_list = []
+        next_opt = None
+        paren_count = 1
+        close_paren_num = 0
+        last_comma = -1
+        if curr_options[0] == "(":
+            curr_options = curr_options[1:]
+        for i, c in enumerate(curr_options):
+            if c in [",", ")"] and paren_count == 1:
+                incl_excl_list.append(curr_options[(last_comma + 1): i].strip())
+                last_comma = i
+            if c == "(":
+                paren_count += 1
+            elif c == ")":
+                paren_count -= 1
+            if paren_count == 0:
+                close_paren_num = i
+                break
+
+        if close_paren_num > 0 and paren_count == 0 and incl_excl_list:
+            # _LOGGER.debug(
+            #    "("
+            #    + self.get_attr(CONF_NAME)
+            #    + ") [parse_parens] incl_excl_list: "
+            #    + str(incl_excl_list)
+            # )
+            paren_first = True
+            paren_incl = True
+            for item in incl_excl_list:
+                if paren_first:
+                    paren_first = False
+                    if item == "-":
+                        paren_incl = False
+                        # _LOGGER.debug(
+                        #    "(" + self.get_attr(CONF_NAME) + ") [parse_parens] excl"
+                        # )
+                        continue
+                    # else:
+                    #    _LOGGER.debug(
+                    #        "(" + self.get_attr(CONF_NAME) + ") [parse_parens] incl"
+                    #    )
+                    if item == "+":
+                        continue
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [parse_parens] item: "
+                #    + str(item)
+                # )
+                if item is not None and item:
+                    if "(" in item:
+                        if (
+                            ")" not in item
+                            or item.count("(") > 1
+                            or item.count(")") > 1
+                        ):
+                            _LOGGER.error(
+                                "("
+                                + self.get_attr(CONF_NAME)
+                                + ") [parse_parens] Parenthesis Mismatch: "
+                                + str(item)
+                            )
+                            continue
+                        paren_attr = item[: item.find("(")]
+                        paren_attr_first = True
+                        paren_attr_incl = True
+                        paren_attr_list = []
+                        for attr_item in item[
+                            (item.find("(") + 1): item.find(")")
+                        ].split(","):
+
+                            if paren_attr_first:
+                                paren_attr_first = False
+                                if attr_item == "-":
+                                    paren_attr_incl = False
+                                    # _LOGGER.debug(
+                                    #    "("
+                                    #    + self.get_attr(CONF_NAME)
+                                    #    + ") [parse_parens] attr_excl"
+                                    # )
+                                    continue
+                                # else:
+                                # _LOGGER.debug(
+                                #    "("
+                                #    + self.get_attr(CONF_NAME)
+                                #    + ") [parse_parens] attr_incl"
+                                # )
+                                if attr_item == "+":
+                                    continue
+                            # _LOGGER.debug(
+                            #    "("
+                            #    + self.get_attr(CONF_NAME)
+                            #    + ") [parse_parens] attr: "
+                            #    + str(paren_attr)
+                            #    + " / item: "
+                            #    + str(attr_item)
+                            # )
+                            paren_attr_list.append(attr_item.strip())
+                        if paren_attr_incl:
+                            incl_attr.update({paren_attr: paren_attr_list})
+                        else:
+                            excl_attr.update({paren_attr: paren_attr_list})
+                    elif paren_incl:
+                        incl.append(item)
+                    else:
+                        excl.append(item)
+
+        else:
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [parse_parens] Parenthesis Mismatch: "
+                + str(curr_options)
+            )
+        next_opt = curr_options[(close_paren_num + 1):]
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") [parse_parens] Raw Next Options: "
+            + str(next_opt)
+        )
+        return incl, excl, incl_attr, excl_attr, next_opt
+
+    def parse_bracket(self, curr_options):
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") [parse_bracket] Options: "
+            + str(curr_options)
+        )
+        none_opt = None
+        next_opt = None
+        bracket_count = 1
+        close_bracket_num = 0
+        if curr_options[0] == "[":
+            curr_options = curr_options[1:]
+        for i, c in enumerate(curr_options):
+            if c == "[":
+                bracket_count += 1
+            elif c == "]":
+                bracket_count -= 1
+            if bracket_count == 0:
+                close_bracket_num = i
+                break
+
+        if close_bracket_num > 0 and bracket_count == 0:
+            none_opt = curr_options[:close_bracket_num].strip()
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [parse_bracket] None Options: "
+                + str(none_opt)
+            )
+            next_opt = curr_options[(close_bracket_num + 1):].strip()
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [parse_bracket] Raw Next Options: "
+                + str(next_opt)
+            )
+        else:
+            _LOGGER.error(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [parse_bracket] Bracket Mismatch Error: "
+                + str(curr_options)
+            )
+        return none_opt, next_opt
+
+    def get_option_state(self, opt, incl=[], excl=[], incl_attr={}, excl_attr={}):
+        if opt is not None and opt:
+            opt = opt.lower().strip()
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") [get_option_state] Option: " + str(opt)
+        )
+        out = self.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
+        _LOGGER.debug(
+            "(" + self.get_attr(CONF_NAME) + ") [get_option_state] State: " + str(out)
+        )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] incl list: "
+        #    + str(incl)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] excl list: "
+        #    + str(excl)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] incl_attr dict: "
+        #    + str(incl_attr)
+        # )
+        # _LOGGER.debug(
+        #    "("
+        #    + self.get_attr(CONF_NAME)
+        #    + ") [get_option_state] excl_attr dict: "
+        #    + str(excl_attr)
+        # )
+        if out is not None and out:
+            if incl and out not in incl:
+                out = None
+            elif excl and out in excl:
+                out = None
+            if incl_attr:
+                for attr, states in incl_attr.items():
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] incl_attr: "
+                    #    + str(attr)
+                    #    + " / State: "
+                    #    + str(self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)))
+                    # )
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] incl_states: "
+                    #    + str(states)
+                    # )
+                    if (
+                        self.is_attr_blank(DISPLAY_OPTIONS_MAP.get(attr))
+                        or self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)) not in states
+                    ):
+                        out = None
+            if excl_attr:
+                for attr, states in excl_attr.items():
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] excl_attr: "
+                    #    + str(attr)
+                    #    + " / State: "
+                    #    + str(self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)))
+                    # )
+                    # _LOGGER.debug(
+                    #    "("
+                    #    + self.get_attr(CONF_NAME)
+                    #    + ") [get_option_state] excl_states: "
+                    #    + str(states)
+                    # )
+                    if self.get_attr(DISPLAY_OPTIONS_MAP.get(attr)) in states:
+                        out = None
+            _LOGGER.debug(
+                "("
+                + self.get_attr(CONF_NAME)
+                + ") [get_option_state] State after incl/excl: "
+                + str(out)
+            )
+        if out is not None and out:
+            if out == out.lower() and (
+                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_DEVICETRACKER_ZONE_NAME
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_TYPE
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_CATEGORY
+            ):
+                out = out.title()
+            out = out.strip()
+            if (
+                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_REF
+            ):
+                self.street_i = self.temp_i
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [get_option_state] street_i: "
+                #    + str(self.street_i)
+                # )
+            if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
+                self.street_num_i = self.temp_i
+                # _LOGGER.debug(
+                #    "("
+                #    + self.get_attr(CONF_NAME)
+                #    + ") [get_option_state] street_num_i: "
+                #    + str(self.street_num_i)
+                # )
+            self.temp_i += 1
+            return out
+        else:
+            return None
+
+    def compile_state_from_advanced_options(self):
+        self.street_num_i += 1
+        first = True
+        for i, out in enumerate(self.adv_options_state_list):
+            if out is not None and out:
+                out = out.strip()
+                if first:
+                    self.set_attr(ATTR_NATIVE_VALUE, str(out))
+                    first = False
+                else:
+                    if i == self.street_i and i == self.street_num_i:
+                        self.set_attr(
+                            ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + " "
+                        )
+                    else:
+                        self.set_attr(
+                            ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + ", "
+                        )
+                    self.set_attr(
+                        ATTR_NATIVE_VALUE, self.get_attr(ATTR_NATIVE_VALUE) + str(out)
+                    )
+
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") New State from Advanced Display Options: "
+            + str(self.get_attr(ATTR_NATIVE_VALUE))
+        )
+
     def build_state_from_display_options(self):
         # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
 
-        display_options = self.get_attr(ATTR_DISPLAY_OPTIONS)
+        display_options = self.get_attr(ATTR_DISPLAY_OPTIONS_LIST)
         _LOGGER.debug(
             "("
             + self.get_attr(CONF_NAME)
             + ") Building State from Display Options: "
-            + str(self.get_attr(ATTR_OPTIONS))
+            + str(self.get_attr(ATTR_DISPLAY_OPTIONS))
         )
 
         user_display = []
-        if "driving" in display_options and self.get_attr(ATTR_IS_DRIVING):
-            user_display.append("Driving")
+        if "driving" in display_options and not self.is_attr_blank(ATTR_DRIVING):
+            user_display.append(self.get_attr(ATTR_DRIVING))
 
         if (
             "zone_name" in display_options
@@ -2133,11 +2739,11 @@ class Places(SensorEntity):
                 self.finalize_last_place_name(prev_last_place_name)
 
                 display_options = []
-                if not self.is_attr_blank(CONF_OPTIONS):
-                    options_array = self.get_attr(ATTR_OPTIONS).split(",")
+                if not self.is_attr_blank(ATTR_DISPLAY_OPTIONS):
+                    options_array = self.get_attr(ATTR_DISPLAY_OPTIONS).split(",")
                     for option in options_array:
                         display_options.append(option.strip())
-                self.set_attr(ATTR_DISPLAY_OPTIONS, display_options)
+                self.set_attr(ATTR_DISPLAY_OPTIONS_LIST, display_options)
 
                 self.get_driving_status()
 
@@ -2153,7 +2759,43 @@ class Places(SensorEntity):
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 elif not self.in_zone():
-                    self.build_state_from_display_options()
+                    if any(
+                        ext in self.get_attr(ATTR_DISPLAY_OPTIONS)
+                        for ext in ["(", ")", "[", "]"]
+                    ):
+                        # Replace place option with expanded definition
+                        # temp_opt = self.get_attr(ATTR_DISPLAY_OPTIONS)
+                        # re.sub(
+                        #    r"place(?=[\[\(\]\)\,\s])",
+                        #    "place_name,place_category(-,place),place_type(-,yes),neighborhood,street_number,street",
+                        #    temp_opt,
+                        # )
+                        # self.set_attr(ATTR_DISPLAY_OPTIONS, temp_opt)
+                        self.clear_attr(ATTR_DISPLAY_OPTIONS_LIST)
+                        display_options = None
+                        self.adv_options_state_list = []
+                        self.street_num_i = -1
+                        self.street_i = -1
+                        self.temp_i = 0
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Initial Advanced Display Options: "
+                            + str(self.get_attr(ATTR_DISPLAY_OPTIONS))
+                        )
+
+                        self.build_from_advanced_options(
+                            self.get_attr(ATTR_DISPLAY_OPTIONS)
+                        )
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Back from initial advanced build: "
+                            + str(self.adv_options_state_list)
+                        )
+                        self.compile_state_from_advanced_options()
+                    else:
+                        self.build_state_from_display_options()
                 elif (
                     "zone" in display_options
                     and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE)

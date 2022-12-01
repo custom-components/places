@@ -16,7 +16,7 @@ DEFAULT_HOME_ZONE = "zone.home"
 DEFAULT_ICON = "mdi:map-search-outline"
 DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
-DEFAULT_OPTION = "zone_name, place"
+DEFAULT_DISPLAY_OPTIONS = "zone_name, place"
 DEFAULT_SHOW_TIME = False
 DEFAULT_USE_GPS = True
 
@@ -42,25 +42,28 @@ CONF_LANGUAGE = "language"
 CONF_MAP_PROVIDER = "map_provider"
 CONF_MAP_ZOOM = "map_zoom"
 CONF_NATIVE_VALUE = "native_value"
-CONF_OPTIONS = "options"
+CONF_DISPLAY_OPTIONS = "options"
 CONF_SHOW_TIME = "show_time"
 CONF_USE_GPS = "use_gps_accuracy"
 CONF_YAML_HASH = "yaml_hash"
 
 # Attributes
 ATTR_CITY = "city"
+ATTR_CITY_CLEAN = "city_clean"
 ATTR_COUNTRY = "country"
+ATTR_COUNTRY_CODE = "country_code"
 ATTR_COUNTY = "county"
 ATTR_DEVICETRACKER_ID = "devicetracker_entityid"
 ATTR_DEVICETRACKER_ZONE = "devicetracker_zone"
 ATTR_DEVICETRACKER_ZONE_NAME = "devicetracker_zone_name"
 ATTR_DIRECTION_OF_TRAVEL = "direction_of_travel"
-ATTR_DISPLAY_OPTIONS = "display_options"
+ATTR_DISPLAY_OPTIONS_LIST = "display_options_list"
 ATTR_DISTANCE_FROM_HOME_KM = "distance_from_home_km"
 ATTR_DISTANCE_FROM_HOME_M = "distance_from_home_m"
 ATTR_DISTANCE_FROM_HOME_MI = "distance_from_home_mi"
 ATTR_DISTANCE_TRAVELED_M = "distance_traveled_m"
 ATTR_DISTANCE_TRAVELED_MI = "distance_traveled_mi"
+ATTR_DRIVING = "driving"
 ATTR_FORMATTED_ADDRESS = "formatted_address"
 ATTR_FORMATTED_PLACE = "formatted_place"
 ATTR_HOME_LATITUDE = "home_latitude"
@@ -68,7 +71,6 @@ ATTR_HOME_LOCATION = "home_location"
 ATTR_HOME_LONGITUDE = "home_longitude"
 ATTR_HOME_ZONE = "home_zone"
 ATTR_INITIAL_UPDATE = "initial_update"
-ATTR_IS_DRIVING = "is_driving"
 ATTR_JSON_FILENAME = "json_filename"
 ATTR_LAST_CHANGED = "last_changed"
 ATTR_LAST_PLACE_NAME = "last_place_name"
@@ -81,7 +83,7 @@ ATTR_LONGITUDE = "current_longitude"
 ATTR_LONGITUDE_OLD = "previous_longitude"
 ATTR_MAP_LINK = "map_link"
 ATTR_NATIVE_VALUE = "native_value"
-ATTR_OPTIONS = CONF_OPTIONS
+ATTR_DISPLAY_OPTIONS = "display_options"
 ATTR_OSM_DETAILS_DICT = "osm_details_dict"
 ATTR_OSM_DICT = "osm_dict"
 ATTR_OSM_ID = "osm_id"
@@ -89,6 +91,7 @@ ATTR_OSM_TYPE = "osm_type"
 ATTR_PICTURE = "entity_picture"
 ATTR_PLACE_CATEGORY = "place_category"
 ATTR_PLACE_NAME = "place_name"
+ATTR_PLACE_NAME_NO_DUPE = "place_name_no_dupe"
 ATTR_PLACE_NEIGHBOURHOOD = "neighbourhood"
 ATTR_PLACE_TYPE = "place_type"
 ATTR_POSTAL_CODE = "postal_code"
@@ -115,18 +118,20 @@ CONFIG_ATTRIBUTES_LIST = [
     CONF_MAP_PROVIDER,
     CONF_MAP_ZOOM,
     CONF_NAME,
-    CONF_OPTIONS,
+    CONF_DISPLAY_OPTIONS,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     CONF_UNIQUE_ID,
 ]
 RESET_ATTRIBUTE_LIST = [
     ATTR_CITY,
+    ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
+    ATTR_COUNTRY_CODE,
     ATTR_COUNTY,
+    ATTR_DRIVING,
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
-    ATTR_IS_DRIVING,
     ATTR_MAP_LINK,
     ATTR_OSM_DETAILS_DICT,
     ATTR_OSM_DICT,
@@ -134,6 +139,7 @@ RESET_ATTRIBUTE_LIST = [
     ATTR_OSM_TYPE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_NAME,
+    ATTR_PLACE_NAME_NO_DUPE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_PLACE_TYPE,
     ATTR_POSTAL_CODE,
@@ -159,6 +165,7 @@ EXTRA_STATE_ATTRIBUTE_LIST = [
     ATTR_REGION,
     ATTR_STATE_ABBR,
     ATTR_COUNTRY,
+    ATTR_COUNTRY_CODE,
     ATTR_FORMATTED_PLACE,
     ATTR_FORMATTED_ADDRESS,
     ATTR_PLACE_TYPE,
@@ -192,11 +199,12 @@ EXTRA_STATE_ATTRIBUTE_LIST = [
 JSON_IGNORE_ATTRIBUTE_LIST = [
     ATTR_DEVICETRACKER_ID,
     ATTR_DISPLAY_OPTIONS,
+    ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
-    ATTR_IS_DRIVING,
+    ATTR_DRIVING,
     ATTR_JSON_FILENAME,
     ATTR_LOCATION_CURRENT,
     ATTR_LOCATION_PREVIOUS,
@@ -205,8 +213,10 @@ JSON_IGNORE_ATTRIBUTE_LIST = [
 ]
 JSON_ATTRIBUTE_LIST = [
     ATTR_CITY,
+    ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
     ATTR_COUNTY,
+    ATTR_COUNTRY_CODE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DIRECTION_OF_TRAVEL,
@@ -233,6 +243,7 @@ JSON_ATTRIBUTE_LIST = [
     ATTR_OSM_TYPE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_NAME,
+    ATTR_PLACE_NAME_NO_DUPE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_PLACE_TYPE,
     ATTR_POSTAL_CODE,
@@ -286,3 +297,38 @@ PLACE_NAME_DUPLICATE_LIST = [
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
 ]
+
+DISPLAY_OPTIONS_MAP = {
+    "driving": ATTR_DRIVING,
+    "place_name": ATTR_PLACE_NAME,
+    "name": ATTR_PLACE_NAME,
+    "place_name_no_dupe": ATTR_PLACE_NAME_NO_DUPE,
+    "name_no_dupe": ATTR_PLACE_NAME_NO_DUPE,
+    "place_type": ATTR_PLACE_TYPE,
+    "place_category": ATTR_PLACE_CATEGORY,
+    "type": ATTR_PLACE_TYPE,
+    "category": ATTR_PLACE_CATEGORY,
+    "street_number": ATTR_STREET_NUMBER,
+    "house_number": ATTR_STREET_NUMBER,
+    "street": ATTR_STREET,
+    "street_ref": ATTR_STREET_REF,
+    "route_number": ATTR_STREET_REF,
+    "neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
+    "neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
+    "place_neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
+    "place_neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
+    "city": ATTR_CITY,
+    "city_clean": ATTR_CITY_CLEAN,
+    "region": ATTR_REGION,
+    "state": ATTR_REGION,
+    "state_abbr": ATTR_STATE_ABBR,
+    "county": ATTR_COUNTY,
+    "country": ATTR_COUNTRY,
+    "country_code": ATTR_COUNTRY_CODE,
+    "postal_code": ATTR_POSTAL_CODE,
+    "zip_code": ATTR_POSTAL_CODE,
+    "latitude": ATTR_LATITUDE,
+    "longitude": ATTR_LONGITUDE,
+    "zone": ATTR_DEVICETRACKER_ZONE,
+    "zone_name": ATTR_DEVICETRACKER_ZONE_NAME,
+}
