@@ -13,7 +13,7 @@ jobs:
     if: github.repository == 'Snuffy2/places'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3.0.2
+      - uses: actions/checkout@v3.3.0
       - name: Show Branch Name
         run: echo Branch ${GITHUB_REF##*/}
       - name: Create and Checkout the New branch
