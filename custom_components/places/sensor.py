@@ -30,6 +30,7 @@ from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
     ATTR_GPS_ACCURACY,
     CONF_API_KEY,
+    CONF_FRIENDLY_NAME,
     CONF_ICON,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -895,6 +896,10 @@ class Places(SensorEntity):
                 self.set_attr(
                     ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
                 )
+                if self._hass.states.get("zone." + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))) is not None and self._hass.states.get("zone." + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))).attributes.get(CONF_FRIENDLY_NAME) is not None:
+                    self.set_attr(
+                        ATTR_DEVICETRACKER_ZONE_NAME, self._hass.states.get("zone." + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))).attributes.get(CONF_FRIENDLY_NAME))
+
             if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME) and self.get_attr(
                 ATTR_DEVICETRACKER_ZONE_NAME
             ).lower() == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
@@ -909,15 +914,23 @@ class Places(SensorEntity):
                 + str(self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
             )
         else:
+            name = self.get_attr(ATTR_DEVICETRACKER_ZONE)
+            if self._hass.states.get(
+                "zone." + name
+            ) is not None and self._hass.states.get(
+                    "zone." + name
+                ).attributes.get(CONF_FRIENDLY_NAME) is not None:
+                    name = self._hass.states.get(
+                        "zone." + name
+                    ).attributes.get(CONF_FRIENDLY_NAME)
             _LOGGER.debug(
                 "("
                 + self.get_attr(CONF_NAME)
                 + ") DeviceTracker Zone: "
-                + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
+                + str(name)
             )
             self.set_attr(
-                ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
-            )
+                ATTR_DEVICETRACKER_ZONE_NAME, name)
 
     def determine_if_update_needed(self):
         proceed_with_update = True
