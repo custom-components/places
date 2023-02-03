@@ -4,3 +4,4 @@ changelog:
       - ignore-for-release
       - black
       - isort
+      - dependencies
