@@ -30,6 +30,7 @@ from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
     ATTR_GPS_ACCURACY,
     CONF_API_KEY,
+    CONF_FRIENDLY_NAME,
     CONF_ICON,
     CONF_LATITUDE,
     CONF_LONGITUDE,
@@ -888,13 +889,25 @@ class Places(SensorEntity):
             #    + str(devicetracker_zone_name_state)
             # )
             if devicetracker_zone_name_state is not None:
-                self.set_attr(
-                    ATTR_DEVICETRACKER_ZONE_NAME, devicetracker_zone_name_state.name
-                )
+                if (
+                    devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME)
+                    is not None
+                ):
+                    self.set_attr(
+                        ATTR_DEVICETRACKER_ZONE_NAME,
+                        devicetracker_zone_name_state.attributes.get(
+                            CONF_FRIENDLY_NAME
+                        ),
+                    )
+                else:
+                    self.set_attr(
+                        ATTR_DEVICETRACKER_ZONE_NAME, devicetracker_zone_name_state.name
+                    )
             else:
                 self.set_attr(
                     ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
                 )
+
             if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME) and self.get_attr(
                 ATTR_DEVICETRACKER_ZONE_NAME
             ).lower() == self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME):
