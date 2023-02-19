@@ -319,6 +319,7 @@ DISPLAY_OPTIONS_MAP = {
     "place_neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
     "city": ATTR_CITY,
     "city_clean": ATTR_CITY_CLEAN,
+    "postal_town": ATTR_POSTAL_TOWN,
     "region": ATTR_REGION,
     "state": ATTR_REGION,
     "state_abbr": ATTR_STATE_ABBR,
