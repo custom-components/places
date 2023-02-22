@@ -1831,23 +1831,28 @@ class Places(SensorEntity):
         incl_attr = {}
         excl_attr = {}
         incl_excl_list = []
+        empty_paren = False
         next_opt = None
         paren_count = 1
         close_paren_num = 0
         last_comma = -1
         if curr_options[0] == "(":
             curr_options = curr_options[1:]
-        for i, c in enumerate(curr_options):
-            if c in [",", ")"] and paren_count == 1:
-                incl_excl_list.append(curr_options[(last_comma + 1): i].strip())
-                last_comma = i
-            if c == "(":
-                paren_count += 1
-            elif c == ")":
-                paren_count -= 1
-            if paren_count == 0:
-                close_paren_num = i
-                break
+        if curr_options[0] == ")":
+            empty_paren = True
+            close_paren_num = 0
+        else:
+            for i, c in enumerate(curr_options):
+                if c in [",", ")"] and paren_count == 1:
+                    incl_excl_list.append(curr_options[(last_comma + 1): i].strip())
+                    last_comma = i
+                if c == "(":
+                    paren_count += 1
+                elif c == ")":
+                    paren_count -= 1
+                if paren_count == 0:
+                    close_paren_num = i
+                    break
 
         if close_paren_num > 0 and paren_count == 0 and incl_excl_list:
             # _LOGGER.debug(
@@ -1937,7 +1942,7 @@ class Places(SensorEntity):
                     else:
                         excl.append(item)
 
-        else:
+        elif not empty_paren:
             _LOGGER.error(
                 "("
                 + self.get_attr(CONF_NAME)
@@ -1960,22 +1965,28 @@ class Places(SensorEntity):
             + ") [parse_bracket] Options: "
             + str(curr_options)
         )
+        empty_bracket = False
         none_opt = None
         next_opt = None
         bracket_count = 1
         close_bracket_num = 0
         if curr_options[0] == "[":
             curr_options = curr_options[1:]
-        for i, c in enumerate(curr_options):
-            if c == "[":
-                bracket_count += 1
-            elif c == "]":
-                bracket_count -= 1
-            if bracket_count == 0:
-                close_bracket_num = i
-                break
+        if curr_options[0] == "]":
+            empty_bracket = True
+            close_bracket_num = 0
+            bracket_count = 0
+        else:
+            for i, c in enumerate(curr_options):
+                if c == "[":
+                    bracket_count += 1
+                elif c == "]":
+                    bracket_count -= 1
+                if bracket_count == 0:
+                    close_bracket_num = i
+                    break
 
-        if close_bracket_num > 0 and bracket_count == 0:
+        if empty_bracket or (close_bracket_num > 0 and bracket_count == 0):
             none_opt = curr_options[:close_bracket_num].strip()
             _LOGGER.debug(
                 "("
