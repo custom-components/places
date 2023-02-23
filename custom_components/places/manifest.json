@@ -1,12 +1,13 @@
 {
   "domain": "places",
   "name": "Places",
-  "version":"2",
-  "config_flow": true,
-  "documentation": "https://github.com/custom-components/places",
-  "issue_tracker": "https://github.com/custom-components/places/issues",
-  "dependencies": ["device_tracker"],
   "codeowners": ["@Snuffy2","@iantrich"],
+  "config_flow": true,
+  "dependencies": ["device_tracker"],
+  "documentation": "https://github.com/custom-components/places",
+  "integration_type": "entity",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/custom-components/places/issues",
   "requirements": [],
-  "iot_class": "cloud_polling"
+  "version":"2"
 }
