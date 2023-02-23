@@ -933,14 +933,17 @@ class Places(SensorEntity):
             )
 
     def determine_if_update_needed(self):
-        proceed_with_update = True
+        proceed_with_update = 1
+        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+
         if self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.info(
                 "("
                 + self.get_attr(CONF_NAME)
                 + ") Performing Initial Update for user..."
             )
-            proceed_with_update = True
+            proceed_with_update = 1
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
         elif self.get_attr(ATTR_LOCATION_CURRENT) == self.get_attr(
             ATTR_LOCATION_PREVIOUS
         ):
@@ -949,12 +952,14 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Not performing update because coordinates are identical"
             )
-            proceed_with_update = False
+            proceed_with_update = 2
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
         elif (
             int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) > 0
             and self.get_attr(ATTR_UPDATES_SKIPPED) > 3
         ):
-            proceed_with_update = True
+            proceed_with_update = 1
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
             _LOGGER.info(
                 "("
                 + self.get_attr(CONF_NAME)
@@ -971,7 +976,8 @@ class Places(SensorEntity):
                 + str(self.get_attr(ATTR_UPDATES_SKIPPED))
                 + ")"
             )
-            proceed_with_update = False
+            proceed_with_update = 2
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
         return proceed_with_update
 
     def get_dict_from_url(self, url, name):
@@ -1161,10 +1167,13 @@ class Places(SensorEntity):
                 + ") GPS Accuracy attribute not found in: "
                 + str(self.get_attr(CONF_DEVICETRACKER_ID))
             )
-        proceed_with_update = True
+        proceed_with_update = 1
+        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+
         if not self.is_attr_blank(ATTR_GPS_ACCURACY):
             if self.get_attr(CONF_USE_GPS) and self.get_attr(ATTR_GPS_ACCURACY) == 0:
-                proceed_with_update = False
+                proceed_with_update = 0
+                # 0: False. 1: True. 2: False, but set direction of travel to stationary
                 _LOGGER.info(
                     "("
                     + self.get_attr(CONF_NAME)
@@ -2440,7 +2449,9 @@ class Places(SensorEntity):
 
     def update_coordinates_and_distance(self):
         last_distance_m = self.get_attr(ATTR_DISTANCE_FROM_HOME_M)
-        proceed_with_update = True
+        proceed_with_update = 1
+        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+
         if not self.is_attr_blank(ATTR_LATITUDE) and not self.is_attr_blank(
             ATTR_LONGITUDE
         ):
@@ -2579,7 +2590,8 @@ class Places(SensorEntity):
                 + str(round(self.get_attr(ATTR_DISTANCE_TRAVELED_M), 1))
             )
         else:
-            proceed_with_update = False
+            proceed_with_update = 0
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
             _LOGGER.info(
                 "("
                 + self.get_attr(CONF_NAME)
@@ -2698,15 +2710,18 @@ class Places(SensorEntity):
             )
 
         proceed_with_update = self.get_gps_accuracy()
-        if proceed_with_update:
+        if proceed_with_update == 1:
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
             self.get_initial_last_place_name()
             self.get_zone_details()
             proceed_with_update = self.update_coordinates_and_distance()
 
-        if proceed_with_update:
+        if proceed_with_update == 1:
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
             proceed_with_update = self.determine_if_update_needed()
 
-        if proceed_with_update and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
+        if proceed_with_update == 1 and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
             _LOGGER.info(
                 "("
                 + self.get_attr(CONF_NAME)
@@ -2904,6 +2919,14 @@ class Places(SensorEntity):
                         + self.get_attr(CONF_NAME)
                         + ") Reverting attributes back to before the update started"
                     )
+                    if proceed_with_update == 2:
+                        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+                        self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                        _LOGGER.debug(
+                            "("
+                            + self.get_attr(CONF_NAME)
+                            + ") Updating direction of travel to stationary"
+                        )
         else:
             self._internal_attr = previous_attr
             _LOGGER.debug(
@@ -2911,6 +2934,14 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
+            if proceed_with_update == 2:
+                # 0: False. 1: True. 2: False, but set direction of travel to stationary
+                self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                _LOGGER.debug(
+                    "("
+                    + self.get_attr(CONF_NAME)
+                    + ") Updating direction of travel to stationary"
+                )
         self.set_attr(ATTR_LAST_UPDATED, str(now))
         # _LOGGER.debug(
         #    "("
