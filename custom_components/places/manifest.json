@@ -1,6 +1,7 @@
 {
   "domain": "places",
   "name": "Places",
+  "after_dependencies": ["variable"],
   "codeowners": ["@Snuffy2","@iantrich"],
   "config_flow": true,
   "dependencies": ["device_tracker"],
