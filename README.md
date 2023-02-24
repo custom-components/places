@@ -148,7 +148,8 @@ driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, hi
 * `neighborhood` (Synonyms: `neighbourhood`, `place_neighborhood`, `place_neighbourhood`)
 * `city`
 * `city_clean`
-  * _`city` but removes "Township" and moves "City" to the end it it stats with "City of"_
+  * _`city` but removes "Township" and moves "City" to the end if it starts with "City of"_
+* `postal_town`
 * `state` (Synonym: `region`)
 * `state_abbr`
 * `county`
@@ -160,7 +161,7 @@ driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, hi
 * `zone`
 * `zone_name`
 
-__Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples above for how to recreate them.
+__Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples [above](#brackets-and-parenthesis-can-also-be-combined) for how to recreate them.
 
 -------
 </details>
@@ -253,7 +254,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 </details>
 
 ## Notes
-* This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude coordinates (such as Owntracks or iCloud).
+* This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude coordinates (such as the [Home Assistant Mobile App](https://www.home-assistant.io/integrations/mobile_app/), [OwnTracks](https://www.home-assistant.io/integrations/owntracks/), or [iCloud3](https://github.com/gcobb321/icloud3)).
 * The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of coordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
 * The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
 * The map link that gets generated for Google, Apple or OpenStreetMaps has a push pin marking the users location. Note that when opening the Apple link on a non-Apple device, it will open in Google Maps.
