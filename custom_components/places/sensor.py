@@ -2930,8 +2930,8 @@ class Places(SensorEntity):
                         + self.get_attr(CONF_NAME)
                         + ") Reverting attributes back to before the update started"
                     )
-                    if proceed_with_update == 2:
-                        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+
+                    if self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary":
                         self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
                         _LOGGER.debug(
                             "("
@@ -2945,7 +2945,10 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
-            if proceed_with_update == 2:
+            if (
+                proceed_with_update == 2
+                and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+            ):
                 # 0: False. 1: True. 2: False, but set direction of travel to stationary
                 self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
                 _LOGGER.debug(
