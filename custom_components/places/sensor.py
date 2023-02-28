@@ -2933,6 +2933,7 @@ class Places(SensorEntity):
 
                     if self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary":
                         self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                        self.write_sensor_to_json()
                         _LOGGER.debug(
                             "("
                             + self.get_attr(CONF_NAME)
@@ -2951,6 +2952,7 @@ class Places(SensorEntity):
             ):
                 # 0: False. 1: True. 2: False, but set direction of travel to stationary
                 self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                self.write_sensor_to_json()
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
