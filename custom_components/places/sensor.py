@@ -2859,7 +2859,9 @@ class Places(SensorEntity):
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 current_time = "%02d:%02d" % (now.hour, now.minute)
-                self.set_attr(ATTR_LAST_CHANGED, str(now))
+                self.set_attr(
+                    ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds"))
+                )
 
                 # Final check to see if the New State is different from the Previous State and should update or not.
                 # If not, attributes are reset to what they were before the update started.
@@ -2930,14 +2932,27 @@ class Places(SensorEntity):
                         + self.get_attr(CONF_NAME)
                         + ") Reverting attributes back to before the update started"
                     )
+                    last_changed = datetime.fromisoformat(
+                        self.get_attr(ATTR_LAST_CHANGED)
+                    )
+                    changed_diff_sec = (now - last_changed).total_seconds()
 
-                    if self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary":
+                    if (
+                        self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+                        and changed_diff_sec >= 60
+                    ):
                         self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                        self.set_attr(
+                            ATTR_LAST_CHANGED,
+                            str(now.isoformat(sep=" ", timespec="seconds")),
+                        )
                         self.write_sensor_to_json()
                         _LOGGER.debug(
                             "("
                             + self.get_attr(CONF_NAME)
-                            + ") Updating direction of travel to stationary"
+                            + ") Updating direction of travel to stationary (Last changed "
+                            + str(int(changed_diff_sec))
+                            + " seconds ago)"
                         )
         else:
             self._internal_attr = previous_attr
@@ -2946,19 +2961,30 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
+            last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
+            changed_diff_sec = (now - last_changed).total_seconds()
+
             if (
                 proceed_with_update == 2
                 and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+                and changed_diff_sec >= 60
             ):
                 # 0: False. 1: True. 2: False, but set direction of travel to stationary
                 self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                self.set_attr(
+                    ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds"))
+                )
                 self.write_sensor_to_json()
                 _LOGGER.debug(
                     "("
                     + self.get_attr(CONF_NAME)
-                    + ") Updating direction of travel to stationary"
+                    + ") Updating direction of travel to stationary (Last changed "
+                    + str(int(changed_diff_sec))
+                    + " seconds ago)"
                 )
-        self.set_attr(ATTR_LAST_UPDATED, str(now))
+        self.set_attr(
+            ATTR_LAST_UPDATED, str(now.isoformat(sep=" ", timespec="seconds"))
+        )
         # _LOGGER.debug(
         #    "("
         #    + self.get_attr(CONF_NAME)
