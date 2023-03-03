@@ -19,7 +19,6 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta
-from math import asin, cos, radians, sin, sqrt
 
 import homeassistant.helpers.config_validation as cv
 import requests
@@ -756,22 +755,6 @@ class Places(SensorEntity):
         #    + self.get_attr(CONF_NAME)
         #    + ") [Async Update] Not Running Update - Devicetracker is not set"
         # )
-
-    def haversine(self, lon1, lat1, lon2, lat2):
-        """
-        Calculate the great circle distance between two points
-        on the earth (specified in decimal degrees)
-        """
-        # convert decimal degrees to radians
-        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-
-        # haversine formula
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-        c = 2 * asin(sqrt(a))
-        r = 6371  # Radius of earth in kilometers. Use 3956 for miles
-        return c * r
 
     def is_float(self, value):
         if value is not None:
@@ -2459,7 +2442,7 @@ class Places(SensorEntity):
         )
 
     def update_coordinates_and_distance(self):
-        last_distance_m = self.get_attr(ATTR_DISTANCE_FROM_HOME_M)
+        last_distance_traveled_m = self.get_attr(ATTR_DISTANCE_FROM_HOME_M)
         proceed_with_update = 1
         # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
@@ -2521,25 +2504,40 @@ class Places(SensorEntity):
                     ATTR_DISTANCE_FROM_HOME_MI,
                     round(self.get_attr(ATTR_DISTANCE_FROM_HOME_M) / 1609, 3),
                 )
+
             if not self.is_attr_blank(ATTR_LATITUDE_OLD) and not self.is_attr_blank(
                 ATTR_LONGITUDE_OLD
             ):
-                deviation = self.haversine(
-                    float(self.get_attr(ATTR_LATITUDE_OLD)),
-                    float(self.get_attr(ATTR_LONGITUDE_OLD)),
-                    float(self.get_attr(ATTR_LATITUDE)),
-                    float(self.get_attr(ATTR_LONGITUDE)),
+                self.set_attr(
+                    ATTR_DISTANCE_TRAVELED_M,
+                    distance(
+                        float(self.get_attr(ATTR_LATITUDE)),
+                        float(self.get_attr(ATTR_LONGITUDE)),
+                        float(self.get_attr(ATTR_LATITUDE_OLD)),
+                        float(self.get_attr(ATTR_LONGITUDE_OLD)),
+                    ),
                 )
-                if deviation <= 0.2:  # in kilometers
-                    self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-                elif last_distance_m > self.get_attr(ATTR_DISTANCE_FROM_HOME_M):
+                if not self.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
+                    self.set_attr(
+                        ATTR_DISTANCE_TRAVELED_MI,
+                        round(self.get_attr(ATTR_DISTANCE_TRAVELED_M) / 1609, 3),
+                    )
+
+                # if self.get_attr(ATTR_DISTANCE_TRAVELED_M) <= 100:  # in meters
+                #    self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                # elif last_distance_traveled_m > self.get_attr(ATTR_DISTANCE_FROM_HOME_M):
+                if last_distance_traveled_m > self.get_attr(ATTR_DISTANCE_FROM_HOME_M):
                     self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "towards home")
-                elif last_distance_m < self.get_attr(ATTR_DISTANCE_FROM_HOME_M):
+                elif last_distance_traveled_m < self.get_attr(
+                    ATTR_DISTANCE_FROM_HOME_M
+                ):
                     self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "away from home")
                 else:
                     self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
             else:
                 self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+                self.set_attr(ATTR_DISTANCE_TRAVELED_M, 0)
+                self.set_attr(ATTR_DISTANCE_TRAVELED_MI, 0)
 
             _LOGGER.debug(
                 "("
@@ -2574,26 +2572,6 @@ class Places(SensorEntity):
                 + ") Travel Direction: "
                 + str(self.get_attr(ATTR_DIRECTION_OF_TRAVEL))
             )
-
-            self.set_attr(ATTR_DISTANCE_TRAVELED_M, 0)
-            if not self.is_attr_blank(ATTR_LATITUDE_OLD) and not self.is_attr_blank(
-                ATTR_LONGITUDE_OLD
-            ):
-                self.set_attr(
-                    ATTR_DISTANCE_TRAVELED_M,
-                    distance(
-                        float(self.get_attr(ATTR_LATITUDE)),
-                        float(self.get_attr(ATTR_LONGITUDE)),
-                        float(self.get_attr(ATTR_LATITUDE_OLD)),
-                        float(self.get_attr(ATTR_LONGITUDE_OLD)),
-                    ),
-                )
-                if not self.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
-                    self.set_attr(
-                        ATTR_DISTANCE_TRAVELED_MI,
-                        round(self.get_attr(ATTR_DISTANCE_TRAVELED_M) / 1609, 3),
-                    )
-
             _LOGGER.info(
                 "("
                 + self.get_attr(CONF_NAME)
@@ -2859,7 +2837,9 @@ class Places(SensorEntity):
                         + str(self.get_attr(ATTR_NATIVE_VALUE))
                     )
                 current_time = "%02d:%02d" % (now.hour, now.minute)
-                self.set_attr(ATTR_LAST_CHANGED, str(now))
+                self.set_attr(
+                    ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds"))
+                )
 
                 # Final check to see if the New State is different from the Previous State and should update or not.
                 # If not, attributes are reset to what they were before the update started.
@@ -2930,14 +2910,13 @@ class Places(SensorEntity):
                         + self.get_attr(CONF_NAME)
                         + ") Reverting attributes back to before the update started"
                     )
-                    if proceed_with_update == 2:
-                        # 0: False. 1: True. 2: False, but set direction of travel to stationary
-                        self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-                        _LOGGER.debug(
-                            "("
-                            + self.get_attr(CONF_NAME)
-                            + ") Updating direction of travel to stationary"
-                        )
+
+                    changed_diff_sec = self.get_seconds_from_last_change(now)
+                    if (
+                        self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+                        and changed_diff_sec >= 60
+                    ):
+                        self.change_dot_to_stationary(now, changed_diff_sec)
         else:
             self._internal_attr = previous_attr
             _LOGGER.debug(
@@ -2945,15 +2924,19 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
-            if proceed_with_update == 2:
+
+            changed_diff_sec = self.get_seconds_from_last_change(now)
+            if (
+                proceed_with_update == 2
+                and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+                and changed_diff_sec >= 60
+            ):
                 # 0: False. 1: True. 2: False, but set direction of travel to stationary
-                self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Updating direction of travel to stationary"
-                )
-        self.set_attr(ATTR_LAST_UPDATED, str(now))
+                self.change_dot_to_stationary(now, changed_diff_sec)
+
+        self.set_attr(
+            ATTR_LAST_UPDATED, str(now.isoformat(sep=" ", timespec="seconds"))
+        )
         # _LOGGER.debug(
         #    "("
         #    + self.get_attr(CONF_NAME)
@@ -2961,6 +2944,45 @@ class Places(SensorEntity):
         #    + str(self._internal_attr)
         # )
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
+
+    def change_dot_to_stationary(self, now, changed_diff_sec):
+        self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+        self.set_attr(
+            ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds"))
+        )
+        self.write_sensor_to_json()
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Updating direction of travel to stationary (Last changed "
+            + str(int(changed_diff_sec))
+            + " seconds ago)"
+        )
+
+    def get_seconds_from_last_change(self, now):
+        try:
+            last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
+        except ValueError as e:
+            _LOGGER.warning(
+                type(e).__name__
+                + " converting Last Changed date/time ("
+                + self.get_attr(ATTR_LAST_CHANGED)
+                + ") into datetime: "
+                + str(e)
+            )
+            return 3600
+        else:
+            try:
+                changed_diff_sec = (now - last_changed).total_seconds()
+            except OverflowError as e:
+                _LOGGER.warning(
+                    type(e).__name__
+                    + " calculating the seconds between last change to now: "
+                    + str(e)
+                )
+                return 3600
+            else:
+                return changed_diff_sec
 
     def _reset_attributes(self):
         """Resets attributes."""
