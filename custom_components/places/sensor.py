@@ -2910,28 +2910,13 @@ class Places(SensorEntity):
                         + self.get_attr(CONF_NAME)
                         + ") Reverting attributes back to before the update started"
                     )
-                    last_changed = datetime.fromisoformat(
-                        self.get_attr(ATTR_LAST_CHANGED)
-                    )
-                    changed_diff_sec = (now - last_changed).total_seconds()
 
+                    changed_diff_sec = self.get_seconds_from_last_change(now)
                     if (
                         self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
                         and changed_diff_sec >= 60
                     ):
-                        self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-                        self.set_attr(
-                            ATTR_LAST_CHANGED,
-                            str(now.isoformat(sep=" ", timespec="seconds")),
-                        )
-                        self.write_sensor_to_json()
-                        _LOGGER.debug(
-                            "("
-                            + self.get_attr(CONF_NAME)
-                            + ") Updating direction of travel to stationary (Last changed "
-                            + str(int(changed_diff_sec))
-                            + " seconds ago)"
-                        )
+                        self.change_dot_to_stationary(now, changed_diff_sec)
         else:
             self._internal_attr = previous_attr
             _LOGGER.debug(
@@ -2939,27 +2924,16 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") Reverting attributes back to before the update started"
             )
-            last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
-            changed_diff_sec = (now - last_changed).total_seconds()
 
+            changed_diff_sec = self.get_seconds_from_last_change(now)
             if (
                 proceed_with_update == 2
                 and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
                 and changed_diff_sec >= 60
             ):
                 # 0: False. 1: True. 2: False, but set direction of travel to stationary
-                self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-                self.set_attr(
-                    ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds"))
-                )
-                self.write_sensor_to_json()
-                _LOGGER.debug(
-                    "("
-                    + self.get_attr(CONF_NAME)
-                    + ") Updating direction of travel to stationary (Last changed "
-                    + str(int(changed_diff_sec))
-                    + " seconds ago)"
-                )
+                self.change_dot_to_stationary(now, changed_diff_sec)
+
         self.set_attr(
             ATTR_LAST_UPDATED, str(now.isoformat(sep=" ", timespec="seconds"))
         )
@@ -2970,6 +2944,45 @@ class Places(SensorEntity):
         #    + str(self._internal_attr)
         # )
         _LOGGER.info("(" + self.get_attr(CONF_NAME) + ") End of Update")
+
+    def change_dot_to_stationary(self, now, changed_diff_sec):
+        self.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+        self.set_attr(
+            ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds"))
+        )
+        self.write_sensor_to_json()
+        _LOGGER.debug(
+            "("
+            + self.get_attr(CONF_NAME)
+            + ") Updating direction of travel to stationary (Last changed "
+            + str(int(changed_diff_sec))
+            + " seconds ago)"
+        )
+
+    def get_seconds_from_last_change(self, now):
+        try:
+            last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
+        except ValueError as e:
+            _LOGGER.warning(
+                type(e).__name__
+                + " converting Last Changed date/time ("
+                + self.get_attr(ATTR_LAST_CHANGED)
+                + ") into datetime: "
+                + str(e)
+            )
+            return 3600
+        else:
+            try:
+                changed_diff_sec = (now - last_changed).total_seconds()
+            except OverflowError as e:
+                _LOGGER.warning(
+                    type(e).__name__
+                    + " calculating the seconds between last change to now: "
+                    + str(e)
+                )
+                return 3600
+            else:
+                return changed_diff_sec
 
     def _reset_attributes(self):
         """Resets attributes."""
