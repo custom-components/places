@@ -2962,9 +2962,9 @@ class Places(SensorEntity):
     def get_seconds_from_last_change(self, now):
         try:
             last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             _LOGGER.warning(
-                type(e).__name__
+                str(type(e).__name__)
                 + " converting Last Changed date/time ("
                 + self.get_attr(ATTR_LAST_CHANGED)
                 + ") into datetime: "
@@ -2976,7 +2976,7 @@ class Places(SensorEntity):
                 changed_diff_sec = (now - last_changed).total_seconds()
             except OverflowError as e:
                 _LOGGER.warning(
-                    type(e).__name__
+                    str(type(e).__name__)
                     + " calculating the seconds between last change to now: "
                     + str(e)
                 )
