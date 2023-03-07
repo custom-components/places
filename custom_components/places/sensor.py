@@ -2964,11 +2964,10 @@ class Places(SensorEntity):
             last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
         except (TypeError, ValueError) as e:
             _LOGGER.warning(
-                str(type(e).__name__)
-                + " converting Last Changed date/time ("
-                + self.get_attr(ATTR_LAST_CHANGED)
+                "Error converting Last Changed date/time ("
+                + str(self.get_attr(ATTR_LAST_CHANGED))
                 + ") into datetime: "
-                + str(e)
+                + str(repr(e))
             )
             return 3600
         else:
@@ -2976,9 +2975,8 @@ class Places(SensorEntity):
                 changed_diff_sec = (now - last_changed).total_seconds()
             except OverflowError as e:
                 _LOGGER.warning(
-                    str(type(e).__name__)
-                    + " calculating the seconds between last change to now: "
-                    + str(e)
+                    "Error calculating the seconds between last change to now: "
+                    + str(repr(e))
                 )
                 return 3600
             else:
