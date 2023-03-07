@@ -47,7 +47,7 @@ from homeassistant.util import Throttle, slugify
 from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
 
-from .const import (
+from .const import (  # ATTR_UPDATES_SKIPPED,
     ATTR_CITY,
     ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
@@ -101,7 +101,6 @@ from .const import (
     ATTR_STREET,
     ATTR_STREET_NUMBER,
     ATTR_STREET_REF,
-    ATTR_UPDATES_SKIPPED,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
     CONF_DEVICETRACKER_ID,
@@ -513,7 +512,7 @@ class Places(SensorEntity):
             else None
         )
 
-        self.set_attr(ATTR_UPDATES_SKIPPED, 0)
+        # self.set_attr(ATTR_UPDATES_SKIPPED, 0)
 
         sensor_attributes = self.get_dict_from_json_file()
         # _LOGGER.debug(
@@ -937,27 +936,28 @@ class Places(SensorEntity):
             )
             proceed_with_update = 2
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
-        elif (
-            int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) > 0
-            and self.get_attr(ATTR_UPDATES_SKIPPED) > 3
-        ):
-            proceed_with_update = 1
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-            _LOGGER.info(
-                "("
-                + self.get_attr(CONF_NAME)
-                + ") Allowing update after 3 skips even with distance traveled < 10m"
-            )
+        # elif (
+        #    int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) > 0
+        #    and self.get_attr(ATTR_UPDATES_SKIPPED) > 3
+        # ):
+        #    proceed_with_update = 1
+        #    # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        #    _LOGGER.info(
+        #        "("
+        #        + self.get_attr(CONF_NAME)
+        #        + ") Allowing update after 3 skips even with distance traveled < 10m"
+        #    )
         elif int(self.get_attr(ATTR_DISTANCE_TRAVELED_M)) < 10:
-            self.set_attr(ATTR_UPDATES_SKIPPED, self.get_attr(ATTR_UPDATES_SKIPPED) + 1)
+            # self.set_attr(ATTR_UPDATES_SKIPPED, self.get_attr(ATTR_UPDATES_SKIPPED) + 1)
             _LOGGER.info(
                 "("
                 + self.get_attr(CONF_NAME)
-                + ") Not performing update because location changed "
+                + ") Not performing update, distance traveled from last update is less than 10 m ("
                 + str(round(self.get_attr(ATTR_DISTANCE_TRAVELED_M), 1))
-                + " < 10m  ("
-                + str(self.get_attr(ATTR_UPDATES_SKIPPED))
-                + ")"
+                + " m)"
+                # + " ("
+                # + str(self.get_attr(ATTR_UPDATES_SKIPPED))
+                # + ")"
             )
             proceed_with_update = 2
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
@@ -2722,8 +2722,8 @@ class Places(SensorEntity):
                 + self.get_attr(CONF_NAME)
                 + ") DeviceTracker Zone: "
                 + str(self.get_attr(ATTR_DEVICETRACKER_ZONE))
-                + " / Skipped Updates: "
-                + str(self.get_attr(ATTR_UPDATES_SKIPPED))
+                # + " / Skipped Updates: "
+                # + str(self.get_attr(ATTR_UPDATES_SKIPPED))
             )
 
             self._reset_attributes()
@@ -2962,9 +2962,9 @@ class Places(SensorEntity):
     def get_seconds_from_last_change(self, now):
         try:
             last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             _LOGGER.warning(
-                type(e).__name__
+                str(type(e).__name__)
                 + " converting Last Changed date/time ("
                 + self.get_attr(ATTR_LAST_CHANGED)
                 + ") into datetime: "
@@ -2976,7 +2976,7 @@ class Places(SensorEntity):
                 changed_diff_sec = (now - last_changed).total_seconds()
             except OverflowError as e:
                 _LOGGER.warning(
-                    type(e).__name__
+                    str(type(e).__name__)
                     + " calculating the seconds between last change to now: "
                     + str(e)
                 )
@@ -2988,5 +2988,5 @@ class Places(SensorEntity):
         """Resets attributes."""
         for attr in RESET_ATTRIBUTE_LIST:
             self.clear_attr(attr)
-        self.set_attr(ATTR_UPDATES_SKIPPED, 0)
+        # self.set_attr(ATTR_UPDATES_SKIPPED, 0)
         self.cleanup_attributes()
