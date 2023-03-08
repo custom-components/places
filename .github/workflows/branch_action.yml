@@ -11,6 +11,7 @@ on:
 jobs:
   new_branch_pr:
     if: github.repository == 'Snuffy2/places'
+    permissions: write-all
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.3.0
