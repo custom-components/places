@@ -37,8 +37,10 @@ jobs:
         shell: bash
       - name: Show Git Config
         run: cat .git/config
+      - name: Check Upstream
+        run: git rev-parse --abbrev-ref master@{u}
       - name: Create Pull Request
-        run: gh pr create -d -B upstream/master -H "${{ github.ref }}" -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}"
+        run: gh pr create -d -B master -H "${{ github.ref }}" -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}"
         env:
           GITHUB_TOKEN: ${{ secrets.CPR }}
           GH_TOKEN: ${{ secrets.CPR }}
