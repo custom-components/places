@@ -32,7 +32,7 @@ jobs:
         run: sleep 10s
         shell: bash
       - name: Create Pull Request
-        run: gh pr create -d -B master -H "${{ github.ref }}" -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}"
+        run: gh pr create -d -B upstream/master -H "${{ github.ref }}" -b "${GITHUB_REF##*/}" -t "${GITHUB_REF##*/}"
         env:
           GITHUB_TOKEN: ${{ secrets.CPR }}
           GH_TOKEN: ${{ secrets.CPR }}
