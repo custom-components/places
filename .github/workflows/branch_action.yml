@@ -18,6 +18,8 @@ jobs:
         run: echo ${GITHUB_REF##*/}
       - name: Show Ref
         run: echo ${{ github.ref }}
+      - name: Show Git Config
+        run: cat .git/config
       - name: Create and Checkout the New branch
         run: git checkout ${GITHUB_REF##*/}
       - name: Initialize mandatory git config
