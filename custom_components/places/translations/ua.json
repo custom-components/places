@@ -1,21 +1,21 @@
 {
-    "title": "Places: OpenStreetMap Sensor",
+    "title": "Місця: датчик OpenStreetMap",
     "config": {
         "step": {
             "user": {
-                "title": "Places: OpenStreetMap Sensor",
+                "title": "Місця: датчик OpenStreetMap",
                 "data": {
-                    "name": "Sensor Name",
-                    "devicetracker_id": "DeviceTracker ID",
-                    "home_zone": "Home Zone",
-                    "options": "Display Options",
-                    "map_provider": "Map Provider",
-                    "map_zoom": "Map Zoom",
-                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
-                    "language": "Language (optional)",
-                    "extended_attr": "Enable Extended Attributes",
-                    "show_time": "Show last updated time at end of state '(since xx:yy)'",
-                    "use_gps_accuracy": "Use GPS Accuracy"
+                    "name": "Назва датчика",
+                    "devicetracker_id": "DeviceTracker Ідентифікатор",
+                    "home_zone": "Домашня зона",
+                    "options": "Параметри відображення",
+                    "map_provider": "Постачальник карт",
+                    "map_zoom": "Масштаб карти",
+                    "api_key": "Електронна пошта для використання як ключа OpenStreetMap API (необов’язково)",
+                    "language": "Мова (необов'язково)",
+                    "extended_attr": "Увімкнути розширені атрибути",
+                    "show_time": "Показати час останнього оновлення в кінці стану "(з xx:yy)"",
+                    "use_gps_accuracy": "Використовуйте точність GPS"
                 },
                 "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
             }
@@ -24,27 +24,27 @@
     "options": {
         "step": {
             "init": {
-                "title": "Places: OpenStreetMap Sensor",
+                "title": "Місця: датчик OpenStreetMap",
                 "data": {
-                    "devicetracker_id": "DeviceTracker ID",
-                    "home_zone": "Home Zone",
-                    "options": "Display Options",
-                    "map_provider": "Map Provider",
-                    "map_zoom": "Map Zoom",
-                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
-                    "language": "Language (optional)",
-                    "extended_attr": "Enable Extended Attributes",
-                    "show_time": "Show last updated time at end of state '(since xx:yy)'",
-                    "use_gps_accuracy": "Use GPS Accuracy"
+                    "devicetracker_id": "DeviceTracker Ідентифікатор",
+                    "home_zone": "Домашня зона",
+                    "options": "Параметри відображення",
+                    "map_provider": "Постачальник карт",
+                    "map_zoom": "Масштаб карти",
+                    "api_key": "Електронна пошта для використання як ключа OpenStreetMap API (необов’язково)",
+                    "language": "Мова (необов'язково)",
+                    "extended_attr": "Увімкнути розширені атрибути",
+                    "show_time": "Показати час останнього оновлення в кінці стану "(з xx:yy)"",
+                    "use_gps_accuracy": "Використовуйте точність GPS"
                 },
-                "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+                "description": "**Оновлення датчика:&nbsp;{sensor_name}**\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub"
             }
         }
     },
     "issues": {
         "deprecated_yaml": {
-            "title": "Delete the Places YAML configuration",
-            "description": "Your existing YAML configuration has been imported into the UI automatically.\n\nRemove the Places YAML configuration from your configuration.yaml file and restart Home Assistant to fix this issue."
+            "title": "Видаліть конфігурацію YAML Places",
+            "description": "Вашу наявну конфігурацію YAML було автоматично імпортовано в інтерфейс користувача.\in\Видаліть конфігурацію YAML Місця зі свого файлу configuration.yaml і перезапустіть Home Assistant, щоб вирішити цю проблему."
         }
     }
 }
