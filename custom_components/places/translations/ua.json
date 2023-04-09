@@ -1,0 +1,50 @@
+{
+    "title": "Places: OpenStreetMap Sensor",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Places: OpenStreetMap Sensor",
+                "data": {
+                    "name": "Sensor Name",
+                    "devicetracker_id": "DeviceTracker ID",
+                    "home_zone": "Home Zone",
+                    "options": "Display Options",
+                    "map_provider": "Map Provider",
+                    "map_zoom": "Map Zoom",
+                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
+                    "language": "Language (optional)",
+                    "extended_attr": "Enable Extended Attributes",
+                    "show_time": "Show last updated time at end of state '(since xx:yy)'",
+                    "use_gps_accuracy": "Use GPS Accuracy"
+                },
+                "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Places: OpenStreetMap Sensor",
+                "data": {
+                    "devicetracker_id": "DeviceTracker ID",
+                    "home_zone": "Home Zone",
+                    "options": "Display Options",
+                    "map_provider": "Map Provider",
+                    "map_zoom": "Map Zoom",
+                    "api_key": "Email to use as OpenStreetMap API Key (optional)",
+                    "language": "Language (optional)",
+                    "extended_attr": "Enable Extended Attributes",
+                    "show_time": "Show last updated time at end of state '(since xx:yy)'",
+                    "use_gps_accuracy": "Use GPS Accuracy"
+                },
+                "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+            }
+        }
+    },
+    "issues": {
+        "deprecated_yaml": {
+            "title": "Delete the Places YAML configuration",
+            "description": "Your existing YAML configuration has been imported into the UI automatically.\n\nRemove the Places YAML configuration from your configuration.yaml file and restart Home Assistant to fix this issue."
+        }
+    }
+}
