@@ -9,6 +9,8 @@ from homeassistant.const import (
 )
 
 DOMAIN = "places"
+EVENT_TYPE = DOMAIN + "_state_update"
+ENTITY_ID_FORMAT = Platform.SENSOR + ".{}"
 
 # Defaults
 DEFAULT_EXTENDED_ATTR = False
