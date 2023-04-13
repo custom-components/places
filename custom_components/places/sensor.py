@@ -99,6 +99,7 @@ from .const import (  # ATTR_UPDATES_SKIPPED,
     ATTR_POSTAL_TOWN,
     ATTR_PREVIOUS_STATE,
     ATTR_REGION,
+    ATTR_SHOW_DATE,
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
@@ -485,7 +486,7 @@ class Places(SensorEntity):
             if hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID))
             else None
         )
-
+        self.set_attr(ATTR_SHOW_DATE, False)
         # self.set_attr(ATTR_UPDATES_SKIPPED, 0)
 
         sensor_attributes = self.get_dict_from_json_file()
@@ -2339,6 +2340,7 @@ class Places(SensorEntity):
 
                     if self.get_attr(CONF_EXTENDED_ATTR):
                         self.get_extended_attr()
+                    self.set_attr(ATTR_SHOW_DATE, False)
                     self.cleanup_attributes()
                     if not self.is_attr_blank(ATTR_NATIVE_VALUE):
                         if self.get_attr(CONF_SHOW_TIME):
@@ -2384,6 +2386,12 @@ class Places(SensorEntity):
                         and changed_diff_sec >= 60
                     ):
                         self.change_dot_to_stationary(now, changed_diff_sec)
+                    if (
+                        self.get_attr(CONF_SHOW_TIME)
+                        and changed_diff_sec >= 86399
+                        and self.get_attr(ATTR_SHOW_DATE) is False
+                    ):
+                        self.change_show_time_to_date()
         else:
             self._internal_attr = previous_attr
             _LOGGER.debug(
@@ -2398,6 +2406,12 @@ class Places(SensorEntity):
             ):
                 # 0: False. 1: True. 2: False, but set direction of travel to stationary
                 self.change_dot_to_stationary(now, changed_diff_sec)
+            if (
+                self.get_attr(CONF_SHOW_TIME)
+                and changed_diff_sec >= 86399
+                and self.get_attr(ATTR_SHOW_DATE) is False
+            ):
+                self.change_show_time_to_date()
 
         self.set_attr(
             ATTR_LAST_UPDATED, str(now.isoformat(sep=" ", timespec="seconds"))
@@ -2415,6 +2429,27 @@ class Places(SensorEntity):
             f"({self.get_attr(CONF_NAME)}) Updating direction of travel to stationary (Last changed "
             + f"{int(changed_diff_sec)} seconds ago)"
         )
+
+    def change_show_time_to_date(self):
+        if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
+            self.set_attr(
+                ATTR_NATIVE_VALUE,
+                f"{self.get_attr(ATTR_NATIVE_VALUE)[: -14]}"
+                + f" (since {datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED)).strftime('%m/%d')})",
+            )
+
+            if not self.is_attr_blank(ATTR_NATIVE_VALUE):
+                self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
+            else:
+                self._attr_native_value = None
+            self.set_attr(ATTR_SHOW_DATE, True)
+            self.write_sensor_to_json()
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) Updating state to show date instead of time since last change"
+            )
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) New State: {self.get_attr(ATTR_NATIVE_VALUE)}"
+            )
 
     def get_seconds_from_last_change(self, now):
         try:

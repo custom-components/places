@@ -100,6 +100,7 @@ ATTR_POSTAL_CODE = "postal_code"
 ATTR_POSTAL_TOWN = "postal_town"
 ATTR_PREVIOUS_STATE = "previous_state"
 ATTR_REGION = "state_province"
+ATTR_SHOW_DATE = "show_date"
 ATTR_STATE_ABBR = "state_abbr"
 ATTR_STREET = "street"
 ATTR_STREET_REF = "street_ref"
@@ -257,6 +258,7 @@ JSON_ATTRIBUTE_LIST = [
     ATTR_STREET_REF,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
+    ATTR_SHOW_DATE,
 ]
 EVENT_ATTRIBUTE_LIST = [
     ATTR_PLACE_NAME,
