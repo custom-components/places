@@ -24,6 +24,7 @@ import homeassistant.helpers.config_validation as cv
 import requests
 import voluptuous as vol
 from homeassistant import config_entries, core
+from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -40,6 +41,7 @@ from homeassistant.const import (
     CONF_ZONE,
     EVENT_HOMEASSISTANT_START,
 )
+from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -124,7 +126,9 @@ from .const import (  # ATTR_UPDATES_SKIPPED,
     DEFAULT_USE_GPS,
     DISPLAY_OPTIONS_MAP,
     DOMAIN,
+    ENTITY_ID_FORMAT,
     EVENT_ATTRIBUTE_LIST,
+    EVENT_TYPE,
     EXTENDED_ATTRIBUTE_LIST,
     EXTRA_STATE_ATTRIBUTE_LIST,
     HOME_LOCATION_DOMAINS,
@@ -376,6 +380,9 @@ class Places(SensorEntity):
         self._config = config
         self._config_entry = config_entry
         self._hass = hass
+        self.entity_id = generate_entity_id(
+            ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
+        )
         self.set_attr(CONF_NAME, name)
         self._attr_name = name
         self.set_attr(CONF_UNIQUE_ID, unique_id)
@@ -497,10 +504,29 @@ class Places(SensorEntity):
                 f"({self.get_attr(CONF_NAME)}) [Init] Sensor Attributes Imported from JSON file"
             )
         self.cleanup_attributes()
+        if self.get_attr(CONF_EXTENDED_ATTR):
+            self.disable_recorder()
         _LOGGER.info(
             f"({self.get_attr(CONF_NAME)}) [Init] DeviceTracker Entity ID: "
             + f"{self.get_attr(CONF_DEVICETRACKER_ID)}"
         )
+
+    def disable_recorder(self):
+        if RECORDER_INSTANCE in self._hass.data:
+            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
+            _LOGGER.info(
+                f"({self.get_attr(CONF_NAME)}) [disable_recorder] Extended Attributes is True, Disabling Recorder"
+            )
+            if self.entity_id:
+                ha_history_recorder.entity_filter._exclude_e.add(self.entity_id)
+            ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
+
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) [disable_recorder] _exclude_e: {ha_history_recorder.entity_filter._exclude_e}"
+            )
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) [disable_recorder] exclude_event_types: {ha_history_recorder.exclude_event_types}"
+            )
 
     def get_dict_from_json_file(self):
         sensor_attributes = {}
@@ -558,6 +584,27 @@ class Places(SensorEntity):
                 f"({self.get_attr(CONF_NAME)}) JSON sensor file removed: "
                 + f"{self.get_attr(ATTR_JSON_FILENAME)}"
             )
+        if RECORDER_INSTANCE in self._hass.data:
+            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
+            if self.entity_id:
+                _LOGGER.debug(
+                    f"({self.get_attr(CONF_NAME)}) Removing entity exclusion from recorder: {self.entity_id}"
+                )
+                ha_history_recorder.entity_filter._exclude_e.discard(self.entity_id)
+
+            # Only do this if no places entities with extended_attr exist
+            ex_attr_count = 0
+            for ent in self._hass.data[DOMAIN].values():
+                if ent.get(CONF_EXTENDED_ATTR):
+                    ex_attr_count += 1
+
+            if (
+                self.get_attr(CONF_EXTENDED_ATTR) and ex_attr_count == 1
+            ) or ex_attr_count == 0:
+                _LOGGER.debug(
+                    f"({self.get_attr(CONF_NAME)}) Removing event exclusion from recorder: {EVENT_TYPE}"
+                )
+                ha_history_recorder.exclude_event_types.discard(EVENT_TYPE)
 
     @property
     def extra_state_attributes(self):
@@ -1884,7 +1931,7 @@ class Places(SensorEntity):
                 if not self.is_attr_blank(attr):
                     event_data.update({attr: self.get_attr(attr)})
 
-        self._hass.bus.fire(DOMAIN + "_state_update", event_data)
+        self._hass.bus.fire(EVENT_TYPE, event_data)
         _LOGGER.debug(
             f"({self.get_attr(CONF_NAME)}) Event Details [event_type: {DOMAIN}_state_update]: {event_data}"
         )
