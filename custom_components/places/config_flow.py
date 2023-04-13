@@ -75,10 +75,12 @@ def get_devicetracker_id_entities(
     if current_entity is not None:
         # _LOGGER.debug(f"current_entity: {current_entity}")
         dt_list_entities = [d["value"] for d in dt_list]
-        if current_entity not in dt_list_entities:
+        if (
+            current_entity not in dt_list_entities
+            and hass.states.get(current_entity) is not None
+        ):
             if (
-                current_entity in hass.states
-                and ATTR_FRIENDLY_NAME in hass.states.get(current_entity).attributes
+                ATTR_FRIENDLY_NAME in hass.states.get(current_entity).attributes
                 and hass.states.get(current_entity).attributes.get(ATTR_FRIENDLY_NAME)
                 is not None
             ):
