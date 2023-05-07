@@ -63,19 +63,19 @@ custom_components/places/translations/en.json
 
 ## Configuration Options
 
-Key | Type | Required | Description | Default |
--- | -- | -- | -- | --
-`DeviceTracker ID` | `entity_id` | `Yes` | The location device to track | None
-`Name` | `string` | `Yes` | Friendly name of the places sensor | None
-`Home Zone` | `entity_id` | `No` | Used to calculate distance from home and direction of travel | `zone.home`
-`Email Address` | `string` | `No` | OpenStreetMap API key (your email address). | None
-`Map Provider` | `string` | `No` | `google`, `apple`, `osm` | `apple`
-`Map Zoom` | `number` | `No` | Level of zoom for the generated map link <1-20> | `18`
-`Language` | `string` | `No` | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) | location's local language
-`extended_attr` | `boolean` | `No` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!** | `False`
-`Show Last Updated` | `boolean` | `No` | Show last updated time at end of state `(since xx:yy)` | `False`
-`Use GPS Accuracy` | `boolean` | `No` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br />_Set this to `False` if your devicetracker_id has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct._ | `True`
-`Display Options` | `string` | `No` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.** | `zone_name`, `place`
+Key | Required | Default | Description |
+-- | -- | -- | --
+`DeviceTracker ID` | `Yes` | | The location device to track
+`Name` | `Yes` | | Friendly name of the places sensor
+`Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel
+`Email Address` | `No` | | OpenStreetMap API key (your email address).
+`Map Provider` | `No` | `apple` | `google`, `apple`, `osm`
+`Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20>
+`Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes)
+`Extended Attributes` | `No` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!**
+`Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)`
+`Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.**
+`Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.**
 
 <details>
 <summary><h3>Advanced Display Options</h3></summary>
