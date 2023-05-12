@@ -725,6 +725,10 @@ class Places(SensorEntity):
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
             if (
                 "stationary" in self.get_attr(ATTR_DEVICETRACKER_ZONE).lower()
+                or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower().startswith("statzon")
+                or self.get_attr(ATTR_DEVICETRACKER_ZONE)
+                .lower()
+                .startswith("ic3_statzone_")
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "away"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_home"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "notset"
