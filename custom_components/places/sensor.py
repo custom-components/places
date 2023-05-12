@@ -49,7 +49,7 @@ from homeassistant.util import Throttle, slugify
 from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
 
-from .const import (  # ATTR_UPDATES_SKIPPED,
+from .const import (
     ATTR_CITY,
     ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
@@ -139,6 +139,7 @@ from .const import (  # ATTR_UPDATES_SKIPPED,
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
+    VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -882,8 +883,27 @@ class Places(SensorEntity):
         get_dict = {}
         _LOGGER.info(f"({self.get_attr(CONF_NAME)}) Requesting data for {name}")
         _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) {name} URL: {url}")
+        headers = {"user-agent": f"Mozilla/5.0 (Home Assistant) {DOMAIN}/{VERSION}"}
         try:
-            get_response = requests.get(url)
+            get_response = requests.get(url, headers=headers)
+        except requests.exceptions.RetryError as e:
+            get_response = None
+            _LOGGER.warning(
+                f"({self.get_attr(CONF_NAME)}) Retry Error connecting to {name} [Error: {e}]: {url}"
+            )
+            return {}
+        except requests.exceptions.ConnectionError as e:
+            get_response = None
+            _LOGGER.warning(
+                f"({self.get_attr(CONF_NAME)}) Connection Error connecting to {name} [Error: {e}]: {url}"
+            )
+            return {}
+        except requests.exceptions.HTTPError as e:
+            get_response = None
+            _LOGGER.warning(
+                f"({self.get_attr(CONF_NAME)}) HTTP Error connecting to {name} [Error: {e}]: {url}"
+            )
+            return {}
         except requests.exceptions.Timeout as e:
             get_response = None
             _LOGGER.warning(
@@ -901,7 +921,7 @@ class Places(SensorEntity):
         except NewConnectionError as e:
             get_response = None
             _LOGGER.warning(
-                f"({self.get_attr(CONF_NAME)}) Connection Error connecting to {name} "
+                f"({self.get_attr(CONF_NAME)}) New Connection Error connecting to {name} "
                 + f"[Error: {e}]: {url}"
             )
             return {}
