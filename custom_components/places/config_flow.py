@@ -102,7 +102,7 @@ def get_devicetracker_id_entities(
                     )
                 )
     if dt_list:
-        dt_list_sorted = sorted(dt_list, key=lambda d: d["label"])
+        dt_list_sorted = sorted(dt_list, key=lambda d: d["label"].casefold())
     else:
         dt_list_sorted = []
 
@@ -124,7 +124,7 @@ def get_home_zone_entities(hass: core.HomeAssistant) -> list[str]:
                 )
             )
     if zone_list:
-        zone_list_sorted = sorted(zone_list, key=lambda d: d["label"])
+        zone_list_sorted = sorted(zone_list, key=lambda d: d["label"].casefold())
     else:
         zone_list_sorted = []
     # _LOGGER.debug(f"Zones: {zone_list_sorted}")
