@@ -2452,6 +2452,8 @@ class Places(SensorEntity):
             )
 
     def get_seconds_from_last_change(self, now):
+        if self.is_attr_blank(ATTR_LAST_CHANGED):
+            return 3600
         try:
             last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
         except (TypeError, ValueError) as e:
