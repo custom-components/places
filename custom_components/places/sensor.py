@@ -49,7 +49,7 @@ from homeassistant.util import Throttle, slugify
 from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
 
-from .const import (
+from .const import (  # ATTR_UPDATES_SKIPPED,
     ATTR_CITY,
     ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
@@ -139,7 +139,6 @@ from .const import (
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
-    VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -512,17 +511,6 @@ class Places(SensorEntity):
             f"({self.get_attr(CONF_NAME)}) [Init] DeviceTracker Entity ID: "
             + f"{self.get_attr(CONF_DEVICETRACKER_ID)}"
         )
-        self.http_session = requests.Session()
-        self.http_session.headers.update({"User-agent": f"{DOMAIN}/{VERSION}"})
-        retries = requests.packages.urllib3.util.Retry(
-            total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
-        )
-        self.http_session.mount(
-            "http://", requests.adapters.HTTPAdapter(max_retries=retries)
-        )
-        self.http_session.mount(
-            "https://", requests.adapters.HTTPAdapter(max_retries=retries)
-        )
 
     def disable_recorder(self):
         if RECORDER_INSTANCE in self._hass.data:
@@ -737,7 +725,6 @@ class Places(SensorEntity):
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
             if (
                 "stationary" in self.get_attr(ATTR_DEVICETRACKER_ZONE).lower()
-                or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "statzon"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "away"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_home"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "notset"
@@ -896,19 +883,7 @@ class Places(SensorEntity):
         _LOGGER.info(f"({self.get_attr(CONF_NAME)}) Requesting data for {name}")
         _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) {name} URL: {url}")
         try:
-            get_response = self.http_session.get(url)
-        except requests.exceptions.HTTPError as e:
-            get_response = None
-            _LOGGER.warning(
-                f"({self.get_attr(CONF_NAME)}) Connection Error connecting to {name} [Error: {e}]: {url}"
-            )
-            return {}
-        except requests.exceptions.HTTPError as e:
-            get_response = None
-            _LOGGER.warning(
-                f"({self.get_attr(CONF_NAME)}) Connection Error connecting to {name} [Error: {e}]: {url}"
-            )
-            return {}
+            get_response = requests.get(url)
         except requests.exceptions.Timeout as e:
             get_response = None
             _LOGGER.warning(
