@@ -49,7 +49,7 @@ from homeassistant.util import Throttle, slugify
 from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
 
-from .const import (  # ATTR_UPDATES_SKIPPED,
+from .const import (
     ATTR_CITY,
     ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
@@ -139,6 +139,7 @@ from .const import (  # ATTR_UPDATES_SKIPPED,
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
+    VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -510,6 +511,17 @@ class Places(SensorEntity):
         _LOGGER.info(
             f"({self.get_attr(CONF_NAME)}) [Init] DeviceTracker Entity ID: "
             + f"{self.get_attr(CONF_DEVICETRACKER_ID)}"
+        )
+        self.http_session = requests.Session()
+        self.http_session.headers.update({"User-agent": f"{DOMAIN}/{VERSION}"})
+        retries = requests.packages.urllib3.util.Retry(
+            total=5, backoff_factor=1, status_forcelist=[429, 500, 502, 503, 504]
+        )
+        self.http_session.mount(
+            "http://", requests.adapters.HTTPAdapter(max_retries=retries)
+        )
+        self.http_session.mount(
+            "https://", requests.adapters.HTTPAdapter(max_retries=retries)
         )
 
     def disable_recorder(self):
@@ -887,7 +899,19 @@ class Places(SensorEntity):
         _LOGGER.info(f"({self.get_attr(CONF_NAME)}) Requesting data for {name}")
         _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) {name} URL: {url}")
         try:
-            get_response = requests.get(url)
+            get_response = self.http_session.get(url)
+        except requests.exceptions.HTTPError as e:
+            get_response = None
+            _LOGGER.warning(
+                f"({self.get_attr(CONF_NAME)}) Connection Error connecting to {name} [Error: {e}]: {url}"
+            )
+            return {}
+        except requests.exceptions.HTTPError as e:
+            get_response = None
+            _LOGGER.warning(
+                f"({self.get_attr(CONF_NAME)}) Connection Error connecting to {name} [Error: {e}]: {url}"
+            )
+            return {}
         except requests.exceptions.Timeout as e:
             get_response = None
             _LOGGER.warning(
@@ -2456,6 +2480,8 @@ class Places(SensorEntity):
             )
 
     def get_seconds_from_last_change(self, now):
+        if self.is_attr_blank(ATTR_LAST_CHANGED):
+            return 3600
         try:
             last_changed = datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
         except (TypeError, ValueError) as e:
