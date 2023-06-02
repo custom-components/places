@@ -520,12 +520,19 @@ class Places(SensorEntity):
                 f"({self.get_attr(CONF_NAME)}) [disable_recorder] Extended Attributes is True, Disabling Recorder"
             )
             if self.entity_id:
-                ha_history_recorder.entity_filter._exclude_e.add(self.entity_id)
-            ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
+                try:
+                    ha_history_recorder.entity_filter._exclude_e.add(self.entity_id)
 
-            _LOGGER.debug(
-                f"({self.get_attr(CONF_NAME)}) [disable_recorder] _exclude_e: {ha_history_recorder.entity_filter._exclude_e}"
-            )
+                except AttributeError as e:
+                    _LOGGER.warning(
+                        f"({self.get_attr(CONF_NAME)}) [disable_recorder] AttributeError trying to disable Recorder: {e}"
+                    )
+                else:
+                    _LOGGER.debug(
+                        f"({self.get_attr(CONF_NAME)}) [disable_recorder] _exclude_e: {ha_history_recorder.entity_filter._exclude_e}"
+                    )
+
+            ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
             _LOGGER.debug(
                 f"({self.get_attr(CONF_NAME)}) [disable_recorder] exclude_event_types: {ha_history_recorder.exclude_event_types}"
             )
