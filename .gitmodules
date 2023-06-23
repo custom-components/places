@@ -1,0 +1,3 @@
+[submodule "custom_components/places/recorder_history_prefilter"]
+	path = custom_components/places/recorder_history_prefilter
+	url = https://github.com/gcobb321/recorder_history_prefilter
