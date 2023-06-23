@@ -1,8 +1,8 @@
 """
 Place Support for OpenStreetMap Geocode sensors.
 
-Original Author:  Jim Thompson
-Subsequent Authors: Ian Richardson & Snuffy2
+Previous Authors:  Jim Thompson, Ian Richardson
+Current Author:  Snuffy2
 
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
@@ -141,6 +141,7 @@ from .const import (
     TRACKING_DOMAINS_NEED_LATLONG,
     VERSION,
 )
+from .recorder_history_prefilter import recorder_prefilter
 
 _LOGGER = logging.getLogger(__name__)
 try:
@@ -514,31 +515,18 @@ class Places(SensorEntity):
         )
 
     def disable_recorder(self):
+
         if RECORDER_INSTANCE in self._hass.data:
-            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
             _LOGGER.info(
                 f"({self.get_attr(CONF_NAME)}) [disable_recorder] Extended Attributes is True, Disabling Recorder"
             )
-            if self.entity_id:
-                # Legacy disable recorder if HA <2023.6
-                try:
-                    ha_history_recorder.entity_filter._exclude_e.add(self.entity_id)
-                except AttributeError:
-                    pass
-                else:
-                    _LOGGER.debug(
-                        f"({self.get_attr(CONF_NAME)}) [disable_recorder] _exclude_e: {ha_history_recorder.entity_filter._exclude_e}"
-                    )
-            try:
-                ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
-            except AttributeError as e:
-                _LOGGER.warning(
-                    f"({self.get_attr(CONF_NAME)}) [disable_recorder] AttributeError trying to exclude event from Recorder: {e}"
-                )
-            else:
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) [disable_recorder] exclude_event_types: {ha_history_recorder.exclude_event_types}"
-                )
+
+            recorder_prefilter.add_filter(self._hass, self.entity_id)
+            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
+            ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) [disable_recorder] exclude_event_types: {ha_history_recorder.exclude_event_types}"
+            )
 
     def get_dict_from_json_file(self):
         sensor_attributes = {}
@@ -597,17 +585,10 @@ class Places(SensorEntity):
                 + f"{self.get_attr(ATTR_JSON_FILENAME)}"
             )
         if RECORDER_INSTANCE in self._hass.data:
-            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
-            if self.entity_id:
-                # Remove legacy recorder if HA <2023.6
-                try:
-                    ha_history_recorder.entity_filter._exclude_e.discard(self.entity_id)
-                except AttributeError:
-                    pass
-                else:
-                    _LOGGER.debug(
-                        f"({self._attr_name}) Removing entity exclusion from recorder: {self.entity_id}"
-                    )
+            _LOGGER.debug(
+                f"({self._attr_name}) Removing entity exclusion from recorder: {self.entity_id}"
+            )
+            recorder_prefilter.remove_filter(self._hass, self.entity_id)
 
             # Only do this if no places entities with extended_attr exist
             ex_attr_count = 0
@@ -621,6 +602,7 @@ class Places(SensorEntity):
                 _LOGGER.debug(
                     f"({self.get_attr(CONF_NAME)}) Removing event exclusion from recorder: {EVENT_TYPE}"
                 )
+                ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
                 ha_history_recorder.exclude_event_types.discard(EVENT_TYPE)
 
     @property
