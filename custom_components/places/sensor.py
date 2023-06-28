@@ -21,6 +21,7 @@ import re
 from datetime import datetime, timedelta
 
 import homeassistant.helpers.config_validation as cv
+import homeassistant.helpers.entity_registry as er
 import requests
 import voluptuous as vol
 from homeassistant import config_entries, core
@@ -136,6 +137,7 @@ from .const import (
     JSON_ATTRIBUTE_LIST,
     JSON_IGNORE_ATTRIBUTE_LIST,
     PLACE_NAME_DUPLICATE_LIST,
+    PLATFORM,
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
@@ -383,13 +385,21 @@ class Places(SensorEntity):
         self._config = config
         self._config_entry = config_entry
         self._hass = hass
-        self.entity_id = generate_entity_id(
-            ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
-        )
         self.set_attr(CONF_NAME, name)
         self._attr_name = name
         self.set_attr(CONF_UNIQUE_ID, unique_id)
         self._attr_unique_id = unique_id
+        registry = er.async_get(self._hass)
+        current_entity_id = registry.async_get_entity_id(
+            PLATFORM, DOMAIN, self._attr_unique_id
+        )
+        if current_entity_id is not None:
+            self.entity_id = current_entity_id
+        else:
+            self.entity_id = generate_entity_id(
+                ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
+            )
+        _LOGGER.debug(f"({self._attr_name}) entity_id: {self.entity_id}")
         self.set_attr(CONF_ICON, DEFAULT_ICON)
         self._attr_icon = DEFAULT_ICON
         self.set_attr(CONF_API_KEY, config.get(CONF_API_KEY))
