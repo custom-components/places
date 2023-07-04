@@ -594,7 +594,7 @@ class Places(SensorEntity):
                 f"({self.get_attr(CONF_NAME)}) JSON sensor file removed: "
                 + f"{self.get_attr(ATTR_JSON_FILENAME)}"
             )
-        if RECORDER_INSTANCE in self._hass.data:
+        if RECORDER_INSTANCE in self._hass.data and self.get_attr(CONF_EXTENDED_ATTR):
             _LOGGER.debug(
                 f"({self._attr_name}) Removing entity exclusion from recorder: {self.entity_id}"
             )
