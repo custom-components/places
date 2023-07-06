@@ -1,8 +1,8 @@
 """
 Place Support for OpenStreetMap Geocode sensors.
 
-Original Author:  Jim Thompson
-Subsequent Authors: Ian Richardson & Snuffy2
+Previous Authors:  Jim Thompson, Ian Richardson
+Current Author:  Snuffy2
 
 Description:
   Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
@@ -21,6 +21,7 @@ import re
 from datetime import datetime, timedelta
 
 import homeassistant.helpers.config_validation as cv
+import homeassistant.helpers.entity_registry as er
 import requests
 import voluptuous as vol
 from homeassistant import config_entries, core
@@ -136,11 +137,13 @@ from .const import (
     JSON_ATTRIBUTE_LIST,
     JSON_IGNORE_ATTRIBUTE_LIST,
     PLACE_NAME_DUPLICATE_LIST,
+    PLATFORM,
     RESET_ATTRIBUTE_LIST,
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
     VERSION,
 )
+from .recorder_history_prefilter import recorder_prefilter
 
 _LOGGER = logging.getLogger(__name__)
 try:
@@ -382,13 +385,21 @@ class Places(SensorEntity):
         self._config = config
         self._config_entry = config_entry
         self._hass = hass
-        self.entity_id = generate_entity_id(
-            ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
-        )
         self.set_attr(CONF_NAME, name)
         self._attr_name = name
         self.set_attr(CONF_UNIQUE_ID, unique_id)
         self._attr_unique_id = unique_id
+        registry = er.async_get(self._hass)
+        current_entity_id = registry.async_get_entity_id(
+            PLATFORM, DOMAIN, self._attr_unique_id
+        )
+        if current_entity_id is not None:
+            self.entity_id = current_entity_id
+        else:
+            self.entity_id = generate_entity_id(
+                ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
+            )
+        _LOGGER.debug(f"({self._attr_name}) entity_id: {self.entity_id}")
         self.set_attr(CONF_ICON, DEFAULT_ICON)
         self._attr_icon = DEFAULT_ICON
         self.set_attr(CONF_API_KEY, config.get(CONF_API_KEY))
@@ -514,24 +525,14 @@ class Places(SensorEntity):
         )
 
     def disable_recorder(self):
+
         if RECORDER_INSTANCE in self._hass.data:
-            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
             _LOGGER.info(
                 f"({self.get_attr(CONF_NAME)}) [disable_recorder] Extended Attributes is True, Disabling Recorder"
             )
-            if self.entity_id:
-                try:
-                    ha_history_recorder.entity_filter._exclude_e.add(self.entity_id)
 
-                except AttributeError as e:
-                    _LOGGER.warning(
-                        f"({self.get_attr(CONF_NAME)}) [disable_recorder] AttributeError trying to disable Recorder: {e}"
-                    )
-                else:
-                    _LOGGER.debug(
-                        f"({self.get_attr(CONF_NAME)}) [disable_recorder] _exclude_e: {ha_history_recorder.entity_filter._exclude_e}"
-                    )
-
+            recorder_prefilter.add_filter(self._hass, self.entity_id)
+            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
             ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
             _LOGGER.debug(
                 f"({self.get_attr(CONF_NAME)}) [disable_recorder] exclude_event_types: {ha_history_recorder.exclude_event_types}"
@@ -593,13 +594,11 @@ class Places(SensorEntity):
                 f"({self.get_attr(CONF_NAME)}) JSON sensor file removed: "
                 + f"{self.get_attr(ATTR_JSON_FILENAME)}"
             )
-        if RECORDER_INSTANCE in self._hass.data:
-            ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
-            if self.entity_id:
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) Removing entity exclusion from recorder: {self.entity_id}"
-                )
-                ha_history_recorder.entity_filter._exclude_e.discard(self.entity_id)
+        if RECORDER_INSTANCE in self._hass.data and self.get_attr(CONF_EXTENDED_ATTR):
+            _LOGGER.debug(
+                f"({self._attr_name}) Removing entity exclusion from recorder: {self.entity_id}"
+            )
+            recorder_prefilter.remove_filter(self._hass, self.entity_id)
 
             # Only do this if no places entities with extended_attr exist
             ex_attr_count = 0
@@ -613,6 +612,7 @@ class Places(SensorEntity):
                 _LOGGER.debug(
                     f"({self.get_attr(CONF_NAME)}) Removing event exclusion from recorder: {EVENT_TYPE}"
                 )
+                ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
                 ha_history_recorder.exclude_event_types.discard(EVENT_TYPE)
 
     @property
