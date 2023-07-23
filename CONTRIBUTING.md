@@ -20,7 +20,7 @@ Pull requests are the best way to propose changes to the codebase.
 
 ## Any contributions you make will be under the GPL-3.0 Software License
 
-In short, when you submit code changes, your submissions are understood to be under the same [License](../../blob/newdev/LICENSE) that covers the project. Feel free to contact the maintainers if that's a concern.
+In short, when you submit code changes, your submissions are understood to be under the same [License](../../blob/master/LICENSE) that covers the project. Feel free to contact the maintainers if that's a concern.
 
 ## Report bugs using Github's [issues](../../issues)
 
