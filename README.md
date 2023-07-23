@@ -65,17 +65,17 @@ custom_components/places/translations/en.json
 
 Key | Required | Default | Description |
 -- | -- | -- | --
+`Sensor Name` | `Yes` | | Friendly name of the places sensor
 `DeviceTracker ID` | `Yes` | | The location device to track
-`Name` | `Yes` | | Friendly name of the places sensor
-`Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel
 `Email Address` | `No` | | OpenStreetMap API key (your email address).
+`Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.**
+`Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel
 `Map Provider` | `No` | `apple` | `google`, `apple`, `osm`
 `Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20>
 `Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes)
 `Extended Attributes` | `No` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!**
 `Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)`
 `Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updaing when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.**
-`Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.**
 
 <details>
 <summary><h3>Advanced Display Options</h3></summary>
@@ -255,12 +255,12 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 
 ## Notes
 * This component is only useful to those who have device tracking enabled via a mechanism that provides latitude and longitude coordinates (such as the [Home Assistant Mobile App](https://www.home-assistant.io/integrations/mobile_app/), [OwnTracks](https://www.home-assistant.io/integrations/owntracks/), or [iCloud3](https://github.com/gcobb321/icloud3)).
-* The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of coordinates that do not parse properly, you can enable debug messages to see the actual JSON that is returned from the query.
+* The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of coordinates that do not parse properly, you can enable debug logging (see below) to see the actual JSON that is returned from the query.
 * The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
 * The map link that gets generated for Google, Apple or OpenStreetMaps has a push pin marking the users location. Note that when opening the Apple link on a non-Apple device, it will open in Google Maps.
-* When no `language` value is given, default language will be location's local language. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
+* When no `language` value is given, default language will be in the location's local language. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
 * Translations are partial in OpenStreetMap database. For each field, if a translation is missing in first requested language it will be resolved with a language following in the provided list, defaulting to local language if no matching translations were found for the list.
-* To enable detailed logging for this component, add the following to your `configuration.yaml` file
+* To enable debug logging for this component, add the following to your `configuration.yaml` file
 ```yaml
 logger:
   default: warning
@@ -269,8 +269,8 @@ logger:
 ```
 
 ## Prior Contributions:
-* Original Author: [Jim Thompson](https://github.com/tenly2000)
-* Subsequent Authors: [Ian Richardson](https://github.com/iantrich) & [Snuffy2](https://github.com/Snuffy2)
+* Previous Authors: [Jim Thompson](https://github.com/tenly2000) & [Ian Richardson](https://github.com/iantrich)
+* Current Author: [Snuffy2](https://github.com/Snuffy2)
 
 ## Contributions are welcome!
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
