@@ -731,7 +731,9 @@ class Places(SensorEntity):
 
     def in_zone(self):
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
-            if (
+            if self.get_attr(CONF_DEVICETRACKER_ID).split(".")[0] == CONF_ZONE:
+                return False
+            elif (
                 "stationary" in self.get_attr(ATTR_DEVICETRACKER_ZONE).lower()
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower().startswith("statzon")
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE)
@@ -800,10 +802,11 @@ class Places(SensorEntity):
                 )
 
     def get_zone_details(self):
-        self.set_attr(
-            ATTR_DEVICETRACKER_ZONE,
-            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).state,
-        )
+        if self.get_attr(CONF_DEVICETRACKER_ID).split(".")[0] != CONF_ZONE:
+            self.set_attr(
+                ATTR_DEVICETRACKER_ZONE,
+                self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).state,
+            )
         if self.in_zone():
             devicetracker_zone_name_state = None
             devicetracker_zone_id = self._hass.states.get(

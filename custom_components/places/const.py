@@ -30,6 +30,7 @@ TRACKING_DOMAINS = [
     str(Platform.DEVICE_TRACKER),
     str("person"),
     str(Platform.SENSOR),
+    CONF_ZONE,
     "variable",
 ]
 TRACKING_DOMAINS_NEED_LATLONG = [
