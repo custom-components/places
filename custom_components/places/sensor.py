@@ -2295,40 +2295,40 @@ class Places(SensorEntity):
                         f"({self.get_attr(CONF_NAME)}) New State using formatted_place: "
                         + f"{self.get_attr(ATTR_NATIVE_VALUE)}"
                     )
-                elif not self.in_zone():
-                    if any(
-                        ext in self.get_attr(ATTR_DISPLAY_OPTIONS)
-                        for ext in ["(", ")", "[", "]"]
-                    ):
-                        # Replace place option with expanded definition
-                        # temp_opt = self.get_attr(ATTR_DISPLAY_OPTIONS)
-                        # re.sub(
-                        #    r"place(?=[\[\(\]\)\,\s])",
-                        #    "place_name,place_category(-,place),place_type(-,yes),neighborhood,street_number,street",
-                        #    temp_opt,
-                        # )
-                        # self.set_attr(ATTR_DISPLAY_OPTIONS, temp_opt)
-                        self.clear_attr(ATTR_DISPLAY_OPTIONS_LIST)
-                        display_options = None
-                        self.adv_options_state_list = []
-                        self.street_num_i = -1
-                        self.street_i = -1
-                        self.temp_i = 0
-                        _LOGGER.debug(
-                            f"({self.get_attr(CONF_NAME)}) Initial Advanced Display Options: "
-                            + f"{self.get_attr(ATTR_DISPLAY_OPTIONS)}"
-                        )
 
-                        self.build_from_advanced_options(
-                            self.get_attr(ATTR_DISPLAY_OPTIONS)
-                        )
-                        _LOGGER.debug(
-                            f"({self.get_attr(CONF_NAME)}) Back from initial advanced build: "
-                            + f"{self.adv_options_state_list}"
-                        )
-                        self.compile_state_from_advanced_options()
-                    else:
-                        self.build_state_from_display_options()
+                elif any(
+                    ext in self.get_attr(ATTR_DISPLAY_OPTIONS)
+                    for ext in ["(", ")", "[", "]"]
+                ):
+                    # Replace place option with expanded definition
+                    # temp_opt = self.get_attr(ATTR_DISPLAY_OPTIONS)
+                    # re.sub(
+                    #    r"place(?=[\[\(\]\)\,\s])",
+                    #    "place_name,place_category(-,place),place_type(-,yes),neighborhood,street_number,street",
+                    #    temp_opt,
+                    # )
+                    # self.set_attr(ATTR_DISPLAY_OPTIONS, temp_opt)
+                    self.clear_attr(ATTR_DISPLAY_OPTIONS_LIST)
+                    display_options = None
+                    self.adv_options_state_list = []
+                    self.street_num_i = -1
+                    self.street_i = -1
+                    self.temp_i = 0
+                    _LOGGER.debug(
+                        f"({self.get_attr(CONF_NAME)}) Initial Advanced Display Options: "
+                        + f"{self.get_attr(ATTR_DISPLAY_OPTIONS)}"
+                    )
+
+                    self.build_from_advanced_options(
+                        self.get_attr(ATTR_DISPLAY_OPTIONS)
+                    )
+                    _LOGGER.debug(
+                        f"({self.get_attr(CONF_NAME)}) Back from initial advanced build: "
+                        + f"{self.adv_options_state_list}"
+                    )
+                    self.compile_state_from_advanced_options()
+                elif not self.in_zone():
+                    self.build_state_from_display_options()
                 elif (
                     "zone" in display_options
                     and not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE)
