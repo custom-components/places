@@ -129,9 +129,9 @@ These can be nested.
 ```
 name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, street
 ```
-* To recreate `formatted_place` _(as close as possible)_:
+* To recreate `formatted_place`:
 ```
-driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city_clean[county], state_abbr
+zone_name[driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city_clean[county], state_abbr]
 ```
 
 ### Fields
