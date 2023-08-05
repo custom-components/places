@@ -1655,15 +1655,15 @@ class Places(SensorEntity):
                                 if attr_item == "+":
                                     continue
                             # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [parse_parens] attr: {paren_attr} / item: {attr_item}")
-                            paren_attr_list.append(attr_item.strip())
+                            paren_attr_list.append(str(attr_item).strip().lower())
                         if paren_attr_incl:
                             incl_attr.update({paren_attr: paren_attr_list})
                         else:
                             excl_attr.update({paren_attr: paren_attr_list})
                     elif paren_incl:
-                        incl.append(item)
+                        incl.append(str(item).strip().lower())
                     else:
-                        excl.append(item)
+                        excl.append(str(item).strip().lower())
 
         elif not empty_paren:
             _LOGGER.error(
@@ -1717,7 +1717,7 @@ class Places(SensorEntity):
 
     def get_option_state(self, opt, incl=[], excl=[], incl_attr={}, excl_attr={}):
         if opt is not None and opt:
-            opt = opt.lower().strip()
+            opt = str(opt).lower().strip()
         _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [get_option_state] Option: {opt}")
         out = self.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
         if (
@@ -1732,9 +1732,9 @@ class Places(SensorEntity):
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [get_option_state] incl_attr dict: {incl_attr}")
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [get_option_state] excl_attr dict: {excl_attr}")
         if out is not None and out:
-            if incl and out not in incl:
+            if incl and str(out).strip().lower() not in incl:
                 out = None
-            elif excl and out in excl:
+            elif excl and str(out).strip().lower() in excl:
                 out = None
             if incl_attr:
                 for attr, states in incl_attr.items():
