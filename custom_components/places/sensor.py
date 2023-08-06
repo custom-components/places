@@ -15,6 +15,7 @@ GitHub: https://github.com/custom-components/places
 import copy
 import hashlib
 import json
+import locale
 import logging
 import os
 import re
@@ -2342,7 +2343,7 @@ class Places(SensorEntity):
                         f"({self.get_attr(CONF_NAME)}) New State from DeviceTracker Zone Name: "
                         + f"{self.get_attr(ATTR_NATIVE_VALUE)}"
                     )
-                current_time = "%02d:%02d" % (now.hour, now.minute)
+                current_time = f"{now.hour:02}:{now.minute:02}"
                 self.set_attr(
                     ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds"))
                 )
@@ -2463,10 +2464,21 @@ class Places(SensorEntity):
 
     def change_show_time_to_date(self):
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
+            localedate = str(locale.nl_langinfo(locale.D_FMT)).replace(" ", "")
+            if localedate.lower().endswith("%y"):
+                localemmdd = localedate[:-3]
+            elif localedate.lower().startswith("%y"):
+                localemmdd = localedate[3:]
+            else:
+                localemmdd = "%m/%d"
+            mmddstring = (
+                datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
+                .strftime(f"{localemmdd}")
+                .replace(" ", "")[:5]
+            )
             self.set_attr(
                 ATTR_NATIVE_VALUE,
-                f"{self.get_attr(ATTR_NATIVE_VALUE)[: -14]}"
-                + f" (since {datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED)).strftime('%m/%d')})",
+                f"{self.get_attr(ATTR_NATIVE_VALUE)[: -14]}" + f" (since {mmddstring})",
             )
 
             if not self.is_attr_blank(ATTR_NATIVE_VALUE):
