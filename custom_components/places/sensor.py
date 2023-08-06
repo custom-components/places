@@ -1715,7 +1715,13 @@ class Places(SensorEntity):
             )
         return none_opt, next_opt
 
-    def get_option_state(self, opt, incl=[], excl=[], incl_attr={}, excl_attr={}):
+    def get_option_state(
+        self, opt, incl=None, excl=None, incl_attr=None, excl_attr=None
+    ):
+        incl = [] if incl is None else incl
+        excl = [] if excl is None else excl
+        incl_attr = {} if incl_attr is None else incl_attr
+        excl_attr = {} if excl_attr is None else excl_attr
         if opt is not None and opt:
             opt = opt.lower().strip()
         _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [get_option_state] Option: {opt}")
