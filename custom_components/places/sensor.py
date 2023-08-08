@@ -1098,40 +1098,45 @@ class Places(SensorEntity):
                     .get("address")
                     .get(self.get_attr(ATTR_PLACE_CATEGORY)),
                 )
-        if "namedetails" in self.get_attr(ATTR_OSM_DICT) and "name" in self.get_attr(
-            ATTR_OSM_DICT
-        ).get("namedetails"):
-            self.set_attr(
-                ATTR_PLACE_NAME,
-                self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
-            )
-        if not self.is_attr_blank(CONF_LANGUAGE):
-            for language in self.get_attr(CONF_LANGUAGE).split(","):
-                if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
-                    "namedetails"
-                ):
-                    self.set_attr(
-                        ATTR_PLACE_NAME,
-                        self.get_attr(ATTR_OSM_DICT)
-                        .get("namedetails")
-                        .get("name:" + language),
-                    )
-                    break
+        if (
+            "namedetails" in self.get_attr(ATTR_OSM_DICT)
+            and self.get_attr(ATTR_OSM_DICT).get("namedetails") is not None
+        ):
+            if "name" in self.get_attr(ATTR_OSM_DICT).get("namedetails"):
+                self.set_attr(
+                    ATTR_PLACE_NAME,
+                    self.get_attr(ATTR_OSM_DICT).get("namedetails").get("name"),
+                )
+            if not self.is_attr_blank(CONF_LANGUAGE):
+                for language in self.get_attr(CONF_LANGUAGE).split(","):
+                    if "name:" + language in self.get_attr(ATTR_OSM_DICT).get(
+                        "namedetails"
+                    ):
+                        self.set_attr(
+                            ATTR_PLACE_NAME,
+                            self.get_attr(ATTR_OSM_DICT)
+                            .get("namedetails")
+                            .get("name:" + language),
+                        )
+                        break
         # if not self.in_zone() and self.get_attr(ATTR_PLACE_NAME) != "house":
         #    self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_PLACE_NAME))
 
-        if "house_number" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_STREET_NUMBER,
-                (self.get_attr(ATTR_OSM_DICT).get("address").get("house_number")),
-            )
-        if "road" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_STREET,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("road"),
-            )
         if (
-            (
+            "address" in self.get_attr(ATTR_OSM_DICT)
+            and self.get_attr(ATTR_OSM_DICT).get("address") is not None
+        ):
+            if "house_number" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_STREET_NUMBER,
+                    (self.get_attr(ATTR_OSM_DICT).get("address").get("house_number")),
+                )
+            if "road" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_STREET,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("road"),
+                )
+            if "retail" in self.get_attr(ATTR_OSM_DICT).get("address") and (
                 self.is_attr_blank(ATTR_PLACE_NAME)
                 or (
                     not self.is_attr_blank(ATTR_PLACE_CATEGORY)
@@ -1139,121 +1144,121 @@ class Places(SensorEntity):
                     and self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
                     and self.get_attr(ATTR_STREET) == self.get_attr(ATTR_PLACE_NAME)
                 )
-            )
-            and "address" in self.get_attr(ATTR_OSM_DICT)
-            and "retail" in self.get_attr(ATTR_OSM_DICT).get("address")
-        ):
-            self.set_attr(
-                ATTR_PLACE_NAME,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("retail"),
-            )
-        _LOGGER.debug(
-            f"({self.get_attr(CONF_NAME)}) Place Name: "
-            + f"{self.get_attr(ATTR_PLACE_NAME)}"
-        )
-
-        if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_PLACE_NEIGHBOURHOOD,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("neighbourhood"),
-            )
-        elif "hamlet" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_PLACE_NEIGHBOURHOOD,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("hamlet"),
-            )
-        elif "residential" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_PLACE_NEIGHBOURHOOD,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("residential"),
-            )
-
-        if "city" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_CITY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("city"),
-            )
-        elif "town" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_CITY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("town"),
-            )
-        elif "village" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_CITY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("village"),
-            )
-        elif "township" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_CITY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("township"),
-            )
-        elif "municipality" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_CITY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("municipality"),
-            )
-        elif "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_CITY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
-            )
-        if not self.is_attr_blank(ATTR_CITY):
-            self.set_attr(
-                ATTR_CITY_CLEAN,
-                self.get_attr(ATTR_CITY).replace(" Township", "").strip(),
-            )
-            if self.get_attr(ATTR_CITY_CLEAN).startswith("City of"):
+            ):
                 self.set_attr(
-                    ATTR_CITY_CLEAN, self.get_attr(ATTR_CITY_CLEAN)[8:] + " City"
+                    ATTR_PLACE_NAME,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("retail"),
+                )
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) Place Name: "
+                + f"{self.get_attr(ATTR_PLACE_NAME)}"
+            )
+
+            if "neighbourhood" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_PLACE_NEIGHBOURHOOD,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("neighbourhood"),
+                )
+            elif "hamlet" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_PLACE_NEIGHBOURHOOD,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("hamlet"),
+                )
+            elif "residential" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_PLACE_NEIGHBOURHOOD,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("residential"),
                 )
 
-        if "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_POSTAL_TOWN,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
-            )
-        if "suburb" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_POSTAL_TOWN,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("suburb"),
-            )
-        if "state" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_REGION,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("state"),
-            )
-        if "ISO3166-2-lvl4" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_STATE_ABBR,
-                (
+            if "city" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_CITY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("city"),
+                )
+            elif "town" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_CITY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("town"),
+                )
+            elif "village" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_CITY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("village"),
+                )
+            elif "township" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_CITY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("township"),
+                )
+            elif "municipality" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_CITY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("municipality"),
+                )
+            elif "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_CITY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
+                )
+            if not self.is_attr_blank(ATTR_CITY):
+                self.set_attr(
+                    ATTR_CITY_CLEAN,
+                    self.get_attr(ATTR_CITY).replace(" Township", "").strip(),
+                )
+                if self.get_attr(ATTR_CITY_CLEAN).startswith("City of"):
+                    self.set_attr(
+                        ATTR_CITY_CLEAN, self.get_attr(ATTR_CITY_CLEAN)[8:] + " City"
+                    )
+
+            if "city_district" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_POSTAL_TOWN,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("city_district"),
+                )
+            if "suburb" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_POSTAL_TOWN,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("suburb"),
+                )
+            if "state" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_REGION,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("state"),
+                )
+            if "ISO3166-2-lvl4" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_STATE_ABBR,
+                    (
+                        self.get_attr(ATTR_OSM_DICT)
+                        .get("address")
+                        .get("ISO3166-2-lvl4")
+                        .split("-")[1]
+                        .upper()
+                    ),
+                )
+            if "county" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_COUNTY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("county"),
+                )
+            if "country" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_COUNTRY,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("country"),
+                )
+            if "country_code" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_COUNTRY_CODE,
                     self.get_attr(ATTR_OSM_DICT)
                     .get("address")
-                    .get("ISO3166-2-lvl4")
-                    .split("-")[1]
-                    .upper()
-                ),
-            )
-        if "county" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_COUNTY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("county"),
-            )
-        if "country" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_COUNTRY,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("country"),
-            )
-        if "country_code" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_COUNTRY_CODE,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("country_code").upper(),
-            )
-        if "postcode" in self.get_attr(ATTR_OSM_DICT).get("address"):
-            self.set_attr(
-                ATTR_POSTAL_CODE,
-                self.get_attr(ATTR_OSM_DICT).get("address").get("postcode"),
-            )
+                    .get("country_code")
+                    .upper(),
+                )
+            if "postcode" in self.get_attr(ATTR_OSM_DICT).get("address"):
+                self.set_attr(
+                    ATTR_POSTAL_CODE,
+                    self.get_attr(ATTR_OSM_DICT).get("address").get("postcode"),
+                )
         if "display_name" in self.get_attr(ATTR_OSM_DICT):
             self.set_attr(
                 ATTR_FORMATTED_ADDRESS,
@@ -1269,6 +1274,7 @@ class Places(SensorEntity):
             not self.is_attr_blank(ATTR_PLACE_CATEGORY)
             and self.get_attr(ATTR_PLACE_CATEGORY).lower() == "highway"
             and "namedetails" in self.get_attr(ATTR_OSM_DICT)
+            and self.get_attr(ATTR_OSM_DICT).get("namedetails") is not None
             and "ref" in self.get_attr(ATTR_OSM_DICT).get("namedetails")
         ):
             street_refs = re.split(
