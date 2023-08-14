@@ -157,6 +157,7 @@ except Exception as e:
     use_issue_reg = False
 
 THROTTLE_INTERVAL = timedelta(seconds=600)
+MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
 SCAN_INTERVAL = timedelta(seconds=30)
 PLACES_JSON_FOLDER = os.path.join("custom_components", DOMAIN, "json_sensors")
 try:
@@ -703,6 +704,7 @@ class Places(SensorEntity):
             # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Devicetracker is not set")
             return False
 
+    @Throttle(MIN_THROTTLE_INTERVAL)
     def tsc_update(self, tscarg=None):
         """Call the do_update function based on the TSC (track state change) event"""
         if self.is_devicetracker_set():
