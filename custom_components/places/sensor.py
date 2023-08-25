@@ -382,6 +382,10 @@ class Places(SensorEntity):
         """Initialize the sensor."""
         self._attr_should_poll = True
         _LOGGER.info(f"({name}) [Init] Places sensor: {name}")
+        _LOGGER.debug(f"({name}) [Init] Locale: {locale.getlocale()}")
+        _LOGGER.debug(
+            f"({name}) [Init] Locale Date Format: {str(locale.nl_langinfo(locale.D_FMT))}"
+        )
 
         self._warn_if_device_tracker_prob = True
         self._internal_attr = {}
@@ -403,7 +407,7 @@ class Places(SensorEntity):
             self.entity_id = generate_entity_id(
                 ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
             )
-        _LOGGER.debug(f"({self._attr_name}) entity_id: {self.entity_id}")
+        _LOGGER.debug(f"({self._attr_name}) [Init] entity_id: {self.entity_id}")
         self.set_attr(CONF_ICON, DEFAULT_ICON)
         self._attr_icon = DEFAULT_ICON
         self.set_attr(CONF_API_KEY, config.get(CONF_API_KEY))
