@@ -28,6 +28,7 @@ import voluptuous as vol
 from homeassistant import config_entries, core
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
+from homeassistant.components.zone import ATTR_PASSIVE
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
     ATTR_GPS_ACCURACY,
@@ -768,6 +769,9 @@ class Places(SensorEntity):
 
     def in_zone(self):
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
+            zone_state = self._hass.states.get(
+                f"{CONF_ZONE}.{self.get_attr(ATTR_DEVICETRACKER_ZONE).lower()}"
+            )
             if self.get_attr(CONF_DEVICETRACKER_ID).split(".")[0] == CONF_ZONE:
                 return False
             elif (
@@ -780,6 +784,11 @@ class Places(SensorEntity):
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_home"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "notset"
                 or self.get_attr(ATTR_DEVICETRACKER_ZONE).lower() == "not_set"
+            ):
+                return False
+            elif (
+                zone_state is not None
+                and zone_state.attributes.get(ATTR_PASSIVE, False) is True
             ):
                 return False
             else:
