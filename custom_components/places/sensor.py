@@ -52,6 +52,7 @@ from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
 
 from .const import (
+    ATTR_ATTRIBUTES,
     ATTR_CITY,
     ATTR_CITY_CLEAN,
     ATTR_COUNTRY,
@@ -382,6 +383,7 @@ class Places(SensorEntity):
         self._attr_should_poll = True
         _LOGGER.info(f"({name}) [Init] Places sensor: {name}")
 
+        self._warn_if_device_tracker_prob = True
         self._internal_attr = {}
         self.set_attr(ATTR_INITIAL_UPDATE, True)
         self._config = config
@@ -667,13 +669,21 @@ class Places(SensorEntity):
     def clear_attr(self, attr):
         self._internal_attr.pop(attr, None)
 
-    def is_devicetracker_set(self):
+    def is_devicetracker_set(self, update_type=None):
 
         if (
-            not self.is_attr_blank(CONF_DEVICETRACKER_ID)
-            and hasattr(
+            self.is_attr_blank(CONF_DEVICETRACKER_ID)
+            or self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)) is None
+        ):
+            _LOGGER.warning(
+                f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
+                f"is not set or is not available. Not Proceeding with {update_type} Update."
+            )
+            return False
+        if (
+            hasattr(
                 self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)),
-                "attributes",
+                ATTR_ATTRIBUTES,
             )
             and CONF_LATITUDE
             in self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes
@@ -699,26 +709,46 @@ class Places(SensorEntity):
             )
         ):
             # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Devicetracker is set")
+            self._warn_if_device_tracker_prob = True
             return True
         else:
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Devicetracker is not set")
+            if self._warn_if_device_tracker_prob:
+                _LOGGER.warning(
+                    f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
+                    "Latitude/Longitude is not set or is not a number. "
+                    f"Not Proceeding with {update_type} Update."
+                )
+                self._warn_if_device_tracker_prob = False
+            else:
+                _LOGGER.debug(
+                    f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
+                    "Latitude/Longitude is not set or is not a number. "
+                    f"Not Proceeding with {update_type} Update."
+                )
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Device Tracker "
+                f"({self.get_attr(CONF_DEVICETRACKER_ID)}) details: "
+                f"{self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID))}"
+            )
             return False
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     def tsc_update(self, tscarg=None):
         """Call the do_update function based on the TSC (track state change) event"""
-        if self.is_devicetracker_set():
+        update_type = "Track State Change"
+        if self.is_devicetracker_set(update_type):
             # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Running Update - Devicetracker is set")
-            self.do_update("Track State Change")
+            self.do_update(update_type)
         # else:
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Not Running Update - Devicetracker is not set")
 
     @Throttle(THROTTLE_INTERVAL)
     async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
-        if self.is_devicetracker_set():
+        update_type = "Scan Interval"
+        if self.is_devicetracker_set(update_type):
             # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [Async Update] Running Update - Devicetracker is set")
-            await self._hass.async_add_executor_job(self.do_update, "Scan Interval")
+            await self._hass.async_add_executor_job(self.do_update, update_type)
         # else:
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [Async Update] Not Running Update - Devicetracker is not set")
 
