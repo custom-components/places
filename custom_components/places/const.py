@@ -9,7 +9,7 @@ from homeassistant.const import (
 )
 
 DOMAIN = "places"
-VERSION = "v2.4"
+VERSION = "v2.5"
 EVENT_TYPE = DOMAIN + "_state_update"
 PLATFORM = Platform.SENSOR
 ENTITY_ID_FORMAT = Platform.SENSOR + ".{}"
@@ -50,7 +50,6 @@ CONF_NATIVE_VALUE = "native_value"
 CONF_DISPLAY_OPTIONS = "options"
 CONF_SHOW_TIME = "show_time"
 CONF_USE_GPS = "use_gps_accuracy"
-CONF_YAML_HASH = "yaml_hash"
 
 # Attributes
 ATTR_ATTRIBUTES = "attributes"

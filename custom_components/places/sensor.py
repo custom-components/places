@@ -13,7 +13,6 @@ GitHub: https://github.com/custom-components/places
 """
 
 import copy
-import hashlib
 import json
 import locale
 import logging
@@ -21,13 +20,11 @@ import os
 import re
 from datetime import datetime, timedelta
 
-import homeassistant.helpers.config_validation as cv
 import homeassistant.helpers.entity_registry as er
 import requests
-import voluptuous as vol
 from homeassistant import config_entries, core
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
-from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
+from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.zone import ATTR_PASSIVE
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -38,16 +35,11 @@ from homeassistant.const import (
     CONF_LATITUDE,
     CONF_LONGITUDE,
     CONF_NAME,
-    CONF_PLATFORM,
-    CONF_SCAN_INTERVAL,
     CONF_UNIQUE_ID,
     CONF_ZONE,
-    EVENT_HOMEASSISTANT_START,
 )
 from homeassistant.helpers.entity import generate_entity_id
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_call_later, async_track_state_change_event
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import Throttle, slugify
 from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
@@ -119,7 +111,6 @@ from .const import (
     CONF_MAP_ZOOM,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
-    CONF_YAML_HASH,
     CONFIG_ATTRIBUTES_LIST,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
@@ -136,28 +127,16 @@ from .const import (
     EVENT_TYPE,
     EXTENDED_ATTRIBUTE_LIST,
     EXTRA_STATE_ATTRIBUTE_LIST,
-    HOME_LOCATION_DOMAINS,
     JSON_ATTRIBUTE_LIST,
     JSON_IGNORE_ATTRIBUTE_LIST,
     PLACE_NAME_DUPLICATE_LIST,
     PLATFORM,
     RESET_ATTRIBUTE_LIST,
-    TRACKING_DOMAINS,
-    TRACKING_DOMAINS_NEED_LATLONG,
     VERSION,
 )
 from .recorder_history_prefilter import recorder_prefilter
 
 _LOGGER = logging.getLogger(__name__)
-try:
-    use_issue_reg = True
-    from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
-except Exception as e:
-    _LOGGER.debug(
-        f"Unknown Exception trying to import issue_registry. Is HA version <2022.9?: {e}"
-    )
-    use_issue_reg = False
-
 THROTTLE_INTERVAL = timedelta(seconds=600)
 MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -168,191 +147,6 @@ except OSError as e:
     _LOGGER.warning(f"OSError creating folder for JSON sensor files: {e}")
 except Exception as e:
     _LOGGER.warning(f"Unknown Exception creating folder for JSON sensor files: {e}")
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Required(CONF_DEVICETRACKER_ID): cv.string,
-        vol.Optional(CONF_API_KEY): cv.string,
-        vol.Optional(CONF_DISPLAY_OPTIONS, default=DEFAULT_DISPLAY_OPTIONS): cv.string,
-        vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): cv.string,
-        vol.Optional(CONF_NAME): cv.string,
-        vol.Optional(CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER): cv.string,
-        vol.Optional(CONF_MAP_ZOOM, default=DEFAULT_MAP_ZOOM): cv.positive_int,
-        vol.Optional(CONF_LANGUAGE): cv.string,
-        vol.Optional(CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR): cv.boolean,
-        vol.Optional(CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME): cv.boolean,
-    }
-)
-
-
-async def async_setup_platform(
-    hass: core.HomeAssistant,
-    config: ConfigType,
-    async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType = None,
-) -> None:
-    """Set up places sensor from YAML."""
-
-    @core.callback
-    def schedule_import(_):
-        """Schedule delayed import after HA is fully started."""
-        _LOGGER.debug("[YAML Import] Awaiting HA Startup before importing")
-        async_call_later(hass, 10, do_import)
-
-    @core.callback
-    def do_import(_):
-        """Process YAML import."""
-        _LOGGER.debug("[YAML Import] HA Started, proceeding")
-        if validate_import():
-            _LOGGER.warning(
-                f"[YAML Import] New YAML sensor, importing: {import_config.get(CONF_NAME)}"
-            )
-
-            if use_issue_reg and import_config is not None:
-                async_create_issue(
-                    hass,
-                    DOMAIN,
-                    "deprecated_yaml",
-                    is_fixable=False,
-                    severity=IssueSeverity.WARNING,
-                    translation_key="deprecated_yaml",
-                )
-
-            hass.async_create_task(
-                hass.config_entries.flow.async_init(
-                    DOMAIN,
-                    context={"source": config_entries.SOURCE_IMPORT},
-                    data=import_config,
-                )
-            )
-        # else:
-        #    _LOGGER.debug("[YAML Import] Failed validation, not importing")
-
-    @core.callback
-    def validate_import():
-        if CONF_DEVICETRACKER_ID not in import_config:
-            # device_tracker not defined in config
-            ERROR = "[YAML Validate] Not importing: devicetracker_id not defined in the YAML places sensor definition"
-            _LOGGER.error(ERROR)
-            return False
-        elif import_config.get(CONF_DEVICETRACKER_ID) is None:
-            # device_tracker not defined in config
-            ERROR = "[YAML Validate] Not importing: devicetracker_id not defined in the YAML places sensor definition"
-            _LOGGER.error(ERROR)
-            return False
-        _LOGGER.debug(
-            f"[YAML Validate] devicetracker_id: {import_config.get(CONF_DEVICETRACKER_ID)}"
-        )
-        if (
-            import_config.get(CONF_DEVICETRACKER_ID).split(".")[0]
-            not in TRACKING_DOMAINS
-        ):
-            # entity isn't in supported type
-            ERROR = (
-                "[YAML Validate] Not importing: devicetracker_id: "
-                + f"{import_config.get(CONF_DEVICETRACKER_ID)} is not one of the supported types: {list(TRACKING_DOMAINS)}"
-            )
-            _LOGGER.error(ERROR)
-            return False
-        elif not hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)):
-            # entity doesn't exist
-            ERROR = (
-                "[YAML Validate] Not importing: devicetracker_id: "
-                + f"{import_config.get(CONF_DEVICETRACKER_ID)} doesn't exist"
-            )
-            _LOGGER.error(ERROR)
-            return False
-
-        if import_config.get(CONF_DEVICETRACKER_ID).split(".")[
-            0
-        ] in TRACKING_DOMAINS_NEED_LATLONG and not (
-            CONF_LATITUDE
-            in hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)).attributes
-            and CONF_LONGITUDE
-            in hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)).attributes
-        ):
-            _LOGGER.debug(
-                f"[YAML Validate] devicetracker_id: {import_config.get(CONF_DEVICETRACKER_ID)}: "
-                + f"Lat/Long: {hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)).attributes.get(CONF_LATITUDE)} "
-                + f"/ {hass.states.get(import_config.get(CONF_DEVICETRACKER_ID)).attributes.get(CONF_LONGITUDE)}"
-            )
-            ERROR = (
-                "[YAML Validate] Not importing: devicetracker_id: "
-                + f"{import_config.get(CONF_DEVICETRACKER_ID)} doesnt have latitude/longitude as attributes"
-            )
-            _LOGGER.error(ERROR)
-            return False
-
-        if CONF_HOME_ZONE in import_config:
-            if import_config.get(CONF_HOME_ZONE) is None:
-                # home zone not defined in config
-                ERROR = "[YAML Validate] Not importing: home_zone is blank in the YAML places sensor definition"
-                _LOGGER.error(ERROR)
-                return False
-            _LOGGER.debug(
-                f"[YAML Validate] home_zone: {import_config.get(CONF_HOME_ZONE)}"
-            )
-
-            if (
-                import_config.get(CONF_HOME_ZONE).split(".")[0]
-                not in HOME_LOCATION_DOMAINS
-            ):
-                # entity isn't in supported type
-                ERROR = (
-                    "[YAML Validate] Not importing: home_zone: "
-                    + f"{import_config.get(CONF_HOME_ZONE)} is not one of the supported types: "
-                    + f"{list(HOME_LOCATION_DOMAINS)}"
-                )
-                _LOGGER.error(ERROR)
-                return False
-            elif not hass.states.get(import_config.get(CONF_HOME_ZONE)):
-                # entity doesn't exist
-                ERROR = (
-                    "[YAML Validate] Not importing: home_zone: "
-                    + f"{import_config.get(CONF_HOME_ZONE)} doesn't exist"
-                )
-                _LOGGER.error(ERROR)
-                return False
-
-        # Generate pseudo-unique id using MD5 and store in config to try to prevent reimporting already imported yaml sensors.
-        string_to_hash = (
-            import_config.get(CONF_NAME)
-            + import_config.get(CONF_DEVICETRACKER_ID)
-            + import_config.get(CONF_HOME_ZONE)
-        )
-        # _LOGGER.debug(f"[YAML Validate] string_to_hash: {string_to_hash}")
-        yaml_hash_object = hashlib.md5(string_to_hash.encode())
-        yaml_hash = yaml_hash_object.hexdigest()
-
-        import_config.setdefault(CONF_YAML_HASH, yaml_hash)
-        # _LOGGER.debug(f"[YAML Validate] final import_config: {import_config)}"
-
-        all_yaml_hashes = []
-        if (
-            DOMAIN in hass.data
-            and hass.data.get(DOMAIN) is not None
-            and hass.data.get(DOMAIN).values() is not None
-        ):
-            for m in list(hass.data.get(DOMAIN).values()):
-                if CONF_YAML_HASH in m:
-                    all_yaml_hashes.append(m.get(CONF_YAML_HASH))
-
-        # _LOGGER.debug(f"[YAML Validate] YAML hash: {import_config.get(CONF_YAML_HASH)}")
-        # _LOGGER.debug(f"[YAML Validate] All existing YAML hashes: {all_yaml_hashes}")
-        if import_config.get(CONF_YAML_HASH) not in all_yaml_hashes:
-            return True
-        else:
-            _LOGGER.info(
-                f"[YAML Validate] YAML sensor already imported, ignoring: {import_config.get(CONF_NAME)}"
-            )
-            return False
-
-    import_config = dict(config)
-    _LOGGER.debug(f"[YAML Import] initial import_config: {import_config}")
-    import_config.pop(CONF_PLATFORM, None)
-    import_config.pop(CONF_SCAN_INTERVAL, None)
-
-    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_START, schedule_import)
 
 
 async def async_setup_entry(
