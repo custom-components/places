@@ -20,6 +20,7 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import homeassistant.helpers.config_validation as cv
 import homeassistant.helpers.entity_registry as er
@@ -383,11 +384,11 @@ class Places(SensorEntity):
         """Initialize the sensor."""
         self._attr_should_poll = True
         _LOGGER.info(f"({name}) [Init] Places sensor: {name}")
-        _LOGGER.debug(f"({name}) [Init] Locale: {locale.getlocale()}")
+        _LOGGER.debug(f"({name}) [Init] System Locale: {locale.getlocale()}")
         _LOGGER.debug(
-            f"({name}) [Init] Locale Date Format: {str(locale.nl_langinfo(locale.D_FMT))}"
+            f"({name}) [Init] System Locale Date Format: {str(locale.nl_langinfo(locale.D_FMT))}"
         )
-
+        _LOGGER.debug(f"({name}) [Init] HASS TimeZone: {hass.config.time_zone}")
         self._warn_if_device_tracker_prob = True
         self._internal_attr = {}
         self.set_attr(ATTR_INITIAL_UPDATE, True)
@@ -2246,7 +2247,10 @@ class Places(SensorEntity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
-        now = datetime.now()
+        if self._hass.config.time_zone is not None:
+            now = datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
+        else:
+            now = datetime.now()
         previous_attr = copy.deepcopy(self._internal_attr)
 
         _LOGGER.info(f"({self.get_attr(CONF_NAME)}) Starting Update...")
@@ -2574,13 +2578,20 @@ class Places(SensorEntity):
         else:
             try:
                 changed_diff_sec = (now - last_changed).total_seconds()
+            except TypeError:
+                try:
+                    changed_diff_sec = (datetime.now() - last_changed).total_seconds()
+                except (TypeError, OverflowError) as e:
+                    _LOGGER.warning(
+                        f"Error calculating the seconds between last change to now: {repr(e)}"
+                    )
+                    return 3600
             except OverflowError as e:
                 _LOGGER.warning(
                     f"Error calculating the seconds between last change to now: {repr(e)}"
                 )
                 return 3600
-            else:
-                return changed_diff_sec
+            return changed_diff_sec
 
     def _reset_attributes(self):
         """Resets attributes."""
