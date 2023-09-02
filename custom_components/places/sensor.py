@@ -575,7 +575,7 @@ class Places(SensorEntity):
             async_track_state_change_event(
                 self.hass,
                 self.get_attr(CONF_DEVICETRACKER_ID),
-                self.tsc_update,
+                self.async_tsc_update,
             )
         )
         _LOGGER.debug(
@@ -738,12 +738,15 @@ class Places(SensorEntity):
             return False
 
     @Throttle(MIN_THROTTLE_INTERVAL)
-    def tsc_update(self, tscarg=None):
+    async def async_tsc_update(self, tscarg=None):
         """Call the do_update function based on the TSC (track state change) event"""
         update_type = "Track State Change"
         if self.is_devicetracker_set(update_type):
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Running Update - Devicetracker is set")
-            self.do_update(update_type)
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) [TSC Update] Running Update - Devicetracker is set"
+            )
+            # await self._hass.async_add_executor_job(self.do_update, update_type)
+            self._hass.async_create_task(self.do_update(update_type))
         # else:
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Not Running Update - Devicetracker is not set")
 
