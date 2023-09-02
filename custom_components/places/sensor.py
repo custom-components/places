@@ -518,21 +518,16 @@ class Places(SensorEntity):
     @core.callback
     def async_tsc_update(self, event: EventType[EventStateChangedData]):
         """Call the do_update function based on the TSC (track state change) event"""
-        _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] event: {event}")
+        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] event: {event}")
         new_state = event.data["new_state"]
         if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
-        _LOGGER.debug(
-            f"({self.get_attr(CONF_NAME)}) [TSC Update] new_state: {new_state}"
-        )
+        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] new_state: {new_state}")
 
         update_type = "Track State Change"
         if self.is_devicetracker_set():
-            _LOGGER.debug(
-                f"({self.get_attr(CONF_NAME)}) [TSC Update] Running Update - Devicetracker is set"
-            )
+            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Running Update - Devicetracker is set")
             self._hass.async_add_executor_job(self.do_update, update_type)
-            # self._hass.async_create_task(self.do_update(update_type))
         # else:
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Not Running Update - Devicetracker is not set")
 
