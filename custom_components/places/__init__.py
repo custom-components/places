@@ -2,14 +2,13 @@ import logging
 
 from homeassistant import config_entries, core
 from homeassistant.const import Platform
+from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
-
-# List of platforms to support. There should be a matching .py file for each,
-# eg <cover.py> and <sensor.py>
 PLATFORMS: list[str] = [Platform.SENSOR]
+CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 async def async_setup_entry(

@@ -244,13 +244,6 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
-    # this is run to import the configuration.yaml parameters\
-    async def async_step_import(self, import_config=None) -> FlowResult:
-        """Import a config entry from configuration.yaml."""
-
-        # _LOGGER.debug(f"[async_step_import] import_config: {import_config}")
-        return await self.async_step_user(import_config)
-
     @staticmethod
     @core.callback
     def async_get_options_flow(
