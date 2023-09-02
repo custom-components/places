@@ -38,9 +38,15 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_UNIQUE_ID,
     CONF_ZONE,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
 )
 from homeassistant.helpers.entity import generate_entity_id
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import (
+    EventStateChangedData,
+    async_track_state_change_event,
+)
+from homeassistant.helpers.typing import EventType
 from homeassistant.util import Throttle, slugify
 from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
@@ -367,10 +373,11 @@ class Places(SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         """Added to hass."""
+        await super().async_added_to_hass()
         self.async_on_remove(
             async_track_state_change_event(
                 self.hass,
-                self.get_attr(CONF_DEVICETRACKER_ID),
+                [self.get_attr(CONF_DEVICETRACKER_ID)],
                 self.async_tsc_update,
             )
         )
@@ -508,15 +515,24 @@ class Places(SensorEntity):
             return False
 
     @Throttle(MIN_THROTTLE_INTERVAL)
-    async def async_tsc_update(self, tscarg=None):
+    @core.callback
+    def async_tsc_update(self, event: EventType[EventStateChangedData]):
         """Call the do_update function based on the TSC (track state change) event"""
+        _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] event: {event}")
+        new_state = event.data["new_state"]
+        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+        _LOGGER.debug(
+            f"({self.get_attr(CONF_NAME)}) [TSC Update] new_state: {new_state}"
+        )
+
         update_type = "Track State Change"
-        if self.is_devicetracker_set(update_type):
+        if self.is_devicetracker_set():
             _LOGGER.debug(
                 f"({self.get_attr(CONF_NAME)}) [TSC Update] Running Update - Devicetracker is set"
             )
-            # await self._hass.async_add_executor_job(self.do_update, update_type)
-            self._hass.async_create_task(self.do_update(update_type))
+            self._hass.async_add_executor_job(self.do_update, update_type)
+            # self._hass.async_create_task(self.do_update(update_type))
         # else:
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Not Running Update - Devicetracker is not set")
 
