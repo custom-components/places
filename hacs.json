@@ -1,5 +1,7 @@
 {
   "name": "Places",
   "render_readme": true,
-  "hide_default_branch": true
+  "homeassistant": "2023.1.0b0",
+  "zip_release": true,
+  "filename": "places.zip"
 }

@@ -2,10 +2,11 @@ name: Draft PR for New Branches
 on:
   workflow_dispatch:
   create:
-    ref_type: branch    
+    ref_type: branch
     branches-ignore:
       - dev**
       - newdev**
+      - test**
       - main
       - master
 jobs:
