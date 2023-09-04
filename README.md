@@ -66,7 +66,7 @@ custom_components/places/translations/en.json
 Key | Required | Default | Description |
 -- | -- | -- | --
 `Sensor Name` | `Yes` | | Friendly name of the places sensor
-`DeviceTracker ID` | `Yes` | | The location device to track
+`DeviceTracker ID` | `Yes` | | The location entity to track. **Must** have `latitude` and `longitude` as attributes. Suports these entities: `device_tracker`, `person`, `sensor`, `variable` & `zone`
 `Email Address` | `No` | | OpenStreetMap API key (your email address).
 `Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.**
 `Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel
