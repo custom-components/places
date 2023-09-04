@@ -1173,7 +1173,7 @@ class Places(SensorEntity):
                 self.get_attr(ATTR_OSM_DICT).get("namedetails").get("ref"),
             )
             street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
-            _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) Street Refs: {street_refs}")
+            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) Street Refs: {street_refs}")
             for ref in street_refs:
                 if bool(re.search(r"\d", ref)):
                     self.set_attr(ATTR_STREET_REF, ref)
@@ -1301,9 +1301,7 @@ class Places(SensorEntity):
         self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
 
     def build_from_advanced_options(self, curr_options):
-        _LOGGER.debug(
-            f"({self.get_attr(CONF_NAME)}) [adv_options] Options: {curr_options}"
-        )
+        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Options: {curr_options}")
         if curr_options.count("[") != curr_options.count("]"):
             _LOGGER.error(
                 f"({self.get_attr(CONF_NAME)}) [adv_options] Bracket Count Mismatch: {curr_options}"
@@ -1335,9 +1333,7 @@ class Places(SensorEntity):
                 # Comma is first symbol
                 # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Comma is First")
                 opt = curr_options[:comma_num]
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) [adv_options] Option: {opt}"
-                )
+                # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Option: {opt}")
                 if opt is not None and opt:
                     ret_state = self.get_option_state(opt.strip())
                     if ret_state is not None and ret_state:
@@ -1347,9 +1343,7 @@ class Places(SensorEntity):
                             + f"{self.adv_options_state_list}"
                         )
                 next_opt = curr_options[(comma_num + 1):]
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}"
-                )
+                # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}")
                 if next_opt is not None and next_opt:
                     self.build_from_advanced_options(next_opt.strip())
                     # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Back from recursion")
@@ -1362,9 +1356,7 @@ class Places(SensorEntity):
                 # Bracket is first symbol
                 # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Bracket is First")
                 opt = curr_options[:bracket_num]
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) [adv_options] Option: {opt}"
-                )
+                # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Option: {opt}")
                 none_opt, next_opt = self.parse_bracket(curr_options[bracket_num:])
                 if (
                     next_opt is not None
@@ -1398,9 +1390,7 @@ class Places(SensorEntity):
                     and next_opt[0] == ","
                 ):
                     next_opt = next_opt[1:]
-                    _LOGGER.debug(
-                        f"({self.get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}"
-                    )
+                    # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}")
                     if next_opt is not None and next_opt:
                         self.build_from_advanced_options(next_opt.strip())
                         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Back from recursion")
@@ -1413,9 +1403,7 @@ class Places(SensorEntity):
                 # Parenthesis is first symbol
                 # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Parenthesis is First")
                 opt = curr_options[:paren_num]
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) [adv_options] Option: {opt}"
-                )
+                # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Option: {opt}")
                 incl, excl, incl_attr, excl_attr, next_opt = self.parse_parens(
                     curr_options[paren_num:]
                 )
@@ -1449,9 +1437,7 @@ class Places(SensorEntity):
                     and next_opt[0] == ","
                 ):
                     next_opt = next_opt[1:]
-                    _LOGGER.debug(
-                        f"({self.get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}"
-                    )
+                    # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}")
                     if next_opt is not None and next_opt:
                         self.build_from_advanced_options(next_opt.strip())
                         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [adv_options] Back from recursion")
@@ -1571,15 +1557,11 @@ class Places(SensorEntity):
                 f"({self.get_attr(CONF_NAME)}) [parse_parens] Parenthesis Mismatch: {curr_options}"
             )
         next_opt = curr_options[(close_paren_num + 1):]
-        _LOGGER.debug(
-            f"({self.get_attr(CONF_NAME)}) [parse_parens] Raw Next Options: {next_opt}"
-        )
+        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [parse_parens] Raw Next Options: {next_opt}")
         return incl, excl, incl_attr, excl_attr, next_opt
 
     def parse_bracket(self, curr_options):
-        _LOGGER.debug(
-            f"({self.get_attr(CONF_NAME)}) [parse_bracket] Options: {curr_options}"
-        )
+        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [parse_bracket] Options: {curr_options}")
         empty_bracket = False
         none_opt = None
         next_opt = None
@@ -1603,13 +1585,9 @@ class Places(SensorEntity):
 
         if empty_bracket or (close_bracket_num > 0 and bracket_count == 0):
             none_opt = curr_options[:close_bracket_num].strip()
-            _LOGGER.debug(
-                f"({self.get_attr(CONF_NAME)}) [parse_bracket] None Options: {none_opt}"
-            )
+            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [parse_bracket] None Options: {none_opt}")
             next_opt = curr_options[(close_bracket_num + 1):].strip()
-            _LOGGER.debug(
-                f"({self.get_attr(CONF_NAME)}) [parse_bracket] Raw Next Options: {next_opt}"
-            )
+            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [parse_bracket] Raw Next Options: {next_opt}")
         else:
             _LOGGER.error(
                 f"({self.get_attr(CONF_NAME)}) [parse_bracket] Bracket Mismatch Error: {curr_options}"
@@ -1625,7 +1603,7 @@ class Places(SensorEntity):
         excl_attr = {} if excl_attr is None else excl_attr
         if opt is not None and opt:
             opt = str(opt).lower().strip()
-        _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [get_option_state] Option: {opt}")
+        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [get_option_state] Option: {opt}")
         out = self.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
         if (
             DISPLAY_OPTIONS_MAP.get(opt)
@@ -2232,10 +2210,10 @@ class Places(SensorEntity):
                     self.build_from_advanced_options(
                         self.get_attr(ATTR_DISPLAY_OPTIONS)
                     )
-                    _LOGGER.debug(
-                        f"({self.get_attr(CONF_NAME)}) Back from initial advanced build: "
-                        + f"{self.adv_options_state_list}"
-                    )
+                    # _LOGGER.debug(
+                    #    f"({self.get_attr(CONF_NAME)}) Back from initial advanced build: "
+                    #    + f"{self.adv_options_state_list}"
+                    # )
                     self.compile_state_from_advanced_options()
                 elif not self.in_zone():
                     self.build_state_from_display_options()

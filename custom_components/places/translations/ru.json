@@ -40,11 +40,5 @@
                 "description": "**Обновление сенсора:&nbsp;{sensor_name}**\nПодробности см. в [Параметры конфигурации]({component_config_url}) на GitHub."
             }
         }
-    },
-    "issues": {
-        "deprecated_yaml": {
-            "title": "Удалить конфигурацию Places YAML",
-            "description": "Ваша существующая конфигурация YAML была автоматически импортирована в пользовательский интерфейс.\n\nУдалите конфигурацию Places YAML из файла configuration.yaml и перезапустите Home Assistant, чтобы решить эту проблему."
-        }
     }
 }

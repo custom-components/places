@@ -40,11 +40,5 @@
                 "description": "**Оновлення датчика:&nbsp;{sensor_name}**\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub"
             }
         }
-    },
-    "issues": {
-        "deprecated_yaml": {
-            "title": "Видаліть конфігурацію YAML Places",
-            "description": "Вашу наявну конфігурацію YAML було автоматично імпортовано в інтерфейс користувача.\n\nВидаліть конфігурацію YAML Місця зі свого файлу configuration.yaml і перезапустіть Home Assistant, щоб вирішити цю проблему."
-        }
     }
 }
