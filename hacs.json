@@ -3,5 +3,6 @@
   "render_readme": true,
   "homeassistant": "2023.1.0b0",
   "zip_release": true,
-  "filename": "places.zip"
+  "filename": "places.zip",
+  "persistent_directory": "json_sensors"
 }
