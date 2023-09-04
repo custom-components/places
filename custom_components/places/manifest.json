@@ -1,7 +1,7 @@
 {
   "domain": "places",
   "name": "Places",
-  "after_dependencies": ["device_tracker","http","person","recorder","variable","zone"],
+  "after_dependencies": ["device_tracker","http","icloud3","mobile_app","owntracks","person","recorder","variable","zone"],
   "codeowners": ["@Snuffy2"],
   "config_flow": true,
   "dependencies": ["sensor"],
