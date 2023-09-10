@@ -2,7 +2,7 @@ name: Create Zip on Release
 on:
   workflow_dispatch:
   release:
-    types: [released]
+    types: [published, edited]
 jobs:
   create_zip:
     runs-on: ubuntu-latest
