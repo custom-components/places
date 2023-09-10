@@ -331,7 +331,7 @@ class Places(SensorEntity):
         if self.get_attr(CONF_EXTENDED_ATTR):
             self.disable_recorder()
         _LOGGER.info(
-            f"({self.get_attr(CONF_NAME)}) [Init] DeviceTracker Entity ID: "
+            f"({self.get_attr(CONF_NAME)}) [Init] Tracked Entity ID: "
             + f"{self.get_attr(CONF_DEVICETRACKER_ID)}"
         )
 
@@ -382,7 +382,7 @@ class Places(SensorEntity):
             )
         )
         _LOGGER.debug(
-            f"({self.get_attr(CONF_NAME)}) [Init] Subscribed to DeviceTracker state change events"
+            f"({self.get_attr(CONF_NAME)}) [Init] Subscribed to Tracked Entity state change events"
         )
 
     async def async_will_remove_from_hass(self) -> None:
@@ -478,10 +478,35 @@ class Places(SensorEntity):
         self._internal_attr.pop(attr, None)
 
     def is_devicetracker_set(self):
+        proceed_with_update = 0
+        # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
         if (
-            not self.is_attr_blank(CONF_DEVICETRACKER_ID)
-            and hasattr(
+            self.is_attr_blank(CONF_DEVICETRACKER_ID)
+            or self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)) is None
+            or (
+                isinstance(
+                    self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)), str
+                )
+                and self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).lower()
+                in ["none", STATE_UNKNOWN, STATE_UNAVAILABLE]
+            )
+        ):
+            if self._warn_if_device_tracker_prob or self.get_attr(ATTR_INITIAL_UPDATE):
+                _LOGGER.warning(
+                    f"({self.get_attr(CONF_NAME)}) Tracked Entity ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
+                    f"is not set or is not available. Not Proceeding with Update."
+                )
+                self._warn_if_device_tracker_prob = False
+            else:
+                _LOGGER.info(
+                    f"({self.get_attr(CONF_NAME)}) Tracked Entity ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
+                    f"is not set or is not available. Not Proceeding with Update."
+                )
+            return 0
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        if (
+            hasattr(
                 self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)),
                 ATTR_ATTRIBUTES,
             )
@@ -508,11 +533,30 @@ class Places(SensorEntity):
                 ).attributes.get(CONF_LONGITUDE)
             )
         ):
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Devicetracker is set")
-            return True
+            self._warn_if_device_tracker_prob = True
+            proceed_with_update = 1
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
         else:
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Devicetracker is not set")
-            return False
+            if self._warn_if_device_tracker_prob or self.get_attr(ATTR_INITIAL_UPDATE):
+                _LOGGER.warning(
+                    f"({self.get_attr(CONF_NAME)}) Tracked Entity ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
+                    "Latitude/Longitude is not set or is not a number. "
+                    f"Not Proceeding with Update."
+                )
+                self._warn_if_device_tracker_prob = False
+            else:
+                _LOGGER.info(
+                    f"({self.get_attr(CONF_NAME)}) Tracked Entity ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
+                    "Latitude/Longitude is not set or is not a number. "
+                    f"Not Proceeding with Update."
+                )
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) Tracked Entity ({self.get_attr(CONF_DEVICETRACKER_ID)}) details: "
+                f"{self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID))}"
+            )
+            return 0
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        return proceed_with_update
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     @core.callback
@@ -520,26 +564,21 @@ class Places(SensorEntity):
         """Call the do_update function based on the TSC (track state change) event"""
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] event: {event}")
         new_state = event.data["new_state"]
-        if new_state is None or new_state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+        if new_state is None or (
+            isinstance(new_state.state, str)
+            and new_state.state.lower() in ["none", STATE_UNKNOWN, STATE_UNAVAILABLE]
+        ):
             return
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] new_state: {new_state}")
 
         update_type = "Track State Change"
-        if self.is_devicetracker_set():
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Running Update - Devicetracker is set")
-            self._hass.async_add_executor_job(self.do_update, update_type)
-        # else:
-        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] Not Running Update - Devicetracker is not set")
+        self._hass.async_add_executor_job(self.do_update, update_type)
 
     @Throttle(THROTTLE_INTERVAL)
     async def async_update(self):
         """Call the do_update function based on scan interval and throttle"""
         update_type = "Scan Interval"
-        if self.is_devicetracker_set():
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [Async Update] Running Update - Devicetracker is set")
-            await self._hass.async_add_executor_job(self.do_update, update_type)
-        # else:
-        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [Async Update] Not Running Update - Devicetracker is not set")
+        await self._hass.async_add_executor_job(self.do_update, update_type)
 
     def is_float(self, value):
         if value is not None:
@@ -647,8 +686,8 @@ class Places(SensorEntity):
                 devicetracker_zone_name_state = self._hass.states.get(
                     devicetracker_zone_id
                 )
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) DeviceTracker Zone ID: {devicetracker_zone_id}")
-            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) DeviceTracker Zone Name State: {devicetracker_zone_name_state}")
+            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) Tracked Entity Zone ID: {devicetracker_zone_id}")
+            # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) Tracked Entity Zone Name State: {devicetracker_zone_name_state}")
             if devicetracker_zone_name_state is not None:
                 if (
                     devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME)
@@ -677,17 +716,17 @@ class Places(SensorEntity):
                     self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME).title(),
                 )
             _LOGGER.debug(
-                f"({self.get_attr(CONF_NAME)}) DeviceTracker Zone Name: {self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)}"
+                f"({self.get_attr(CONF_NAME)}) Tracked Entity Zone Name: {self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)}"
             )
         else:
             _LOGGER.debug(
-                f"({self.get_attr(CONF_NAME)}) DeviceTracker Zone: {self.get_attr(ATTR_DEVICETRACKER_ZONE)}"
+                f"({self.get_attr(CONF_NAME)}) Tracked Entity Zone: {self.get_attr(ATTR_DEVICETRACKER_ZONE)}"
             )
             self.set_attr(
                 ATTR_DEVICETRACKER_ZONE_NAME, self.get_attr(ATTR_DEVICETRACKER_ZONE)
             )
 
-    def determine_if_update_needed(self, reason=None):
+    def determine_if_update_needed(self):
         proceed_with_update = 0
         # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
@@ -696,78 +735,20 @@ class Places(SensorEntity):
                 f"({self.get_attr(CONF_NAME)}) Performing Initial Update for user..."
             )
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
-            proceed_with_update = 1
+            return 1
 
-        if (
-            self.is_attr_blank(CONF_DEVICETRACKER_ID)
-            or self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)) is None
+        elif self.is_attr_blank(ATTR_NATIVE_VALUE) or (
+            isinstance(self.get_attr(ATTR_NATIVE_VALUE), str)
+            and self.get_attr(ATTR_NATIVE_VALUE).lower()
+            in ["none", STATE_UNKNOWN, STATE_UNAVAILABLE]
         ):
-            if self._warn_if_device_tracker_prob:
-                _LOGGER.warning(
-                    f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
-                    f"is not set or is not available. Not Proceeding with {reason} Update."
-                )
-                self._warn_if_device_tracker_prob = False
-            else:
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
-                    f"is not set or is not available. Not Proceeding with {reason} Update."
-                )
-            return 0
+            _LOGGER.info(
+                f"({self.get_attr(CONF_NAME)}) Previous State is Unknown, performing update."
+            )
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
-        if (
-            hasattr(
-                self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)),
-                ATTR_ATTRIBUTES,
-            )
-            and CONF_LATITUDE
-            in self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes
-            and CONF_LONGITUDE
-            in self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes
-            and self._hass.states.get(
-                self.get_attr(CONF_DEVICETRACKER_ID)
-            ).attributes.get(CONF_LATITUDE)
-            is not None
-            and self._hass.states.get(
-                self.get_attr(CONF_DEVICETRACKER_ID)
-            ).attributes.get(CONF_LONGITUDE)
-            is not None
-            and self.is_float(
-                self._hass.states.get(
-                    self.get_attr(CONF_DEVICETRACKER_ID)
-                ).attributes.get(CONF_LATITUDE)
-            )
-            and self.is_float(
-                self._hass.states.get(
-                    self.get_attr(CONF_DEVICETRACKER_ID)
-                ).attributes.get(CONF_LONGITUDE)
-            )
-        ):
-            self._warn_if_device_tracker_prob = True
-            proceed_with_update = 1
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-        else:
-            if self._warn_if_device_tracker_prob:
-                _LOGGER.warning(
-                    f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
-                    "Latitude/Longitude is not set or is not a number. "
-                    f"Not Proceeding with {reason} Update."
-                )
-                self._warn_if_device_tracker_prob = False
-            else:
-                _LOGGER.debug(
-                    f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
-                    "Latitude/Longitude is not set or is not a number. "
-                    f"Not Proceeding with {reason} Update."
-                )
-            _LOGGER.debug(
-                f"({self.get_attr(CONF_NAME)}) Device Tracker ({self.get_attr(CONF_DEVICETRACKER_ID)}) details: "
-                f"{self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID))}"
-            )
-            return 0
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
+            return 1
 
-        if self.get_attr(ATTR_LOCATION_CURRENT) == self.get_attr(
+        elif self.get_attr(ATTR_LOCATION_CURRENT) == self.get_attr(
             ATTR_LOCATION_PREVIOUS
         ):
             _LOGGER.info(
@@ -2070,13 +2051,17 @@ class Places(SensorEntity):
     def do_update(self, reason):
         """Get the latest data and updates the states."""
 
+        _LOGGER.info(
+            f"({self.get_attr(CONF_NAME)}) Starting {reason} Update (Tracked Entity: "
+            + f"{self.get_attr(CONF_DEVICETRACKER_ID)})"
+        )
+
         if self._hass.config.time_zone is not None:
             now = datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
         else:
             now = datetime.now()
         previous_attr = copy.deepcopy(self._internal_attr)
 
-        _LOGGER.info(f"({self.get_attr(CONF_NAME)}) Starting Update...")
         self.check_for_updated_entity_name()
         self.cleanup_attributes()
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) Previous entity attributes: {self._internal_attr}")
@@ -2092,39 +2077,38 @@ class Places(SensorEntity):
             self.set_attr(ATTR_LONGITUDE_OLD, str(self.get_attr(ATTR_LONGITUDE)))
         prev_last_place_name = self.get_attr(ATTR_LAST_PLACE_NAME)
 
-        _LOGGER.info(
-            f"({self.get_attr(CONF_NAME)}) Calling update for "
-            + f"{self.get_attr(CONF_DEVICETRACKER_ID)} due to: {reason}"
-        )
+        proceed_with_update = self.is_devicetracker_set()
+        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        if proceed_with_update == 1:
+            # 0: False. 1: True. 2: False, but set direction of travel to stationary
+            if self.is_float(
+                self._hass.states.get(
+                    self.get_attr(CONF_DEVICETRACKER_ID)
+                ).attributes.get(CONF_LATITUDE)
+            ):
+                self.set_attr(
+                    ATTR_LATITUDE,
+                    str(
+                        self._hass.states.get(
+                            self.get_attr(CONF_DEVICETRACKER_ID)
+                        ).attributes.get(CONF_LATITUDE)
+                    ),
+                )
+            if self.is_float(
+                self._hass.states.get(
+                    self.get_attr(CONF_DEVICETRACKER_ID)
+                ).attributes.get(CONF_LONGITUDE)
+            ):
+                self.set_attr(
+                    ATTR_LONGITUDE,
+                    str(
+                        self._hass.states.get(
+                            self.get_attr(CONF_DEVICETRACKER_ID)
+                        ).attributes.get(CONF_LONGITUDE)
+                    ),
+                )
+            proceed_with_update = self.get_gps_accuracy()
 
-        if self.is_float(
-            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                CONF_LATITUDE
-            )
-        ):
-            self.set_attr(
-                ATTR_LATITUDE,
-                str(
-                    self._hass.states.get(
-                        self.get_attr(CONF_DEVICETRACKER_ID)
-                    ).attributes.get(CONF_LATITUDE)
-                ),
-            )
-        if self.is_float(
-            self._hass.states.get(self.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                CONF_LONGITUDE
-            )
-        ):
-            self.set_attr(
-                ATTR_LONGITUDE,
-                str(
-                    self._hass.states.get(
-                        self.get_attr(CONF_DEVICETRACKER_ID)
-                    ).attributes.get(CONF_LONGITUDE)
-                ),
-            )
-
-        proceed_with_update = self.get_gps_accuracy()
         if proceed_with_update == 1:
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
             self.get_initial_last_place_name()
@@ -2133,7 +2117,7 @@ class Places(SensorEntity):
 
         if proceed_with_update == 1:
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
-            proceed_with_update = self.determine_if_update_needed(reason)
+            proceed_with_update = self.determine_if_update_needed()
 
         if proceed_with_update == 1:
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
@@ -2142,7 +2126,7 @@ class Places(SensorEntity):
             )
 
             _LOGGER.info(
-                f"({self.get_attr(CONF_NAME)}) DeviceTracker Zone: {self.get_attr(ATTR_DEVICETRACKER_ZONE)}"
+                f"({self.get_attr(CONF_NAME)}) Tracked Entity Zone: {self.get_attr(ATTR_DEVICETRACKER_ZONE)}"
                 # + f" / Skipped Updates: {self.get_attr(ATTR_UPDATES_SKIPPED)}"
             )
 
@@ -2225,7 +2209,7 @@ class Places(SensorEntity):
                         ATTR_NATIVE_VALUE, self.get_attr(ATTR_DEVICETRACKER_ZONE)
                     )
                     _LOGGER.debug(
-                        f"({self.get_attr(CONF_NAME)}) New State from DeviceTracker Zone: "
+                        f"({self.get_attr(CONF_NAME)}) New State from Tracked Entity Zone: "
                         + f"{self.get_attr(ATTR_NATIVE_VALUE)}"
                     )
                 elif not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
@@ -2233,7 +2217,7 @@ class Places(SensorEntity):
                         ATTR_NATIVE_VALUE, self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
                     )
                     _LOGGER.debug(
-                        f"({self.get_attr(CONF_NAME)}) New State from DeviceTracker Zone Name: "
+                        f"({self.get_attr(CONF_NAME)}) New State from Tracked Entity Zone Name: "
                         + f"{self.get_attr(ATTR_NATIVE_VALUE)}"
                     )
                 current_time = f"{now.hour:02}:{now.minute:02}"

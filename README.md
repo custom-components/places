@@ -12,7 +12,7 @@
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/custom-components/places/hacs_validate.yml?branch=master&style=for-the-badge)](#places)<br/>
 [![Community Forum](https://img.shields.io/badge/community-forum-orange.svg?label=HA%20Community&style=for-the-badge)](https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component)
 
-_Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device tracker, person, or sensor_
+_Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device_tracker, person, or sensor_
 
 ## Installation
 ### HACS *(recommended)*
@@ -66,7 +66,7 @@ custom_components/places/translations/en.json
 Key | Required | Default | Description |
 -- | -- | -- | --
 `Sensor Name` | `Yes` | | Friendly name of the places sensor
-`DeviceTracker ID` | `Yes` | | The location entity to track. **Must** have `latitude` and `longitude` as attributes. Suports these entities: `device_tracker`, `person`, `sensor`, `variable` & `zone`
+`Tracked Entity ID` | `Yes` | | The location entity to track. **Must** have `latitude` and `longitude` as attributes. Supports these entities: `device_tracker`, `person`, `sensor`, `variable` & `zone`
 `Email Address` | `No` | | OpenStreetMap API key (your email address).
 `Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.**
 `Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel
