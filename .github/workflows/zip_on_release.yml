@@ -8,7 +8,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v4.1.0
+      uses: actions/checkout@v4.0.0
+    - name: Update Version in Manifest
+      if: ${{ github.event_name == 'release' }}
+      run: |
+        sed -i 's/\"version\"\s*\:\s*\".*\"/\"version\"\:\"${{ github.ref_name }}\"/g' ./custom_components/places/manifest.json
+    - name: Update Version in const.py
+      if: ${{ github.event_name == 'release' }}
+      run: |
+        sed -i 's/VERSION \= \".*\"/VERSION \= \"${{ github.ref_name }}\"/' ./custom_components/places/const.py        
+    - name: Commit & Push Version Changes
+      if: ${{ github.event_name == 'release' }}
+      uses: actions-js/push@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        message: 'Updating to version ${{ github.ref_name }}'
     - name: Create Zip
       uses: thedoctor0/zip-release@0.7.1
       with:
