@@ -330,6 +330,10 @@ class Places(SensorEntity):
         self.cleanup_attributes()
         if self.get_attr(CONF_EXTENDED_ATTR):
             self.disable_recorder()
+        _LOGGER.debug(
+            f"({self.get_attr(CONF_NAME)}) [Init] Initial Update: "
+            + f"{self.get_attr(ATTR_INITIAL_UPDATE)}"
+        )
         _LOGGER.info(
             f"({self.get_attr(CONF_NAME)}) [Init] Tracked Entity ID: "
             + f"{self.get_attr(CONF_DEVICETRACKER_ID)}"
@@ -492,6 +496,10 @@ class Places(SensorEntity):
                 in ["none", STATE_UNKNOWN, STATE_UNAVAILABLE]
             )
         ):
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Initial Update: "
+                + f"{self.get_attr(ATTR_INITIAL_UPDATE)}"
+            )
             if self._warn_if_device_tracker_prob or self.get_attr(ATTR_INITIAL_UPDATE):
                 _LOGGER.warning(
                     f"({self.get_attr(CONF_NAME)}) Tracked Entity ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
@@ -537,6 +545,10 @@ class Places(SensorEntity):
             proceed_with_update = 1
             # 0: False. 1: True. 2: False, but set direction of travel to stationary
         else:
+            _LOGGER.debug(
+                f"({self.get_attr(CONF_NAME)}) [is_devicetracker_set] Initial Update: "
+                + f"{self.get_attr(ATTR_INITIAL_UPDATE)}"
+            )
             if self._warn_if_device_tracker_prob or self.get_attr(ATTR_INITIAL_UPDATE):
                 _LOGGER.warning(
                     f"({self.get_attr(CONF_NAME)}) Tracked Entity ({self.get_attr(CONF_DEVICETRACKER_ID)}) "
