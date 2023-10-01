@@ -109,6 +109,7 @@ from .const import (
     ATTR_STREET_REF,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
+    CONF_DATE_FORMAT,
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
@@ -119,6 +120,7 @@ from .const import (
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     CONFIG_ATTRIBUTES_LIST,
+    DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
@@ -243,6 +245,10 @@ class Places(SensorEntity):
         )
         self.set_attr(
             CONF_SHOW_TIME, config.setdefault(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)
+        )
+        self.set_attr(
+            CONF_DATE_FORMAT,
+            config.setdefault(CONF_DATE_FORMAT, DEFAULT_DATE_FORMAT).lower(),
         )
         self.set_attr(CONF_USE_GPS, config.setdefault(CONF_USE_GPS, DEFAULT_USE_GPS))
         self.set_attr(
@@ -2353,16 +2359,19 @@ class Places(SensorEntity):
 
     def change_show_time_to_date(self):
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
-            localedate = str(locale.nl_langinfo(locale.D_FMT)).replace(" ", "")
-            if localedate.lower().endswith("%y"):
-                localemmdd = localedate[:-3]
-            elif localedate.lower().startswith("%y"):
-                localemmdd = localedate[3:]
+            # localedate = str(locale.nl_langinfo(locale.D_FMT)).replace(" ", "")
+            # if localedate.lower().endswith("%y"):
+            #    localemmdd = localedate[:-3]
+            # elif localedate.lower().startswith("%y"):
+            #    localemmdd = localedate[3:]
+            # else:
+            if self.get_attr(CONF_DATE_FORMAT) == "dd/mm":
+                dateformat = "%d/%m"
             else:
-                localemmdd = "%m/%d"
+                dateformat = "%m/%d"
             mmddstring = (
                 datetime.fromisoformat(self.get_attr(ATTR_LAST_CHANGED))
-                .strftime(f"{localemmdd}")
+                .strftime(f"{dateformat}")
                 .replace(" ", "")[:5]
             )
             self.set_attr(
