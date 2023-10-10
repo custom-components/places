@@ -16,6 +16,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_DATE_FORMAT,
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
@@ -25,6 +26,7 @@ from .const import (
     CONF_MAP_ZOOM,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
+    DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
     DEFAULT_HOME_ZONE,
@@ -41,6 +43,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 STATE_OPTIONS = ["zone, place", "formatted_place", "zone_name, place"]
+DATE_FORMAT_OPTIONS = ["mm/dd", "dd/mm"]
 MAP_ZOOM_MIN = 1
 MAP_ZOOM_MAX = 20
 COMPONENT_CONFIG_URL = (
@@ -143,7 +146,6 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
 
 
 class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-
     VERSION = 1
     # Connection classes in homeassistant/config_entries.py are now deprecated
 
@@ -157,7 +159,6 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # `validate_input` above.
         errors = {}
         if user_input is not None:
-
             try:
                 info = await validate_input(self.hass, user_input)
                 # _LOGGER.debug(f"[New Sensor] info: {info}")
@@ -229,6 +230,16 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_DATE_FORMAT, default=DEFAULT_DATE_FORMAT
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=DATE_FORMAT_OPTIONS,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(
                     CONF_USE_GPS, default=DEFAULT_USE_GPS
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
@@ -403,6 +414,22 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                         else DEFAULT_SHOW_TIME
                     ),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
+                    CONF_DATE_FORMAT,
+                    default=DEFAULT_DATE_FORMAT,
+                    description={
+                        "suggested_value": self.config_entry.data[CONF_DATE_FORMAT]
+                        if CONF_DATE_FORMAT in self.config_entry.data
+                        else DEFAULT_DATE_FORMAT
+                    },
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=DATE_FORMAT_OPTIONS,
+                        multiple=False,
+                        custom_value=False,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(
                     CONF_USE_GPS,
                     default=(

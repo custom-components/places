@@ -22,6 +22,7 @@ DEFAULT_MAP_PROVIDER = "apple"
 DEFAULT_MAP_ZOOM = 18
 DEFAULT_DISPLAY_OPTIONS = "zone_name, place"
 DEFAULT_SHOW_TIME = False
+DEFAULT_DATE_FORMAT = "mm/dd"
 DEFAULT_USE_GPS = True
 
 # Settings
@@ -49,6 +50,7 @@ CONF_MAP_ZOOM = "map_zoom"
 CONF_NATIVE_VALUE = "native_value"
 CONF_DISPLAY_OPTIONS = "options"
 CONF_SHOW_TIME = "show_time"
+CONF_DATE_FORMAT = "date_format"
 CONF_USE_GPS = "use_gps_accuracy"
 
 # Attributes
@@ -108,7 +110,6 @@ ATTR_STATE_ABBR = "state_abbr"
 ATTR_STREET = "street"
 ATTR_STREET_REF = "street_ref"
 ATTR_STREET_NUMBER = "street_number"
-# ATTR_UPDATES_SKIPPED = "updates_skipped"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
 ATTR_WIKIDATA_ID = "wikidata_id"
 
@@ -126,6 +127,7 @@ CONFIG_ATTRIBUTES_LIST = [
     CONF_NAME,
     CONF_DISPLAY_OPTIONS,
     CONF_SHOW_TIME,
+    CONF_DATE_FORMAT,
     CONF_USE_GPS,
     CONF_UNIQUE_ID,
 ]
