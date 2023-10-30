@@ -25,7 +25,7 @@ jobs:
         branch: 'master'
         message: 'Updating to version ${{ github.ref_name }}'
     - name: Create Zip
-      uses: thedoctor0/zip-release@0.7.1
+      uses: thedoctor0/zip-release@0.7.5
       with:
         type: 'zip'
         filename: 'places.zip'
