@@ -342,7 +342,6 @@ class Places(SensorEntity):
         )
 
     def disable_recorder(self):
-
         if RECORDER_INSTANCE in self._hass.data:
             _LOGGER.info(
                 f"({self.get_attr(CONF_NAME)}) [disable_recorder] Extended Attributes is True, Disabling Recorder"
@@ -585,6 +584,9 @@ class Places(SensorEntity):
         """Call the do_update function based on scan interval and throttle"""
         update_type = "Scan Interval"
         await self._hass.async_add_executor_job(self.do_update, update_type)
+
+    def clear_since_from_state(self, orig_state):
+        return re.sub(r" \(since \d\d[:/]\d\d\)", "", orig_state)
 
     def is_float(self, value):
         if value is not None:
@@ -851,7 +853,6 @@ class Places(SensorEntity):
         return get_dict
 
     def get_map_link(self):
-
         if self.get_attr(CONF_MAP_PROVIDER) == "google":
             self.set_attr(
                 ATTR_MAP_LINK,
@@ -1517,7 +1518,6 @@ class Places(SensorEntity):
                         for attr_item in item[
                             (item.find("(") + 1): item.find(")")
                         ].split(","):
-
                             if paren_attr_first:
                                 paren_attr_first = False
                                 if attr_item == "-":
@@ -2073,7 +2073,8 @@ class Places(SensorEntity):
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) Previous entity attributes: {self._internal_attr}")
         if not self.is_attr_blank(ATTR_NATIVE_VALUE) and self.get_attr(CONF_SHOW_TIME):
             self.set_attr(
-                ATTR_PREVIOUS_STATE, str(self.get_attr(ATTR_NATIVE_VALUE)[:-14])
+                ATTR_PREVIOUS_STATE,
+                self.clear_since_from_state(str(self.get_attr(ATTR_NATIVE_VALUE))),
             )
         else:
             self.set_attr(ATTR_PREVIOUS_STATE, self.get_attr(ATTR_NATIVE_VALUE))
@@ -2163,7 +2164,6 @@ class Places(SensorEntity):
                 ATTR_OSM_DICT, self.get_dict_from_url(osm_url, "OpenStreetMaps")
             )
             if not self.is_attr_blank(ATTR_OSM_DICT):
-
                 self.parse_osm_dict()
                 self.finalize_last_place_name(prev_last_place_name)
 
@@ -2264,7 +2264,6 @@ class Places(SensorEntity):
                     or self.is_attr_blank(ATTR_NATIVE_VALUE)
                     or self.get_attr(ATTR_INITIAL_UPDATE)
                 ):
-
                     if self.get_attr(CONF_EXTENDED_ATTR):
                         self.get_extended_attr()
                     self.set_attr(ATTR_SHOW_DATE, False)
@@ -2273,7 +2272,11 @@ class Places(SensorEntity):
                         if self.get_attr(CONF_SHOW_TIME):
                             self.set_attr(
                                 ATTR_NATIVE_VALUE,
-                                self.get_attr(ATTR_NATIVE_VALUE)[: 255 - 14]
+                                str(
+                                    self.clear_since_from_state(
+                                        str(self.get_attr(ATTR_NATIVE_VALUE))
+                                    )
+                                )[: 255 - 14]
                                 + " (since "
                                 + current_time
                                 + ")",
@@ -2376,7 +2379,8 @@ class Places(SensorEntity):
             )
             self.set_attr(
                 ATTR_NATIVE_VALUE,
-                f"{self.get_attr(ATTR_NATIVE_VALUE)[: -14]}" + f" (since {mmddstring})",
+                f"{self.clear_since_from_state(str(self.get_attr(ATTR_NATIVE_VALUE)))}"
+                + f" (since {mmddstring})",
             )
 
             if not self.is_attr_blank(ATTR_NATIVE_VALUE):
