@@ -850,6 +850,14 @@ class Places(SensorEntity):
                 + f"{name}: {get_dict.get('error_message')}"
             )
             return {}
+
+        if (
+            isinstance(get_dict, list)
+            and len(get_dict) == 1
+            and isinstance(get_dict[0], dict)
+        ):
+            return get_dict[0]
+
         return get_dict
 
     def get_map_link(self):
@@ -1779,10 +1787,10 @@ class Places(SensorEntity):
                 osm_type_abbr = "R"
 
             osm_details_url = (
-                "https://nominatim.openstreetmap.org/details.php?osmtype="
-                + f"{osm_type_abbr}&osmid={self.get_attr(ATTR_OSM_ID)}"
-                + "&linkedplaces=1&hierarchy=1&group_hierarchy=1&limit=1&format=json"
-                + f"&email={self.get_attr(CONF_API_KEY) if self.is_attr_blank(CONF_API_KEY) else ''}"
+                "https://nominatim.openstreetmap.org/lookup?osm_ids="
+                + f"{osm_type_abbr}{self.get_attr(ATTR_OSM_ID)}"
+                + "&format=json&addressdetails=1&extratags=1&namedetails=1"
+                + f"&email={self.get_attr(CONF_API_KEY) if not self.is_attr_blank(CONF_API_KEY) else ''}"
                 + f"&accept-language={self.get_attr(CONF_LANGUAGE) if not self.is_attr_blank(CONF_LANGUAGE) else ''}"
             )
             self.set_attr(
