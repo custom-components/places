@@ -1,0 +1,46 @@
+{
+    "title": "Miesta: OpenStreetMap snímač",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Miesta: OpenStreetMap snímač",
+                "data": {
+                    "name": "Názov snímača",
+                    "devicetracker_id": "ID sledovanej entity",
+                    "home_zone": "Domáca zóna",
+                    "options": "Možnosti zobrazenia",
+                    "map_provider": "Poskytovateľ mapy",
+                    "map_zoom": "Priblíženie mapy",
+                    "api_key": "E-mail na použitie ako OpenStreetMap API Key (voliteľné)",
+                    "language": "Jazyk (voliteľné)",
+                    "extended_attr": "Povoliť rozšírené atribúty",
+                    "show_time": "Zobraziť čas poslednej aktualizácie na konci stavu '(od xx:yy)'",
+                    "date_format": "Formát dátumu, ktorý sa zobrazí na konci stavu, keď sa nezmení >24 hodín",
+                    "use_gps_accuracy": "Použite presnosť GPS"
+                },
+                "description": "Vytvorte nový senzor\nPodrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Miesta: OpenStreetMap snímač",
+                "data": {
+                    "devicetracker_id": "Tracked Entity ID",
+                    "home_zone": "Domáca zóna",
+                    "options": "Možnosti zobrazenia",
+                    "map_provider": "Poskytovateľ mapy",
+                    "map_zoom": "Priblíženie mapy",
+                    "api_key": "E-mail na použitie ako OpenStreetMap API Key (voliteľné)",
+                    "language": "Jazyk (voliteľné)",
+                    "extended_attr": "Povoliť rozšírené atribúty",
+                    "show_time": "Zobraziť čas poslednej aktualizácie na konci stavu '(od xx:yy)'",
+                    "date_format": "Formát dátumu, ktorý sa zobrazí na konci stavu, keď sa nezmení >24 hodín",
+                    "use_gps_accuracy": "Použite presnosť GPS"
+                },
+                "description": "**Aktualizuje sa senzor:&nbsp;{sensor_name}**\nPodrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub"
+            }
+        }
+    }
+}
