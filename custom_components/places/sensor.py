@@ -149,13 +149,7 @@ _LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
 SCAN_INTERVAL = timedelta(seconds=30)
-PLACES_JSON_FOLDER = os.path.join("custom_components", DOMAIN, "json_sensors")
-try:
-    os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
-except OSError as e:
-    _LOGGER.warning(f"OSError creating folder for JSON sensor files: {e}")
-except Exception as e:
-    _LOGGER.warning(f"Unknown Exception creating folder for JSON sensor files: {e}")
+PLACES_JSON_FOLDER = ""
 
 
 async def async_setup_entry(
@@ -164,6 +158,15 @@ async def async_setup_entry(
     async_add_entities,
 ) -> None:
     """Setup the sensor platform with a config_entry (config_flow)."""
+    global PLACES_JSON_FOLDER
+    PLACES_JSON_FOLDER = hass.config.path("custom_components", DOMAIN, "json_sensors")
+    _LOGGER.debug(f"json_sensors Location: {PLACES_JSON_FOLDER}")
+    try:
+        os.makedirs(PLACES_JSON_FOLDER, exist_ok=True)
+    except OSError as e:
+        _LOGGER.warning(f"OSError creating folder for JSON sensor files: {e}")
+    except Exception as e:
+        _LOGGER.warning(f"Unknown Exception creating folder for JSON sensor files: {e}")
 
     # _LOGGER.debug(f"[aync_setup_entity] all entities: {hass.data.get(DOMAIN)}")
 
@@ -187,10 +190,8 @@ class Places(SensorEntity):
         self._attr_should_poll = True
         _LOGGER.info(f"({name}) [Init] Places sensor: {name}")
         _LOGGER.debug(f"({name}) [Init] System Locale: {locale.getlocale()}")
-        _LOGGER.debug(
-            f"({name}) [Init] System Locale Date Format: {
-                str(locale.nl_langinfo(locale.D_FMT))}"
-        )
+        _LOGGER.debug(f"({name}) [Init] System Locale Date Format: {
+                      str(locale.nl_langinfo(locale.D_FMT))}")
         _LOGGER.debug(f"({name}) [Init] HASS TimeZone: {hass.config.time_zone}")
 
         self._warn_if_device_tracker_prob = False
@@ -257,10 +258,8 @@ class Places(SensorEntity):
             f"{DOMAIN}-{slugify(str(self.get_attr(CONF_UNIQUE_ID)))}.json",
         )
         self.set_attr(ATTR_DISPLAY_OPTIONS, self.get_attr(CONF_DISPLAY_OPTIONS))
-        _LOGGER.debug(
-            f"({self.get_attr(CONF_NAME)}) [Init] JSON Filename: {
-                self.get_attr(ATTR_JSON_FILENAME)}"
-        )
+        _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [Init] JSON Filename: {
+                      self.get_attr(ATTR_JSON_FILENAME)}")
 
         self._attr_native_value = None  # Represents the state in SensorEntity
         self.clear_attr(ATTR_NATIVE_VALUE)
