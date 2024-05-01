@@ -46,7 +46,7 @@ from homeassistant.helpers.event import (
     EventStateChangedData,
     async_track_state_change_event,
 )
-from homeassistant.helpers.typing import EventType
+from homeassistant.core import Event
 from homeassistant.util import Throttle, slugify
 from homeassistant.util.location import distance
 from urllib3.exceptions import NewConnectionError
@@ -579,7 +579,7 @@ class Places(SensorEntity):
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     @core.callback
-    def async_tsc_update(self, event: EventType[EventStateChangedData]):
+    def async_tsc_update(self, event: Event[EventStateChangedData]):
         """Call the do_update function based on the TSC (track state change) event"""
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] event: {event}")
         new_state = event.data["new_state"]
