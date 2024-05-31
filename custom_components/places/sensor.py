@@ -829,7 +829,7 @@ class Places(SensorEntity):
         return proceed_with_update
         # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
-    async def _async_get_dict_from_url(self, url, name, dict_name):
+    def _get_dict_from_url(self, url, name, dict_name):
         get_dict = {}
         _LOGGER.info(f"({self._get_attr(CONF_NAME)}) Requesting data for {name}")
         _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) {name} URL: {url}")
@@ -1908,7 +1908,7 @@ class Places(SensorEntity):
                                     if not self._is_attr_blank(CONF_LANGUAGE) else ''}"
             )
             await self._hass.async_add_executor_job(
-                self._async_get_dict_from_url,
+                self._get_dict_from_url,
                 osm_details_url,
                 "OpenStreetMaps Details",
                 ATTR_OSM_DETAILS_DICT,
@@ -1941,7 +1941,7 @@ class Places(SensorEntity):
                     wikidata_url = f"https://www.wikidata.org/wiki/Special:EntityData/{
                         self._get_attr(ATTR_WIKIDATA_ID)}.json"
                     await self._hass.async_add_executor_job(
-                        self._async_get_dict_from_url,
+                        self._get_dict_from_url,
                         wikidata_url,
                         "Wikidata",
                         ATTR_WIKIDATA_DICT,
@@ -2329,7 +2329,7 @@ class Places(SensorEntity):
             )
 
             await self._hass.async_add_executor_job(
-                self._async_get_dict_from_url, osm_url, "OpenStreetMaps", ATTR_OSM_DICT
+                self._get_dict_from_url, osm_url, "OpenStreetMaps", ATTR_OSM_DICT
             )
 
             if not self._is_attr_blank(ATTR_OSM_DICT):
