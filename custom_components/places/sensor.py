@@ -251,12 +251,12 @@ class Places(SensorEntity):
             PLATFORM, DOMAIN, self._attr_unique_id
         )
         if current_entity_id is not None:
-            self.entity_id = current_entity_id
+            self._entity_id = current_entity_id
         else:
-            self.entity_id = generate_entity_id(
+            self._entity_id = generate_entity_id(
                 ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
             )
-        _LOGGER.debug(f"({self._attr_name}) [Init] entity_id: {self.entity_id}")
+        _LOGGER.debug(f"({self._attr_name}) [Init] entity_id: {self._entity_id}")
         self._set_attr(CONF_ICON, DEFAULT_ICON)
         self._attr_icon = DEFAULT_ICON
         self._set_attr(CONF_API_KEY, config.get(CONF_API_KEY))
@@ -395,7 +395,7 @@ class Places(SensorEntity):
                 "[disable_recorder] Extended Attributes is True, Disabling Recorder"
             )
 
-            recorder_prefilter.add_filter(self._hass, self.entity_id)
+            recorder_prefilter.add_filter(self._hass, self._entity_id)
             ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
             ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
             _LOGGER.debug(
@@ -408,7 +408,7 @@ class Places(SensorEntity):
         await super().async_added_to_hass()
         self.async_on_remove(
             async_track_state_change_event(
-                self.hass,
+                self._hass,
                 [self._get_attr(CONF_DEVICETRACKER_ID)],
                 self._async_tsc_update,
             )
@@ -446,9 +446,9 @@ class Places(SensorEntity):
         if RECORDER_INSTANCE in self._hass.data and self._get_attr(CONF_EXTENDED_ATTR):
             _LOGGER.debug(
                 f"({self._attr_name}) Removing entity exclusion from recorder: "
-                f"{self.entity_id}"
+                f"{self._entity_id}"
             )
-            recorder_prefilter.remove_filter(self._hass, self.entity_id)
+            recorder_prefilter.remove_filter(self._hass, self._entity_id)
 
             # Only do this if no places entities with extended_attr exist
             ex_attr_count = 0
@@ -687,27 +687,27 @@ class Places(SensorEntity):
                 self._clear_attr(attr)
 
     async def _async_check_for_updated_entity_name(self):
-        if hasattr(self, "entity_id") and self.entity_id is not None:
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Entity ID: {self.entity_id}")
+        if hasattr(self, "entity_id") and self._entity_id is not None:
+            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Entity ID: {self._entity_id}")
             if (
-                self._hass.states.get(str(self.entity_id)) is not None
-                and self._hass.states.get(str(self.entity_id)).attributes.get(
+                self._hass.states.get(str(self._entity_id)) is not None
+                and self._hass.states.get(str(self._entity_id)).attributes.get(
                     ATTR_FRIENDLY_NAME
                 )
                 is not None
                 and self._get_attr(CONF_NAME)
-                != self._hass.states.get(str(self.entity_id)).attributes.get(
+                != self._hass.states.get(str(self._entity_id)).attributes.get(
                     ATTR_FRIENDLY_NAME
                 )
             ):
                 _LOGGER.debug(
                     f"({self._get_attr(CONF_NAME)}) Sensor Name Changed. Updating Name to: "
                     f"{self._hass.states.get(
-                        str(self.entity_id)).attributes.get(ATTR_FRIENDLY_NAME)}"
+                        str(self._entity_id)).attributes.get(ATTR_FRIENDLY_NAME)}"
                 )
                 self._set_attr(
                     CONF_NAME,
-                    self._hass.states.get(str(self.entity_id)).attributes.get(
+                    self._hass.states.get(str(self._entity_id)).attributes.get(
                         ATTR_FRIENDLY_NAME
                     ),
                 )
@@ -1424,11 +1424,11 @@ class Places(SensorEntity):
                 if opt is not None and opt:
                     ret_state = await self._async_get_option_state(opt.strip())
                     if ret_state is not None and ret_state:
-                        self.adv_options_state_list.append(ret_state)
+                        self._adv_options_state_list.append(ret_state)
                         _LOGGER.debug(
                             f"({self._get_attr(CONF_NAME)}) "
                             "[adv_options] Updated state list: "
-                            f"{self.adv_options_state_list}"
+                            f"{self._adv_options_state_list}"
                         )
                 next_opt = curr_options[(comma_num + 1):]
                 # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}")
@@ -1464,11 +1464,11 @@ class Places(SensorEntity):
                         opt.strip(), incl, excl, incl_attr, excl_attr
                     )
                     if ret_state is not None and ret_state:
-                        self.adv_options_state_list.append(ret_state)
+                        self._adv_options_state_list.append(ret_state)
                         _LOGGER.debug(
                             f"({self._get_attr(CONF_NAME)}) "
                             "[adv_options] Updated state list: "
-                            f"{self.adv_options_state_list}"
+                            f"{self._adv_options_state_list}"
                         )
                     elif none_opt is not None and none_opt:
                         await self._async_build_from_advanced_options(none_opt.strip())
@@ -1512,11 +1512,11 @@ class Places(SensorEntity):
                         opt.strip(), incl, excl, incl_attr, excl_attr
                     )
                     if ret_state is not None and ret_state:
-                        await self._async_adv_options_state_list.append(ret_state)
+                        self._adv_options_state_list.append(ret_state)
                         _LOGGER.debug(
                             f"({self._get_attr(CONF_NAME)}) "
                             "[adv_options] Updated state list: "
-                            f"{self.adv_options_state_list}"
+                            f"{self._adv_options_state_list}"
                         )
                     elif none_opt is not None and none_opt:
                         await self._async_build_from_advanced_options(none_opt.strip())
@@ -1541,22 +1541,22 @@ class Places(SensorEntity):
                 if opt is not None and opt:
                     ret_state = await self._async_get_option_state(opt.strip())
                     if ret_state is not None and ret_state:
-                        self.adv_options_state_list.append(ret_state)
+                        self._adv_options_state_list.append(ret_state)
                         _LOGGER.debug(
                             f"({self._get_attr(CONF_NAME)}) "
                             "[adv_options] Updated state list: "
-                            f"{self.adv_options_state_list}"
+                            f"{self._adv_options_state_list}"
                         )
             return
         else:
             # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Options should just be a single term")
             ret_state = await self._async_get_option_state(curr_options.strip())
             if ret_state is not None and ret_state:
-                self.adv_options_state_list.append(ret_state)
+                self._adv_options_state_list.append(ret_state)
                 _LOGGER.debug(
                     f"({self._get_attr(CONF_NAME)}) "
                     "[adv_options] Updated state list: "
-                    f"{self.adv_options_state_list}"
+                    f"{self._adv_options_state_list}"
                 )
             return
         return
@@ -1748,27 +1748,27 @@ class Places(SensorEntity):
                 DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET
                 or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_REF
             ):
-                self.street_i = self.temp_i
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [get_option_state] street_i: {self.street_i}")
+                self._street_i = self._temp_i
+                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [get_option_state] street_i: {self._street_i}")
             if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
-                self.street_num_i = self.temp_i
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [get_option_state] street_num_i: {self.street_num_i}")
-            self.temp_i += 1
+                self._street_num_i = self._temp_i
+                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [get_option_state] street_num_i: {self._street_num_i}")
+            self._temp_i += 1
             return out
         else:
             return None
 
     async def _async_compile_state_from_advanced_options(self):
-        self.street_num_i += 1
+        self._street_num_i += 1
         first = True
-        for i, out in enumerate(self.adv_options_state_list):
+        for i, out in enumerate(self._adv_options_state_list):
             if out is not None and out:
                 out = out.strip()
                 if first:
                     self._set_attr(ATTR_NATIVE_VALUE, str(out))
                     first = False
                 else:
-                    if i == self.street_i and i == self.street_num_i:
+                    if i == self._street_i and i == self._street_num_i:
                         self._set_attr(
                             ATTR_NATIVE_VALUE,
                             f"{self._get_attr(ATTR_NATIVE_VALUE)} ",
@@ -2370,10 +2370,10 @@ class Places(SensorEntity):
                     # self._set_attr(ATTR_DISPLAY_OPTIONS, temp_opt)
                     self._clear_attr(ATTR_DISPLAY_OPTIONS_LIST)
                     display_options = None
-                    self.adv_options_state_list = []
-                    self.street_num_i = -1
-                    self.street_i = -1
-                    self.temp_i = 0
+                    self._adv_options_state_list = []
+                    self._street_num_i = -1
+                    self._street_i = -1
+                    self._temp_i = 0
                     _LOGGER.debug(
                         f"({self._get_attr(CONF_NAME)}) Initial Advanced Display Options: "
                         f"{self._get_attr(ATTR_DISPLAY_OPTIONS)}"
@@ -2384,7 +2384,7 @@ class Places(SensorEntity):
                     )
                     # _LOGGER.debug(
                     #    f"({self._get_attr(CONF_NAME)}) Back from initial advanced build: "
-                    #    + f"{await self._async_adv_options_state_list}"
+                    #    + f"{self._adv_options_state_list}"
                     # )
                     await self._async_compile_state_from_advanced_options()
                 elif not await self._async_in_zone():
