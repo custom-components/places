@@ -328,6 +328,8 @@ DISPLAY_OPTIONS_MAP = {
     "city": ATTR_CITY,
     "city_clean": ATTR_CITY_CLEAN,
     "postal_town": ATTR_POSTAL_TOWN,
+    "suburb": ATTR_POSTAL_TOWN,
+    "borough": ATTR_POSTAL_TOWN,
     "region": ATTR_REGION,
     "state": ATTR_REGION,
     "state_abbr": ATTR_STATE_ABBR,

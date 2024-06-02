@@ -149,7 +149,7 @@ zone_name[driving, name_no_dupe[type(-, unclassified, category(-, highway))[cate
 * `city`
 * `city_clean`
   * _`city` but removes "Township" and moves "City" to the end if it starts with "City of"_
-* `postal_town`
+* `postal_town` (Synonyms: `borough`, `suburb`)
 * `state` (Synonym: `region`)
 * `state_abbr`
 * `county`
