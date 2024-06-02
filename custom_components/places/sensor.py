@@ -1367,10 +1367,10 @@ class Places(SensorEntity):
 
             else:
                 formatted_place_array.append((self._get_attr(ATTR_PLACE_NAME)).strip())
-            if not self._is_attr_blank(ATTR_CITY):
-                formatted_place_array.append(
-                    (self._get_attr(ATTR_CITY)).replace(" Township", "").strip()
-                )
+            if not self._is_attr_blank(ATTR_CITY_CLEAN):
+                formatted_place_array.append((self._get_attr(ATTR_CITY_CLEAN)).strip())
+            elif not self._is_attr_blank(ATTR_CITY):
+                formatted_place_array.append((self._get_attr(ATTR_CITY)).strip())
             elif not self._is_attr_blank(ATTR_COUNTY):
                 formatted_place_array.append((self._get_attr(ATTR_COUNTY)).strip())
             if not self._is_attr_blank(ATTR_STATE_ABBR):
