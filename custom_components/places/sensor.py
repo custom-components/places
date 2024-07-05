@@ -38,6 +38,7 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_UNIQUE_ID,
     CONF_ZONE,
+    MATCH_ALL,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
@@ -143,7 +144,6 @@ from .const import (
     RESET_ATTRIBUTE_LIST,
     VERSION,
 )
-from .recorder_history_prefilter import recorder_prefilter
 
 _LOGGER = logging.getLogger(__name__)
 THROTTLE_INTERVAL = timedelta(seconds=600)
@@ -176,10 +176,19 @@ async def async_setup_entry(
     # _LOGGER.debug(f"[async_setup_entry] unique_id: {unique_id}")
     # _LOGGER.debug(f"[async_setup_entry] config: {config}")
 
-    async_add_entities(
-        [Places(hass, config, config_entry, name, unique_id, imported_attributes)],
-        update_before_add=True,
-    )
+    if config.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
+        _LOGGER.debug(
+            f"({name}) Extended Attr is True. Excluding from Recorder"
+        )
+        async_add_entities(
+            [PlacesNoRecorder(hass, config, config_entry, name, unique_id, imported_attributes)],
+            update_before_add=True,
+        )
+    else:
+        async_add_entities(
+            [Places(hass, config, config_entry, name, unique_id, imported_attributes)],
+            update_before_add=True,
+        )
 
 
 def _create_json_folder():
@@ -382,24 +391,18 @@ class Places(SensorEntity):
             )
         self._cleanup_attributes()
         if self._get_attr(CONF_EXTENDED_ATTR):
-            self._disable_recorder()
+            self._exclude_event_types()
         _LOGGER.info(
             f"({self._get_attr(CONF_NAME)}) [Init] Tracked Entity ID: "
             f"{self._get_attr(CONF_DEVICETRACKER_ID)}"
         )
 
-    def _disable_recorder(self):
+    def _exclude_event_types(self):
         if RECORDER_INSTANCE in self._hass.data:
-            _LOGGER.info(
-                f"({self._get_attr(CONF_NAME)}) "
-                "[disable_recorder] Extended Attributes is True, Disabling Recorder"
-            )
-
-            recorder_prefilter.add_filter(self._hass, self._entity_id)
             ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
             ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
             _LOGGER.debug(
-                f"({self._get_attr(CONF_NAME)}) [disable_recorder] "
+                f"({self._get_attr(CONF_NAME)}) "
                 f"exclude_event_types: {ha_history_recorder.exclude_event_types}"
             )
 
@@ -448,8 +451,6 @@ class Places(SensorEntity):
                 f"({self._attr_name}) Removing entity exclusion from recorder: "
                 f"{self._entity_id}"
             )
-            recorder_prefilter.remove_filter(self._hass, self._entity_id)
-
             # Only do this if no places entities with extended_attr exist
             ex_attr_count = 0
             for ent in self._hass.data[DOMAIN].values():
@@ -2641,3 +2642,7 @@ class Places(SensorEntity):
             self._clear_attr(attr)
         # self._set_attr(ATTR_UPDATES_SKIPPED, 0)
         await self._async_cleanup_attributes()
+
+
+class PlacesNoRecorder(Places):
+    _unrecorded_attributes = frozenset({MATCH_ALL})
