@@ -5,7 +5,7 @@ jobs:
   create_empty_commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.1.7
+      - uses: actions/checkout@v4.2.1
       - name: Show Branch Name
         run: echo Branch ${GITHUB_REF##*/}
       - name: Create and Checkout New Dev branch
