@@ -14,8 +14,6 @@
 
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device_tracker, person, or sensor_
 
-# Home Assistant versions starting with v2024.7.2 will prevent places versions earlier than v2.7.1 from working. Be sure to upgrade.
-
 ## Installation
 ### HACS *(recommended)*
 1. Ensure that [HACS](https://hacs.xyz/) is installed
@@ -54,7 +52,7 @@ custom_components/places/translations/en.json
 </details>
 
 ## Configuration
-**Configuration is done in the Integrations section of Home Assistant. Configuration with configuration.yaml is no longer supported.**
+**Configuration is done in the Integrations section of Home Assistant.**
 1. [Click Here](https://my.home-assistant.io/redirect/config_flow_start/?domain=places) to directly add a `places` sensor **or**<br/>
   a. In Home Assistant, go to Settings -> [Integrations](https://my.home-assistant.io/redirect/integrations/)<br/>
   b. Click `+ Add Integrations` and select `places`<br/>
