@@ -1,0 +1,8 @@
+aiohttp_cors
+mypy
+ruff
+types-python-dateutil
+types-PyMySQL
+types-PyYAML
+types-pyRFC3339
+types-requests
