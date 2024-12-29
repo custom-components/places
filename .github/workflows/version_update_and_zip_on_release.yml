@@ -1,0 +1,61 @@
+name: Update Version and Create Zip on Release
+on:
+  workflow_dispatch:
+  release:
+    types: [published, edited]
+
+jobs:
+  update_version_and_create_zip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Debug Variables
+        run: |
+            echo "github.event_name: ${{ github.event_name }}"
+            echo "github.ref_name: ${{ github.ref_name }}"
+            echo "github.event.repository.default_branch: ${{ github.event.repository.default_branch }}"
+            echo "github.event.release.target_commitish: ${{ github.event.release.target_commitish }}"
+            echo "github.event.release.prerelease: ${{ github.event.release.prerelease }}"
+            echo "github.event.release.draft: ${{ github.event.release.draft }}"
+      - name: Update Version in Manifest
+        if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
+        run: |
+          sed -i 's/\"version\"\s*\:\s*\".*\"/\"version\"\:\"${{ github.ref_name }}\"/g' ./custom_components/places/manifest.json
+      - name: Update Version in const.py
+        if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
+        run: |
+          sed -i 's/^VERSION \= \".*\"/VERSION \= \"${{ github.ref_name }}\"/' ./custom_components/places/const.py
+      - name: Commit & Push Version Changes
+        if: ${{ github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false  }}
+        uses: actions-js/push@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event.release.target_commitish }}
+          message: 'Updating to version ${{ github.ref_name }}'
+      - name: Update Release with Version Changes Commit
+        if: ${{ github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false  }}
+        run: |
+          git tag -f ${{ github.ref_name }}
+          git push -f origin ${{ github.ref_name }}
+
+      - name: Create Zip
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          filename: 'places.zip'
+          directory: ./custom_components/places
+      - name: Upload Zip to Release
+        if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
+        uses: Roang-zero1/github-upload-release-artifacts-action@v3.0.0
+        with:
+          args: ./custom_components/places/places.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Zip to Action
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v4.5.0
+        with:
+          name: places
+          path: ./custom_components/places/places.zip
+          if-no-files-found: error

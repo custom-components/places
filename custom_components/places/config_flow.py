@@ -1,9 +1,12 @@
+"""Config Flow for places integration."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 
 import voluptuous as vol
+
 from homeassistant import config_entries, core
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -40,24 +43,20 @@ from .const import (
     TRACKING_DOMAINS_NEED_LATLONG,
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: logging.Logger = logging.getLogger(__name__)
 MAP_PROVIDER_OPTIONS = ["apple", "google", "osm"]
 STATE_OPTIONS = ["zone, place", "formatted_place", "zone_name, place"]
 DATE_FORMAT_OPTIONS = ["mm/dd", "dd/mm"]
 MAP_ZOOM_MIN = 1
 MAP_ZOOM_MAX = 20
-COMPONENT_CONFIG_URL = (
-    "https://github.com/custom-components/places#configuration-options"
-)
+COMPONENT_CONFIG_URL = "https://github.com/custom-components/places#configuration-options"
 
 # Note the input displayed to the user will be translated. See the
 # translations/<lang>.json file and strings.json. See here for further information:
 # https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
 
 
-def get_devicetracker_id_entities(
-    hass: core.HomeAssistant, current_entity=None
-) -> list[str]:
+def get_devicetracker_id_entities(hass: core.HomeAssistant, current_entity=None) -> list[str]:
     """Get the list of valid entities. For sensors, only include ones with latitude and longitude attributes."""
     dt_list = []
     for dom in TRACKING_DOMAINS:
@@ -68,28 +67,24 @@ def get_devicetracker_id_entities(
                 and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
             ):
                 # _LOGGER.debug(f"Entity: {ent}")
-                dt_list.append(
-                    selector.SelectOptionDict(
-                        value=str(ent.entity_id),
-                        label=f"{ent.attributes.get(ATTR_FRIENDLY_NAME)} ({ent.entity_id})",
-                    )
+                dt_list.extend(
+                    [
+                        selector.SelectOptionDict(
+                            value=str(ent.entity_id),
+                            label=f"{ent.attributes.get(ATTR_FRIENDLY_NAME)} ({ent.entity_id})",
+                        )
+                    ]
                 )
     # Optional: Include the current entity in the list as well.
     if current_entity is not None:
         # _LOGGER.debug(f"current_entity: {current_entity}")
         dt_list_entities = [d["value"] for d in dt_list]
-        if (
-            current_entity not in dt_list_entities
-            and hass.states.get(current_entity) is not None
-        ):
+        if current_entity not in dt_list_entities and hass.states.get(current_entity) is not None:
             if (
                 ATTR_FRIENDLY_NAME in hass.states.get(current_entity).attributes
-                and hass.states.get(current_entity).attributes.get(ATTR_FRIENDLY_NAME)
-                is not None
+                and hass.states.get(current_entity).attributes.get(ATTR_FRIENDLY_NAME) is not None
             ):
-                current_name = hass.states.get(current_entity).attributes.get(
-                    ATTR_FRIENDLY_NAME
-                )
+                current_name = hass.states.get(current_entity).attributes.get(ATTR_FRIENDLY_NAME)
                 # _LOGGER.debug(f"current_name: {current_name}")
                 dt_list.append(
                     selector.SelectOptionDict(
@@ -120,11 +115,13 @@ def get_home_zone_entities(hass: core.HomeAssistant) -> list[str]:
         # _LOGGER.debug(f"Geting entities for domain: {dom}")
         for ent in hass.states.async_all(dom):
             # _LOGGER.debug(f"Entity: {ent}")
-            zone_list.append(
-                selector.SelectOptionDict(
-                    value=str(ent.entity_id),
-                    label=f"{ent.attributes.get(ATTR_FRIENDLY_NAME)} ({ent.entity_id})",
-                )
+            zone_list.extend(
+                [
+                    selector.SelectOptionDict(
+                        value=str(ent.entity_id),
+                        label=f"{ent.attributes.get(ATTR_FRIENDLY_NAME)} ({ent.entity_id})",
+                    )
+                ]
             )
     if zone_list:
         zone_list_sorted = sorted(zone_list, key=lambda d: d["label"].casefold())
@@ -146,6 +143,8 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, Any]
 
 
 class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Config Flow for places integration."""
+
     VERSION = 1
     # Connection classes in homeassistant/config_entries.py are now deprecated
 
@@ -162,12 +161,10 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 info = await validate_input(self.hass, user_input)
                 # _LOGGER.debug(f"[New Sensor] info: {info}")
-                _LOGGER.debug(f"[New Sensor] user_input: {user_input}")
+                _LOGGER.debug("[New Sensor] user_input: %s", user_input)
                 return self.async_create_entry(title=info["title"], data=user_input)
-            except Exception as err:
-                _LOGGER.exception(
-                    f"[config_flow async_step_user] Unexpected exception: {err}"
-                )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.error("[config_flow async_step_user] Unexpected exception: %s", err)
                 errors["base"] = "unknown"
         devicetracker_id_list = get_devicetracker_id_entities(self.hass)
         zone_list = get_home_zone_entities(self.hass)
@@ -194,9 +191,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Optional(
-                    CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE
-                ): selector.SelectSelector(
+                vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=zone_list,
                         multiple=False,
@@ -214,9 +209,7 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Optional(
-                    CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)
-                ): selector.NumberSelector(
+                vol.Optional(CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)): selector.NumberSelector(
                     selector.NumberSelectorConfig(
                         min=MAP_ZOOM_MIN,
                         max=MAP_ZOOM_MAX,
@@ -227,9 +220,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
-                vol.Optional(
-                    CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME
-                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME): selector.BooleanSelector(
+                    selector.BooleanSelectorConfig()
+                ),
                 vol.Optional(
                     CONF_DATE_FORMAT, default=DEFAULT_DATE_FORMAT
                 ): selector.SelectSelector(
@@ -240,9 +233,9 @@ class PlacesConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Optional(
-                    CONF_USE_GPS, default=DEFAULT_USE_GPS
-                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(CONF_USE_GPS, default=DEFAULT_USE_GPS): selector.BooleanSelector(
+                    selector.BooleanSelectorConfig()
+                ),
             }
         )
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
@@ -276,10 +269,10 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             # _LOGGER.debug(f"[options_flow async_step_init] user_input initial: {user_input}")
             # Bring in other keys not in the Options Flow
-            for m in dict(self.config_entry.data).keys():
+            for m in dict(self.config_entry.data):
                 user_input.setdefault(m, self.config_entry.data[m])
             # Remove any keys with blank values
-            for m in dict(user_input).keys():
+            for m in dict(user_input):
                 # _LOGGER.debug(f"[Options Update] {m} [{type(user_input.get(m))}]: {user_input.get(m)}")
                 if isinstance(user_input.get(m), str) and not user_input.get(m):
                     user_input.pop(m)
@@ -293,22 +286,15 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
 
         # Include the current entity in the list as well. Although it may still fail in validation checking.
         devicetracker_id_list = get_devicetracker_id_entities(
-            self.hass,
-            self.config_entry.data[CONF_DEVICETRACKER_ID]
-            if CONF_DEVICETRACKER_ID in self.config_entry.data
-            else None,
+            self.hass, self.config_entry.data.get(CONF_DEVICETRACKER_ID, None)
         )
-        zone_list = get_home_zone_entities(self.hass)
+        zone_list: list[str] = get_home_zone_entities(self.hass)
         # _LOGGER.debug(f"Trackable entities including sensors with lat/long: {devicetracker_id_list}")
         OPTIONS_SCHEMA = vol.Schema(
             {
                 vol.Required(
                     CONF_DEVICETRACKER_ID,
-                    default=(
-                        self.config_entry.data[CONF_DEVICETRACKER_ID]
-                        if CONF_DEVICETRACKER_ID in self.config_entry.data
-                        else None
-                    ),
+                    default=(self.config_entry.data.get(CONF_DEVICETRACKER_ID, None)),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=devicetracker_id_list,
@@ -320,19 +306,15 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_API_KEY,
                     default="",
-                    description={
-                        "suggested_value": self.config_entry.data[CONF_API_KEY]
-                        if CONF_API_KEY in self.config_entry.data
-                        else None
-                    },
+                    description={"suggested_value": self.config_entry.data.get(CONF_API_KEY, None)},
                 ): str,
                 vol.Optional(
                     CONF_DISPLAY_OPTIONS,
                     default=DEFAULT_DISPLAY_OPTIONS,
                     description={
-                        "suggested_value": self.config_entry.data[CONF_DISPLAY_OPTIONS]
-                        if CONF_DISPLAY_OPTIONS in self.config_entry.data
-                        else DEFAULT_DISPLAY_OPTIONS
+                        "suggested_value": self.config_entry.data.get(
+                            CONF_DISPLAY_OPTIONS, DEFAULT_DISPLAY_OPTIONS
+                        )
                     },
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -346,9 +328,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_HOME_ZONE,
                     default="",
                     description={
-                        "suggested_value": self.config_entry.data[CONF_HOME_ZONE]
-                        if CONF_HOME_ZONE in self.config_entry.data
-                        else None
+                        "suggested_value": self.config_entry.data.get(CONF_HOME_ZONE, None)
                     },
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -362,9 +342,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_MAP_PROVIDER,
                     default=DEFAULT_MAP_PROVIDER,
                     description={
-                        "suggested_value": self.config_entry.data[CONF_MAP_PROVIDER]
-                        if CONF_MAP_PROVIDER in self.config_entry.data
-                        else DEFAULT_MAP_PROVIDER
+                        "suggested_value": self.config_entry.data.get(
+                            CONF_MAP_PROVIDER, DEFAULT_MAP_PROVIDER
+                        )
                     },
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -378,9 +358,9 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_MAP_ZOOM,
                     default=DEFAULT_MAP_ZOOM,
                     description={
-                        "suggested_value": self.config_entry.data[CONF_MAP_ZOOM]
-                        if CONF_MAP_ZOOM in self.config_entry.data
-                        else DEFAULT_MAP_ZOOM
+                        "suggested_value": self.config_entry.data.get(
+                            CONF_MAP_ZOOM, DEFAULT_MAP_ZOOM
+                        )
                     },
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
@@ -393,34 +373,24 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_LANGUAGE,
                     default="",
                     description={
-                        "suggested_value": self.config_entry.data[CONF_LANGUAGE]
-                        if CONF_LANGUAGE in self.config_entry.data
-                        else None
+                        "suggested_value": self.config_entry.data.get(CONF_LANGUAGE, None)
                     },
                 ): str,
                 vol.Optional(
                     CONF_EXTENDED_ATTR,
-                    default=(
-                        self.config_entry.data[CONF_EXTENDED_ATTR]
-                        if CONF_EXTENDED_ATTR in self.config_entry.data
-                        else DEFAULT_EXTENDED_ATTR
-                    ),
+                    default=(self.config_entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR)),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 vol.Optional(
                     CONF_SHOW_TIME,
-                    default=(
-                        self.config_entry.data[CONF_SHOW_TIME]
-                        if CONF_SHOW_TIME in self.config_entry.data
-                        else DEFAULT_SHOW_TIME
-                    ),
+                    default=(self.config_entry.data.get(CONF_SHOW_TIME, DEFAULT_SHOW_TIME)),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
                 vol.Optional(
                     CONF_DATE_FORMAT,
                     default=DEFAULT_DATE_FORMAT,
                     description={
-                        "suggested_value": self.config_entry.data[CONF_DATE_FORMAT]
-                        if CONF_DATE_FORMAT in self.config_entry.data
-                        else DEFAULT_DATE_FORMAT
+                        "suggested_value": self.config_entry.data.get(
+                            CONF_DATE_FORMAT, DEFAULT_DATE_FORMAT
+                        )
                     },
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
@@ -432,11 +402,7 @@ class PlacesOptionsFlowHandler(config_entries.OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_USE_GPS,
-                    default=(
-                        self.config_entry.data[CONF_USE_GPS]
-                        if CONF_USE_GPS in self.config_entry.data
-                        else DEFAULT_USE_GPS
-                    ),
+                    default=(self.config_entry.data.get(CONF_USE_GPS, DEFAULT_USE_GPS)),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )

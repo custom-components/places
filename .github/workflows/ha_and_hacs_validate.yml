@@ -1,0 +1,26 @@
+name: HA and HACS Validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ha_validation:
+    name: Hassfest Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master
+  hacs_validation:
+    name: HACS Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration
