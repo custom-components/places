@@ -211,12 +211,6 @@ def _create_json_folder(json_folder: str) -> None:
         _LOGGER.warning(
             "OSError creating folder for JSON sensor files: %s: %s", e.__class__.__qualname__, e
         )
-    # except Exception as e:
-    #     _LOGGER.warning(
-    #         "Unknown Exception creating folder for JSON sensor files: %s: %s",
-    #         e.__class__.__qualname__,
-    #         e,
-    #     )
 
 
 def _get_dict_from_json_file(
@@ -236,15 +230,6 @@ def _get_dict_from_json_file(
             e,
         )
         return {}
-    # except Exception as e:
-    #     _LOGGER.debug(
-    #         "(%s) [Init] Unknown Exception importing JSON file (%s): %s: %s",
-    #         name,
-    #         filename,
-    #         e.__class__.__qualname__,
-    #         e,
-    #     )
-    #     return {}
     return sensor_attributes
 
 
@@ -260,14 +245,6 @@ def _remove_json_file(name: str, filename: str, json_folder: str) -> None:
             e.__class__.__qualname__,
             e,
         )
-    # except Exception as e:
-    #     _LOGGER.debug(
-    #         "(%s) Unknown Exception removing JSON sensor file (%s): %s: %s",
-    #         name,
-    #         filename,
-    #         e.__class__.__qualname__,
-    #         e,
-    #     )
     else:
         _LOGGER.debug("(%s) JSON sensor file removed: %s", name, filename)
 
@@ -308,18 +285,20 @@ class Places(SensorEntity):
         self._warn_if_device_tracker_prob = False
         self._internal_attr: MutableMapping[str, Any] = {}
         self._set_attr(ATTR_INITIAL_UPDATE, True)
-        self._config = config
-        self._config_entry = config_entry
+        self._config: MutableMapping[str, Any] = config
+        self._config_entry: ConfigEntry = config_entry
         self._hass: HomeAssistant = hass
         self._set_attr(CONF_NAME, name)
         self._attr_name: str = name
         self._set_attr(CONF_UNIQUE_ID, unique_id)
-        self._attr_unique_id = unique_id
-        registry = er.async_get(self._hass)
+        self._attr_unique_id: str = unique_id
+        registry: er.RegistryEntry | None = er.async_get(self._hass)
         self._json_folder: str = hass.config.path("custom_components", DOMAIN, "json_sensors")
         _LOGGER.debug("json_sensors Location: %s", self._json_folder)
-        current_entity_id = registry.async_get_entity_id(PLATFORM, DOMAIN, self._attr_unique_id)
-        if current_entity_id is not None:
+        current_entity_id: str | None = None
+        if registry:
+            current_entity_id = registry.async_get_entity_id(PLATFORM, DOMAIN, self._attr_unique_id)
+        if current_entity_id:
             self._entity_id: str = current_entity_id
         else:
             self._entity_id = generate_entity_id(
@@ -410,7 +389,6 @@ class Places(SensorEntity):
             else None
         )
         self._set_attr(ATTR_SHOW_DATE, False)
-        # self._set_attr(ATTR_UPDATES_SKIPPED, 0)
 
         self._import_attributes_from_json(imported_attributes)
         ##
@@ -537,13 +515,13 @@ class Places(SensorEntity):
             return False
         return True
 
-    def _get_attr(self, attr: Any, default=None):  # None | Any:
+    def _get_attr(self, attr: str | None, default: Any | None = None):  # None | Any:
         if attr is None or (default is None and self._is_attr_blank(attr)):
             return None
         return self._internal_attr.get(attr, default)
 
-    def _set_attr(self, attr: str, value=None) -> None:
-        if attr is not None:
+    def _set_attr(self, attr: str, value: Any | None = None) -> None:
+        if attr:
             self._internal_attr.update({attr: value})
 
     def _clear_attr(self, attr: str) -> None:
@@ -652,7 +630,7 @@ class Places(SensorEntity):
             return
         # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [TSC Update] new_state: {new_state}")
 
-        update_type = "Track State Change"
+        update_type: str = "Track State Change"
         self._hass.async_create_task(self._async_do_update(update_type))
 
     @Throttle(THROTTLE_INTERVAL)
@@ -691,7 +669,7 @@ class Places(SensorEntity):
         return False
 
     async def _async_cleanup_attributes(self) -> None:
-        for attr in list(self._internal_attr):
+        for attr in self._internal_attr:
             if self._is_attr_blank(attr):
                 self._clear_attr(attr)
 
@@ -740,16 +718,16 @@ class Places(SensorEntity):
             )
         if await self._async_in_zone():
             devicetracker_zone_name_state = None
-            devicetracker_zone_id = self._hass.states.get(
+            devicetracker_zone_id: str | None = self._hass.states.get(
                 self._get_attr(CONF_DEVICETRACKER_ID)
             ).attributes.get(CONF_ZONE)
-            if devicetracker_zone_id is not None:
+            if devicetracker_zone_id:
                 devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
                 devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
             # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Tracked Entity Zone ID: {devicetracker_zone_id}")
             # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Tracked Entity Zone Name State: {devicetracker_zone_name_state}")
-            if devicetracker_zone_name_state is not None:
-                if devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME) is not None:
+            if devicetracker_zone_name_state:
+                if devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME):
                     self._set_attr(
                         ATTR_DEVICETRACKER_ZONE_NAME,
                         devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME),
@@ -831,7 +809,7 @@ class Places(SensorEntity):
         self._set_attr(dict_name, {})
         headers: dict[str, str] = {"user-agent": f"Mozilla/5.0 (Home Assistant) {DOMAIN}/{VERSION}"}
         try:
-            get_response = requests.get(url, headers=headers)
+            get_response: requests.Response = requests.get(url, headers=headers)
         except requests.exceptions.RetryError as e:
             get_response = None
             _LOGGER.warning(
@@ -899,17 +877,6 @@ class Places(SensorEntity):
                 url,
             )
             return
-        # except Exception as e:
-        #     get_response = None
-        #     _LOGGER.warning(
-        #         "(%s) Unknown Exception connecting to %s [%s: %s]: %s",
-        #         self._get_attr(CONF_NAME),
-        #         name,
-        #         e.__class__.__qualname__,
-        #         e,
-        #         url,
-        #     )
-        #     return
 
         get_json_input: str | None = None
         if get_response:
@@ -938,7 +905,11 @@ class Places(SensorEntity):
             )
             return
 
-        if isinstance(get_dict, list) and len(get_dict) == 1 and isinstance(get_dict[0], dict):
+        if (
+            isinstance(get_dict, list)
+            and len(get_dict) == 1
+            and isinstance(get_dict[0], MutableMapping())
+        ):
             self._set_attr(dict_name, get_dict[0])
             return
 
@@ -1034,7 +1005,7 @@ class Places(SensorEntity):
 
     async def _async_get_driving_status(self) -> None:
         self._clear_attr(ATTR_DRIVING)
-        isDriving = False
+        isDriving: bool = False
         if not await self._async_in_zone():
             if self._get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary" and (
                 self._get_attr(ATTR_PLACE_CATEGORY) == "highway"
@@ -1045,223 +1016,241 @@ class Places(SensorEntity):
             self._set_attr(ATTR_DRIVING, "Driving")
 
     async def _async_parse_osm_dict(self) -> None:
-        if "type" in (self._get_attr(ATTR_OSM_DICT)):
-            self._set_attr(ATTR_PLACE_TYPE, self._get_attr(ATTR_OSM_DICT).get("type"))
-            if self._get_attr(ATTR_PLACE_TYPE) == "yes":
-                if "addresstype" in (self._get_attr(ATTR_OSM_DICT)):
-                    self._set_attr(
-                        ATTR_PLACE_TYPE,
-                        self._get_attr(ATTR_OSM_DICT).get("addresstype"),
-                    )
-                else:
-                    self._clear_attr(ATTR_PLACE_TYPE)
-            if "address" in (self._get_attr(ATTR_OSM_DICT)) and self._get_attr(ATTR_PLACE_TYPE) in (
-                self._get_attr(ATTR_OSM_DICT)
-            ).get("address"):
+        osm_dict: MutableMapping[str, Any] | None = self._get_attr(ATTR_OSM_DICT)
+        if not osm_dict:
+            return
+
+        await self._parse_type(osm_dict=osm_dict)
+        await self._parse_category(osm_dict=osm_dict)
+        await self._parse_namedetails(osm_dict=osm_dict)
+        await self._parse_address(osm_dict=osm_dict)
+        await self._parse_miscellaneous(osm_dict=osm_dict)
+        await self._set_place_name_no_dupe()
+
+        _LOGGER.debug(
+            "(%s) Entity attributes after parsing OSM Dict: %s",
+            self._get_attr(CONF_NAME),
+            self._internal_attr,
+        )
+
+    async def _parse_type(self, osm_dict: MutableMapping[str, Any]) -> None:
+        if "type" not in osm_dict:
+            return
+        self._set_attr(ATTR_PLACE_TYPE, osm_dict.get("type"))
+        if self._get_attr(ATTR_PLACE_TYPE) == "yes":
+            if "addresstype" in osm_dict:
                 self._set_attr(
-                    ATTR_PLACE_NAME,
-                    self._get_attr(ATTR_OSM_DICT)
-                    .get("address")
-                    .get(self._get_attr(ATTR_PLACE_TYPE)),
+                    ATTR_PLACE_TYPE,
+                    osm_dict.get("addresstype"),
                 )
-        if "category" in (self._get_attr(ATTR_OSM_DICT)):
+            else:
+                self._clear_attr(ATTR_PLACE_TYPE)
+        if "address" in osm_dict and self._get_attr(ATTR_PLACE_TYPE) in osm_dict["address"]:
             self._set_attr(
-                ATTR_PLACE_CATEGORY,
-                self._get_attr(ATTR_OSM_DICT).get("category"),
-            )
-            if "address" in (self._get_attr(ATTR_OSM_DICT)) and self._get_attr(
-                ATTR_PLACE_CATEGORY
-            ) in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_PLACE_NAME,
-                    (self._get_attr(ATTR_OSM_DICT))
-                    .get("address")
-                    .get(self._get_attr(ATTR_PLACE_CATEGORY)),
-                )
-        if (
-            "namedetails" in (self._get_attr(ATTR_OSM_DICT))
-            and self._get_attr(ATTR_OSM_DICT).get("namedetails") is not None
-        ):
-            if "name" in (self._get_attr(ATTR_OSM_DICT)).get("namedetails"):
-                self._set_attr(
-                    ATTR_PLACE_NAME,
-                    (self._get_attr(ATTR_OSM_DICT)).get("namedetails").get("name"),
-                )
-            if not self._is_attr_blank(CONF_LANGUAGE):
-                for language in (self._get_attr(CONF_LANGUAGE)).split(","):
-                    if "name:" + language in (self._get_attr(ATTR_OSM_DICT)).get("namedetails"):
-                        self._set_attr(
-                            ATTR_PLACE_NAME,
-                            self._get_attr(ATTR_OSM_DICT)
-                            .get("namedetails")
-                            .get("name:" + language),
-                        )
-                        break
-
-        if (
-            "address" in (self._get_attr(ATTR_OSM_DICT))
-            and (self._get_attr(ATTR_OSM_DICT)).get("address") is not None
-        ):
-            if "house_number" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_STREET_NUMBER,
-                    ((self._get_attr(ATTR_OSM_DICT)).get("address").get("house_number")),
-                )
-            if "road" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_STREET,
-                    (self._get_attr(ATTR_OSM_DICT)).get("address").get("road"),
-                )
-            if "retail" in (self._get_attr(ATTR_OSM_DICT)).get("address") and (
-                self._is_attr_blank(ATTR_PLACE_NAME)
-                or (
-                    not self._is_attr_blank(ATTR_PLACE_CATEGORY)
-                    and not self._is_attr_blank(ATTR_STREET)
-                    and self._get_attr(ATTR_PLACE_CATEGORY) == "highway"
-                    and self._get_attr(ATTR_STREET) == self._get_attr(ATTR_PLACE_NAME)
-                )
-            ):
-                self._set_attr(
-                    ATTR_PLACE_NAME,
-                    self._get_attr(ATTR_OSM_DICT).get("address").get("retail"),
-                )
-            _LOGGER.debug(
-                "(%s) Place Name: %s", self._get_attr(CONF_NAME), self._get_attr(ATTR_PLACE_NAME)
+                ATTR_PLACE_NAME,
+                osm_dict["address"].get(self._get_attr(ATTR_PLACE_TYPE)),
             )
 
-            CITY_LIST: list[str] = [
-                "city",
-                "town",
-                "village",
-                "township",
-                "hamlet",
-                "city_district",
-                "municipality",
-            ]
-            POSTAL_TOWN_LIST: list[str] = [
-                "city",
-                "town",
-                "village",
-                "township",
-                "hamlet",
-                "borough",
-                "suburb",
-            ]
-            NEIGHBOURHOOD_LIST: list[str] = [
-                "village",
-                "township",
-                "hamlet",
-                "borough",
-                "suburb",
-                "quarter",
-                "neighbourhood",
-            ]
-            _LOGGER.debug("CITY_LIST: %s", CITY_LIST)
-            for city_type in CITY_LIST:
-                with contextlib.suppress(ValueError):
-                    POSTAL_TOWN_LIST.remove(city_type)
+    async def _parse_category(self, osm_dict: MutableMapping[str, Any]) -> None:
+        if "category" not in osm_dict:
+            return
 
-                with contextlib.suppress(ValueError):
-                    NEIGHBOURHOOD_LIST.remove(city_type)
-                if city_type in (self._get_attr(ATTR_OSM_DICT)).get("address"):
+        self._set_attr(
+            ATTR_PLACE_CATEGORY,
+            osm_dict.get("category"),
+        )
+        if "address" in osm_dict and self._get_attr(ATTR_PLACE_CATEGORY) in osm_dict["address"]:
+            self._set_attr(
+                ATTR_PLACE_NAME,
+                osm_dict["address"].get(self._get_attr(ATTR_PLACE_CATEGORY)),
+            )
+
+    async def _parse_namedetails(self, osm_dict: MutableMapping[str, Any]) -> None:
+        namedetails: MutableMapping[str, Any] | None = osm_dict.get("namedetails")
+        if not namedetails:
+            return
+        if "name" in namedetails:
+            self._set_attr(
+                ATTR_PLACE_NAME,
+                namedetails.get("name"),
+            )
+        if not self._is_attr_blank(CONF_LANGUAGE):
+            for language in (self._get_attr(CONF_LANGUAGE)).split(","):
+                if f"name:{language}" in namedetails:
                     self._set_attr(
-                        ATTR_CITY,
-                        (self._get_attr(ATTR_OSM_DICT)).get("address").get(city_type),
-                    )
-                    break
-            _LOGGER.debug("POSTAL_TOWN_LIST: %s", POSTAL_TOWN_LIST)
-            for postal_town_type in POSTAL_TOWN_LIST:
-                with contextlib.suppress(ValueError):
-                    NEIGHBOURHOOD_LIST.remove(postal_town_type)
-                if postal_town_type in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                    self._set_attr(
-                        ATTR_POSTAL_TOWN,
-                        (self._get_attr(ATTR_OSM_DICT)).get("address").get(postal_town_type),
-                    )
-                    break
-            _LOGGER.debug("NEIGHBOURHOOD_LIST: %s", NEIGHBOURHOOD_LIST)
-            for neighbourhood_type in NEIGHBOURHOOD_LIST:
-                if neighbourhood_type in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                    self._set_attr(
-                        ATTR_PLACE_NEIGHBOURHOOD,
-                        (self._get_attr(ATTR_OSM_DICT)).get("address").get(neighbourhood_type),
+                        ATTR_PLACE_NAME,
+                        namedetails.get(f"name:{language}"),
                     )
                     break
 
-            if not self._is_attr_blank(ATTR_CITY):
+    async def _parse_address(self, osm_dict: MutableMapping[str, Any]) -> None:
+        address: MutableMapping[str, Any] | None = osm_dict.get("address")
+        if not address:
+            return
+
+        await self._set_address_details(address)
+        await self._set_city_details(address)
+        await self._set_region_details(address)
+
+    async def _set_address_details(self, address: MutableMapping[str, Any]) -> None:
+        if "house_number" in address:
+            self._set_attr(
+                ATTR_STREET_NUMBER,
+                address.get("house_number"),
+            )
+        if "road" in address:
+            self._set_attr(
+                ATTR_STREET,
+                address.get("road"),
+            )
+        if "retail" in address and (
+            self._is_attr_blank(ATTR_PLACE_NAME)
+            or (
+                not self._is_attr_blank(ATTR_PLACE_CATEGORY)
+                and not self._is_attr_blank(ATTR_STREET)
+                and self._get_attr(ATTR_PLACE_CATEGORY) == "highway"
+                and self._get_attr(ATTR_STREET) == self._get_attr(ATTR_PLACE_NAME)
+            )
+        ):
+            self._set_attr(
+                ATTR_PLACE_NAME,
+                self._get_attr(ATTR_OSM_DICT).get("address").get("retail"),
+            )
+        _LOGGER.debug(
+            "(%s) Place Name: %s", self._get_attr(CONF_NAME), self._get_attr(ATTR_PLACE_NAME)
+        )
+
+    async def _set_city_details(self, address: MutableMapping[str, Any]) -> None:
+        CITY_LIST: list[str] = [
+            "city",
+            "town",
+            "village",
+            "township",
+            "hamlet",
+            "city_district",
+            "municipality",
+        ]
+        POSTAL_TOWN_LIST: list[str] = [
+            "city",
+            "town",
+            "village",
+            "township",
+            "hamlet",
+            "borough",
+            "suburb",
+        ]
+        NEIGHBOURHOOD_LIST: list[str] = [
+            "village",
+            "township",
+            "hamlet",
+            "borough",
+            "suburb",
+            "quarter",
+            "neighbourhood",
+        ]
+        _LOGGER.debug("CITY_LIST: %s", CITY_LIST)
+        for city_type in CITY_LIST:
+            with contextlib.suppress(ValueError):
+                POSTAL_TOWN_LIST.remove(city_type)
+
+            with contextlib.suppress(ValueError):
+                NEIGHBOURHOOD_LIST.remove(city_type)
+            if city_type in address:
+                self._set_attr(
+                    ATTR_CITY,
+                    address.get(city_type),
+                )
+                break
+        _LOGGER.debug("POSTAL_TOWN_LIST: %s", POSTAL_TOWN_LIST)
+        for postal_town_type in POSTAL_TOWN_LIST:
+            with contextlib.suppress(ValueError):
+                NEIGHBOURHOOD_LIST.remove(postal_town_type)
+            if postal_town_type in address:
+                self._set_attr(
+                    ATTR_POSTAL_TOWN,
+                    address.get(postal_town_type),
+                )
+                break
+        _LOGGER.debug("NEIGHBOURHOOD_LIST: %s", NEIGHBOURHOOD_LIST)
+        for neighbourhood_type in NEIGHBOURHOOD_LIST:
+            if neighbourhood_type in address:
+                self._set_attr(
+                    ATTR_PLACE_NEIGHBOURHOOD,
+                    address.get(neighbourhood_type),
+                )
+                break
+
+        if not self._is_attr_blank(ATTR_CITY):
+            self._set_attr(
+                ATTR_CITY_CLEAN,
+                (self._get_attr(ATTR_CITY)).replace(" Township", "").strip(),
+            )
+            if (self._get_attr(ATTR_CITY_CLEAN)).startswith("City of"):
                 self._set_attr(
                     ATTR_CITY_CLEAN,
-                    (self._get_attr(ATTR_CITY)).replace(" Township", "").strip(),
+                    f"{self._get_attr(ATTR_CITY_CLEAN)[8:]} City",
                 )
-                if (self._get_attr(ATTR_CITY_CLEAN)).startswith("City of"):
-                    self._set_attr(
-                        ATTR_CITY_CLEAN,
-                        (self._get_attr(ATTR_CITY_CLEAN))[8:] + " City",
-                    )
 
-            if "state" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_REGION,
-                    (self._get_attr(ATTR_OSM_DICT)).get("address").get("state"),
-                )
-            if "ISO3166-2-lvl4" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_STATE_ABBR,
-                    (
-                        (self._get_attr(ATTR_OSM_DICT))
-                        .get("address")
-                        .get("ISO3166-2-lvl4")
-                        .split("-")[1]
-                        .upper()
-                    ),
-                )
-            if "county" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_COUNTY,
-                    (self._get_attr(ATTR_OSM_DICT)).get("address").get("county"),
-                )
-            if "country" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_COUNTRY,
-                    (self._get_attr(ATTR_OSM_DICT)).get("address").get("country"),
-                )
-            if "country_code" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_COUNTRY_CODE,
-                    (self._get_attr(ATTR_OSM_DICT)).get("address").get("country_code").upper(),
-                )
-            if "postcode" in (self._get_attr(ATTR_OSM_DICT)).get("address"):
-                self._set_attr(
-                    ATTR_POSTAL_CODE,
-                    self._get_attr(ATTR_OSM_DICT).get("address").get("postcode"),
-                )
-        if "display_name" in (self._get_attr(ATTR_OSM_DICT)):
+    async def _set_region_details(self, address: MutableMapping[str, Any]) -> None:
+        if "state" in address:
             self._set_attr(
-                ATTR_FORMATTED_ADDRESS,
-                (self._get_attr(ATTR_OSM_DICT)).get("display_name"),
+                ATTR_REGION,
+                address.get("state"),
+            )
+        if "ISO3166-2-lvl4" in address:
+            self._set_attr(
+                ATTR_STATE_ABBR,
+                address["ISO3166-2-lvl4"].split("-")[1].upper(),
+            )
+        if "county" in address:
+            self._set_attr(
+                ATTR_COUNTY,
+                address.get("county"),
+            )
+        if "country" in address:
+            self._set_attr(
+                ATTR_COUNTRY,
+                address.get("country"),
+            )
+        if "country_code" in address:
+            self._set_attr(
+                ATTR_COUNTRY_CODE,
+                address["country_code"].upper(),
+            )
+        if "postcode" in address:
+            self._set_attr(
+                ATTR_POSTAL_CODE,
+                self._get_attr(ATTR_OSM_DICT).get("address").get("postcode"),
             )
 
-        if "osm_id" in (self._get_attr(ATTR_OSM_DICT)):
+    async def _parse_miscellaneous(self, osm_dict: MutableMapping[str, Any]) -> None:
+        if "display_name" in osm_dict:
+            self._set_attr(
+                ATTR_FORMATTED_ADDRESS,
+                osm_dict.get("display_name"),
+            )
+
+        if "osm_id" in osm_dict:
             self._set_attr(
                 ATTR_OSM_ID,
                 str(self._get_attr(ATTR_OSM_DICT).get("osm_id")),
             )
-        if "osm_type" in (self._get_attr(ATTR_OSM_DICT)):
+        if "osm_type" in osm_dict:
             self._set_attr(
                 ATTR_OSM_TYPE,
-                (self._get_attr(ATTR_OSM_DICT)).get("osm_type"),
+                osm_dict.get("osm_type"),
             )
 
         if (
             not self._is_attr_blank(ATTR_PLACE_CATEGORY)
             and (self._get_attr(ATTR_PLACE_CATEGORY)).lower() == "highway"
-            and "namedetails" in (self._get_attr(ATTR_OSM_DICT))
-            and (self._get_attr(ATTR_OSM_DICT)).get("namedetails") is not None
-            and "ref" in (self._get_attr(ATTR_OSM_DICT)).get("namedetails")
+            and "namedetails" in osm_dict
+            and osm_dict.get("namedetails") is not None
+            and "ref" in osm_dict["namedetails"]
         ):
             street_refs: list = re.split(
                 r"[\;\\\/\,\.\:]",
-                (self._get_attr(ATTR_OSM_DICT)).get("namedetails").get("ref"),
+                osm_dict["namedetails"].get("ref"),
             )
             street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
             # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Street Refs: {street_refs}")
@@ -1276,7 +1265,9 @@ class Places(SensorEntity):
                     self._get_attr(ATTR_STREET),
                     self._get_attr(ATTR_STREET_REF),
                 )
-        dupe_attributes_check: list = []
+
+    async def _set_place_name_no_dupe(self) -> None:
+        dupe_attributes_check: list[str] = []
         dupe_attributes_check.extend(
             [
                 self._get_attr(attr)
@@ -1297,7 +1288,7 @@ class Places(SensorEntity):
         )
 
     async def _async_build_formatted_place(self) -> None:
-        formatted_place_array: list = []
+        formatted_place_array: list[str] = []
         if not await self._async_in_zone():
             if not self._is_attr_blank(ATTR_DRIVING) and "driving" in (
                 self._get_attr(ATTR_DISPLAY_OPTIONS_LIST)
@@ -1305,7 +1296,7 @@ class Places(SensorEntity):
                 formatted_place_array.append(self._get_attr(ATTR_DRIVING))
             # Don't use place name if the same as another attributes
             use_place_name: bool = True
-            sensor_attributes_values: list = []
+            sensor_attributes_values: list[str] = []
             sensor_attributes_values.extend(
                 [
                     self._get_attr(attr)
@@ -1342,7 +1333,7 @@ class Places(SensorEntity):
                     formatted_place_array.append(
                         (self._get_attr(ATTR_PLACE_CATEGORY)).title().strip()
                     )
-                street = None
+                street: str | None = None
                 if self._is_attr_blank(ATTR_STREET) and not self._is_attr_blank(ATTR_STREET_REF):
                     street = (self._get_attr(ATTR_STREET_REF)).strip()
                     _LOGGER.debug("(%s) Using street_ref: %s", self._get_attr(CONF_NAME), street)
@@ -1391,158 +1382,56 @@ class Places(SensorEntity):
         self._set_attr(ATTR_FORMATTED_PLACE, formatted_place)
 
     async def _async_build_from_advanced_options(self, curr_options: str) -> None:
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Options: {curr_options}")
-        if curr_options.count("[") != curr_options.count("]"):
-            _LOGGER.error(
-                "(%s) [adv_options] Bracket Count Mismatch: %s",
-                self._get_attr(CONF_NAME),
-                curr_options,
-            )
-            return
-        if curr_options.count("(") != curr_options.count(")"):
-            _LOGGER.error(
-                "(%s) [adv_options] Parenthesis Count Mismatch: %s",
-                self._get_attr(CONF_NAME),
-                curr_options,
-            )
-            return
-        incl: list = []
-        excl: list = []
-        incl_attr: MutableMapping[str, Any] = {}
-        excl_attr: MutableMapping[str, Any] = {}
-        none_opt = None
-        next_opt = None
-        if curr_options is None or not curr_options:
-            return
-        if "[" in curr_options or "(" in curr_options:
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Options has a [ or ( and optional ,")
-            comma_num = curr_options.find(",")
-            bracket_num = curr_options.find("[")
-            paren_num = curr_options.find("(")
-            if (
-                comma_num != -1
-                and (bracket_num == -1 or comma_num < bracket_num)
-                and (paren_num == -1 or comma_num < paren_num)
-            ):
-                # Comma is first symbol
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Comma is First")
-                opt = curr_options[:comma_num]
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Option: {opt}")
-                if opt is not None and opt:
-                    ret_state = await self._async_get_option_state(opt.strip())
-                    if ret_state is not None and ret_state:
-                        self._adv_options_state_list.append(ret_state)
-                        _LOGGER.debug(
-                            "(%s) [adv_options] Updated state list: %s",
-                            self._get_attr(CONF_NAME),
-                            self._adv_options_state_list,
-                        )
-                next_opt = curr_options[(comma_num + 1) :]
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}")
-                if next_opt is not None and next_opt:
-                    await self._async_build_from_advanced_options(next_opt.strip())
-                    # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Back from recursion")
-                return
-            if (
-                bracket_num != -1
-                and (comma_num == -1 or bracket_num < comma_num)
-                and (paren_num == -1 or bracket_num < paren_num)
-            ):
-                # Bracket is first symbol
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Bracket is First")
-                opt = curr_options[:bracket_num]
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Option: {opt}")
-                none_opt, next_opt = await self._async_parse_bracket(curr_options[bracket_num:])
-                if next_opt is not None and next_opt and len(next_opt) > 1 and next_opt[0] == "(":
-                    # Parse Parenthesis
-                    incl, excl, incl_attr, excl_attr, next_opt = await self._async_parse_parens(
-                        next_opt
-                    )
+        def has_matching_delimiters(option: str) -> bool:
+            return option.count("[") == option.count("]") and option.count("(") == option.count(")")
 
-                if opt is not None and opt:
-                    ret_state = await self._async_get_option_state(
-                        opt.strip(), incl, excl, incl_attr, excl_attr
-                    )
-                    if ret_state is not None and ret_state:
-                        self._adv_options_state_list.append(ret_state)
-                        _LOGGER.debug(
-                            "(%s) [adv_options] Updated state list: %s",
-                            self._get_attr(CONF_NAME),
-                            self._adv_options_state_list,
-                        )
-                    elif none_opt is not None and none_opt:
-                        await self._async_build_from_advanced_options(none_opt.strip())
-                        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Back from recursion")
-
-                if next_opt is not None and next_opt and len(next_opt) > 1 and next_opt[0] == ",":
-                    next_opt = next_opt[1:]
-                    # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}")
-                    if next_opt is not None and next_opt:
-                        await self._async_build_from_advanced_options(next_opt.strip())
-                        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Back from recursion")
+        async def process_option(
+            opt: str, incl=None, excl=None, incl_attr=None, excl_attr=None
+        ) -> None:
+            if not opt:
                 return
-            if (
-                paren_num != -1
-                and (comma_num == -1 or paren_num < comma_num)
-                and (bracket_num == -1 or paren_num < bracket_num)
-            ):
-                # Parenthesis is first symbol
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Parenthesis is First")
-                opt = curr_options[:paren_num]
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Option: {opt}")
-                incl, excl, incl_attr, excl_attr, next_opt = await self._async_parse_parens(
-                    curr_options[paren_num:]
+            ret_state = await self._async_get_option_state(
+                opt.strip(), incl, excl, incl_attr, excl_attr
+            )
+            if ret_state:
+                self._adv_options_state_list.append(ret_state)
+                _LOGGER.debug(
+                    "(%s) [adv_options] Updated state list: %s",
+                    self._get_attr(CONF_NAME),
+                    self._adv_options_state_list,
                 )
-                if next_opt is not None and next_opt and len(next_opt) > 1 and next_opt[0] == "[":
-                    # Parse Bracket
-                    none_opt, next_opt = await self._async_parse_bracket(next_opt)
 
-                if opt is not None and opt:
-                    ret_state = await self._async_get_option_state(
-                        opt.strip(), incl, excl, incl_attr, excl_attr
-                    )
-                    if ret_state is not None and ret_state:
-                        self._adv_options_state_list.append(ret_state)
-                        _LOGGER.debug(
-                            "(%s) [adv_options] Updated state list: %s",
-                            self._get_attr(CONF_NAME),
-                            self._adv_options_state_list,
-                        )
-                    elif none_opt is not None and none_opt:
-                        await self._async_build_from_advanced_options(none_opt.strip())
-                        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Back from recursion")
-
-                if next_opt is not None and next_opt and len(next_opt) > 1 and next_opt[0] == ",":
-                    next_opt = next_opt[1:]
-                    # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Next Options: {next_opt}")
-                    if next_opt is not None and next_opt:
-                        await self._async_build_from_advanced_options(next_opt.strip())
-                        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Back from recursion")
-                return
-            return
-        if "," in curr_options:
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Options has , but no [ or (, splitting")
-            for opt in curr_options.split(","):
-                if opt is not None and opt:
-                    ret_state = await self._async_get_option_state(opt.strip())
-                    if ret_state is not None and ret_state:
-                        self._adv_options_state_list.append(ret_state)
-                        _LOGGER.debug(
-                            "(%s) [adv_options] Updated state list: %s",
-                            self._get_attr(CONF_NAME),
-                            self._adv_options_state_list,
-                        )
-            return
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [adv_options] Options should just be a single term")
-        ret_state = await self._async_get_option_state(curr_options.strip())
-        if ret_state is not None and ret_state:
-            self._adv_options_state_list.append(ret_state)
-            _LOGGER.debug(
-                "(%s) [adv_options] Updated state list: %s",
+        if not curr_options or not has_matching_delimiters(curr_options):
+            _LOGGER.error(
+                "(%s) [adv_options] Invalid syntax in options: %s",
                 self._get_attr(CONF_NAME),
-                self._adv_options_state_list,
+                curr_options,
             )
-        return
+            return
+
+        while curr_options:
+            first_char = curr_options[0]
+            if first_char in "[(":
+                parse_func = (
+                    self._async_parse_bracket if first_char == "[" else self._async_parse_parens
+                )
+                incl, excl, incl_attr, excl_attr, next_opt = await parse_func(curr_options)
+                if next_opt and next_opt[0] in "[(":
+                    none_opt, next_opt = await self._async_parse_bracket(next_opt)
+                    if none_opt:
+                        await self._async_build_from_advanced_options(none_opt.strip())
+                await process_option(
+                    curr_options[: curr_options.find(first_char)], incl, excl, incl_attr, excl_attr
+                )
+                curr_options = next_opt.lstrip(",") if next_opt else None
+            elif "," in curr_options:
+                options = curr_options.split(",")
+                for opt in options:
+                    await process_option(opt)
+                break
+            else:
+                await process_option(curr_options)
+                break
 
     async def _async_parse_parens(self, curr_options: str):
         incl: list = []
@@ -1550,11 +1439,11 @@ class Places(SensorEntity):
         incl_attr: MutableMapping[str, Any] = {}
         excl_attr: MutableMapping[str, Any] = {}
         incl_excl_list: list = []
-        empty_paren = False
+        empty_paren: bool = False
         next_opt = None
-        paren_count = 1
-        close_paren_num = 0
-        last_comma = -1
+        paren_count: int = 1
+        close_paren_num: int = 0
+        last_comma: int = -1
         if curr_options[0] == "(":
             curr_options = curr_options[1:]
         if curr_options[0] == ")":
@@ -1575,8 +1464,8 @@ class Places(SensorEntity):
 
         if close_paren_num > 0 and paren_count == 0 and incl_excl_list:
             # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] incl_excl_list: {incl_excl_list}")
-            paren_first = True
-            paren_incl = True
+            paren_first: bool = True
+            paren_incl: bool = True
             for item in incl_excl_list:
                 if paren_first:
                     paren_first = False
@@ -1601,7 +1490,7 @@ class Places(SensorEntity):
                         paren_attr = item[: item.find("(")]
                         paren_attr_first = True
                         paren_attr_incl = True
-                        paren_attr_list = []
+                        paren_attr_list: list = []
                         for attr_item in item[(item.find("(") + 1) : item.find(")")].split(","):
                             if paren_attr_first:
                                 paren_attr_first = False
@@ -1636,11 +1525,11 @@ class Places(SensorEntity):
 
     async def _async_parse_bracket(self, curr_options: str):
         # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_bracket] Options: {curr_options}")
-        empty_bracket = False
-        none_opt = None
-        next_opt = None
-        bracket_count = 1
-        close_bracket_num = 0
+        empty_bracket: bool = False
+        none_opt: str | None = None
+        next_opt: str | None = None
+        bracket_count: int = 1
+        close_bracket_num: int = 0
         if curr_options[0] == "[":
             curr_options = curr_options[1:]
         if curr_options[0] == "]":
@@ -1747,7 +1636,7 @@ class Places(SensorEntity):
 
     async def _async_compile_state_from_advanced_options(self) -> None:
         self._street_num_i += 1
-        first = True
+        first: bool = True
         for i, out in enumerate(self._adv_options_state_list):
             if out is not None and out:
                 out = out.strip()
@@ -1777,8 +1666,6 @@ class Places(SensorEntity):
         )
 
     async def _async_build_state_from_display_options(self) -> None:
-        # Options:  "formatted_place, driving, zone, zone_name, place_name, place, street_number, street, city, county, state, postal_code, country, formatted_address, do_not_show_not_home"
-
         display_options = self._get_attr(ATTR_DISPLAY_OPTIONS_LIST)
         _LOGGER.debug(
             "(%s) Building State from Display Options: %s",
@@ -1786,84 +1673,77 @@ class Places(SensorEntity):
             self._get_attr(ATTR_DISPLAY_OPTIONS),
         )
 
-        user_display: list = []
-        if "driving" in display_options and not self._is_attr_blank(ATTR_DRIVING):
-            user_display.append(self._get_attr(ATTR_DRIVING))
+        def add_to_display(option_key: str, attr_key: str, condition: bool = True) -> None:
+            """Add attribute value to user_display if the conditions are met."""
+            if option_key in display_options and not self._is_attr_blank(attr_key) and condition:
+                user_display.append(self._get_attr(attr_key))
 
-        if (
-            "zone_name" in display_options
-            and not self._is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME)
-            and (await self._async_in_zone() or "do_not_show_not_home" not in display_options)
-        ):
-            user_display.append(self._get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
-        elif (
-            "zone" in display_options
-            and not self._is_attr_blank(ATTR_DEVICETRACKER_ZONE)
-            and (await self._async_in_zone() or "do_not_show_not_home" not in display_options)
-        ):
-            user_display.append(self._get_attr(ATTR_DEVICETRACKER_ZONE))
+        user_display: list[str] = []
 
-        if "place_name" in display_options and not self._is_attr_blank(ATTR_PLACE_NAME):
-            user_display.append(self._get_attr(ATTR_PLACE_NAME))
+        # Add basic options
+        add_to_display("driving", ATTR_DRIVING)
+        add_to_display(
+            "zone_name",
+            ATTR_DEVICETRACKER_ZONE_NAME,
+            await self._async_in_zone() or "do_not_show_not_home" not in display_options,
+        )
+        add_to_display(
+            "zone",
+            ATTR_DEVICETRACKER_ZONE,
+            await self._async_in_zone() or "do_not_show_not_home" not in display_options,
+        )
+        add_to_display("place_name", ATTR_PLACE_NAME)
+
+        # Handle "place" and its sub-options
         if "place" in display_options:
             if not self._is_attr_blank(ATTR_PLACE_NAME) and self._get_attr(
                 ATTR_PLACE_NAME
             ) != self._get_attr(ATTR_STREET):
                 user_display.append(self._get_attr(ATTR_PLACE_NAME))
-            if (
-                not self._is_attr_blank(ATTR_PLACE_CATEGORY)
-                and (self._get_attr(ATTR_PLACE_CATEGORY)).lower() != "place"
-            ):
-                user_display.append(self._get_attr(ATTR_PLACE_CATEGORY))
-            if (
-                not self._is_attr_blank(ATTR_PLACE_TYPE)
-                and (self._get_attr(ATTR_PLACE_TYPE)).lower() != "yes"
-            ):
-                user_display.append(self._get_attr(ATTR_PLACE_TYPE))
-            if not self._is_attr_blank(ATTR_PLACE_NEIGHBOURHOOD):
-                user_display.append(self._get_attr(ATTR_PLACE_NEIGHBOURHOOD))
-            if not self._is_attr_blank(ATTR_STREET_NUMBER):
-                user_display.append(self._get_attr(ATTR_STREET_NUMBER))
-            if not self._is_attr_blank(ATTR_STREET):
-                user_display.append(self._get_attr(ATTR_STREET))
+            for key, attr in {
+                "place_category": ATTR_PLACE_CATEGORY,
+                "place_type": ATTR_PLACE_TYPE,
+                "place_neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
+                "street_number": ATTR_STREET_NUMBER,
+                "street": ATTR_STREET,
+            }.items():
+                add_to_display(
+                    key, attr, (self._get_attr(attr) or "").lower() not in {"place", "yes"}
+                )
         else:
-            if "street_number" in display_options and not self._is_attr_blank(ATTR_STREET_NUMBER):
-                user_display.append(self._get_attr(ATTR_STREET_NUMBER))
-            if "street" in display_options and not self._is_attr_blank(ATTR_STREET):
-                user_display.append(self._get_attr(ATTR_STREET))
-        if "city" in display_options and not self._is_attr_blank(ATTR_CITY):
-            user_display.append(self._get_attr(ATTR_CITY))
-        if "county" in display_options and not self._is_attr_blank(ATTR_COUNTY):
-            user_display.append(self._get_attr(ATTR_COUNTY))
-        if (
-            "state" in display_options
-            and not self._is_attr_blank(ATTR_REGION)
-            or "region" in display_options
-            and not self._is_attr_blank(ATTR_REGION)
-        ):
-            user_display.append(self._get_attr(ATTR_REGION))
-        if "postal_code" in display_options and not self._is_attr_blank(ATTR_POSTAL_CODE):
-            user_display.append(self._get_attr(ATTR_POSTAL_CODE))
-        if "country" in display_options and not self._is_attr_blank(ATTR_COUNTRY):
-            user_display.append(self._get_attr(ATTR_COUNTRY))
-        if "formatted_address" in display_options and not self._is_attr_blank(
-            ATTR_FORMATTED_ADDRESS
-        ):
-            user_display.append(self._get_attr(ATTR_FORMATTED_ADDRESS))
+            add_to_display("street_number", ATTR_STREET_NUMBER)
+            add_to_display("street", ATTR_STREET)
 
+        # Add remaining location details
+        for option_key, attr_key in {
+            "city": ATTR_CITY,
+            "county": ATTR_COUNTY,
+            "state": ATTR_REGION,
+            "region": ATTR_REGION,
+            "postal_code": ATTR_POSTAL_CODE,
+            "country": ATTR_COUNTRY,
+            "formatted_address": ATTR_FORMATTED_ADDRESS,
+        }.items():
+            add_to_display(option_key, attr_key)
+
+        # Handle "do_not_reorder" option
         if "do_not_reorder" in display_options:
             user_display = []
             display_options.remove("do_not_reorder")
             for option in display_options:
-                if option == "state":
-                    target_option = "region"
-                if option == "place_neighborhood":
-                    target_option = "place_neighbourhood"
-                if option in locals():
-                    user_display.append(target_option)
+                attr_key = (
+                    "region"
+                    if option == "state"
+                    else "place_neighbourhood"
+                    if option == "place_neighborhood"
+                    else option
+                )
+                if not self._is_attr_blank(attr_key):
+                    user_display.append(self._get_attr(attr_key))
 
+        # Set the final state
         if user_display:
-            self._set_attr(ATTR_NATIVE_VALUE, ", ".join(item for item in user_display))
+            self._set_attr(ATTR_NATIVE_VALUE, ", ".join(user_display))
         _LOGGER.debug(
             "(%s) New State from Display Options: %s",
             self._get_attr(CONF_NAME),
@@ -1915,7 +1795,7 @@ class Places(SensorEntity):
 
                 self._set_attr(ATTR_WIKIDATA_DICT, {})
                 if not self._is_attr_blank(ATTR_WIKIDATA_ID):
-                    wikidata_url = f"https://www.wikidata.org/wiki/Special:EntityData/{
+                    wikidata_url: str = f"https://www.wikidata.org/wiki/Special:EntityData/{
                         self._get_attr(ATTR_WIKIDATA_ID)
                     }.json"
                     await self._hass.async_add_executor_job(
@@ -1980,14 +1860,6 @@ class Places(SensorEntity):
                 e.__class__.__qualname__,
                 e,
             )
-        # except Exception as e:
-        #     _LOGGER.debug(
-        #         "(%s) Unknown Exception writing sensor to JSON (%s): %s: %s",
-        #         name,
-        #         filename,
-        #         e.__class__.__qualname__,
-        #         e,
-        #     )
 
     async def _async_get_initial_last_place_name(self) -> None:
         _LOGGER.debug(
@@ -2104,9 +1976,6 @@ class Places(SensorEntity):
                         ),
                     )
 
-                # if self._get_attr(ATTR_DISTANCE_TRAVELED_M) <= 100:  # in meters
-                #    self._set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-                # elif last_distance_traveled_m > self._get_attr(ATTR_DISTANCE_FROM_HOME_M):
                 if last_distance_traveled_m > self._get_attr(ATTR_DISTANCE_FROM_HOME_M):
                     self._set_attr(ATTR_DIRECTION_OF_TRAVEL, "towards home")
                 elif last_distance_traveled_m < self._get_attr(ATTR_DISTANCE_FROM_HOME_M):
@@ -2196,7 +2065,6 @@ class Places(SensorEntity):
 
     async def _async_do_update(self, reason: str) -> None:
         """Get the latest data and updates the states."""
-
         _LOGGER.info(
             "(%s) Starting %s Update (Tracked Entity: %s)",
             self._get_attr(CONF_NAME),
@@ -2204,314 +2072,283 @@ class Places(SensorEntity):
             self._get_attr(CONF_DEVICETRACKER_ID),
         )
 
-        if self._hass.config.time_zone is not None:
-            now: datetime = datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
-        else:
-            now = datetime.now()
+        now: datetime = await self._get_current_time()
         previous_attr: MutableMapping[str, Any] = copy.deepcopy(self._internal_attr)
 
+        await self._update_entity_name_and_cleanup()
+        await self._update_previous_state()
+        await self._update_old_coordinates()
+        prev_last_place_name = self._get_attr(ATTR_LAST_PLACE_NAME)
+
+        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        proceed_with_update: int = await self._check_device_tracker_and_update_coords()
+
+        if proceed_with_update == 1:
+            proceed_with_update = await self._determine_update_criteria()
+
+        if proceed_with_update == 1:
+            await self._process_osm_update(now=now)
+
+            if await self._should_update_state(now=now):
+                await self._handle_state_update(now=now, prev_last_place_name=prev_last_place_name)
+            else:
+                _LOGGER.info(
+                    "(%s) No entity update needed, Previous State = New State",
+                    self._get_attr(CONF_NAME),
+                )
+                await self._rollback_update(previous_attr, now, proceed_with_update)
+        else:
+            await self._rollback_update(previous_attr, now, proceed_with_update)
+
+        self._set_attr(ATTR_LAST_UPDATED, str(now.isoformat(sep=" ", timespec="seconds")))
+        _LOGGER.info("(%s) End of Update", self._get_attr(CONF_NAME))
+
+    async def _should_update_state(self, now: datetime) -> bool:
+        prev_state = self._get_attr(ATTR_PREVIOUS_STATE)
+        native_value = self._get_attr(ATTR_NATIVE_VALUE)
+        tracker_zone = self._get_attr(ATTR_DEVICETRACKER_ZONE)
+
+        if (
+            (
+                not self._is_attr_blank(ATTR_PREVIOUS_STATE)
+                and not self._is_attr_blank(ATTR_NATIVE_VALUE)
+                and prev_state.lower().strip() != native_value.lower().strip()
+                and prev_state.replace(" ", "").lower().strip() != native_value.lower().strip()
+                and prev_state.lower().strip() != tracker_zone.lower().strip()
+            )
+            or self._is_attr_blank(ATTR_PREVIOUS_STATE)
+            or self._is_attr_blank(ATTR_NATIVE_VALUE)
+            or self._get_attr(ATTR_INITIAL_UPDATE)
+        ):
+            return True
+        return False
+
+    async def _handle_state_update(self, now: datetime, prev_last_place_name: str) -> None:
+        if self._get_attr(CONF_EXTENDED_ATTR):
+            await self._async_get_extended_attr()
+        self._set_attr(ATTR_SHOW_DATE, False)
+        await self._async_cleanup_attributes()
+
+        if not self._is_attr_blank(ATTR_NATIVE_VALUE):
+            current_time: str = f"{now.hour:02}:{now.minute:02}"
+            if self._get_attr(CONF_SHOW_TIME):
+                state: str = await Places._async_clear_since_from_state(
+                    str(self._get_attr(ATTR_NATIVE_VALUE))
+                )
+                self._set_attr(ATTR_NATIVE_VALUE, f"{state[: 255 - 14]} (since {current_time})")
+            else:
+                self._set_attr(ATTR_NATIVE_VALUE, self._get_attr(ATTR_NATIVE_VALUE)[:255])
+            _LOGGER.info(
+                "(%s) New State: %s",
+                self._get_attr(CONF_NAME),
+                self._get_attr(ATTR_NATIVE_VALUE),
+            )
+        else:
+            self._clear_attr(ATTR_NATIVE_VALUE)
+            _LOGGER.warning("(%s) New State is None", self._get_attr(CONF_NAME))
+
+        if not self._is_attr_blank(ATTR_NATIVE_VALUE):
+            self._attr_native_value = self._get_attr(ATTR_NATIVE_VALUE)
+        else:
+            self._attr_native_value = None
+
+        await self._async_fire_event_data(prev_last_place_name=prev_last_place_name)
+        self._set_attr(ATTR_INITIAL_UPDATE, False)
+        await self._hass.async_add_executor_job(
+            self._write_sensor_to_json,
+            self._get_attr(CONF_NAME),
+            self._get_attr(ATTR_JSON_FILENAME),
+        )
+
+    async def _rollback_update(
+        self, previous_attr: MutableMapping[str, Any], now: datetime, proceed_with_update: int
+    ) -> None:
+        self._internal_attr = previous_attr
+        _LOGGER.debug(
+            "(%s) Reverting attributes back to before the update started", self._get_attr(CONF_NAME)
+        )
+        changed_diff_sec = await self._async_get_seconds_from_last_change(now=now)
+        if (
+            proceed_with_update == 2
+            and self._get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+            and changed_diff_sec >= 60
+        ):
+            await self._async_change_dot_to_stationary(now=now, changed_diff_sec=changed_diff_sec)
+        if (
+            self._get_attr(CONF_SHOW_TIME)
+            and changed_diff_sec >= 86399
+            and not self._get_attr(ATTR_SHOW_DATE)
+        ):
+            await self._async_change_show_time_to_date()
+
+    async def _get_current_time(self) -> datetime:
+        if self._hass.config.time_zone:
+            return datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
+        return datetime.now()
+
+    async def _update_entity_name_and_cleanup(self) -> None:
         await self._async_check_for_updated_entity_name()
         await self._async_cleanup_attributes()
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Previous entity attributes: {self._internal_attr}")
+
+    async def _update_previous_state(self) -> None:
         if not self._is_attr_blank(ATTR_NATIVE_VALUE) and self._get_attr(CONF_SHOW_TIME):
             self._set_attr(
                 ATTR_PREVIOUS_STATE,
-                await Places._async_clear_since_from_state(str(self._get_attr(ATTR_NATIVE_VALUE))),
+                await Places._async_clear_since_from_state(
+                    orig_state=self._get_attr(ATTR_NATIVE_VALUE)
+                ),
             )
         else:
             self._set_attr(ATTR_PREVIOUS_STATE, self._get_attr(ATTR_NATIVE_VALUE))
+
+    async def _update_old_coordinates(self) -> None:
         if _is_float(self._get_attr(ATTR_LATITUDE)):
             self._set_attr(ATTR_LATITUDE_OLD, str(self._get_attr(ATTR_LATITUDE)))
         if _is_float(self._get_attr(ATTR_LONGITUDE)):
             self._set_attr(ATTR_LONGITUDE_OLD, str(self._get_attr(ATTR_LONGITUDE)))
-        prev_last_place_name = self._get_attr(ATTR_LAST_PLACE_NAME)
 
+    async def _check_device_tracker_and_update_coords(self) -> int:
         proceed_with_update: int = await self._async_is_devicetracker_set()
-        # 0: False. 1: True. 2: False, but set direction of travel to stationary
         _LOGGER.debug(
             "(%s) [is_devicetracker_set] proceed_with_update: %s",
             self._get_attr(CONF_NAME),
             proceed_with_update,
         )
         if proceed_with_update == 1:
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-            if _is_float(
-                self._hass.states.get(self._get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                    CONF_LATITUDE
-                )
-            ):
-                self._set_attr(
-                    ATTR_LATITUDE,
-                    str(
-                        self._hass.states.get(self._get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                            CONF_LATITUDE
-                        )
-                    ),
-                )
-            if _is_float(
-                self._hass.states.get(self._get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                    CONF_LONGITUDE
-                )
-            ):
-                self._set_attr(
-                    ATTR_LONGITUDE,
-                    str(
-                        self._hass.states.get(self._get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                            CONF_LONGITUDE
-                        )
-                    ),
-                )
+            await self._update_coordinates()
             proceed_with_update = await self._async_get_gps_accuracy()
             _LOGGER.debug(
                 "(%s) [is_devicetracker_set] proceed_with_update: %s",
                 self._get_attr(CONF_NAME),
                 proceed_with_update,
             )
+        return proceed_with_update
 
-        if proceed_with_update == 1:
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-            await self._async_get_initial_last_place_name()
-            await self._async_get_zone_details()
-            proceed_with_update = await self._async_update_coordinates_and_distance()
-            _LOGGER.debug(
-                "(%s) [update_coordinates_and_distance] proceed_with_update: %s",
-                self._get_attr(CONF_NAME),
-                proceed_with_update,
-            )
+    async def _update_coordinates(self) -> None:
+        device_tracker = self._hass.states.get(self._get_attr(CONF_DEVICETRACKER_ID))
+        if _is_float(device_tracker.attributes.get(CONF_LATITUDE)):
+            self._set_attr(ATTR_LATITUDE, str(device_tracker.attributes.get(CONF_LATITUDE)))
+        if _is_float(device_tracker.attributes.get(CONF_LONGITUDE)):
+            self._set_attr(ATTR_LONGITUDE, str(device_tracker.attributes.get(CONF_LONGITUDE)))
 
+    async def _determine_update_criteria(self) -> int:
+        await self._async_get_initial_last_place_name()
+        await self._async_get_zone_details()
+        proceed_with_update = await self._async_update_coordinates_and_distance()
+        _LOGGER.debug(
+            "(%s) [update_coordinates_and_distance] proceed_with_update: %s",
+            self._get_attr(CONF_NAME),
+            proceed_with_update,
+        )
         if proceed_with_update == 1:
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
             proceed_with_update = await self._async_determine_if_update_needed()
             _LOGGER.debug(
                 "(%s) [determine_if_update_needed] proceed_with_update: %s",
                 self._get_attr(CONF_NAME),
                 proceed_with_update,
             )
+        return proceed_with_update
 
-        if proceed_with_update == 1:
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-            _LOGGER.info(
-                "(%s) Meets criteria, proceeding with OpenStreetMap query",
+    async def _process_osm_update(self, now: datetime) -> None:
+        _LOGGER.info(
+            "(%s) Meets criteria, proceeding with OpenStreetMap query",
+            self._get_attr(CONF_NAME),
+        )
+        _LOGGER.info(
+            "(%s) Tracked Entity Zone: %s",
+            self._get_attr(CONF_NAME),
+            self._get_attr(ATTR_DEVICETRACKER_ZONE),
+        )
+
+        await self._async_reset_attributes()
+        await self._async_get_map_link()
+        await self._query_osm_and_finalize(now=now)
+
+    async def _query_osm_and_finalize(self, now: datetime) -> None:
+        osm_url: str = await self._build_osm_url()
+        await self._hass.async_add_executor_job(
+            self._get_dict_from_url, osm_url, "OpenStreetMaps", ATTR_OSM_DICT
+        )
+        if not self._is_attr_blank(ATTR_OSM_DICT):
+            await self._async_parse_osm_dict()
+            await self._async_finalize_last_place_name(self._get_attr(ATTR_LAST_PLACE_NAME))
+            await self._process_display_options()
+            self._set_attr(ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds")))
+
+    async def _process_display_options(self) -> None:
+        display_options: list[str] = []
+        if not self._is_attr_blank(ATTR_DISPLAY_OPTIONS):
+            options_array = (self._get_attr(ATTR_DISPLAY_OPTIONS)).split(",")
+            for option in options_array:
+                display_options.extend([option.strip()])
+        self._set_attr(ATTR_DISPLAY_OPTIONS_LIST, display_options)
+
+        await self._async_get_driving_status()
+
+        if "formatted_place" in display_options:
+            await self._async_build_formatted_place()
+            self._set_attr(
+                ATTR_NATIVE_VALUE,
+                self._get_attr(ATTR_FORMATTED_PLACE),
+            )
+            _LOGGER.debug(
+                "(%s) New State using formatted_place: %s",
                 self._get_attr(CONF_NAME),
+                self._get_attr(ATTR_NATIVE_VALUE),
             )
 
-            _LOGGER.info(
-                "(%s) Tracked Entity Zone: %s",
-                # f" / Skipped Updates: {self._get_attr(ATTR_UPDATES_SKIPPED)}"
+        elif any(ext in (self._get_attr(ATTR_DISPLAY_OPTIONS)) for ext in ["(", ")", "[", "]"]):
+            self._clear_attr(ATTR_DISPLAY_OPTIONS_LIST)
+            display_options = []
+            self._adv_options_state_list = []
+            self._street_num_i = -1
+            self._street_i = -1
+            self._temp_i = 0
+            _LOGGER.debug(
+                "(%s) Initial Advanced Display Options: %s",
                 self._get_attr(CONF_NAME),
+                self._get_attr(ATTR_DISPLAY_OPTIONS),
+            )
+
+            await self._async_build_from_advanced_options(self._get_attr(ATTR_DISPLAY_OPTIONS))
+            # _LOGGER.debug(
+            #    f"({self._get_attr(CONF_NAME)}) Back from initial advanced build: "
+            #    + f"{self._adv_options_state_list}"
+            # )
+            await self._async_compile_state_from_advanced_options()
+        elif not await self._async_in_zone():
+            await self._async_build_state_from_display_options()
+        elif (
+            "zone" in display_options and not self._is_attr_blank(ATTR_DEVICETRACKER_ZONE)
+        ) or self._is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
+            self._set_attr(
+                ATTR_NATIVE_VALUE,
                 self._get_attr(ATTR_DEVICETRACKER_ZONE),
             )
-
-            await self._async_reset_attributes()
-            await self._async_get_map_link()
-
-            osm_url: str = (
-                "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="
-                f"{self._get_attr(ATTR_LATITUDE)}"
-                f"&lon={self._get_attr(ATTR_LONGITUDE)}"
-                f"&accept-language={
-                    self._get_attr(CONF_LANGUAGE) if not self._is_attr_blank(CONF_LANGUAGE) else ''
-                }"
-                "&addressdetails=1&namedetails=1&zoom=18&limit=1"
-                f"&email={
-                    self._get_attr(CONF_API_KEY) if not self._is_attr_blank(CONF_API_KEY) else ''
-                }"
-            )
-
-            await self._hass.async_add_executor_job(
-                self._get_dict_from_url, osm_url, "OpenStreetMaps", ATTR_OSM_DICT
-            )
-
-            if not self._is_attr_blank(ATTR_OSM_DICT):
-                await self._async_parse_osm_dict()
-                await self._async_finalize_last_place_name(prev_last_place_name)
-
-                display_options: list = []
-                if not self._is_attr_blank(ATTR_DISPLAY_OPTIONS):
-                    options_array = (self._get_attr(ATTR_DISPLAY_OPTIONS)).split(",")
-                    for option in options_array:
-                        display_options.extend([option.strip()])
-                self._set_attr(ATTR_DISPLAY_OPTIONS_LIST, display_options)
-
-                await self._async_get_driving_status()
-
-                if "formatted_place" in display_options:
-                    await self._async_build_formatted_place()
-                    self._set_attr(
-                        ATTR_NATIVE_VALUE,
-                        self._get_attr(ATTR_FORMATTED_PLACE),
-                    )
-                    _LOGGER.debug(
-                        "(%s) New State using formatted_place: %s",
-                        self._get_attr(CONF_NAME),
-                        self._get_attr(ATTR_NATIVE_VALUE),
-                    )
-
-                elif any(
-                    ext in (self._get_attr(ATTR_DISPLAY_OPTIONS)) for ext in ["(", ")", "[", "]"]
-                ):
-                    # Replace place option with expanded definition
-                    # temp_opt = self._get_attr(ATTR_DISPLAY_OPTIONS)
-                    # re.sub(
-                    #    r"place(?=[\[\(\]\)\,\s])",
-                    #    "place_name,place_category(-,place),place_type(-,yes),neighborhood,street_number,street",
-                    #    temp_opt,
-                    # )
-                    # self._set_attr(ATTR_DISPLAY_OPTIONS, temp_opt)
-                    self._clear_attr(ATTR_DISPLAY_OPTIONS_LIST)
-                    display_options = []
-                    self._adv_options_state_list = []
-                    self._street_num_i = -1
-                    self._street_i = -1
-                    self._temp_i = 0
-                    _LOGGER.debug(
-                        "(%s) Initial Advanced Display Options: %s",
-                        self._get_attr(CONF_NAME),
-                        self._get_attr(ATTR_DISPLAY_OPTIONS),
-                    )
-
-                    await self._async_build_from_advanced_options(
-                        self._get_attr(ATTR_DISPLAY_OPTIONS)
-                    )
-                    # _LOGGER.debug(
-                    #    f"({self._get_attr(CONF_NAME)}) Back from initial advanced build: "
-                    #    + f"{self._adv_options_state_list}"
-                    # )
-                    await self._async_compile_state_from_advanced_options()
-                elif not await self._async_in_zone():
-                    await self._async_build_state_from_display_options()
-                elif (
-                    "zone" in display_options and not self._is_attr_blank(ATTR_DEVICETRACKER_ZONE)
-                ) or self._is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
-                    self._set_attr(
-                        ATTR_NATIVE_VALUE,
-                        self._get_attr(ATTR_DEVICETRACKER_ZONE),
-                    )
-                    _LOGGER.debug(
-                        "(%s) New State from Tracked Entity Zone: %s",
-                        self._get_attr(CONF_NAME),
-                        self._get_attr(ATTR_NATIVE_VALUE),
-                    )
-                elif not self._is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
-                    self._set_attr(
-                        ATTR_NATIVE_VALUE,
-                        self._get_attr(ATTR_DEVICETRACKER_ZONE_NAME),
-                    )
-                    _LOGGER.debug(
-                        "(%s) New State from Tracked Entity Zone Name: %s",
-                        self._get_attr(CONF_NAME),
-                        self._get_attr(ATTR_NATIVE_VALUE),
-                    )
-                current_time: str = f"{now.hour:02}:{now.minute:02}"
-                self._set_attr(ATTR_LAST_CHANGED, str(now.isoformat(sep=" ", timespec="seconds")))
-
-                # Final check to see if the New State is different from the Previous State and should update or not.
-                # If not, attributes are reset to what they were before the update started.
-
-                if (
-                    (
-                        not self._is_attr_blank(ATTR_PREVIOUS_STATE)
-                        and not self._is_attr_blank(ATTR_NATIVE_VALUE)
-                        and (self._get_attr(ATTR_PREVIOUS_STATE)).lower().strip()
-                        != (self._get_attr(ATTR_NATIVE_VALUE)).lower().strip()
-                        and (self._get_attr(ATTR_PREVIOUS_STATE)).replace(" ", "").lower().strip()
-                        != (self._get_attr(ATTR_NATIVE_VALUE)).lower().strip()
-                        and self._get_attr(ATTR_PREVIOUS_STATE).lower().strip()
-                        != (self._get_attr(ATTR_DEVICETRACKER_ZONE)).lower().strip()
-                    )
-                    or self._is_attr_blank(ATTR_PREVIOUS_STATE)
-                    or self._is_attr_blank(ATTR_NATIVE_VALUE)
-                    or self._get_attr(ATTR_INITIAL_UPDATE)
-                ):
-                    if self._get_attr(CONF_EXTENDED_ATTR):
-                        await self._async_get_extended_attr()
-                    self._set_attr(ATTR_SHOW_DATE, False)
-                    await self._async_cleanup_attributes()
-                    if not self._is_attr_blank(ATTR_NATIVE_VALUE):
-                        if self._get_attr(CONF_SHOW_TIME):
-                            self._set_attr(
-                                ATTR_NATIVE_VALUE,
-                                str(
-                                    await Places._async_clear_since_from_state(
-                                        str(self._get_attr(ATTR_NATIVE_VALUE))
-                                    )
-                                )[: 255 - 14]
-                                + " (since "
-                                + current_time
-                                + ")",
-                            )
-                        else:
-                            self._set_attr(
-                                ATTR_NATIVE_VALUE,
-                                self._get_attr(ATTR_NATIVE_VALUE)[:255],
-                            )
-                        _LOGGER.info(
-                            "(%s) New State: %s",
-                            self._get_attr(CONF_NAME),
-                            self._get_attr(ATTR_NATIVE_VALUE),
-                        )
-                    else:
-                        self._clear_attr(ATTR_NATIVE_VALUE)
-                        _LOGGER.warning("(%s) New State is None", self._get_attr(CONF_NAME))
-                    if not self._is_attr_blank(ATTR_NATIVE_VALUE):
-                        self._attr_native_value = self._get_attr(ATTR_NATIVE_VALUE)
-                    else:
-                        self._attr_native_value = None
-                    await self._async_fire_event_data(prev_last_place_name)
-                    self._set_attr(ATTR_INITIAL_UPDATE, False)
-                    await self._hass.async_add_executor_job(
-                        self._write_sensor_to_json,
-                        self._get_attr(CONF_NAME),
-                        self._get_attr(ATTR_JSON_FILENAME),
-                    )
-                else:
-                    self._internal_attr = previous_attr
-                    _LOGGER.info(
-                        "(%s) No entity update needed, Previous State = New State",
-                        self._get_attr(CONF_NAME),
-                    )
-                    _LOGGER.debug(
-                        "(%s) Reverting attributes back to before the update started",
-                        self._get_attr(CONF_NAME),
-                    )
-
-                    changed_diff_sec: int = await self._async_get_seconds_from_last_change(now)
-                    if (
-                        self._get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
-                        and changed_diff_sec >= 60
-                    ):
-                        await self._async_change_dot_to_stationary(now, changed_diff_sec)
-                    if (
-                        self._get_attr(CONF_SHOW_TIME)
-                        and changed_diff_sec >= 86399
-                        and self._get_attr(ATTR_SHOW_DATE) is False
-                    ):
-                        await self._async_change_show_time_to_date()
-        else:
-            self._internal_attr = previous_attr
             _LOGGER.debug(
-                "(%s) Reverting attributes back to before the update started",
+                "(%s) New State from Tracked Entity Zone: %s",
                 self._get_attr(CONF_NAME),
+                self._get_attr(ATTR_NATIVE_VALUE),
+            )
+        elif not self._is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
+            self._set_attr(
+                ATTR_NATIVE_VALUE,
+                self._get_attr(ATTR_DEVICETRACKER_ZONE_NAME),
+            )
+            _LOGGER.debug(
+                "(%s) New State from Tracked Entity Zone Name: %s",
+                self._get_attr(CONF_NAME),
+                self._get_attr(ATTR_NATIVE_VALUE),
             )
 
-            changed_diff_sec = await self._async_get_seconds_from_last_change(now)
-            if (
-                proceed_with_update == 2
-                and self._get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
-                and changed_diff_sec >= 60
-            ):
-                # 0: False. 1: True. 2: False, but set direction of travel to stationary
-                await self._async_change_dot_to_stationary(now, changed_diff_sec)
-            if (
-                self._get_attr(CONF_SHOW_TIME)
-                and changed_diff_sec >= 86399
-                and self._get_attr(ATTR_SHOW_DATE) is False
-            ):
-                await self._async_change_show_time_to_date()
-
-        self._set_attr(ATTR_LAST_UPDATED, str(now.isoformat(sep=" ", timespec="seconds")))
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Final entity attributes: {await self._async__internal_attr}")
-        _LOGGER.info("(%s) End of Update", self._get_attr(CONF_NAME))
+    async def _build_osm_url(self) -> str:
+        """Build the OpenStreetMap query URL."""
+        base_url = "https://nominatim.openstreetmap.org/reverse?format=json"
+        lat = self._get_attr(ATTR_LATITUDE)
+        lon = self._get_attr(ATTR_LONGITUDE)
+        lang: str = self._get_attr(CONF_LANGUAGE) if not self._is_attr_blank(CONF_LANGUAGE) else ""
+        email: str = self._get_attr(CONF_API_KEY) if not self._is_attr_blank(CONF_API_KEY) else ""
+        return f"{base_url}&lat={lat}&lon={lon}&accept-language={lang}&addressdetails=1&namedetails=1&zoom=18&limit=1&email={email}"
 
     async def _async_change_dot_to_stationary(self, now: datetime, changed_diff_sec: int) -> None:
         self._set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
@@ -2529,17 +2366,11 @@ class Places(SensorEntity):
 
     async def _async_change_show_time_to_date(self) -> None:
         if not self._is_attr_blank(ATTR_NATIVE_VALUE) and self._get_attr(CONF_SHOW_TIME):
-            # localedate = str(locale.nl_langinfo(locale.D_FMT)).replace(" ", "")
-            # if localedate.lower().endswith("%y"):
-            #    localemmdd = localedate[:-3]
-            # elif localedate.lower().startswith("%y"):
-            #    localemmdd = localedate[3:]
-            # else:
             if self._get_attr(CONF_DATE_FORMAT) == "dd/mm":
                 dateformat = "%d/%m"
             else:
                 dateformat = "%m/%d"
-            mmddstring = (
+            mmddstring: str = (
                 datetime.fromisoformat(self._get_attr(ATTR_LAST_CHANGED))
                 .strftime(f"{dateformat}")
                 .replace(" ", "")[:5]
@@ -2599,7 +2430,6 @@ class Places(SensorEntity):
         """Reset sensor attributes."""
         for attr in RESET_ATTRIBUTE_LIST:
             self._clear_attr(attr)
-        # self._set_attr(ATTR_UPDATES_SKIPPED, 0)
         await self._async_cleanup_attributes()
 
 
