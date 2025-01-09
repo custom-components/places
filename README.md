@@ -73,9 +73,9 @@ Key | Required | Default | Description |
 `Map Provider` | `No` | `apple` | `google`, `apple`, `osm`
 `Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20>
 `Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes)
+`Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updating when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.**
 `Extended Attributes` | `No` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!**
 `Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)`
-`Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updating when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.**
 
 <details>
 <summary><h3>Advanced Display Options</h3></summary>
