@@ -55,7 +55,7 @@ logger:
 
 ## Use a Consistent Coding Style
 
-Use [black](https://github.com/ambv/black) to make sure the code follows the style.
+Use [ruff](https://docs.astral.sh/ruff) to make sure the code follows the style.
 
 ## License
 
