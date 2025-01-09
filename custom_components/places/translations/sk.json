@@ -18,7 +18,12 @@
                     "date_format": "Formát dátumu, ktorý sa zobrazí na konci stavu, keď sa nezmení >24 hodín",
                     "use_gps_accuracy": "Použite presnosť GPS"
                 },
-                "description": "Vytvorte nový senzor\nPodrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub"
+                "description": "Vytvorte nový senzor\nPodrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
+                "data_description": {
+                    "options": "Podrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                  }
             }
         }
     },
@@ -27,7 +32,7 @@
             "init": {
                 "title": "Miesta: OpenStreetMap snímač",
                 "data": {
-                    "devicetracker_id": "Tracked Entity ID",
+                    "devicetracker_id": "ID sledovanej entity",
                     "home_zone": "Domáca zóna",
                     "options": "Možnosti zobrazenia",
                     "map_provider": "Poskytovateľ mapy",
@@ -39,7 +44,12 @@
                     "date_format": "Formát dátumu, ktorý sa zobrazí na konci stavu, keď sa nezmení >24 hodín",
                     "use_gps_accuracy": "Použite presnosť GPS"
                 },
-                "description": "**Aktualizuje sa senzor:&nbsp;{sensor_name}**\nPodrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub"
+                "description": "**Aktualizuje sa senzor:&nbsp;{sensor_name}**\nPodrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
+                "data_description": {
+                    "options": "Podrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                  }
             }
         }
     }
