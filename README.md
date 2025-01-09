@@ -4,12 +4,12 @@
 </picture>
 
 [![GitHub Release](https://img.shields.io/github/release/custom-components/places.svg?style=for-the-badge)](https://github.com/custom-components/places/releases)
-[![GitHub Release Date](https://img.shields.io/github/release-date/custom-components/places?label=Last%20Release&style=for-the-badge)](#places)
+[![GitHub Release Date](https://img.shields.io/github/release-date/custom-components/places?label=Last%20Release&style=for-the-badge)](https://github.com/custom-components/places)
 [![GitHub Commit Activity](https://img.shields.io/github/commit-activity/y/custom-components/places.svg?style=for-the-badge)](https://github.com/custom-components/places/commits/master)
-[![GitHub last commit](https://img.shields.io/github/last-commit/custom-components/places?style=for-the-badge)](#places)
+[![GitHub last commit](https://img.shields.io/github/last-commit/custom-components/places?style=for-the-badge)](https://github.com/custom-components/places)
 [![License](https://img.shields.io/github/license/custom-components/places?color=blue&style=for-the-badge)](LICENSE)<br/>
 [![HACS](https://img.shields.io/badge/HACS-Default-blue.svg?style=for-the-badge)](https://github.com/hacs/integration)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/custom-components/places/hacs_validate.yml?branch=master&style=for-the-badge)](#places)<br/>
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/custom-components/places/ha_and_hacs_validate.yml?branch=master&style=for-the-badge)](https://github.com/custom-components/places)<br/>
 [![Community Forum](https://img.shields.io/badge/community-forum-orange.svg?label=HA%20Community&style=for-the-badge)](https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component)
 
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device_tracker, person, or sensor_
