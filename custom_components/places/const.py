@@ -13,7 +13,7 @@ from homeassistant.const import (
 )
 
 DOMAIN = "places"
-VERSION = "v2.7.1"
+VERSION = "v2.8.0"
 EVENT_TYPE = DOMAIN + "_state_update"
 PLATFORM = Platform.SENSOR
 ENTITY_ID_FORMAT = Platform.SENSOR + ".{}"
