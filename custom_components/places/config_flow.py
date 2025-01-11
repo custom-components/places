@@ -232,6 +232,9 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                 ),
                 vol.Optional(CONF_LANGUAGE): str,
+                vol.Optional(CONF_USE_GPS, default=DEFAULT_USE_GPS): selector.BooleanSelector(
+                    selector.BooleanSelectorConfig()
+                ),
                 vol.Optional(
                     CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
@@ -247,9 +250,6 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
                         custom_value=False,
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
-                ),
-                vol.Optional(CONF_USE_GPS, default=DEFAULT_USE_GPS): selector.BooleanSelector(
-                    selector.BooleanSelectorConfig()
                 ),
             }
         )
@@ -394,6 +394,10 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                     },
                 ): str,
                 vol.Optional(
+                    CONF_USE_GPS,
+                    default=(self.config_entry.data.get(CONF_USE_GPS, DEFAULT_USE_GPS)),
+                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
+                vol.Optional(
                     CONF_EXTENDED_ATTR,
                     default=(self.config_entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR)),
                 ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
@@ -417,10 +421,6 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Optional(
-                    CONF_USE_GPS,
-                    default=(self.config_entry.data.get(CONF_USE_GPS, DEFAULT_USE_GPS)),
-                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
             }
         )
 

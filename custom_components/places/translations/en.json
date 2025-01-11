@@ -13,12 +13,17 @@
                     "map_zoom": "Map Zoom",
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
+                    "use_gps_accuracy": "Use GPS Accuracy",
                     "extended_attr": "Enable Extended Attributes",
                     "show_time": "Show last updated time at end of state '(since xx:yy)'",
-                    "date_format": "Date format to show at end of state when not changed >24h",
-                    "use_gps_accuracy": "Use GPS Accuracy"
+                    "date_format": "Date format to show at end of state when not changed >24h"
                 },
-                "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+                "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details",
+                "data_description": {
+                    "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                  }
             }
         }
     },
@@ -34,12 +39,17 @@
                     "map_zoom": "Map Zoom",
                     "api_key": "Email to use as OpenStreetMap API Key (optional)",
                     "language": "Language (optional)",
+                    "use_gps_accuracy": "Use GPS Accuracy",
                     "extended_attr": "Enable Extended Attributes",
                     "show_time": "Show last updated time at end of state '(since xx:yy)'",
-                    "date_format": "Date format to show at end of state when not changed >24h",
-                    "use_gps_accuracy": "Use GPS Accuracy"
+                    "date_format": "Date format to show at end of state when not changed >24h"
                 },
-                "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+                "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details",
+                "data_description": {
+                    "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                  }
             }
         }
     }

@@ -17,7 +17,12 @@
                     "show_time": "Показати час останнього оновлення в кінці стану '(з xx:yy)'",
                     "use_gps_accuracy": "Використовуйте точність GPS"
                 },
-                "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details"
+                "description": "Create a new sensor\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
+                "data_description": {
+                    "options": "Детальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                  }
             }
         }
     },
@@ -37,7 +42,12 @@
                     "show_time": "Показати час останнього оновлення в кінці стану '(з xx:yy)'",
                     "use_gps_accuracy": "Використовуйте точність GPS"
                 },
-                "description": "**Оновлення датчика:&nbsp;{sensor_name}**\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub"
+                "description": "**Оновлення датчика:&nbsp;{sensor_name}**\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
+                "data_description": {
+                    "options": "Детальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                  }
             }
         }
     }
