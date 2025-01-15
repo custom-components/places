@@ -1,0 +1,56 @@
+{
+    "title": "Místa: OpenStreetMap senzor",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Místa: OpenStreetMap senzor",
+                "data": {
+                    "name": "Název senzoru",
+                    "devicetracker_id": "ID sledované entity",
+                    "home_zone": "Domácí zóna",
+                    "options": "Možnosti zobrazení",
+                    "map_provider": "Poskytovatel mapy",
+                    "map_zoom": "Přiblížení mapy",
+                    "api_key": "E-mail na použití jako OpenStreetMap API Key (volitelné)",
+                    "language": "Jazyk (volitelné)",
+                    "extended_attr": "Povolit rozšířené atributy",
+                    "show_time": "Zobrazit čas poslední aktualizace na konci stavu '(od xx:yy)'",
+                    "date_format": "Formát datumu, který se zobrazí na konci stavu, když se nezmení za 24 hodin",
+                    "use_gps_accuracy": "Použití přesnosti GPS"
+                },
+                "description": "Vytvořte nový senzor\nPodrobnosti najdete v [Možnosti konfigurace] ({component_config_url}) na GitHub",
+                "data_description": {
+                    "options": "Podrobnosti najdete v [Možnosti konfigurace] ({component_config_url}) na GitHub",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Nastavte toto na False, pokud má váš nástroj pro sledování zařízení atribut Přesnost GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
+                  }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Místa: OpenStreetMap senzor",
+                "data": {
+                    "devicetracker_id": "ID sledované entity",
+                    "home_zone": "Domácí zóna",
+                    "options": "Možnosti zobrazení",
+                    "map_provider": "Poskytovatel mapy",
+                    "map_zoom": "Přiblížení mapy",
+                    "api_key": "E-mail na použití jako OpenStreetMap API Key (volitelné)",
+                    "language": "Jazyk (volitelné)",
+                    "extended_attr": "Povolit rozšírené atributy",
+                    "show_time": "Zobrazit čas poslední aktualizace na konci stavu '(od xx:yy)'",
+                    "date_format": "Formát datumu, který se zobrazí na konci stavu, když se nezmení za 24 hodín",
+                    "use_gps_accuracy": "Použití přesnosti GPS"
+                },
+                "description": "**Aktualizuje se senzor:&nbsp;{sensor_name}**\nPodrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
+                "data_description": {
+                    "options": "Podrobnosti najdete v [Možnosti konfigurace] ({component_config_url}) na GitHub",
+                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "use_gps_accuracy": "Nastavte toto na False, pokud má váš nástroj pro sledování zařízení atribut Přesnost GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
+                  }
+            }
+        }
+    }
+}
