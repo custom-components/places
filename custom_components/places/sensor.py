@@ -158,7 +158,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Create places sensor entities."""
-    # _LOGGER.debug(f"[aync_setup_entity] all entities: {hass.data.get(DOMAIN)}")
+    # _LOGGER.debug("[aync_setup_entity] all entities: %s", hass.data.get(DOMAIN))
 
     config: MutableMapping[str, Any] = dict(config_entry.data)
     unique_id: str = config_entry.entry_id
@@ -169,9 +169,9 @@ async def async_setup_entry(
     imported_attributes: MutableMapping[str, Any] = await hass.async_add_executor_job(
         _get_dict_from_json_file, name, filename, json_folder
     )
-    # _LOGGER.debug(f"[async_setup_entry] name: {name}")
-    # _LOGGER.debug(f"[async_setup_entry] unique_id: {unique_id}")
-    # _LOGGER.debug(f"[async_setup_entry] config: {config}")
+    # _LOGGER.debug("[async_setup_entry] name: %s", name)
+    # _LOGGER.debug("[async_setup_entry] unique_id: %s", unique_id)
+    # _LOGGER.debug("[async_setup_entry] config: %s", config)
 
     if config.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
         _LOGGER.debug("(%s) Extended Attr is True. Excluding from Recorder", name)
@@ -396,7 +396,7 @@ class Places(SensorEntity):
         # imported_attributes.update({CONF_NAME: self._get_attr(CONF_NAME)})
         # imported_attributes.update({ATTR_NATIVE_VALUE: self._get_attr(ATTR_NATIVE_VALUE)})
         # imported_attributes.update(self.extra_state_attributes)
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [Init] Sensor Attributes Imported: {imported_attributes}")
+        # _LOGGER.debug("(%s) [Init] Sensor Attributes Imported: %s", self._get_attr(CONF_NAME), imported_attributes)
         ##
         if not self._get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.debug(
@@ -478,13 +478,11 @@ class Places(SensorEntity):
             for attr in EXTENDED_ATTRIBUTE_LIST:
                 if self._get_attr(attr):
                     return_attr.update({attr: self._get_attr(attr)})
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Extra State Attributes: {return_attr}")
+        # _LOGGER.debug("(%s) Extra State Attributes: %s", self._get_attr(CONF_NAME), return_attr)
         return return_attr
 
     def _import_attributes_from_json(self, json_attr: MutableMapping[str, Any]) -> None:
         """Import the JSON state attributes. Takes a Dictionary as input."""
-        if not isinstance(json_attr, MutableMapping):
-            return
 
         self._set_attr(ATTR_INITIAL_UPDATE, False)
         for attr in JSON_ATTRIBUTE_LIST:
@@ -520,7 +518,7 @@ class Places(SensorEntity):
         return self._internal_attr.get(attr, default)
 
     def _get_attr_safe_str(self, attr: str | None, default: Any | None = None) -> str:
-        value = self._get_attr(attr=attr, default=default)
+        value: None | Any = self._get_attr(attr=attr, default=default)
         if value is not None:
             try:
                 return str(value)
@@ -529,19 +527,19 @@ class Places(SensorEntity):
         return ""
 
     def _get_attr_safe_float(self, attr: str | None, default: Any | None = None) -> float:
-        value = self._get_attr(attr=attr, default=default)
+        value: None | Any = self._get_attr(attr=attr, default=default)
         if not isinstance(value, float):
             return 0
         return value
 
     def _get_attr_safe_list(self, attr: str | None, default: Any | None = None) -> list:
-        value = self._get_attr(attr=attr, default=default)
+        value: None | Any = self._get_attr(attr=attr, default=default)
         if not isinstance(value, list):
             return []
         return value
 
     def _get_attr_safe_dict(self, attr: str | None, default: Any | None = None) -> MutableMapping:
-        value = self._get_attr(attr=attr, default=default)
+        value: None | Any = self._get_attr(attr=attr, default=default)
         if not isinstance(value, MutableMapping):
             return {}
         return value
@@ -654,7 +652,7 @@ class Places(SensorEntity):
             and new_state.state.lower() in {"none", STATE_UNKNOWN, STATE_UNAVAILABLE}
         ):
             return
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [TSC Update] new_state: {new_state}")
+        # _LOGGER.debug("(%s) [TSC Update] new_state: %s", self._get_attr(CONF_NAME), new_state)
 
         update_type: str = "Track State Change"
         self._hass.async_create_task(self._async_do_update(update_type))
@@ -671,23 +669,14 @@ class Places(SensorEntity):
 
     async def _async_in_zone(self) -> bool:
         if not self._is_attr_blank(ATTR_DEVICETRACKER_ZONE):
-            zone_state = self._hass.states.get(
-                f"{CONF_ZONE}.{self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower()}"
-            )
+            zone: str = self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower()
+            zone_state = self._hass.states.get(f"{CONF_ZONE}.{zone}")
             if (
                 self._get_attr_safe_str(CONF_DEVICETRACKER_ID).split(".")[0] == CONF_ZONE
                 or (
-                    "stationary" in self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower()
-                    or self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
-                    .lower()
-                    .startswith("statzon")
-                    or self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
-                    .lower()
-                    .startswith("ic3_statzone_")
-                    or self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower() == "away"
-                    or self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower() == "not_home"
-                    or self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower() == "notset"
-                    or self._get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower() == "not_set"
+                    "stationary" in zone
+                    or zone.startswith(("statzon", "ic3_statzone_"))
+                    or zone in {"away", "not_home", "notset", "not_set"}
                 )
                 or (
                     zone_state is not None
@@ -706,7 +695,7 @@ class Places(SensorEntity):
 
     async def _async_check_for_updated_entity_name(self) -> None:
         if hasattr(self, "entity_id") and self._entity_id is not None:
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Entity ID: {self._entity_id}")
+            # _LOGGER.debug("(%s) Entity ID: %s", self._get_attr(CONF_NAME), self._entity_id)
             if (
                 self._hass.states.get(str(self._entity_id)) is not None
                 and self._hass.states.get(str(self._entity_id)).attributes.get(ATTR_FRIENDLY_NAME)
@@ -755,8 +744,8 @@ class Places(SensorEntity):
             if devicetracker_zone_id:
                 devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
                 devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Tracked Entity Zone ID: {devicetracker_zone_id}")
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Tracked Entity Zone Name State: {devicetracker_zone_name_state}")
+            # _LOGGER.debug("(%s) Tracked Entity Zone ID: %s", self._get_attr(CONF_NAME), devicetracker_zone_id)
+            # _LOGGER.debug("(%s) Tracked Entity Zone Name State: %s", self._get_attr(CONF_NAME), devicetracker_zone_name_state)
             if devicetracker_zone_name_state:
                 if devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME):
                     self._set_attr(
@@ -834,13 +823,12 @@ class Places(SensorEntity):
         # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
     def _get_dict_from_url(self, url: str, name: str, dict_name: str) -> None:
-        get_dict: MutableMapping[str, Any] = {}
         _LOGGER.info("(%s) Requesting data for %s", self._get_attr(CONF_NAME), name)
-        _LOGGER.debug("(%s) {name} URL: %s", self._get_attr(CONF_NAME), url)
+        _LOGGER.debug("(%s) %s URL: %s", self._get_attr(CONF_NAME), name, url)
         self._set_attr(dict_name, {})
         headers: dict[str, str] = {"user-agent": f"Mozilla/5.0 (Home Assistant) {DOMAIN}/{VERSION}"}
         try:
-            get_response: requests.Response | None = requests.get(url, headers=headers)
+            get_response: requests.Response | None = requests.get(url=url, headers=headers)
         except requests.exceptions.RetryError as e:
             get_response = None
             _LOGGER.warning(
@@ -1281,7 +1269,7 @@ class Places(SensorEntity):
                 osm_dict["namedetails"].get("ref"),
             )
             street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Street Refs: {street_refs}")
+            # _LOGGER.debug("(%s) Street Refs: %s", self._get_attr(CONF_NAME), street_refs)
             for ref in street_refs:
                 if bool(re.search(r"\d", ref)):
                     self._set_attr(ATTR_STREET_REF, ref)
@@ -1309,12 +1297,6 @@ class Places(SensorEntity):
         ):
             self._set_attr(ATTR_PLACE_NAME_NO_DUPE, self._get_attr(ATTR_PLACE_NAME))
 
-        _LOGGER.debug(
-            "(%s) Entity attributes after parsing OSM Dict: %s",
-            self._get_attr(CONF_NAME),
-            self._internal_attr,
-        )
-
     async def _async_build_formatted_place(self) -> None:
         formatted_place_array: list[str] = []
         if not await self._async_in_zone():
@@ -1333,12 +1315,17 @@ class Places(SensorEntity):
                 ]
             )
             # if not self._is_attr_blank(ATTR_PLACE_NAME):
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Duplicated List [Place Name: {self._get_attr(ATTR_PLACE_NAME)}]: {sensor_attributes_values}")
+            # _LOGGER.debug(
+            #     "(%s) Duplicated List [Place Name: %s]: %s",
+            #     self._get_attr(CONF_NAME),
+            #     self._get_attr(ATTR_PLACE_NAME),
+            #     sensor_attributes_values,
+            # )
             if self._is_attr_blank(ATTR_PLACE_NAME):
                 use_place_name = False
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Place Name is None")
+                # _LOGGER.debug("(%s) Place Name is None", self._get_attr(CONF_NAME))
             elif self._get_attr(ATTR_PLACE_NAME) in sensor_attributes_values:
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Not Using Place Name: {self._get_attr(ATTR_PLACE_NAME)}")
+                # _LOGGER.debug("(%s) Not Using Place Name: %s", self._get_attr(CONF_NAME), self._get_attr(ATTR_PLACE_NAME))
                 use_place_name = False
             _LOGGER.debug("(%s) use_place_name: %s", self._get_attr(CONF_NAME), use_place_name)
             if not use_place_name:
@@ -1431,7 +1418,7 @@ class Places(SensorEntity):
             return False
         return True
 
-    async def _async_build_from_advanced_options(self, curr_options: str):
+    async def _async_build_from_advanced_options(self, curr_options: str) -> None:
         _LOGGER.debug("(%s) [adv_options] Options: %s", self._get_attr(CONF_NAME), curr_options)
         if not await self._do_brackets_and_parens_count_match(curr_options) or not curr_options:
             return
@@ -1587,14 +1574,16 @@ class Places(SensorEntity):
                 self._adv_options_state_list,
             )
 
-    async def _async_parse_parens(self, curr_options: str):
+    async def _async_parse_parens(
+        self, curr_options: str
+    ) -> tuple[list, list, MutableMapping[str, Any], MutableMapping[str, Any], str | None]:
         incl: list = []
         excl: list = []
         incl_attr: MutableMapping[str, Any] = {}
         excl_attr: MutableMapping[str, Any] = {}
         incl_excl_list: list = []
         empty_paren: bool = False
-        next_opt = None
+        next_opt: str | None = None
         paren_count: int = 1
         close_paren_num: int = 0
         last_comma: int = -1
@@ -1617,7 +1606,7 @@ class Places(SensorEntity):
                     break
 
         if close_paren_num > 0 and paren_count == 0 and incl_excl_list:
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] incl_excl_list: {incl_excl_list}")
+            # _LOGGER.debug("(%s) [parse_parens] incl_excl_list: %s", self._get_attr(CONF_NAME), incl_excl_list)
             paren_first: bool = True
             paren_incl: bool = True
             for item in incl_excl_list:
@@ -1625,13 +1614,13 @@ class Places(SensorEntity):
                     paren_first = False
                     if item == "-":
                         paren_incl = False
-                        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] excl")
+                        # _LOGGER.debug("(%s) [parse_parens] excl", self._get_attr(CONF_NAME))
                         continue
                     # else:
-                    #    _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] incl")
+                    #    _LOGGER.debug("(%s) [parse_parens] incl", self._get_attr(CONF_NAME))
                     if item == "+":
                         continue
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] item: {item}")
+                # _LOGGER.debug("(%s) [parse_parens] item: %s", self._get_attr(CONF_NAME), item)
                 if item is not None and item:
                     if "(" in item:
                         if ")" not in item or item.count("(") > 1 or item.count(")") > 1:
@@ -1650,13 +1639,18 @@ class Places(SensorEntity):
                                 paren_attr_first = False
                                 if attr_item == "-":
                                     paren_attr_incl = False
-                                    # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] attr_excl")
+                                    # _LOGGER.debug("(%s) [parse_parens] attr_excl", self._get_attr(CONF_NAME))
                                     continue
                                 # else:
-                                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] attr_incl")
+                                # _LOGGER.debug("(%s) [parse_parens] attr_incl", self._get_attr(CONF_NAME))
                                 if attr_item == "+":
                                     continue
-                            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] attr: {paren_attr} / item: {attr_item}")
+                            # _LOGGER.debug(
+                            #     "(%s) [parse_parens] attr: %s / item: %s",
+                            #     self._get_attr(CONF_NAME),
+                            #     paren_attr,
+                            #     attr_item,
+                            # )
                             paren_attr_list.append(str(attr_item).strip().lower())
                         if paren_attr_incl:
                             incl_attr.update({paren_attr: paren_attr_list})
@@ -1674,11 +1668,11 @@ class Places(SensorEntity):
                 curr_options,
             )
         next_opt = curr_options[(close_paren_num + 1) :]
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_parens] Raw Next Options: {next_opt}")
+        # _LOGGER.debug("(%s) [parse_parens] Raw Next Options: %s", self._get_attr(CONF_NAME), next_opt)
         return incl, excl, incl_attr, excl_attr, next_opt
 
-    async def _async_parse_bracket(self, curr_options: str):
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_bracket] Options: {curr_options}")
+    async def _async_parse_bracket(self, curr_options: str) -> tuple[str | None, str | None]:
+        # _LOGGER.debug("(%s) [parse_bracket] Options: %s", self._get_attr(CONF_NAME), curr_options)
         empty_bracket: bool = False
         none_opt: str | None = None
         next_opt: str | None = None
@@ -1702,9 +1696,9 @@ class Places(SensorEntity):
 
         if empty_bracket or (close_bracket_num > 0 and bracket_count == 0):
             none_opt = curr_options[:close_bracket_num].strip()
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_bracket] None Options: {none_opt}")
+            # _LOGGER.debug("(%s) [parse_bracket] None Options: %s", self._get_attr(CONF_NAME), none_opt)
             next_opt = curr_options[(close_bracket_num + 1) :].strip()
-            # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [parse_bracket] Raw Next Options: {next_opt}")
+            # _LOGGER.debug("(%s) [parse_bracket] Raw Next Options: %s", self._get_attr(CONF_NAME), next_opt)
         else:
             _LOGGER.error(
                 "(%s) [parse_bracket] Bracket Mismatch Error: %s",
@@ -1798,10 +1792,18 @@ class Places(SensorEntity):
                 or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_REF
             ):
                 self._street_i = self._temp_i
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [get_option_state] street_i: {self._street_i}")
+                # _LOGGER.debug(
+                #     "(%s) [get_option_state] street_i: %s",
+                #     self._get_attr(CONF_NAME),
+                #     self._street_i,
+                # )
             if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
                 self._street_num_i = self._temp_i
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) [get_option_state] street_num_i: {self._street_num_i}")
+                # _LOGGER.debug(
+                #     "(%s) [get_option_state] street_num_i: %s",
+                #     self._get_attr(CONF_NAME),
+                #     self._street_num_i,
+                # )
             self._temp_i += 1
             return out
         return None
@@ -1838,7 +1840,7 @@ class Places(SensorEntity):
         )
 
     async def _async_build_state_from_display_options(self) -> None:
-        display_options = self._get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST)
+        display_options: list[str] = self._get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST)
         _LOGGER.debug(
             "(%s) Building State from Display Options: %s",
             self._get_attr(CONF_NAME),
@@ -1950,24 +1952,20 @@ class Places(SensorEntity):
             )
 
             if not self._is_attr_blank(ATTR_OSM_DETAILS_DICT):
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) OSM Details Dict: {osm_details_dict}")
+                osm_details_dict = self._get_attr_safe_dict(ATTR_OSM_DETAILS_DICT)
+                _LOGGER.debug(
+                    "(%s) OSM Details Dict: %s", self._get_attr(CONF_NAME), osm_details_dict
+                )
 
                 if (
-                    not self._is_attr_blank(ATTR_OSM_DETAILS_DICT)
-                    and "extratags" in self._get_attr_safe_dict(ATTR_OSM_DETAILS_DICT)
-                    and self._get_attr_safe_dict(ATTR_OSM_DETAILS_DICT).get("extratags") is not None
-                    and "wikidata"
-                    in self._get_attr_safe_dict(ATTR_OSM_DETAILS_DICT).get("extratags", {})
-                    and self._get_attr_safe_dict(ATTR_OSM_DETAILS_DICT)
-                    .get("extratags", {})
-                    .get("wikidata")
-                    is not None
+                    "extratags" in osm_details_dict
+                    and osm_details_dict.get("extratags") is not None
+                    and "wikidata" in osm_details_dict.get("extratags", {})
+                    and osm_details_dict.get("extratags", {}).get("wikidata") is not None
                 ):
                     self._set_attr(
                         ATTR_WIKIDATA_ID,
-                        self._get_attr_safe_dict(ATTR_OSM_DETAILS_DICT)
-                        .get("extratags", {})
-                        .get("wikidata"),
+                        osm_details_dict.get("extratags", {}).get("wikidata"),
                     )
 
                 self._set_attr(ATTR_WIKIDATA_DICT, {})
@@ -2022,9 +2020,9 @@ class Places(SensorEntity):
         sensor_attributes: MutableMapping[str, Any] = copy.deepcopy(self._internal_attr)
         for k, v in sensor_attributes.items():
             if isinstance(v, (datetime)):
-                # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Removing Sensor Attribute: {k}")
+                # _LOGGER.debug("(%s) Removing Sensor Attribute: %s", self._get_attr(CONF_NAME), k)
                 sensor_attributes.pop(k)
-        # _LOGGER.debug(f"({self._get_attr(CONF_NAME)}) Sensor Attributes to Save: {sensor_attributes}")
+        # _LOGGER.debug("(%s) Sensor Attributes to Save: %s", self._get_attr(CONF_NAME), sensor_attributes)
         try:
             json_file_path: Path = Path(self._json_folder) / filename
             with json_file_path.open("w") as jsonfile:
@@ -2459,7 +2457,7 @@ class Places(SensorEntity):
     async def _process_display_options(self) -> None:
         display_options: list[str] = []
         if not self._is_attr_blank(ATTR_DISPLAY_OPTIONS):
-            options_array = self._get_attr_safe_str(ATTR_DISPLAY_OPTIONS).split(",")
+            options_array: list[str] = self._get_attr_safe_str(ATTR_DISPLAY_OPTIONS).split(",")
             for option in options_array:
                 display_options.extend([option.strip()])
         self._set_attr(ATTR_DISPLAY_OPTIONS_LIST, display_options)

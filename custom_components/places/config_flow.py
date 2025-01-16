@@ -58,7 +58,7 @@ COMPONENT_CONFIG_URL: str = "https://github.com/custom-components/places#configu
 
 
 def get_devicetracker_id_entities(
-    hass: HomeAssistant, current_entity=None
+    hass: HomeAssistant, current_entity: str | None = None
 ) -> list[selector.SelectOptionDict]:
     """Get the list of valid entities. For sensors, only include ones with latitude and longitude attributes."""
     dt_list: list[selector.SelectOptionDict] = []
@@ -69,7 +69,7 @@ def get_devicetracker_id_entities(
                 CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
                 and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
             ):
-                # _LOGGER.debug(f"Entity: {ent}")
+                # _LOGGER.debug("Entity: %s", ent)
                 dt_list.extend(
                     [
                         selector.SelectOptionDict(
@@ -80,7 +80,7 @@ def get_devicetracker_id_entities(
                 )
     # Optional: Include the current entity in the list as well.
     if current_entity is not None:
-        # _LOGGER.debug(f"current_entity: {current_entity}")
+        # _LOGGER.debug("current_entity: %s", current_entity)
         dt_list_entities: list[str] = [d["value"] for d in dt_list]
         if current_entity not in dt_list_entities and hass.states.get(current_entity) is not None:
             if (
@@ -90,7 +90,7 @@ def get_devicetracker_id_entities(
                 current_name: str = hass.states.get(current_entity).attributes.get(
                     ATTR_FRIENDLY_NAME
                 )
-                # _LOGGER.debug(f"current_name: {current_name}")
+                # _LOGGER.debug("current_name: %s", current_name)
                 dt_list.append(
                     selector.SelectOptionDict(
                         value=str(current_entity),
@@ -111,7 +111,7 @@ def get_devicetracker_id_entities(
     else:
         dt_list_sorted = []
 
-    # _LOGGER.debug(f"Devicetracker_id name/entities including sensors with lat/long: {dt_list_sorted}")
+    # _LOGGER.debug("Devicetracker_id name/entities including sensors with lat/long: %s", dt_list_sorted)
     return dt_list_sorted
 
 
@@ -119,9 +119,9 @@ def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDic
     """Get the list of valid zones."""
     zone_list: list[selector.SelectOptionDict] = []
     for dom in HOME_LOCATION_DOMAINS:
-        # _LOGGER.debug(f"Geting entities for domain: {dom}")
+        # _LOGGER.debug(f"Geting entities for domain: %s", dom)
         for ent in hass.states.async_all(dom):
-            # _LOGGER.debug(f"Entity: {ent}")
+            # _LOGGER.debug("Entity: %s", ent)
             zone_list.extend(
                 [
                     selector.SelectOptionDict(
@@ -136,7 +136,7 @@ def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDic
         )
     else:
         zone_list_sorted = []
-    # _LOGGER.debug(f"Zones: {zone_list_sorted}")
+    # _LOGGER.debug("Zones: %s", zone_list_sorted)
     return zone_list_sorted
 
 
@@ -148,7 +148,7 @@ async def validate_input(
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
 
-    # _LOGGER.debug(f"[config_flow validate_input] data: {data}")
+    # _LOGGER.debug("[config_flow validate_input] data: %s", data)
 
     return {"title": data[CONF_NAME]}
 
@@ -157,7 +157,6 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
     """Config Flow for places integration."""
 
     VERSION = 1
-    # Connection classes in homeassistant/py are now deprecated
 
     async def async_step_user(
         self, user_input: MutableMapping[str, Any] | None = None
@@ -173,7 +172,7 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 info: MutableMapping[str, Any] = await validate_input(self.hass, user_input)
-                # _LOGGER.debug(f"[New Sensor] info: {info}")
+                # _LOGGER.debug("[New Sensor] info: %s", info)
                 _LOGGER.debug("[New Sensor] user_input: %s", user_input)
                 return self.async_create_entry(title=info["title"], data=user_input)
             except Exception as err:  # noqa: BLE001
@@ -183,7 +182,7 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
             self.hass
         )
         zone_list = get_home_zone_entities(self.hass)
-        # _LOGGER.debug(f"Trackable entities with lat/long: {devicetracker_id_list}")
+        # _LOGGER.debug("Trackable entities with lat/long: %s", devicetracker_id_list)
         DATA_SCHEMA: vol.Schema = vol.Schema(
             {
                 vol.Required(CONF_NAME): str,
@@ -280,16 +279,16 @@ class PlacesOptionsFlowHandler(OptionsFlow):
     ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
-            # _LOGGER.debug(f"[options_flow async_step_init] user_input initial: {user_input}")
+            # _LOGGER.debug("[options_flow async_step_init] user_input initial: %s", user_input)
             # Bring in other keys not in the Options Flow
             for m in dict(self.config_entry.data):
                 user_input.setdefault(m, self.config_entry.data[m])
             # Remove any keys with blank values
             for m in dict(user_input):
-                # _LOGGER.debug(f"[Options Update] {m} [{type(user_input.get(m))}]: {user_input.get(m)}")
+                # _LOGGER.debug("[Options Update] %s [%s]: %s", m, type(user_input.get(m)), user_input.get(m))
                 if isinstance(user_input.get(m), str) and not user_input.get(m):
                     user_input.pop(m)
-            # _LOGGER.debug(f"[Options Update] updated config: {user_input}")
+            # _LOGGER.debug("[Options Update] updated config: %s", user_input)
 
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=user_input, options=self.config_entry.options
@@ -302,7 +301,7 @@ class PlacesOptionsFlowHandler(OptionsFlow):
             self.hass, self.config_entry.data.get(CONF_DEVICETRACKER_ID, None)
         )
         zone_list: list[selector.SelectOptionDict] = get_home_zone_entities(self.hass)
-        # _LOGGER.debug(f"Trackable entities including sensors with lat/long: {devicetracker_id_list}")
+        # _LOGGER.debug("Trackable entities including sensors with lat/long: %s", devicetracker_id_list)
         OPTIONS_SCHEMA: vol.Schema = vol.Schema(
             {
                 vol.Required(
@@ -420,7 +419,7 @@ class PlacesOptionsFlowHandler(OptionsFlow):
             }
         )
 
-        # _LOGGER.debug(f"[Options Update] initial config: {self.config_entry.data}")
+        # _LOGGER.debug("[Options Update] initial config: %s", self.config_entry.data)
 
         return self.async_show_form(
             step_id="init",
