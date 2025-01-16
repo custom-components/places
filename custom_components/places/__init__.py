@@ -19,7 +19,7 @@ CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
 
-    # _LOGGER.debug(f"[init async_setup_entry] entry: {entry.data}")
+    # _LOGGER.debug("[init async_setup_entry] entry: %s", entry.data)
     hass.data.setdefault(DOMAIN, {})
     hass_data: MutableMapping[str, Any] = dict(entry.data)
     hass.data[DOMAIN][entry.entry_id] = hass_data
