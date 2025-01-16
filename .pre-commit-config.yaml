@@ -19,6 +19,7 @@ repos:
     rev: v2.2.4
     hooks:
     - id: codespell
+      args: [--skip,"*.json"]
       additional_dependencies:
         - tomli
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -29,3 +30,11 @@ repos:
         args: [--fix]
       # Run the formatter.
       - id: ruff-format
+ci:
+    autofix_commit_msg: |
+        [pre-commit.ci] auto fixes from pre-commit hooks
+    autofix_prs: true
+    autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+    autoupdate_schedule: weekly
+    skip: []
+    submodules: false
