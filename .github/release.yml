@@ -13,7 +13,7 @@ changelog:
         - Semver-Minor
         - enhancement
         - feature
-    - title: "🕷️ Bug Fixes 🕷️"
+    - title: "🐛 Bug Fixes 🐛"
       labels:
         - fix
         - bugfix
@@ -22,6 +22,9 @@ changelog:
       labels:
         - chore
         - github_actions
+    - title: "🎓 Code Quality 🎓"
+      labels:
+        - code-quality
     - title: Other Changes
       labels:
         - "*"
