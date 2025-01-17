@@ -18,13 +18,13 @@ changelog:
         - fix
         - bugfix
         - bug
+    - title: "🎓 Code Quality 🎓"
+      labels:
+        - code-quality
     - title: "🔧 Maintenance 🔧"
       labels:
         - chore
         - github_actions
-    - title: "🎓 Code Quality 🎓"
-      labels:
-        - code-quality
     - title: Other Changes
       labels:
         - "*"
