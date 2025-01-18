@@ -1847,46 +1847,68 @@ class Places(SensorEntity):
             self._get_attr(ATTR_DISPLAY_OPTIONS),
         )
 
-        def add_to_display(option_key: str, attr_key: str, condition: bool = True) -> None:
+        def add_to_display(
+            attr_key: str,
+            option_key: str | None = None,
+            condition: bool = True,
+            require_in_display_options: bool = True,
+        ) -> None:
             """Add attribute value to user_display if the conditions are met."""
-            if option_key in display_options and not self._is_attr_blank(attr_key) and condition:
+            if (
+                (not require_in_display_options or option_key in display_options)
+                and not self._is_attr_blank(attr_key)
+                and condition
+            ):
                 user_display.append(self._get_attr_safe_str(attr_key))
 
         user_display: list[str] = []
 
         # Add basic options
-        add_to_display("driving", ATTR_DRIVING)
+        add_to_display(option_key="driving", attr_key=ATTR_DRIVING)
         add_to_display(
-            "zone_name",
-            ATTR_DEVICETRACKER_ZONE_NAME,
-            await self._async_in_zone() or "do_not_show_not_home" not in display_options,
+            option_key="zone_name",
+            attr_key=ATTR_DEVICETRACKER_ZONE_NAME,
+            condition=await self._async_in_zone() or "do_not_show_not_home" not in display_options,
         )
         add_to_display(
-            "zone",
-            ATTR_DEVICETRACKER_ZONE,
-            await self._async_in_zone() or "do_not_show_not_home" not in display_options,
+            option_key="zone",
+            attr_key=ATTR_DEVICETRACKER_ZONE,
+            condition=await self._async_in_zone() or "do_not_show_not_home" not in display_options,
         )
         add_to_display("place_name", ATTR_PLACE_NAME)
 
         # Handle "place" and its sub-options
         if "place" in display_options:
-            if not self._is_attr_blank(ATTR_PLACE_NAME) and self._get_attr(
-                ATTR_PLACE_NAME
-            ) != self._get_attr(ATTR_STREET):
-                user_display.append(self._get_attr_safe_str(ATTR_PLACE_NAME))
-            for key, attr in {
-                "place_category": ATTR_PLACE_CATEGORY,
-                "place_type": ATTR_PLACE_TYPE,
-                "place_neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
-                "street_number": ATTR_STREET_NUMBER,
-                "street": ATTR_STREET,
-            }.items():
-                add_to_display(
-                    key, attr, (self._get_attr(attr) or "").lower() not in {"place", "yes"}
-                )
+            add_to_display(
+                attr_key=ATTR_PLACE_NAME,
+                condition=self._get_attr(ATTR_PLACE_NAME) != self._get_attr(ATTR_STREET),
+                require_in_display_options=False,
+            )
+            add_to_display(
+                attr_key=ATTR_PLACE_CATEGORY,
+                condition=self._get_attr_safe_str(ATTR_PLACE_CATEGORY).lower() != "place",
+                require_in_display_options=False,
+            )
+            add_to_display(
+                attr_key=ATTR_PLACE_TYPE,
+                condition=self._get_attr_safe_str(ATTR_PLACE_TYPE).lower() != "yes",
+                require_in_display_options=False,
+            )
+            add_to_display(
+                attr_key=ATTR_PLACE_NEIGHBOURHOOD,
+                require_in_display_options=False,
+            )
+            add_to_display(
+                attr_key=ATTR_STREET_NUMBER,
+                require_in_display_options=False,
+            )
+            add_to_display(
+                attr_key=ATTR_STREET,
+                require_in_display_options=False,
+            )
         else:
-            add_to_display("street_number", ATTR_STREET_NUMBER)
-            add_to_display("street", ATTR_STREET)
+            add_to_display(option_key="street_number", attr_key=ATTR_STREET_NUMBER)
+            add_to_display(option_key="street", attr_key=ATTR_STREET)
 
         # Add remaining location details
         for option_key, attr_key in {
@@ -1898,7 +1920,7 @@ class Places(SensorEntity):
             "country": ATTR_COUNTRY,
             "formatted_address": ATTR_FORMATTED_ADDRESS,
         }.items():
-            add_to_display(option_key, attr_key)
+            add_to_display(option_key=option_key, attr_key=attr_key)
 
         # Handle "do_not_reorder" option
         if "do_not_reorder" in display_options:
