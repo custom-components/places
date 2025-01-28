@@ -1959,12 +1959,8 @@ class Places(SensorEntity):
                 "https://nominatim.openstreetmap.org/lookup?osm_ids="
                 f"{osm_type_abbr}{self._get_attr(ATTR_OSM_ID)}"
                 "&format=json&addressdetails=1&extratags=1&namedetails=1"
-                f"&email={
-                    self._get_attr(CONF_API_KEY) if not self._is_attr_blank(CONF_API_KEY) else ''
-                }"
-                f"&accept-language={
-                    self._get_attr(CONF_LANGUAGE) if not self._is_attr_blank(CONF_LANGUAGE) else ''
-                }"
+                f"&email={self._get_attr(CONF_API_KEY) if not self._is_attr_blank(CONF_API_KEY) else ''}"
+                f"&accept-language={self._get_attr(CONF_LANGUAGE) if not self._is_attr_blank(CONF_LANGUAGE) else ''}"
             )
             await self._hass.async_add_executor_job(
                 self._get_dict_from_url,
@@ -1992,9 +1988,7 @@ class Places(SensorEntity):
 
                 self._set_attr(ATTR_WIKIDATA_DICT, {})
                 if not self._is_attr_blank(ATTR_WIKIDATA_ID):
-                    wikidata_url: str = f"https://www.wikidata.org/wiki/Special:EntityData/{
-                        self._get_attr(ATTR_WIKIDATA_ID)
-                    }.json"
+                    wikidata_url: str = f"https://www.wikidata.org/wiki/Special:EntityData/{self._get_attr(ATTR_WIKIDATA_ID)}.json"
                     await self._hass.async_add_executor_job(
                         self._get_dict_from_url,
                         wikidata_url,
