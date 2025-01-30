@@ -1,0 +1,56 @@
+{
+    "title": "Places: Sensore OpenStreetMap",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Places: Sensore OpenStreetMap",
+                "data": {
+                    "name": "Nome del Sensore",
+                    "devicetracker_id": "Entity ID del Dispositivo Tracciato",
+                    "home_zone": "Zona Casa",
+                    "options": "Visualizza Opzioni",
+                    "map_provider": "Provider della Mappa",
+                    "map_zoom": "Zoom della Mappa",
+                    "api_key": "Email da usare per l'API Key di OpenStreetMap API Key (opzionale)",
+                    "language": "Lingua (opzionale)",
+                    "use_gps_accuracy": "Usa Precisone GPS",
+                    "extended_attr": "Abilita gli Attributi Estesi",
+                    "show_time": "Mostra l'ultima volta che lo stato è stato aggiornato'(dalle xx:yy)'",
+                    "date_format": "Formato della data da mostrare alla fine dello stato se non è cambiato da >24h"
+                },
+                "description": "Crea un nuovo sensore\nGuarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
+                "data_description": {
+                    "options": "Guarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
+                    "extended_attr": "Mostra gli Attributi Estesi: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Fornisci attributi aggiuntivi per logiche avanzate. Attenzione, questo renderà l'elenco attributi molto lunga!",
+                    "use_gps_accuracy": "Imposta su False se il tuo Device Tracker ha un attributo Precisione GPS (gps_accuracy), ma mostra sempre 0 anche se latitudine e longitudine sono corrette."
+                  }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Places: Sensore OpenStreetMap",
+                "data": {
+                    "devicetracker_id": "Entity ID del Dispositivo Tracciato",
+                    "home_zone": "Zona Casa",
+                    "options": "Visualizza Opzioni",
+                    "map_provider": "Provider della Mappa",
+                    "map_zoom": "Zoom della Mappa",
+                    "api_key": "Email da usare per l'API Key di OpenStreetMap API Key (opzionale)",
+                    "language": "Lingua (opzionale)",
+                    "use_gps_accuracy": "Usa Precisone GPS",
+                    "extended_attr": "Abilita gli Attributi Estesi",
+                    "show_time": "Mostra l'ultima volta che lo stato è stato aggiornato'(dalle xx:yy)'",
+                    "date_format": "Formato della data da mostrare alla fine dello stato se non è cambiato da >24h"
+                },
+                "description": "**Aggiornamento sensore:&nbsp;{sensor_name}**\nGuarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
+                "data_description": {
+                    "options": "Guarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
+                    "extended_attr": "Mostra gli Attributi Estesi: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Fornisci attributi aggiuntivi per logiche avanzate. Attenzione, questo renderà l'elenco attributi molto lunga!",
+                    "use_gps_accuracy": "Imposta su False se il tuo Device Tracker ha un attributo Precisione GPS (gps_accuracy), ma mostra sempre 0 anche se latitudine e longitudine sono corrette."
+                  }
+            }
+        }
+    }
+}
