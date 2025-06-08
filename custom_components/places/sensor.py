@@ -962,7 +962,7 @@ class Places(SensorEntity):
             self._set_attr(
                 ATTR_MAP_LINK,
                 (
-                    "https://maps.apple.com/maps/?q="
+                    "https://maps.apple.com/?q="
                     f"{self._get_attr(ATTR_LOCATION_CURRENT)}"
                     f"&z={self._get_attr(CONF_MAP_ZOOM)}"
                 ),
