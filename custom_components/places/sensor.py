@@ -451,7 +451,7 @@ class Places(SensorEntity):
             )
             # Only do this if no places entities with extended_attr exist
             ex_attr_count = 0
-            for ent in self._hass.data[DOMAIN].values():
+            for ent in self._config_entry.runtime_data.values():
                 if ent.get(CONF_EXTENDED_ATTR):
                     ex_attr_count += 1
 
