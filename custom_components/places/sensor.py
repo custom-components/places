@@ -23,8 +23,7 @@ import re
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import requests
-from urllib3.exceptions import NewConnectionError
+import aiohttp
 
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
 from homeassistant.components.sensor import SensorEntity
@@ -291,7 +290,7 @@ class Places(SensorEntity):
         self._attr_name: str = name
         self._set_attr(CONF_UNIQUE_ID, unique_id)
         self._attr_unique_id: str = unique_id
-        registry: er.RegistryEntry | None = er.async_get(self._hass)
+        registry: er.EntityRegistry | None = er.async_get(self._hass)
         self._json_folder: str = hass.config.path("custom_components", DOMAIN, "json_sensors")
         _LOGGER.debug("json_sensors Location: %s", self._json_folder)
         current_entity_id: str | None = None
@@ -822,99 +821,48 @@ class Places(SensorEntity):
         return proceed_with_update
         # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
-    def _get_dict_from_url(self, url: str, name: str, dict_name: str) -> None:
+    async def _get_dict_from_url(self, url: str, name: str, dict_name: str) -> None:
         _LOGGER.info("(%s) Requesting data for %s", self._get_attr(CONF_NAME), name)
         _LOGGER.debug("(%s) %s URL: %s", self._get_attr(CONF_NAME), name, url)
         self._set_attr(dict_name, {})
         headers: dict[str, str] = {"user-agent": f"Mozilla/5.0 (Home Assistant) {DOMAIN}/{VERSION}"}
+        get_dict = None
+
         try:
-            get_response: requests.Response | None = requests.get(url=url, headers=headers)
-        except requests.exceptions.RetryError as e:
-            get_response = None
-            _LOGGER.warning(
-                "(%s) Retry Error connecting to %s [%s: %s]: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                e.__class__.__qualname__,
-                e,
-                url,
-            )
-            return
-        except requests.exceptions.ConnectionError as e:
-            get_response = None
-            _LOGGER.warning(
-                "(%s) Connection Error connecting to %s [%s: %s]: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                e.__class__.__qualname__,
-                e,
-                url,
-            )
-            return
-        except requests.exceptions.HTTPError as e:
-            get_response = None
-            _LOGGER.warning(
-                "(%s) HTTP Error connecting to %s [%s: %s]: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                e.__class__.__qualname__,
-                e,
-                url,
-            )
-            return
-        except requests.exceptions.Timeout as e:
-            get_response = None
-            _LOGGER.warning(
-                "(%s) Timeout connecting to %s [%s: %s]: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                e.__class__.__qualname__,
-                e,
-                url,
-            )
-            return
-        except OSError as e:
-            # Includes error code 101, network unreachable
-            get_response = None
-            _LOGGER.warning(
-                "(%s) Network unreachable error when connecting to %s [%s: %s]: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                e.__class__.__qualname__,
-                e,
-                url,
-            )
-            return
-        except NewConnectionError as e:
-            get_response = None
-            _LOGGER.warning(
-                "(%s) New Connection Error connecting to %s [%s: %s]: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                e.__class__.__qualname__,
-                e,
-                url,
-            )
-            return
-
-        get_json_input: str | None = None
-        if get_response:
-            get_json_input = get_response.text
-            _LOGGER.debug("(%s) %s Response: %s", self._get_attr(CONF_NAME), name, get_json_input)
-
-        if get_json_input:
-            try:
-                get_dict = json.loads(get_json_input)
-            except json.decoder.JSONDecodeError as e:
-                _LOGGER.warning(
-                    "(%s) JSON Decode Error with %s info [%s: %s]: %s",
-                    self._get_attr(CONF_NAME),
-                    name,
-                    e.__class__.__qualname__,
-                    e,
-                    get_json_input,
+            async with (
+                aiohttp.ClientSession(headers=headers) as session,
+                session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response,
+            ):
+                get_json_input = await response.text()
+                _LOGGER.debug(
+                    "(%s) %s Response: %s", self._get_attr(CONF_NAME), name, get_json_input
                 )
-                return
+                try:
+                    get_dict = json.loads(get_json_input)
+                except json.decoder.JSONDecodeError as e:
+                    _LOGGER.warning(
+                        "(%s) JSON Decode Error with %s info [%s: %s]: %s",
+                        self._get_attr(CONF_NAME),
+                        name,
+                        e.__class__.__qualname__,
+                        e,
+                        get_json_input,
+                    )
+                    return
+        except (aiohttp.ClientError, TimeoutError, OSError) as e:
+            _LOGGER.warning(
+                "(%s) Error connecting to %s [%s: %s]: %s",
+                self._get_attr(CONF_NAME),
+                name,
+                e.__class__.__qualname__,
+                e,
+                url,
+            )
+            return
+
+        if get_dict is None:
+            return
+
         if "error_message" in get_dict:
             _LOGGER.warning(
                 "(%s) An error occurred contacting the web service for %s: %s",
@@ -1966,11 +1914,10 @@ class Places(SensorEntity):
                     self._get_attr(CONF_LANGUAGE) if not self._is_attr_blank(CONF_LANGUAGE) else ''
                 }"
             )
-            await self._hass.async_add_executor_job(
-                self._get_dict_from_url,
-                osm_details_url,
-                "OpenStreetMaps Details",
-                ATTR_OSM_DETAILS_DICT,
+            await self._get_dict_from_url(
+                url=osm_details_url,
+                name="OpenStreetMaps Details",
+                name_dict=ATTR_OSM_DETAILS_DICT,
             )
 
             if not self._is_attr_blank(ATTR_OSM_DETAILS_DICT):
@@ -1995,11 +1942,10 @@ class Places(SensorEntity):
                     wikidata_url: str = f"https://www.wikidata.org/wiki/Special:EntityData/{
                         self._get_attr(ATTR_WIKIDATA_ID)
                     }.json"
-                    await self._hass.async_add_executor_job(
-                        self._get_dict_from_url,
-                        wikidata_url,
-                        "Wikidata",
-                        ATTR_WIKIDATA_DICT,
+                    await self._get_dict_from_url(
+                        url=wikidata_url,
+                        name="Wikidata",
+                        dict_name=ATTR_WIKIDATA_DICT,
                     )
 
     async def _async_fire_event_data(self, prev_last_place_name: str) -> None:
@@ -2465,9 +2411,7 @@ class Places(SensorEntity):
 
     async def _query_osm_and_finalize(self, now: datetime) -> None:
         osm_url: str = await self._build_osm_url()
-        await self._hass.async_add_executor_job(
-            self._get_dict_from_url, osm_url, "OpenStreetMaps", ATTR_OSM_DICT
-        )
+        await self._get_dict_from_url(url=osm_url, name="OpenStreetMaps", dict_name=ATTR_OSM_DICT)
         if not self._is_attr_blank(ATTR_OSM_DICT):
             await self._async_parse_osm_dict()
             await self._async_finalize_last_place_name(
