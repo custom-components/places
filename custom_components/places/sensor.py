@@ -232,7 +232,7 @@ def _get_dict_from_json_file(
     return sensor_attributes
 
 
-def _remove_json_file(name: str, filename: str, json_folder: str) -> None:
+def _remove_json_file(name: Any, filename: Any, json_folder: Any) -> None:
     try:
         json_file_path: Path = Path(json_folder) / filename
         json_file_path.unlink()
@@ -426,7 +426,7 @@ class Places(SensorEntity):
         self.async_on_remove(
             async_track_state_change_event(
                 self._hass,
-                [self._get_attr(CONF_DEVICETRACKER_ID)],
+                [str(self._get_attr(CONF_DEVICETRACKER_ID))],
                 self._async_tsc_update,
             )
         )
@@ -1917,7 +1917,7 @@ class Places(SensorEntity):
             await self._get_dict_from_url(
                 url=osm_details_url,
                 name="OpenStreetMaps Details",
-                name_dict=ATTR_OSM_DETAILS_DICT,
+                dict_name=ATTR_OSM_DETAILS_DICT,
             )
 
             if not self._is_attr_blank(ATTR_OSM_DETAILS_DICT):
@@ -1984,7 +1984,7 @@ class Places(SensorEntity):
             "(%s) Event Fired [event_type: %s_state_update]", self._get_attr(CONF_NAME), DOMAIN
         )
 
-    def _write_sensor_to_json(self, name: str, filename: str) -> None:
+    def _write_sensor_to_json(self, name: Any, filename: Any) -> None:
         sensor_attributes: MutableMapping[str, Any] = copy.deepcopy(self._internal_attr)
         for k, v in sensor_attributes.items():
             if isinstance(v, (datetime)):
