@@ -11,6 +11,7 @@ Description:
 GitHub: https://github.com/custom-components/places
 """
 
+import asyncio
 from collections.abc import MutableMapping
 import contextlib
 import copy
@@ -41,6 +42,7 @@ from homeassistant.const import (
     CONF_UNIQUE_ID,
     CONF_ZONE,
     MATCH_ALL,
+    OSM_THROTTLE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
@@ -822,6 +824,21 @@ class Places(SensorEntity):
         # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
     async def _get_dict_from_url(self, url: str, name: str, dict_name: str) -> None:
+        if DOMAIN not in self._hass.data:
+            self._hass.data[DOMAIN] = {}
+        if OSM_THROTTLE not in self._hass.data[DOMAIN]:
+            self._hass.data[DOMAIN][OSM_THROTTLE] = {
+                "lock": asyncio.Lock(),
+                "last_query": 0.0,
+            }
+        throttle = self._hass.data[DOMAIN][OSM_THROTTLE]
+        async with throttle["lock"]:
+            now = asyncio.get_event_loop().time()
+            wait_time = max(0, 1.0 - (now - throttle["last_query"]))
+            if wait_time > 0:
+                await asyncio.sleep(wait_time)
+            throttle["last_query"] = asyncio.get_event_loop().time()
+
         _LOGGER.info("(%s) Requesting data for %s", self._get_attr(CONF_NAME), name)
         _LOGGER.debug("(%s) %s URL: %s", self._get_attr(CONF_NAME), name, url)
         self._set_attr(dict_name, {})
