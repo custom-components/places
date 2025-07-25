@@ -30,6 +30,8 @@ DEFAULT_SHOW_TIME = False
 DEFAULT_DATE_FORMAT = "mm/dd"
 DEFAULT_USE_GPS = True
 
+OSM_THROTTLE = "osm_throttle"
+
 # Settings
 
 TRACKING_DOMAINS: list[str] = [
