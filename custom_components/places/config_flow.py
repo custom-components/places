@@ -168,7 +168,7 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         # and when that has some validated input, it calls `async_create_entry` to
         # actually create the HA config entry. Note the "title" value is returned by
         # `validate_input` above.
-        errors: MutableMapping[str, Any] = {}
+        errors: dict[str, Any] = {}
         if user_input is not None:
             try:
                 info: MutableMapping[str, Any] = await validate_input(self.hass, user_input)
