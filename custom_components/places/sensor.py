@@ -25,6 +25,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import aiohttp
+import cachetools
 
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
 from homeassistant.components.sensor import SensorEntity
@@ -140,6 +141,9 @@ from .const import (
     EXTRA_STATE_ATTRIBUTE_LIST,
     JSON_ATTRIBUTE_LIST,
     JSON_IGNORE_ATTRIBUTE_LIST,
+    OSM_CACHE,
+    OSM_CACHE_MAX_AGE_HOURS,
+    OSM_CACHE_MAX_SIZE,
     OSM_THROTTLE,
     PLACE_NAME_DUPLICATE_LIST,
     PLATFORM,
@@ -826,6 +830,16 @@ class Places(SensorEntity):
     async def _get_dict_from_url(self, url: str, name: str, dict_name: str) -> None:
         if DOMAIN not in self._hass.data:
             self._hass.data[DOMAIN] = {}
+        if OSM_CACHE not in self._hass.data[DOMAIN]:
+            self._hass.data[DOMAIN][OSM_CACHE] = cachetools.TTLCache(
+                maxsize=OSM_CACHE_MAX_SIZE, ttl=OSM_CACHE_MAX_AGE_HOURS * 3600
+            )
+        osm_cache = self._hass.data[DOMAIN][OSM_CACHE]
+        if url in osm_cache:
+            self._set_attr(dict_name, osm_cache[url])
+            _LOGGER.debug("(%s) %s loaded from cache", self._get_attr(CONF_NAME), name)
+            return
+
         if OSM_THROTTLE not in self._hass.data[DOMAIN]:
             self._hass.data[DOMAIN][OSM_THROTTLE] = {
                 "lock": asyncio.Lock(),
@@ -839,66 +853,70 @@ class Places(SensorEntity):
                 await asyncio.sleep(wait_time)
             throttle["last_query"] = asyncio.get_event_loop().time()
 
-        _LOGGER.info("(%s) Requesting data for %s", self._get_attr(CONF_NAME), name)
-        _LOGGER.debug("(%s) %s URL: %s", self._get_attr(CONF_NAME), name, url)
-        self._set_attr(dict_name, {})
-        headers: dict[str, str] = {"user-agent": f"Mozilla/5.0 (Home Assistant) {DOMAIN}/{VERSION}"}
-        get_dict = None
+            _LOGGER.info("(%s) Requesting data for %s", self._get_attr(CONF_NAME), name)
+            _LOGGER.debug("(%s) %s URL: %s", self._get_attr(CONF_NAME), name, url)
+            self._set_attr(dict_name, {})
+            headers: dict[str, str] = {
+                "user-agent": f"Mozilla/5.0 (Home Assistant) {DOMAIN}/{VERSION}"
+            }
+            get_dict = None
 
-        try:
-            async with (
-                aiohttp.ClientSession(headers=headers) as session,
-                session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response,
-            ):
-                get_json_input = await response.text()
-                _LOGGER.debug(
-                    "(%s) %s Response: %s", self._get_attr(CONF_NAME), name, get_json_input
-                )
-                try:
-                    get_dict = json.loads(get_json_input)
-                except json.decoder.JSONDecodeError as e:
-                    _LOGGER.warning(
-                        "(%s) JSON Decode Error with %s info [%s: %s]: %s",
-                        self._get_attr(CONF_NAME),
-                        name,
-                        e.__class__.__qualname__,
-                        e,
-                        get_json_input,
+            try:
+                async with (
+                    aiohttp.ClientSession(headers=headers) as session,
+                    session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response,
+                ):
+                    get_json_input = await response.text()
+                    _LOGGER.debug(
+                        "(%s) %s Response: %s", self._get_attr(CONF_NAME), name, get_json_input
                     )
-                    return
-        except (aiohttp.ClientError, TimeoutError, OSError) as e:
-            _LOGGER.warning(
-                "(%s) Error connecting to %s [%s: %s]: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                e.__class__.__qualname__,
-                e,
-                url,
-            )
-            return
+                    try:
+                        get_dict = json.loads(get_json_input)
+                    except json.decoder.JSONDecodeError as e:
+                        _LOGGER.warning(
+                            "(%s) JSON Decode Error with %s info [%s: %s]: %s",
+                            self._get_attr(CONF_NAME),
+                            name,
+                            e.__class__.__qualname__,
+                            e,
+                            get_json_input,
+                        )
+                        return
+            except (aiohttp.ClientError, TimeoutError, OSError) as e:
+                _LOGGER.warning(
+                    "(%s) Error connecting to %s [%s: %s]: %s",
+                    self._get_attr(CONF_NAME),
+                    name,
+                    e.__class__.__qualname__,
+                    e,
+                    url,
+                )
+                return
 
-        if get_dict is None:
-            return
+            if get_dict is None:
+                return
 
-        if "error_message" in get_dict:
-            _LOGGER.warning(
-                "(%s) An error occurred contacting the web service for %s: %s",
-                self._get_attr(CONF_NAME),
-                name,
-                get_dict.get("error_message"),
-            )
-            return
+            if "error_message" in get_dict:
+                _LOGGER.warning(
+                    "(%s) An error occurred contacting the web service for %s: %s",
+                    self._get_attr(CONF_NAME),
+                    name,
+                    get_dict.get("error_message"),
+                )
+                return
 
-        if (
-            isinstance(get_dict, list)
-            and len(get_dict) == 1
-            and isinstance(get_dict[0], MutableMapping)
-        ):
-            self._set_attr(dict_name, get_dict[0])
-            return
+            if (
+                isinstance(get_dict, list)
+                and len(get_dict) == 1
+                and isinstance(get_dict[0], MutableMapping)
+            ):
+                self._set_attr(dict_name, get_dict[0])
+                osm_cache[url] = get_dict[0]
+                return
 
-        self._set_attr(dict_name, get_dict)
-        return
+            self._set_attr(dict_name, get_dict)
+            osm_cache[url] = get_dict
+            return
 
     async def _async_get_map_link(self) -> None:
         if self._get_attr(CONF_MAP_PROVIDER) == "google":

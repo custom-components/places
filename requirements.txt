@@ -1,10 +1,12 @@
 aiohttp
+cachetools
 homeassistant
 homeassistant-stubs
 mypy
 pytest
 pytest-homeassistant-custom-component
 ruff
+types-cachetools
 types-cffi
 types-greenlet
 types-PyMySQL

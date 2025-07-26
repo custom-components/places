@@ -30,7 +30,11 @@ DEFAULT_SHOW_TIME = False
 DEFAULT_DATE_FORMAT = "mm/dd"
 DEFAULT_USE_GPS = True
 
+OSM_CACHE = "osm_cache"
 OSM_THROTTLE = "osm_throttle"
+OSM_CACHE_MAX_AGE_HOURS = 4  # 24 hours
+OSM_CACHE_MAX_SIZE = 500
+
 
 # Settings
 
