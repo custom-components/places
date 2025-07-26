@@ -32,6 +32,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.zone import ATTR_PASSIVE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    ATTR_ATTRIBUTION,
     ATTR_FRIENDLY_NAME,
     ATTR_GPS_ACCURACY,
     CONF_API_KEY,
@@ -1029,6 +1030,7 @@ class Places(SensorEntity):
         if not osm_dict:
             return
 
+        await self._set_attribution(osm_dict=osm_dict)
         await self._parse_type(osm_dict=osm_dict)
         await self._parse_category(osm_dict=osm_dict)
         await self._parse_namedetails(osm_dict=osm_dict)
@@ -1041,6 +1043,20 @@ class Places(SensorEntity):
             self._get_attr(CONF_NAME),
             self._internal_attr,
         )
+
+    async def _set_attribution(self, osm_dict: MutableMapping[str, Any]) -> None:
+        if "licence" not in osm_dict:
+            return
+        attribution: str | None = osm_dict.get("licence")
+        if attribution:
+            self._set_attr(ATTR_ATTRIBUTION, attribution)
+            _LOGGER.debug(
+                "(%s) OSM Attribution: %s",
+                self._get_attr(CONF_NAME),
+                self._get_attr(ATTR_ATTRIBUTION),
+            )
+        else:
+            _LOGGER.debug("(%s) No OSM Attribution found", self._get_attr(CONF_NAME))
 
     async def _parse_type(self, osm_dict: MutableMapping[str, Any]) -> None:
         if "type" not in osm_dict:
