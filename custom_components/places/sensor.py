@@ -145,6 +145,7 @@ from .const import (
     OSM_CACHE_MAX_AGE_HOURS,
     OSM_CACHE_MAX_SIZE,
     OSM_THROTTLE,
+    OSM_THROTTLE_INTERVAL_SECONDS,
     PLACE_NAME_DUPLICATE_LIST,
     PLATFORM,
     RESET_ATTRIBUTE_LIST,
@@ -177,6 +178,18 @@ async def async_setup_entry(
     # _LOGGER.debug("[async_setup_entry] name: %s", name)
     # _LOGGER.debug("[async_setup_entry] unique_id: %s", unique_id)
     # _LOGGER.debug("[async_setup_entry] config: %s", config)
+
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
+    if OSM_CACHE not in hass.data[DOMAIN]:
+        hass.data[DOMAIN][OSM_CACHE] = cachetools.TTLCache(
+            maxsize=OSM_CACHE_MAX_SIZE, ttl=OSM_CACHE_MAX_AGE_HOURS * 3600
+        )
+    if OSM_THROTTLE not in hass.data[DOMAIN]:
+        hass.data[DOMAIN][OSM_THROTTLE] = {
+            "lock": asyncio.Lock(),
+            "last_query": 0.0,
+        }
 
     if config.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
         _LOGGER.debug("(%s) Extended Attr is True. Excluding from Recorder", name)
@@ -828,27 +841,21 @@ class Places(SensorEntity):
         # 0: False. 1: True. 2: False, but set direction of travel to stationary
 
     async def _get_dict_from_url(self, url: str, name: str, dict_name: str) -> None:
-        if DOMAIN not in self._hass.data:
-            self._hass.data[DOMAIN] = {}
-        if OSM_CACHE not in self._hass.data[DOMAIN]:
-            self._hass.data[DOMAIN][OSM_CACHE] = cachetools.TTLCache(
-                maxsize=OSM_CACHE_MAX_SIZE, ttl=OSM_CACHE_MAX_AGE_HOURS * 3600
-            )
         osm_cache = self._hass.data[DOMAIN][OSM_CACHE]
         if url in osm_cache:
             self._set_attr(dict_name, osm_cache[url])
-            _LOGGER.debug("(%s) %s loaded from cache", self._get_attr(CONF_NAME), name)
+            _LOGGER.debug(
+                "(%s) %s data loaded from cache (Cache size: %s)",
+                self._get_attr(CONF_NAME),
+                name,
+                len(osm_cache),
+            )
             return
 
-        if OSM_THROTTLE not in self._hass.data[DOMAIN]:
-            self._hass.data[DOMAIN][OSM_THROTTLE] = {
-                "lock": asyncio.Lock(),
-                "last_query": 0.0,
-            }
         throttle = self._hass.data[DOMAIN][OSM_THROTTLE]
         async with throttle["lock"]:
             now = asyncio.get_running_loop().time()
-            wait_time = max(0, 1.0 - (now - throttle["last_query"]))
+            wait_time = max(0, OSM_THROTTLE_INTERVAL_SECONDS - (now - throttle["last_query"]))
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
             throttle["last_query"] = asyncio.get_running_loop().time()
