@@ -847,11 +847,11 @@ class Places(SensorEntity):
             }
         throttle = self._hass.data[DOMAIN][OSM_THROTTLE]
         async with throttle["lock"]:
-            now = asyncio.get_event_loop().time()
+            now = asyncio.get_running_loop().time()
             wait_time = max(0, 1.0 - (now - throttle["last_query"]))
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
-            throttle["last_query"] = asyncio.get_event_loop().time()
+            throttle["last_query"] = asyncio.get_running_loop().time()
 
             _LOGGER.info("(%s) Requesting data for %s", self._get_attr(CONF_NAME), name)
             _LOGGER.debug("(%s) %s URL: %s", self._get_attr(CONF_NAME), name, url)
