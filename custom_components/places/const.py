@@ -3,6 +3,7 @@
 from collections.abc import MutableMapping
 
 from homeassistant.const import (
+    ATTR_ATTRIBUTION,
     ATTR_GPS_ACCURACY,
     CONF_API_KEY,
     CONF_ICON,
@@ -213,6 +214,7 @@ EXTRA_STATE_ATTRIBUTE_LIST: list[str] = [
     ATTR_DISPLAY_OPTIONS,
     ATTR_LAST_CHANGED,
     ATTR_LAST_UPDATED,
+    ATTR_ATTRIBUTION,
 ]
 JSON_IGNORE_ATTRIBUTE_LIST: list[str] = [
     ATTR_ATTRIBUTES,
@@ -274,6 +276,7 @@ JSON_ATTRIBUTE_LIST: list[str] = [
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
     ATTR_SHOW_DATE,
+    ATTR_ATTRIBUTION,
 ]
 EVENT_ATTRIBUTE_LIST: list[str] = [
     ATTR_PLACE_NAME,
