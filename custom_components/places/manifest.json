@@ -9,6 +9,6 @@
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/custom-components/places/issues",
-  "requirements": [],
+  "requirements": ["cachetools"],
   "version":"v2.8.4"
 }
