@@ -21,6 +21,8 @@ PLATFORM = Platform.SENSOR
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 ENTITY_ID_FORMAT = Platform.SENSOR + ".{}"
 
+METERS_PER_MILE = 1609.344
+
 # Defaults
 DEFAULT_EXTENDED_ATTR = False
 DEFAULT_HOME_ZONE = "zone.home"

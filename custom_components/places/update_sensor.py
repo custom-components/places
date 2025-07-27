@@ -8,6 +8,7 @@ from datetime import datetime
 import json
 import logging
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -24,6 +25,7 @@ from homeassistant.const import (
     CONF_ZONE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
+    __version__ as HA_VERSION,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.util.location import distance
@@ -77,6 +79,7 @@ from .const import (
     EVENT_ATTRIBUTE_LIST,
     EVENT_TYPE,
     EXTENDED_ATTRIBUTE_LIST,
+    METERS_PER_MILE,
     OSM_CACHE,
     OSM_THROTTLE,
     OSM_THROTTLE_INTERVAL_SECONDS,
@@ -84,7 +87,7 @@ from .const import (
     VERSION,
     UpdateStatus,
 )
-from .helpers import clear_since_from_state, is_float, write_sensor_to_json
+from .helpers import clear_since_from_state, is_float, safe_truncate, write_sensor_to_json
 from .parse_osm import OSMParser
 
 if TYPE_CHECKING:
@@ -150,10 +153,12 @@ class PlacesUpdater:
         if not self.sensor.is_attr_blank(ATTR_NATIVE_VALUE):
             current_time: str = f"{now.hour:02}:{now.minute:02}"
             if self.sensor.get_attr(CONF_SHOW_TIME):
+                time_suffix = f" (since {current_time})"
+                max_state_length = 255 - len(time_suffix)
                 state: str = clear_since_from_state(
                     self.sensor.get_attr_safe_str(ATTR_NATIVE_VALUE)
                 )
-                self.sensor.set_native_value(value=f"{state[: 255 - 14]} (since {current_time})")
+                self.sensor.set_native_value(value=f"{state[:max_state_length]}{time_suffix}")
             else:
                 self.sensor.set_native_value(
                     value=self.sensor.get_attr_safe_str(ATTR_NATIVE_VALUE)[:255]
@@ -229,49 +234,38 @@ class PlacesUpdater:
 
     async def check_for_updated_entity_name(self) -> None:
         """Check if the entity name has changed and update it if necessary."""
-        if hasattr(self.sensor, "entity_id") and self.sensor.entity_id is not None:
-            # _LOGGER.debug("(%s) Entity ID: %s", self.sensor.get_attr(CONF_NAME), self.sensor._entity_id)
-            config = dict(self._config_entry.data)
-            if (
-                self._hass.states.get(str(self.sensor.entity_id)) is not None
-                and self._hass.states.get(str(self.sensor.entity_id)).attributes.get(
-                    ATTR_FRIENDLY_NAME
-                )
-                is not None
-                and self.sensor.get_attr(CONF_NAME)
-                != self._hass.states.get(str(self.sensor.entity_id)).attributes.get(
-                    ATTR_FRIENDLY_NAME
-                )
-            ):
-                _LOGGER.debug(
-                    "(%s) Sensor Name Changed. Updating Name to: %s",
-                    self.sensor.get_attr(CONF_NAME),
-                    self._hass.states.get(str(self.sensor.entity_id)).attributes.get(
-                        ATTR_FRIENDLY_NAME
-                    ),
-                )
-                self.sensor.set_attr(
-                    CONF_NAME,
-                    self._hass.states.get(str(self.sensor.entity_id)).attributes.get(
-                        ATTR_FRIENDLY_NAME
-                    ),
-                )
-                config.update({CONF_NAME: self.sensor.get_attr(CONF_NAME)})
-                _LOGGER.debug(
-                    "(%s) Updated Config Name: %s",
-                    self.sensor.get_attr(CONF_NAME),
-                    config.get(CONF_NAME),
-                )
-                self._hass.config_entries.async_update_entry(
-                    self._config_entry,
-                    data=config,
-                    options=self._config_entry.options,
-                )
-                _LOGGER.debug(
-                    "(%s) Updated ConfigEntry Name: %s",
-                    self.sensor.get_attr(CONF_NAME),
-                    self._config_entry.data.get(CONF_NAME),
-                )
+
+        if not hasattr(self.sensor, "entity_id") or self.sensor.entity_id is None:
+            return
+
+        entity_state = self._hass.states.get(str(self.sensor.entity_id))
+        if entity_state is None:
+            return
+
+        new_name = entity_state.attributes.get(ATTR_FRIENDLY_NAME)
+        if new_name is None or new_name == self.sensor.get_attr(CONF_NAME):
+            return
+
+        _LOGGER.debug(
+            "(%s) Sensor Name Changed. Updating Name to: %s",
+            self.sensor.get_attr(CONF_NAME),
+            new_name,
+        )
+
+        self.sensor.set_attr(CONF_NAME, new_name)
+        config = dict(self._config_entry.data)
+        config.update({CONF_NAME: new_name})
+
+        self._hass.config_entries.async_update_entry(
+            self._config_entry,
+            data=config,
+            options=self._config_entry.options,
+        )
+        _LOGGER.debug(
+            "(%s) Updated ConfigEntry Name: %s",
+            self.sensor.get_attr(CONF_NAME),
+            self._config_entry.data.get(CONF_NAME),
+        )
 
     async def update_previous_state(self) -> None:
         """Update the previous state attribute."""
@@ -288,9 +282,11 @@ class PlacesUpdater:
     async def update_old_coordinates(self) -> None:
         """Store old coordinates."""
         if is_float(self.sensor.get_attr(ATTR_LATITUDE)):
-            self.sensor.set_attr(ATTR_LATITUDE_OLD, str(self.sensor.get_attr(ATTR_LATITUDE)))
+            self.sensor.set_attr(ATTR_LATITUDE_OLD, self.sensor.get_attr_safe_float(ATTR_LATITUDE))
         if is_float(self.sensor.get_attr(ATTR_LONGITUDE)):
-            self.sensor.set_attr(ATTR_LONGITUDE_OLD, str(self.sensor.get_attr(ATTR_LONGITUDE)))
+            self.sensor.set_attr(
+                ATTR_LONGITUDE_OLD, self.sensor.get_attr_safe_float(ATTR_LONGITUDE)
+            )
 
     async def check_device_tracker_and_update_coords(self) -> UpdateStatus:
         """Check if the device tracker is set and update coordinates if needed."""
@@ -312,28 +308,18 @@ class PlacesUpdater:
 
     async def get_gps_accuracy(self) -> UpdateStatus:
         """Get the GPS accuracy from the device tracker."""
+        tracker_state = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
         if (
-            self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
-            and self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes
-            and ATTR_GPS_ACCURACY
-            in self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes
-            and self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                ATTR_GPS_ACCURACY
-            )
-            is not None
-            and is_float(
-                self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                    ATTR_GPS_ACCURACY
-                )
-            )
+            tracker_state
+            and hasattr(tracker_state, "attributes")
+            and tracker_state.attributes
+            and ATTR_GPS_ACCURACY in tracker_state.attributes
+            and tracker_state.attributes.get(ATTR_GPS_ACCURACY) is not None
+            and is_float(tracker_state.attributes.get(ATTR_GPS_ACCURACY))
         ):
             self.sensor.set_attr(
                 ATTR_GPS_ACCURACY,
-                float(
-                    self._hass.states.get(
-                        self.sensor.get_attr(CONF_DEVICETRACKER_ID)
-                    ).attributes.get(ATTR_GPS_ACCURACY)
-                ),
+                float(tracker_state.attributes.get(ATTR_GPS_ACCURACY)),
             )
         else:
             _LOGGER.debug(
@@ -361,10 +347,19 @@ class PlacesUpdater:
     async def update_coordinates(self) -> None:
         """Update the latitude and longitude attributes from the device tracker."""
         device_tracker = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
+        if not device_tracker:
+            _LOGGER.warning(
+                "(%s) Device tracker entity not found: %s",
+                self.sensor.get_attr(CONF_NAME),
+                self.sensor.get_attr(CONF_DEVICETRACKER_ID),
+            )
+            return
         if is_float(device_tracker.attributes.get(CONF_LATITUDE)):
-            self.sensor.set_attr(ATTR_LATITUDE, str(device_tracker.attributes.get(CONF_LATITUDE)))
+            self.sensor.set_attr(ATTR_LATITUDE, float(device_tracker.attributes.get(CONF_LATITUDE)))
         if is_float(device_tracker.attributes.get(CONF_LONGITUDE)):
-            self.sensor.set_attr(ATTR_LONGITUDE, str(device_tracker.attributes.get(CONF_LONGITUDE)))
+            self.sensor.set_attr(
+                ATTR_LONGITUDE, float(device_tracker.attributes.get(CONF_LONGITUDE))
+            )
 
     async def determine_update_criteria(self) -> UpdateStatus:
         """Determine if the update criteria are met."""
@@ -436,13 +431,19 @@ class PlacesUpdater:
         if self.sensor.get_attr_safe_str(CONF_DEVICETRACKER_ID).split(".")[0] != CONF_ZONE:
             self.sensor.set_attr(
                 ATTR_DEVICETRACKER_ZONE,
-                self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).state,
+                (
+                    self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).state
+                    if self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
+                    is not None
+                    else STATE_UNKNOWN
+                ),
             )
         if await self.sensor.in_zone():
             devicetracker_zone_name_state = None
-            devicetracker_zone_id: str | None = self._hass.states.get(
-                self.sensor.get_attr(CONF_DEVICETRACKER_ID)
-            ).attributes.get(CONF_ZONE)
+            state = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
+            devicetracker_zone_id: str | None = None
+            if state is not None:
+                devicetracker_zone_id = state.attributes.get(CONF_ZONE)
             if devicetracker_zone_id:
                 devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
                 devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
@@ -506,36 +507,30 @@ class PlacesUpdater:
     async def get_map_link(self) -> None:
         """Get the map link based on the configured map provider."""
         if self.sensor.get_attr(CONF_MAP_PROVIDER) == "google":
-            self.sensor.set_attr(
-                ATTR_MAP_LINK,
-                (
-                    "https://maps.google.com/?q="
-                    f"{self.sensor.get_attr(ATTR_LOCATION_CURRENT)}"
-                    f"&ll={self.sensor.get_attr(ATTR_LOCATION_CURRENT)}"
-                    f"&z={self.sensor.get_attr(CONF_MAP_ZOOM)}"
-                ),
-            )
+            params = {
+                "q": self.sensor.get_attr(ATTR_LOCATION_CURRENT),
+                "ll": self.sensor.get_attr(ATTR_LOCATION_CURRENT),
+                "z": self.sensor.get_attr(CONF_MAP_ZOOM),
+            }
+            url = f"https://maps.google.com/?{urlencode(params)}"
+            self.sensor.set_attr(ATTR_MAP_LINK, url)
         elif self.sensor.get_attr(CONF_MAP_PROVIDER) == "osm":
-            self.sensor.set_attr(
-                ATTR_MAP_LINK,
-                (
-                    "https://www.openstreetmap.org/?mlat="
-                    f"{self.sensor.get_attr(ATTR_LATITUDE)}"
-                    f"&mlon={self.sensor.get_attr(ATTR_LONGITUDE)}"
-                    f"#map={self.sensor.get_attr(CONF_MAP_ZOOM)}/"
-                    f"{self.sensor.get_attr_safe_str(ATTR_LATITUDE)[:8]}/"
-                    f"{self.sensor.get_attr_safe_str(ATTR_LONGITUDE)[:9]}"
-                ),
-            )
+            lat_str = safe_truncate(self.sensor.get_attr_safe_float(ATTR_LATITUDE), 8)
+            lon_str = safe_truncate(self.sensor.get_attr_safe_float(ATTR_LONGITUDE), 9)
+            params = {
+                "mlat": self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+                "mlon": self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+            }
+            osm_url = f"https://www.openstreetmap.org/?{urlencode(params)}"
+            osm_url += f"#map={self.sensor.get_attr(CONF_MAP_ZOOM)}/{lat_str}/{lon_str}"
+            self.sensor.set_attr(ATTR_MAP_LINK, osm_url)
         else:
-            self.sensor.set_attr(
-                ATTR_MAP_LINK,
-                (
-                    "https://maps.apple.com/?q="
-                    f"{self.sensor.get_attr(ATTR_LOCATION_CURRENT)}"
-                    f"&z={self.sensor.get_attr(CONF_MAP_ZOOM)}"
-                ),
-            )
+            params = {
+                "q": self.sensor.get_attr(ATTR_LOCATION_CURRENT),
+                "z": self.sensor.get_attr(CONF_MAP_ZOOM),
+            }
+            url = f"https://maps.apple.com/?{urlencode(params)}"
+            self.sensor.set_attr(ATTR_MAP_LINK, url)
         _LOGGER.debug(
             "(%s) Map Link Type: %s",
             self.sensor.get_attr(CONF_NAME),
@@ -616,11 +611,17 @@ class PlacesUpdater:
     async def build_osm_url(self) -> str:
         """Build the OpenStreetMap query URL."""
         base_url = "https://nominatim.openstreetmap.org/reverse?format=json"
-        lat = self.sensor.get_attr(ATTR_LATITUDE)
-        lon = self.sensor.get_attr(ATTR_LONGITUDE)
-        lang = self.sensor.get_attr(CONF_LANGUAGE) or "en"
-        email = self.sensor.get_attr(CONF_API_KEY) or ""
-        return f"{base_url}&lat={lat}&lon={lon}&accept-language={lang}&addressdetails=1&namedetails=1&zoom=18&limit=1&email={email}"
+        params = {
+            "lat": self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+            "lon": self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+            "accept-language": self.sensor.get_attr(CONF_LANGUAGE) or "en",
+            "addressdetails": "1",
+            "namedetails": "1",
+            "zoom": "18",
+            "limit": "1",
+            "email": self.sensor.get_attr(CONF_API_KEY) or "",
+        }
+        return f"{base_url}&{urlencode(params)}"
 
     async def get_extended_attr(self) -> None:
         """Get extended attributes from OpenStreetMap and Wikidata."""
@@ -712,9 +713,11 @@ class PlacesUpdater:
             _LOGGER.info("(%s) Requesting data for %s", self.sensor.get_attr(CONF_NAME), name)
             _LOGGER.debug("(%s) %s URL: %s", self.sensor.get_attr(CONF_NAME), name, url)
             self.sensor.set_attr(dict_name, {})
-            headers: dict[str, str] = {
-                "user-agent": f"Mozilla/5.0 (Home Assistant) {DOMAIN}/{VERSION}"
-            }
+            user_agent = (
+                f"Mozilla/5.0 (Home Assistant/{HA_VERSION}) "
+                f"{DOMAIN}/{VERSION} (+https://github.com/custom-components/places)"
+            )
+            headers: dict[str, str] = {"user-agent": user_agent}
             get_dict = None
 
             try:
@@ -820,21 +823,21 @@ class PlacesUpdater:
         ):
             self.sensor.set_attr(
                 ATTR_LOCATION_CURRENT,
-                f"{self.sensor.get_attr(ATTR_LATITUDE)},{self.sensor.get_attr(ATTR_LONGITUDE)}",
+                f"{self.sensor.get_attr_safe_float(ATTR_LATITUDE)},{self.sensor.get_attr_safe_float(ATTR_LONGITUDE)}",
             )
         if not self.sensor.is_attr_blank(ATTR_LATITUDE_OLD) and not self.sensor.is_attr_blank(
             ATTR_LONGITUDE_OLD
         ):
             self.sensor.set_attr(
                 ATTR_LOCATION_PREVIOUS,
-                f"{self.sensor.get_attr(ATTR_LATITUDE_OLD)},{self.sensor.get_attr(ATTR_LONGITUDE_OLD)}",
+                f"{self.sensor.get_attr_safe_float(ATTR_LATITUDE_OLD)},{self.sensor.get_attr_safe_float(ATTR_LONGITUDE_OLD)}",
             )
         if not self.sensor.is_attr_blank(ATTR_HOME_LATITUDE) and not self.sensor.is_attr_blank(
             ATTR_HOME_LONGITUDE
         ):
             self.sensor.set_attr(
                 ATTR_HOME_LOCATION,
-                f"{self.sensor.get_attr(ATTR_HOME_LATITUDE)},{self.sensor.get_attr(ATTR_HOME_LONGITUDE)}",
+                f"{self.sensor.get_attr_safe_float(ATTR_HOME_LATITUDE)},{self.sensor.get_attr_safe_float(ATTR_HOME_LONGITUDE)}",
             )
 
     async def calculate_distances(self) -> None:
@@ -848,10 +851,10 @@ class PlacesUpdater:
             self.sensor.set_attr(
                 ATTR_DISTANCE_FROM_HOME_M,
                 distance(
-                    float(self.sensor.get_attr_safe_str(ATTR_LATITUDE)),
-                    float(self.sensor.get_attr_safe_str(ATTR_LONGITUDE)),
-                    float(self.sensor.get_attr_safe_str(ATTR_HOME_LATITUDE)),
-                    float(self.sensor.get_attr_safe_str(ATTR_HOME_LONGITUDE)),
+                    self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+                    self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+                    self.sensor.get_attr_safe_float(ATTR_HOME_LATITUDE),
+                    self.sensor.get_attr_safe_float(ATTR_HOME_LONGITUDE),
                 ),
             )
             if not self.sensor.is_attr_blank(ATTR_DISTANCE_FROM_HOME_M):
@@ -861,7 +864,11 @@ class PlacesUpdater:
                 )
                 self.sensor.set_attr(
                     ATTR_DISTANCE_FROM_HOME_MI,
-                    round(self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M) / 1609, 3),
+                    round(
+                        self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M)
+                        / METERS_PER_MILE,
+                        3,
+                    ),
                 )
 
     async def calculate_travel_distance(self) -> None:
@@ -872,17 +879,17 @@ class PlacesUpdater:
             self.sensor.set_attr(
                 ATTR_DISTANCE_TRAVELED_M,
                 distance(
-                    float(self.sensor.get_attr_safe_str(ATTR_LATITUDE)),
-                    float(self.sensor.get_attr_safe_str(ATTR_LONGITUDE)),
-                    float(self.sensor.get_attr_safe_str(ATTR_LATITUDE_OLD)),
-                    float(self.sensor.get_attr_safe_str(ATTR_LONGITUDE_OLD)),
+                    self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+                    self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+                    self.sensor.get_attr_safe_float(ATTR_LATITUDE_OLD),
+                    self.sensor.get_attr_safe_float(ATTR_LONGITUDE_OLD),
                 ),
             )
             if not self.sensor.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
                 self.sensor.set_attr(
                     ATTR_DISTANCE_TRAVELED_MI,
                     round(
-                        self.sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M) / 1609,
+                        self.sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M) / METERS_PER_MILE,
                         3,
                     ),
                 )
@@ -964,12 +971,12 @@ class PlacesUpdater:
             "new_latitude=%s, new_longitude=%s, "
             "home_latitude=%s, home_longitude=%s",
             self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_attr(ATTR_LATITUDE_OLD),
-            self.sensor.get_attr(ATTR_LONGITUDE_OLD),
-            self.sensor.get_attr(ATTR_LATITUDE),
-            self.sensor.get_attr(ATTR_LONGITUDE),
-            self.sensor.get_attr(ATTR_HOME_LATITUDE),
-            self.sensor.get_attr(ATTR_HOME_LONGITUDE),
+            self.sensor.get_attr_safe_float(ATTR_LATITUDE_OLD),
+            self.sensor.get_attr_safe_float(ATTR_LONGITUDE_OLD),
+            self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+            self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+            self.sensor.get_attr_safe_float(ATTR_HOME_LATITUDE),
+            self.sensor.get_attr_safe_float(ATTR_HOME_LONGITUDE),
         )
         return proceed_with_update
 

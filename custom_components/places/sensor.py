@@ -276,7 +276,7 @@ class Places(SensorEntity):
         ):
             self.set_attr(
                 ATTR_HOME_LATITUDE,
-                str(hass.states.get(self.get_attr(CONF_HOME_ZONE)).attributes.get(CONF_LATITUDE)),
+                float(hass.states.get(self.get_attr(CONF_HOME_ZONE)).attributes.get(CONF_LATITUDE)),
             )
         if (
             not self.is_attr_blank(CONF_HOME_ZONE)
@@ -289,7 +289,9 @@ class Places(SensorEntity):
         ):
             self.set_attr(
                 ATTR_HOME_LONGITUDE,
-                str(hass.states.get(self.get_attr(CONF_HOME_ZONE)).attributes.get(CONF_LONGITUDE)),
+                float(
+                    hass.states.get(self.get_attr(CONF_HOME_ZONE)).attributes.get(CONF_LONGITUDE)
+                ),
             )
 
         self._attr_entity_picture = (
@@ -457,9 +459,12 @@ class Places(SensorEntity):
     def get_attr_safe_float(self, attr: str | None, default: Any | None = None) -> float:
         """Get an attribute value as a float, returning 0 if not set or not a float."""
         value: None | Any = self.get_attr(attr=attr, default=default)
-        if not isinstance(value, float):
-            return 0
-        return value
+        if value is None:
+            return 0.0
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
 
     def get_attr_safe_list(self, attr: str | None, default: Any | None = None) -> list:
         """Get an attribute value as a list, returning an empty list if not set or not a list."""

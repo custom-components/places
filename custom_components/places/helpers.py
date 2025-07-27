@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import MutableMapping
-import copy
 from datetime import datetime
 import json
 import logging
@@ -80,10 +79,7 @@ def write_sensor_to_json(
 ) -> None:
     """Write sensor attributes to a JSON file, removing datetime values."""
 
-    attributes = copy.deepcopy(sensor_attributes)
-    for k, v in list(attributes.items()):
-        if isinstance(v, datetime):
-            attributes.pop(k)
+    attributes = {k: v for k, v in sensor_attributes.items() if not isinstance(v, datetime)}
     try:
         json_file_path: Path = Path(json_folder) / filename
         with json_file_path.open("w") as jsonfile:
@@ -101,3 +97,9 @@ def write_sensor_to_json(
 def clear_since_from_state(orig_state: str) -> str:
     """Remove the 'since' part from the state string."""
     return re.sub(r" \(since \d\d[:/]\d\d\)", "", orig_state)
+
+
+def safe_truncate(val: Any, max_len: int) -> str:
+    """Safely truncate a string representation of val to max_len characters."""
+    s = str(val) if val is not None else ""
+    return s[:max_len] if len(s) > max_len else s
