@@ -31,25 +31,31 @@ _LOGGER = logging.getLogger(__name__)
 class AdvancedOptionsParser:
     """Parser for advanced options in a sensor configuration."""
 
-    def __init__(self, sensor: Places):
+    def __init__(self, sensor: Places, curr_options: str) -> None:
         """Initialize the parser with a sensor instance."""
         self.sensor = sensor
+        self.curr_options = curr_options
         self.state_list: list = []
-        self.street_num_i = -1
-        self.street_i = -1
+        self._street_num_i = -1
+        self._street_i = -1
         self._temp_i: int = 0
 
-    async def build_from_advanced_options(self, curr_options: str) -> None:
+    async def build_from_advanced_options(self, curr_options: str | None = None) -> None:
         """Parse the current options string and build the state list."""
-        if not await self.do_brackets_and_parens_count_match(curr_options) or not curr_options:
+        if curr_options is None:
+            curr_options = self.curr_options
+        if (
+            not await self.do_brackets_and_parens_count_match(self.curr_options)
+            or not self.curr_options
+        ):
             return
-        if "[" in curr_options or "(" in curr_options:
-            await self.process_bracket_or_parens(curr_options)
+        if "[" in self.curr_options or "(" in self.curr_options:
+            await self.process_bracket_or_parens(self.curr_options)
             return
-        if "," in curr_options:
-            await self.process_only_commas(curr_options)
+        if "," in self.curr_options:
+            await self.process_only_commas(self.curr_options)
             return
-        await self.process_single_term(curr_options)
+        await self.process_single_term(self.curr_options)
 
     async def do_brackets_and_parens_count_match(self, curr_options: str) -> bool:
         """Check if the brackets and parentheses in the options string match."""
@@ -265,6 +271,23 @@ class AdvancedOptionsParser:
         if ret_state:
             self.state_list.append(ret_state)
 
+    def parse_attribute_parentheses(self, item: str) -> tuple[str, list[str], bool]:
+        """Parse attribute parentheses and return attribute name, list, and inclusion flag."""
+        paren_attr = item[: item.find("(")]
+        paren_attr_first = True
+        paren_attr_incl = True
+        paren_attr_list = []
+        for attr_item in item[(item.find("(") + 1) : item.find(")")].split(","):
+            if paren_attr_first:
+                paren_attr_first = False
+                if attr_item == "-":
+                    paren_attr_incl = False
+                    continue
+                if attr_item == "+":
+                    continue
+            paren_attr_list.append(str(attr_item).strip().lower())
+        return paren_attr, paren_attr_list, paren_attr_incl
+
     async def parse_parens(
         self, curr_options: str
     ) -> tuple[list, list, MutableMapping[str, Any], MutableMapping[str, Any], str | None]:
@@ -311,19 +334,9 @@ class AdvancedOptionsParser:
                         if ")" not in item or item.count("(") > 1 or item.count(")") > 1:
                             _LOGGER.error("Parenthesis Mismatch: %s", item)
                             continue
-                        paren_attr = item[: item.find("(")]
-                        paren_attr_first = True
-                        paren_attr_incl = True
-                        paren_attr_list = []
-                        for attr_item in item[(item.find("(") + 1) : item.find(")")].split(","):
-                            if paren_attr_first:
-                                paren_attr_first = False
-                                if attr_item == "-":
-                                    paren_attr_incl = False
-                                    continue
-                                if attr_item == "+":
-                                    continue
-                            paren_attr_list.append(str(attr_item).strip().lower())
+                        paren_attr, paren_attr_list, paren_attr_incl = (
+                            self.parse_attribute_parentheses(item)
+                        )
                         if paren_attr_incl:
                             incl_attr.update({paren_attr: paren_attr_list})
                         else:
@@ -369,7 +382,7 @@ class AdvancedOptionsParser:
 
     async def compile_state(self) -> str:
         """Compile the state list into a formatted string."""
-        self.street_num_i += 1
+        self._street_num_i += 1
         first = True
         result = ""
         for i, out in enumerate(self.state_list):
@@ -379,7 +392,7 @@ class AdvancedOptionsParser:
                     result = str(out)
                     first = False
                 else:
-                    if i == self.street_i and i == self.street_num_i:
+                    if i == self._street_i and i == self._street_num_i:
                         result += " "
                     else:
                         result += ", "

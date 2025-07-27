@@ -47,7 +47,7 @@ from homeassistant.helpers.event import EventStateChangedData, async_track_state
 from homeassistant.util import Throttle, slugify
 
 from .advanced_options import AdvancedOptionsParser
-from .basic_options import build_basic_display, build_formatted_place
+from .basic_options import BasicOptionsParser
 from .const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
@@ -564,11 +564,12 @@ class Places(SensorEntity):
         await self.get_driving_status()
 
         if "formatted_place" in display_options:
-            formatted_place = await build_formatted_place(
+            basic_parser = BasicOptionsParser(
+                sensor=self,
                 internal_attr=self._internal_attr,
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
-                sensor=self,
             )
+            formatted_place = await basic_parser.build_formatted_place()
             self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
             self.set_attr(
                 ATTR_NATIVE_VALUE,
@@ -582,9 +583,11 @@ class Places(SensorEntity):
         elif any(
             ext in (self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS)) for ext in ["(", ")", "[", "]"]
         ):
-            parser = AdvancedOptionsParser(self)
-            await parser.build_from_advanced_options(self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS))
-            state = await parser.compile_state()
+            advanced_parser = AdvancedOptionsParser(
+                sensor=self, curr_options=self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS)
+            )
+            await advanced_parser.build_from_advanced_options()
+            state = await advanced_parser.compile_state()
             self.set_attr(ATTR_NATIVE_VALUE, state)
             _LOGGER.debug(
                 "(%s) New State from Advanced Display Options: %s",
@@ -592,11 +595,12 @@ class Places(SensorEntity):
                 self.get_attr(ATTR_NATIVE_VALUE),
             )
         elif not await self.in_zone():
-            state = await build_basic_display(
+            basic_parser = BasicOptionsParser(
+                sensor=self,
                 internal_attr=self._internal_attr,
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
-                sensor=self,
             )
+            state = await basic_parser.build_display()
             if state:
                 self.set_attr(ATTR_NATIVE_VALUE, state)
             _LOGGER.debug(

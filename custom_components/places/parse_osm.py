@@ -39,8 +39,11 @@ from .const import (
     ATTR_STREET,
     ATTR_STREET_NUMBER,
     ATTR_STREET_REF,
+    CITY_LIST,
     CONF_LANGUAGE,
+    NEIGHBOURHOOD_LIST,
     PLACE_NAME_DUPLICATE_LIST,
+    POSTAL_TOWN_LIST,
 )
 from .sensor import Places
 
@@ -186,55 +189,30 @@ class OSMParser:
 
     async def set_city_details(self, address: MutableMapping[str, Any]) -> None:
         """Set city, postal town, and neighbourhood details in the sensor from the OSM address dictionary."""
-        CITY_LIST: list[str] = [
-            "city",
-            "town",
-            "village",
-            "township",
-            "hamlet",
-            "city_district",
-            "municipality",
-        ]
-        POSTAL_TOWN_LIST: list[str] = [
-            "city",
-            "town",
-            "village",
-            "township",
-            "hamlet",
-            "borough",
-            "suburb",
-        ]
-        NEIGHBOURHOOD_LIST: list[str] = [
-            "village",
-            "township",
-            "hamlet",
-            "borough",
-            "suburb",
-            "quarter",
-            "neighbourhood",
-        ]
+        postal_town_list = POSTAL_TOWN_LIST.copy()
+        neighbourhood_list = NEIGHBOURHOOD_LIST.copy()
+
         for city_type in CITY_LIST:
             with contextlib.suppress(ValueError):
-                POSTAL_TOWN_LIST.remove(city_type)
-
+                postal_town_list.remove(city_type)
             with contextlib.suppress(ValueError):
-                NEIGHBOURHOOD_LIST.remove(city_type)
+                neighbourhood_list.remove(city_type)
             if city_type in address:
                 self.sensor.set_attr(
                     ATTR_CITY,
                     address.get(city_type),
                 )
                 break
-        for postal_town_type in POSTAL_TOWN_LIST:
+        for postal_town_type in postal_town_list:
             with contextlib.suppress(ValueError):
-                NEIGHBOURHOOD_LIST.remove(postal_town_type)
+                neighbourhood_list.remove(postal_town_type)
             if postal_town_type in address:
                 self.sensor.set_attr(
                     ATTR_POSTAL_TOWN,
                     address.get(postal_town_type),
                 )
                 break
-        for neighbourhood_type in NEIGHBOURHOOD_LIST:
+        for neighbourhood_type in neighbourhood_list:
             if neighbourhood_type in address:
                 self.sensor.set_attr(
                     ATTR_PLACE_NEIGHBOURHOOD,
@@ -315,7 +293,7 @@ class OSMParser:
             and "ref" in osm_dict["namedetails"]
         ):
             street_refs: list = re.split(
-                r"[\;\\\/\,\.\:]",
+                r"[;\\/,.:]",
                 osm_dict["namedetails"].get("ref"),
             )
             street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
@@ -353,7 +331,7 @@ class OSMParser:
         if self.sensor.get_attr(ATTR_INITIAL_UPDATE):
             self.sensor.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
-                "(%s) Runnining initial update after load, using prior last_place_name",
+                "(%s) Running initial update after load, using prior last_place_name",
                 self.sensor.get_attr(CONF_NAME),
             )
         elif self.sensor.get_attr(ATTR_LAST_PLACE_NAME) == self.sensor.get_attr(

@@ -82,6 +82,7 @@ from .const import (
     OSM_THROTTLE_INTERVAL_SECONDS,
     RESET_ATTRIBUTE_LIST,
     VERSION,
+    UpdateStatus,
 )
 from .helpers import clear_since_from_state, is_float, write_sensor_to_json
 from .parse_osm import OSMParser
@@ -115,12 +116,12 @@ class PlacesUpdater:
         await self.update_old_coordinates()
         prev_last_place_name = self.sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
 
-        proceed_with_update: int = await self.check_device_tracker_and_update_coords()
+        proceed_with_update: UpdateStatus = await self.check_device_tracker_and_update_coords()
 
-        if proceed_with_update == 1:
+        if proceed_with_update == UpdateStatus.PROCEED:
             proceed_with_update = await self.determine_update_criteria()
 
-        if proceed_with_update == 1:
+        if proceed_with_update == UpdateStatus.PROCEED:
             await self.process_osm_update(now=now)
 
             if await self.should_update_state(now=now):
@@ -289,15 +290,15 @@ class PlacesUpdater:
         if is_float(self.sensor.get_attr(ATTR_LONGITUDE)):
             self.sensor.set_attr(ATTR_LONGITUDE_OLD, str(self.sensor.get_attr(ATTR_LONGITUDE)))
 
-    async def check_device_tracker_and_update_coords(self) -> int:
+    async def check_device_tracker_and_update_coords(self) -> UpdateStatus:
         """Check if the device tracker is set and update coordinates if needed."""
-        proceed_with_update: int = await self.is_devicetracker_set()
+        proceed_with_update: UpdateStatus = await self.is_devicetracker_set()
         _LOGGER.debug(
             "(%s) [check_device_tracker_and_update_coords] proceed_with_update: %s",
             self.sensor.get_attr(CONF_NAME),
             proceed_with_update,
         )
-        if proceed_with_update == 1:
+        if proceed_with_update == UpdateStatus.PROCEED:
             await self.update_coordinates()
             proceed_with_update = await self.get_gps_accuracy()
             _LOGGER.debug(
@@ -307,7 +308,7 @@ class PlacesUpdater:
             )
         return proceed_with_update
 
-    async def get_gps_accuracy(self) -> int:
+    async def get_gps_accuracy(self) -> UpdateStatus:
         """Get the GPS accuracy from the device tracker."""
         if (
             self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
@@ -338,13 +339,11 @@ class PlacesUpdater:
                 self.sensor.get_attr(CONF_NAME),
                 self.sensor.get_attr(CONF_DEVICETRACKER_ID),
             )
-        proceed_with_update = 1
-        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        proceed_with_update = UpdateStatus.PROCEED
 
         if not self.sensor.is_attr_blank(ATTR_GPS_ACCURACY):
             if self.sensor.get_attr(CONF_USE_GPS) and self.sensor.get_attr(ATTR_GPS_ACCURACY) == 0:
-                proceed_with_update = 0
-                # 0: False. 1: True. 2: False, but set direction of travel to stationary
+                proceed_with_update = UpdateStatus.SKIP
                 _LOGGER.info(
                     "(%s) GPS Accuracy is 0.0, not performing update",
                     self.sensor.get_attr(CONF_NAME),
@@ -365,7 +364,7 @@ class PlacesUpdater:
         if is_float(device_tracker.attributes.get(CONF_LONGITUDE)):
             self.sensor.set_attr(ATTR_LONGITUDE, str(device_tracker.attributes.get(CONF_LONGITUDE)))
 
-    async def determine_update_criteria(self) -> int:
+    async def determine_update_criteria(self) -> UpdateStatus:
         """Determine if the update criteria are met."""
         await self.get_initial_last_place_name()
         await self.get_zone_details()
@@ -375,7 +374,7 @@ class PlacesUpdater:
             self.sensor.get_attr(CONF_NAME),
             proceed_with_update,
         )
-        if proceed_with_update == 1:
+        if proceed_with_update == UpdateStatus.PROCEED:
             proceed_with_update = await self.determine_if_update_needed()
             _LOGGER.debug(
                 "(%s) [determine_update_criteria] proceed_with_update: %s",
@@ -587,7 +586,10 @@ class PlacesUpdater:
         return False
 
     async def rollback_update(
-        self, previous_attr: MutableMapping[str, Any], now: datetime, proceed_with_update: int
+        self,
+        previous_attr: MutableMapping[str, Any],
+        now: datetime,
+        proceed_with_update: UpdateStatus,
     ) -> None:
         """Rollback the update if conditions are not met."""
         await self.sensor.restore_previous_attr(previous_attr)
@@ -597,7 +599,7 @@ class PlacesUpdater:
         )
         changed_diff_sec = await self.get_seconds_from_last_change(now=now)
         if (
-            proceed_with_update == 2
+            proceed_with_update == UpdateStatus.SKIP_SET_STATIONARY
             and self.sensor.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
             and changed_diff_sec >= 60
         ):
@@ -633,7 +635,7 @@ class PlacesUpdater:
                 _LOGGER.warning(
                     "(%s) Unknown OSM type: %s",
                     self.sensor.get_attr(CONF_NAME),
-                    self.sensor.get_attr(ATTR_OSM_TYPE)
+                    self.sensor.get_attr(ATTR_OSM_TYPE),
                 )
                 return
 
@@ -677,9 +679,7 @@ class PlacesUpdater:
 
                 self.sensor.set_attr(ATTR_WIKIDATA_DICT, {})
                 if not self.sensor.is_attr_blank(ATTR_WIKIDATA_ID):
-                    wikidata_url: str = f"https://www.wikidata.org/wiki/Special:EntityData/{
-                        self.sensor.get_attr(ATTR_WIKIDATA_ID)
-                    }.json"
+                    wikidata_url: str = f"https://www.wikidata.org/wiki/Special:EntityData/{self.sensor.get_attr(ATTR_WIKIDATA_ID)}.json"
                     await self.get_dict_from_url(
                         url=wikidata_url,
                         name="Wikidata",
@@ -775,14 +775,14 @@ class PlacesUpdater:
             osm_cache[url] = get_dict
             return
 
-    async def determine_if_update_needed(self) -> int:
+    async def determine_if_update_needed(self) -> UpdateStatus:
         """Determine if an update is needed based on current and previous state."""
-        proceed_with_update = 1
+        proceed_with_update = UpdateStatus.PROCEED
         sensor = self.sensor
 
         if sensor.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.info("(%s) Performing Initial Update for user", sensor.get_attr(CONF_NAME))
-            return 1
+            return UpdateStatus.PROCEED
 
         if sensor.is_attr_blank(ATTR_NATIVE_VALUE) or (
             isinstance(sensor.get_attr(ATTR_NATIVE_VALUE), str)
@@ -792,14 +792,14 @@ class PlacesUpdater:
             _LOGGER.info(
                 "(%s) Previous State is Unknown, performing update", sensor.get_attr(CONF_NAME)
             )
-            return 1
+            return UpdateStatus.PROCEED
 
         if sensor.get_attr(ATTR_LOCATION_CURRENT) == sensor.get_attr(ATTR_LOCATION_PREVIOUS):
             _LOGGER.info(
                 "(%s) Not performing update because coordinates are identical",
                 sensor.get_attr(CONF_NAME),
             )
-            return 2
+            return UpdateStatus.SKIP_SET_STATIONARY
 
         if int(sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M)) < 10:
             _LOGGER.info(
@@ -807,16 +807,12 @@ class PlacesUpdater:
                 sensor.get_attr(CONF_NAME),
                 round(sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M), 1),
             )
-            return 2
+            return UpdateStatus.SKIP_SET_STATIONARY
 
         return proceed_with_update
 
-    async def update_coordinates_and_distance(self) -> int:
-        """Update coordinates and calculate distances."""
-        last_distance_traveled_m: float = self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M)
-        proceed_with_update = 1
-        # 0: False. 1: True. 2: False, but set direction of travel to stationary
-
+    async def update_location_attributes(self) -> None:
+        """Update current, previous, and home location attributes."""
         if not self.sensor.is_attr_blank(ATTR_LATITUDE) and not self.sensor.is_attr_blank(
             ATTR_LONGITUDE
         ):
@@ -839,6 +835,8 @@ class PlacesUpdater:
                 f"{self.sensor.get_attr(ATTR_HOME_LATITUDE)},{self.sensor.get_attr(ATTR_HOME_LONGITUDE)}",
             )
 
+    async def calculate_distances(self) -> None:
+        """Calculate distances from home in meters, km, and mi."""
         if (
             not self.sensor.is_attr_blank(ATTR_LATITUDE)
             and not self.sensor.is_attr_blank(ATTR_LONGITUDE)
@@ -864,89 +862,113 @@ class PlacesUpdater:
                     round(self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M) / 1609, 3),
                 )
 
-            if not self.sensor.is_attr_blank(ATTR_LATITUDE_OLD) and not self.sensor.is_attr_blank(
-                ATTR_LONGITUDE_OLD
-            ):
+    async def calculate_travel_distance(self) -> None:
+        """Calculate distance traveled since last update in meters and miles."""
+        if not self.sensor.is_attr_blank(ATTR_LATITUDE_OLD) and not self.sensor.is_attr_blank(
+            ATTR_LONGITUDE_OLD
+        ):
+            self.sensor.set_attr(
+                ATTR_DISTANCE_TRAVELED_M,
+                distance(
+                    float(self.sensor.get_attr_safe_str(ATTR_LATITUDE)),
+                    float(self.sensor.get_attr_safe_str(ATTR_LONGITUDE)),
+                    float(self.sensor.get_attr_safe_str(ATTR_LATITUDE_OLD)),
+                    float(self.sensor.get_attr_safe_str(ATTR_LONGITUDE_OLD)),
+                ),
+            )
+            if not self.sensor.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
                 self.sensor.set_attr(
-                    ATTR_DISTANCE_TRAVELED_M,
-                    distance(
-                        float(self.sensor.get_attr_safe_str(ATTR_LATITUDE)),
-                        float(self.sensor.get_attr_safe_str(ATTR_LONGITUDE)),
-                        float(self.sensor.get_attr_safe_str(ATTR_LATITUDE_OLD)),
-                        float(self.sensor.get_attr_safe_str(ATTR_LONGITUDE_OLD)),
+                    ATTR_DISTANCE_TRAVELED_MI,
+                    round(
+                        self.sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M) / 1609,
+                        3,
                     ),
                 )
-                if not self.sensor.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
-                    self.sensor.set_attr(
-                        ATTR_DISTANCE_TRAVELED_MI,
-                        round(
-                            self.sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M) / 1609,
-                            3,
-                        ),
-                    )
+        else:
+            self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+            self.sensor.set_attr(ATTR_DISTANCE_TRAVELED_M, 0)
+            self.sensor.set_attr(ATTR_DISTANCE_TRAVELED_MI, 0)
 
-                if last_distance_traveled_m > self.sensor.get_attr_safe_float(
-                    ATTR_DISTANCE_FROM_HOME_M
-                ):
-                    self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "towards home")
-                elif last_distance_traveled_m < self.sensor.get_attr_safe_float(
-                    ATTR_DISTANCE_FROM_HOME_M
-                ):
-                    self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "away from home")
-                else:
-                    self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+    async def determine_direction_of_travel(self, last_distance_traveled_m: float) -> None:
+        """Determine the direction of travel based on distance from home."""
+        if not self.sensor.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
+            if last_distance_traveled_m > self.sensor.get_attr_safe_float(
+                ATTR_DISTANCE_FROM_HOME_M
+            ):
+                self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "towards home")
+            elif last_distance_traveled_m < self.sensor.get_attr_safe_float(
+                ATTR_DISTANCE_FROM_HOME_M
+            ):
+                self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "away from home")
             else:
                 self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-                self.sensor.set_attr(ATTR_DISTANCE_TRAVELED_M, 0)
-                self.sensor.set_attr(ATTR_DISTANCE_TRAVELED_MI, 0)
-
-            _LOGGER.debug(
-                "(%s) Previous Location: %s",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_LOCATION_PREVIOUS),
-            )
-            _LOGGER.debug(
-                "(%s) Current Location: %s",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_LOCATION_CURRENT),
-            )
-            _LOGGER.debug(
-                "(%s) Home Location: %s",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_HOME_LOCATION),
-            )
-            _LOGGER.info(
-                "(%s) Distance from home [%s]: %s km",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr_safe_str(CONF_HOME_ZONE).split(".")[1],
-                self.sensor.get_attr(ATTR_DISTANCE_FROM_HOME_KM),
-            )
-            _LOGGER.info(
-                "(%s) Travel Direction: %s",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_DIRECTION_OF_TRAVEL),
-            )
-            _LOGGER.info(
-                "(%s) Meters traveled since last update: %s",
-                self.sensor.get_attr(CONF_NAME),
-                round(self.sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M), 1),
-            )
         else:
-            proceed_with_update = 0
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-            _LOGGER.info(
-                "(%s) Problem with updated lat/long, not performing update: "
-                "old_latitude=%s, old_longitude=%s, "
-                "new_latitude=%s, new_longitude=%s, "
-                "home_latitude=%s, home_longitude=%s",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_LATITUDE_OLD),
-                self.sensor.get_attr(ATTR_LONGITUDE_OLD),
-                self.sensor.get_attr(ATTR_LATITUDE),
-                self.sensor.get_attr(ATTR_LONGITUDE),
-                self.sensor.get_attr(ATTR_HOME_LATITUDE),
-                self.sensor.get_attr(ATTR_HOME_LONGITUDE),
-            )
+            self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+
+    async def update_coordinates_and_distance(self) -> UpdateStatus:
+        """Update coordinates and calculate distances."""
+        last_distance_traveled_m: float = self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M)
+        proceed_with_update = UpdateStatus.PROCEED
+
+        await self.update_location_attributes()
+        await self.calculate_distances()
+        await self.calculate_travel_distance()
+        await self.determine_direction_of_travel(last_distance_traveled_m)
+
+        _LOGGER.debug(
+            "(%s) Previous Location: %s",
+            self.sensor.get_attr(CONF_NAME),
+            self.sensor.get_attr(ATTR_LOCATION_PREVIOUS),
+        )
+        _LOGGER.debug(
+            "(%s) Current Location: %s",
+            self.sensor.get_attr(CONF_NAME),
+            self.sensor.get_attr(ATTR_LOCATION_CURRENT),
+        )
+        _LOGGER.debug(
+            "(%s) Home Location: %s",
+            self.sensor.get_attr(CONF_NAME),
+            self.sensor.get_attr(ATTR_HOME_LOCATION),
+        )
+        _LOGGER.info(
+            "(%s) Distance from home [%s]: %s km",
+            self.sensor.get_attr(CONF_NAME),
+            self.sensor.get_attr_safe_str(CONF_HOME_ZONE).split(".")[1],
+            self.sensor.get_attr(ATTR_DISTANCE_FROM_HOME_KM),
+        )
+        _LOGGER.info(
+            "(%s) Travel Direction: %s",
+            self.sensor.get_attr(CONF_NAME),
+            self.sensor.get_attr(ATTR_DIRECTION_OF_TRAVEL),
+        )
+        _LOGGER.info(
+            "(%s) Meters traveled since last update: %s",
+            self.sensor.get_attr(CONF_NAME),
+            round(self.sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M), 1),
+        )
+
+        if (
+            not self.sensor.is_attr_blank(ATTR_LATITUDE)
+            and not self.sensor.is_attr_blank(ATTR_LONGITUDE)
+            and not self.sensor.is_attr_blank(ATTR_HOME_LATITUDE)
+            and not self.sensor.is_attr_blank(ATTR_HOME_LONGITUDE)
+        ):
+            return proceed_with_update
+
+        proceed_with_update = UpdateStatus.SKIP
+        _LOGGER.info(
+            "(%s) Problem with updated lat/long, not performing update: "
+            "old_latitude=%s, old_longitude=%s, "
+            "new_latitude=%s, new_longitude=%s, "
+            "home_latitude=%s, home_longitude=%s",
+            self.sensor.get_attr(CONF_NAME),
+            self.sensor.get_attr(ATTR_LATITUDE_OLD),
+            self.sensor.get_attr(ATTR_LONGITUDE_OLD),
+            self.sensor.get_attr(ATTR_LATITUDE),
+            self.sensor.get_attr(ATTR_LONGITUDE),
+            self.sensor.get_attr(ATTR_HOME_LATITUDE),
+            self.sensor.get_attr(ATTR_HOME_LONGITUDE),
+        )
         return proceed_with_update
 
     async def get_seconds_from_last_change(self, now: datetime) -> int:
@@ -996,9 +1018,7 @@ class PlacesUpdater:
             )
 
             cleared_state = clear_since_from_state(self.sensor.get_attr_safe_str(ATTR_NATIVE_VALUE))
-            self.sensor.set_native_value(
-                value=f"{cleared_state} (since {mmddstring})"
-            )
+            self.sensor.set_native_value(value=f"{cleared_state} (since {mmddstring})")
             self.sensor.set_attr(ATTR_SHOW_DATE, True)
             await self._hass.async_add_executor_job(
                 write_sensor_to_json,
@@ -1034,93 +1054,79 @@ class PlacesUpdater:
             int(changed_diff_sec),
         )
 
-    async def is_devicetracker_set(self) -> int:
+    async def is_devicetracker_set(self) -> UpdateStatus:
         """Check if the device tracker is set and available."""
-        proceed_with_update = 0
-        # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        if not await self.is_tracker_available():
+            return UpdateStatus.SKIP
 
-        if (
-            self.sensor.is_attr_blank(CONF_DEVICETRACKER_ID)
-            or self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)) is None
-            or (
-                isinstance(
-                    self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)),
-                    str,
-                )
-                and self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).lower()
-                in {"none", STATE_UNKNOWN, STATE_UNAVAILABLE}
-            )
-        ):
-            if self.sensor.warn_if_device_tracker_prob or self.sensor.get_attr(ATTR_INITIAL_UPDATE):
-                _LOGGER.warning(
-                    "(%s) Tracked Entity (%s) "
-                    "is not set or is not available. Not Proceeding with Update",
-                    self.sensor.get_attr(CONF_NAME),
-                    self.sensor.get_attr(CONF_DEVICETRACKER_ID),
-                )
-                self.sensor.warn_if_device_tracker_prob = False
-            else:
-                _LOGGER.info(
-                    "(%s) Tracked Entity (%s) "
-                    "is not set or is not available. Not Proceeding with Update",
-                    self.sensor.get_attr(CONF_NAME),
-                    self.sensor.get_attr(CONF_DEVICETRACKER_ID),
-                )
-            return 0
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-        if (
-            hasattr(
-                self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)),
-                ATTR_ATTRIBUTES,
-            )
-            and CONF_LATITUDE
-            in self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes
-            and CONF_LONGITUDE
-            in self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes
-            and self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                CONF_LATITUDE
-            )
-            is not None
-            and self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                CONF_LONGITUDE
-            )
-            is not None
-            and is_float(
-                self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                    CONF_LATITUDE
-                )
-            )
-            and is_float(
-                self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)).attributes.get(
-                    CONF_LONGITUDE
-                )
-            )
-        ):
-            self.sensor.warn_if_device_tracker_prob = True
-            proceed_with_update = 1
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
+        if not await self.has_valid_coordinates():
+            return UpdateStatus.SKIP
+
+        self.sensor.warn_if_device_tracker_prob = True
+        return UpdateStatus.PROCEED
+
+    async def is_tracker_available(self) -> bool:
+        """Check if device tracker entity exists and is available."""
+        tracker_id = self.sensor.get_attr(CONF_DEVICETRACKER_ID)
+        if self.sensor.is_attr_blank(CONF_DEVICETRACKER_ID):
+            await self.log_tracker_issue("Tracked Entity is not set")
+            return False
+
+        tracker_state = self._hass.states.get(tracker_id)
+        if tracker_state is None:
+            await self.log_tracker_issue(f"Tracked Entity ({tracker_id}) is not available")
+            return False
+
+        if isinstance(tracker_state, str) and tracker_state.lower() in {
+            "none",
+            STATE_UNKNOWN,
+            STATE_UNAVAILABLE,
+        }:
+            await self.log_tracker_issue(f"Tracked Entity ({tracker_id}) is not available")
+            return False
+
+        return True
+
+    async def has_valid_coordinates(self) -> bool:
+        """Check if device tracker has valid latitude/longitude."""
+        tracker = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
+
+        if not hasattr(tracker, ATTR_ATTRIBUTES):
+            await self.log_coordinate_issue()
+            return False
+
+        lat = tracker.attributes.get(CONF_LATITUDE)
+        lon = tracker.attributes.get(CONF_LONGITUDE)
+
+        if lat is None or lon is None or not is_float(lat) or not is_float(lon):
+            await self.log_coordinate_issue()
+            return False
+
+        return True
+
+    async def log_tracker_issue(self, message: str) -> None:
+        """Log device tracker availability issues."""
+        full_message = f"({self.sensor.get_attr(CONF_NAME)}) {message}. Not Proceeding with Update"
+        if self.sensor.warn_if_device_tracker_prob or self.sensor.get_attr(ATTR_INITIAL_UPDATE):
+            _LOGGER.warning(full_message)
+            self.sensor.warn_if_device_tracker_prob = False
         else:
-            if self.sensor.warn_if_device_tracker_prob or self.sensor.get_attr(ATTR_INITIAL_UPDATE):
-                _LOGGER.warning(
-                    "(%s) Tracked Entity (%s) "
-                    "Latitude/Longitude is not set or is not a number. Not Proceeding with Update.",
-                    self.sensor.get_attr(CONF_NAME),
-                    self.sensor.get_attr(CONF_DEVICETRACKER_ID),
-                )
-                self.sensor.warn_if_device_tracker_prob = False
-            else:
-                _LOGGER.info(
-                    "(%s) Tracked Entity (%s) "
-                    "Latitude/Longitude is not set or is not a number. Not Proceeding with Update.",
-                    self.sensor.get_attr(CONF_NAME),
-                    self.sensor.get_attr(CONF_DEVICETRACKER_ID),
-                )
-            _LOGGER.debug(
-                "(%s) Tracked Entity (%s) details: %s",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(CONF_DEVICETRACKER_ID),
-                self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID)),
-            )
-            return 0
-            # 0: False. 1: True. 2: False, but set direction of travel to stationary
-        return proceed_with_update
+            _LOGGER.info(full_message)
+
+    async def log_coordinate_issue(self) -> None:
+        """Log device tracker coordinate validation issues."""
+        tracker_id = self.sensor.get_attr(CONF_DEVICETRACKER_ID)
+        message = f"({self.sensor.get_attr(CONF_NAME)}) Tracked Entity ({tracker_id}) Latitude/Longitude is not set or is not a number. Not Proceeding with Update."
+
+        if self.sensor.warn_if_device_tracker_prob or self.sensor.get_attr(ATTR_INITIAL_UPDATE):
+            _LOGGER.warning(message)
+            self.sensor.warn_if_device_tracker_prob = False
+        else:
+            _LOGGER.info(message)
+
+        _LOGGER.debug(
+            "(%s) Tracked Entity (%s) details: %s",
+            self.sensor.get_attr(CONF_NAME),
+            tracker_id,
+            self._hass.states.get(tracker_id),
+        )

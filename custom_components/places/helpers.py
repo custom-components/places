@@ -62,14 +62,14 @@ def remove_json_file(name: Any, filename: Any, json_folder: Any) -> None:
 
 def is_float(value: Any) -> bool:
     """Check if the provided value can be converted to a float."""
-    if value is not None:
-        try:
-            float(value)
-        except ValueError:
-            return False
-        else:
-            return True
-    return False
+    if value is None:
+        return False
+    try:
+        float(value)
+    except (ValueError, TypeError):
+        return False
+    else:
+        return True
 
 
 def write_sensor_to_json(

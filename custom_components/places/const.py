@@ -1,6 +1,7 @@
 """Constants for places."""
 
 from collections.abc import MutableMapping
+from enum import Enum, auto
 
 from homeassistant.const import (
     ATTR_ATTRIBUTION,
@@ -125,6 +126,19 @@ ATTR_STREET_REF = "street_ref"
 ATTR_STREET_NUMBER = "street_number"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
 ATTR_WIKIDATA_ID = "wikidata_id"
+
+
+class UpdateStatus(Enum):
+    """Status codes for update operations.
+
+    SKIP: Do not proceed with update.
+    PROCEED: Proceed with update.
+    SKIP_SET_STATIONARY: Do not proceed, but set direction of travel to stationary.
+    """
+
+    SKIP = auto()
+    PROCEED = auto()
+    SKIP_SET_STATIONARY = auto()
 
 
 # Attribute Lists
@@ -359,3 +373,38 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
     "zone": ATTR_DEVICETRACKER_ZONE,
     "zone_name": ATTR_DEVICETRACKER_ZONE_NAME,
 }
+
+# Place type classification lists
+# Note: These lists have intentional overlaps. The parsing order in parse_osm.py is:
+# 1. CITY_LIST (highest priority)
+# 2. POSTAL_TOWN_LIST (items already matched in CITY_LIST are skipped)
+# 3. NEIGHBOURHOOD_LIST (items already matched in previous lists are skipped)
+CITY_LIST = [
+    "city",
+    "town",
+    "village",
+    "township",
+    "hamlet",
+    "city_district",
+    "municipality",
+]
+
+POSTAL_TOWN_LIST = [
+    "city",
+    "town",
+    "village",
+    "township",
+    "hamlet",
+    "borough",
+    "suburb",
+]
+
+NEIGHBOURHOOD_LIST = [
+    "village",
+    "township",
+    "hamlet",
+    "borough",
+    "suburb",
+    "quarter",
+    "neighbourhood",
+]
