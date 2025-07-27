@@ -261,10 +261,12 @@ class OSMParser:
                 address.get("state"),
             )
         if "ISO3166-2-lvl4" in address:
-            self.sensor.set_attr(
-                ATTR_STATE_ABBR,
-                address["ISO3166-2-lvl4"].split("-")[1].upper(),
-            )
+            iso_parts = address["ISO3166-2-lvl4"].split("-")
+            if len(iso_parts) >= 2:
+                self.sensor.set_attr(
+                    ATTR_STATE_ABBR,
+                    iso_parts[1].upper(),
+                )
         if "county" in address:
             self.sensor.set_attr(
                 ATTR_COUNTY,
