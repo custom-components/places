@@ -629,6 +629,13 @@ class PlacesUpdater:
                 osm_type_abbr = "W"
             elif self.sensor.get_attr_safe_str(ATTR_OSM_TYPE).lower() == "relation":
                 osm_type_abbr = "R"
+            else:
+                _LOGGER.warning(
+                    "(%s) Unknown OSM type: %s",
+                    self.sensor.get_attr(CONF_NAME),
+                    self.sensor.get_attr(ATTR_OSM_TYPE)
+                )
+                return
 
             osm_details_url: str = (
                 "https://nominatim.openstreetmap.org/lookup?osm_ids="
