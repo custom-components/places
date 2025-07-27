@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import MutableMapping
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import CONF_NAME
 
@@ -23,7 +23,9 @@ from .const import (
     ATTR_STREET_REF,
     DISPLAY_OPTIONS_MAP,
 )
-from .sensor import Places
+
+if TYPE_CHECKING:
+    from .sensor import Places
 
 _LOGGER = logging.getLogger(__name__)
 

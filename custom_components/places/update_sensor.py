@@ -7,7 +7,7 @@ from collections.abc import MutableMapping
 from datetime import datetime
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import aiohttp
@@ -86,7 +86,9 @@ from .const import (
 )
 from .helpers import clear_since_from_state, is_float, write_sensor_to_json
 from .parse_osm import OSMParser
-from .sensor import Places
+
+if TYPE_CHECKING:
+    from .sensor import Places
 
 _LOGGER = logging.getLogger(__name__)
 

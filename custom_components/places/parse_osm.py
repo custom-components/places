@@ -10,7 +10,7 @@ from collections.abc import MutableMapping
 import contextlib
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import ATTR_ATTRIBUTION, CONF_NAME
 
@@ -45,7 +45,9 @@ from .const import (
     PLACE_NAME_DUPLICATE_LIST,
     POSTAL_TOWN_LIST,
 )
-from .sensor import Places
+
+if TYPE_CHECKING:
+    from .sensor import Places
 
 _LOGGER = logging.getLogger(__name__)
 
