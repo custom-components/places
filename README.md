@@ -9,7 +9,7 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/custom-components/places?style=for-the-badge)](https://github.com/custom-components/places)
 [![License](https://img.shields.io/github/license/custom-components/places?color=blue&style=for-the-badge)](LICENSE)<br/>
 [![HACS](https://img.shields.io/badge/HACS-Default-blue.svg?style=for-the-badge)](https://github.com/hacs/integration)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/custom-components/places/ha_and_hacs_validate.yml?branch=master&style=for-the-badge)](https://github.com/custom-components/places)<br/>
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/custom-components/places/validate.yml?branch=master&style=for-the-badge)](https://github.com/custom-components/places)<br/>
 [![Community Forum](https://img.shields.io/badge/community-forum-orange.svg?label=HA%20Community&style=for-the-badge)](https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component)
 
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device_tracker, person, or sensor_
