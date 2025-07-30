@@ -1,6 +1,7 @@
 """Constants for places."""
 
 from collections.abc import MutableMapping
+from enum import Enum, auto
 
 from homeassistant.const import (
     ATTR_ATTRIBUTION,
@@ -19,6 +20,8 @@ EVENT_TYPE = DOMAIN + "_state_update"
 PLATFORM = Platform.SENSOR
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 ENTITY_ID_FORMAT = Platform.SENSOR + ".{}"
+
+METERS_PER_MILE = 1609.344
 
 # Defaults
 DEFAULT_EXTENDED_ATTR = False
@@ -91,6 +94,7 @@ ATTR_HOME_LONGITUDE = "home_longitude"
 ATTR_HOME_ZONE = "home_zone"
 ATTR_INITIAL_UPDATE = "initial_update"
 ATTR_JSON_FILENAME = "json_filename"
+ATTR_JSON_FOLDER = "json_folder"
 ATTR_LAST_CHANGED = "last_changed"
 ATTR_LAST_PLACE_NAME = "last_place_name"
 ATTR_LAST_UPDATED = "last_updated"
@@ -124,6 +128,19 @@ ATTR_STREET_REF = "street_ref"
 ATTR_STREET_NUMBER = "street_number"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
 ATTR_WIKIDATA_ID = "wikidata_id"
+
+
+class UpdateStatus(Enum):
+    """Status codes for update operations.
+
+    SKIP: Do not proceed with update.
+    PROCEED: Proceed with update.
+    SKIP_SET_STATIONARY: Do not proceed, but set direction of travel to stationary.
+    """
+
+    SKIP = auto()
+    PROCEED = auto()
+    SKIP_SET_STATIONARY = auto()
 
 
 # Attribute Lists
@@ -227,6 +244,7 @@ JSON_IGNORE_ATTRIBUTE_LIST: list[str] = [
     ATTR_INITIAL_UPDATE,
     ATTR_DRIVING,
     ATTR_JSON_FILENAME,
+    ATTR_JSON_FOLDER,
     ATTR_LOCATION_CURRENT,
     ATTR_LOCATION_PREVIOUS,
     ATTR_PREVIOUS_STATE,
@@ -357,3 +375,38 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
     "zone": ATTR_DEVICETRACKER_ZONE,
     "zone_name": ATTR_DEVICETRACKER_ZONE_NAME,
 }
+
+# Place type classification lists
+# Note: These lists have intentional overlaps. The parsing order in parse_osm.py is:
+# 1. CITY_LIST (highest priority)
+# 2. POSTAL_TOWN_LIST (items already matched in CITY_LIST are skipped)
+# 3. NEIGHBOURHOOD_LIST (items already matched in previous lists are skipped)
+CITY_LIST = [
+    "city",
+    "town",
+    "village",
+    "township",
+    "hamlet",
+    "city_district",
+    "municipality",
+]
+
+POSTAL_TOWN_LIST = [
+    "city",
+    "town",
+    "village",
+    "township",
+    "hamlet",
+    "borough",
+    "suburb",
+]
+
+NEIGHBOURHOOD_LIST = [
+    "village",
+    "township",
+    "hamlet",
+    "borough",
+    "suburb",
+    "quarter",
+    "neighbourhood",
+]
