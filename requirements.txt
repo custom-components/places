@@ -11,7 +11,6 @@ pytest-homeassistant-custom-component
 pytest-timeout
 pytest-xdist
 ruff
-ruff
 types-cachetools
 types-cffi
 types-greenlet
