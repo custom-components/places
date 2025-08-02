@@ -32,6 +32,12 @@ from custom_components.places.parse_osm import OSMParser
 
 @pytest.fixture
 def mock_sensor():
+    """Create a mocked sensor object with stubbed attribute methods for use in tests.
+
+    Returns:
+        sensor (MagicMock): A mock object simulating sensor attribute access and modification methods.
+
+    """
     sensor = MagicMock()
     sensor.get_attr = MagicMock()
     sensor.set_attr = MagicMock()
@@ -61,6 +67,7 @@ async def test_set_attribution_no_licence(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_type_sets_type_and_name(mock_sensor):
+    """Test that `parse_type` sets the place type and place name attributes based on the OSM dictionary's "type" and "address" fields."""
     osm_dict = {"type": "road", "address": {"road": "Main St"}}
     mock_sensor.get_attr.side_effect = lambda k: osm_dict["type"] if k == ATTR_PLACE_TYPE else None
     parser = OSMParser(mock_sensor)
@@ -71,6 +78,7 @@ async def test_parse_type_sets_type_and_name(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_type_yes_with_addresstype(mock_sensor):
+    """Test that `parse_type` sets the place type attribute to the value of "addresstype" when the OSM type is "yes"."""
     osm_dict = {"type": "yes", "addresstype": "highway"}
     mock_sensor.get_attr.side_effect = lambda k: "yes" if k == ATTR_PLACE_TYPE else None
     parser = OSMParser(mock_sensor)
@@ -80,6 +88,7 @@ async def test_parse_type_yes_with_addresstype(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_type_yes_without_addresstype(mock_sensor):
+    """Test that `parse_type` clears the place type attribute when the OSM type is "yes" and no address type is provided."""
     osm_dict = {"type": "yes"}
     mock_sensor.get_attr.side_effect = lambda k: "yes" if k == ATTR_PLACE_TYPE else None
     parser = OSMParser(mock_sensor)
@@ -89,6 +98,7 @@ async def test_parse_type_yes_without_addresstype(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_category_sets_category_and_name(mock_sensor):
+    """Test that `parse_category` sets the place category and place name attributes when the OSM dictionary contains a category and corresponding address entry."""
     osm_dict = {"category": "retail", "address": {"retail": "Shop"}}
     mock_sensor.get_attr.side_effect = lambda k: "retail" if k == ATTR_PLACE_CATEGORY else None
     parser = OSMParser(mock_sensor)
@@ -99,6 +109,7 @@ async def test_parse_category_sets_category_and_name(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_category_no_category(mock_sensor):
+    """Test that parse_category does not set any attributes when the OSM dictionary lacks a 'category' key."""
     osm_dict = {}
     parser = OSMParser(mock_sensor)
     await parser.parse_category(osm_dict)
@@ -107,6 +118,7 @@ async def test_parse_category_no_category(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_namedetails_sets_name(mock_sensor):
+    """Test that `parse_namedetails` sets the place name attribute from the "name" key in the "namedetails" dictionary of the OSM data."""
     osm_dict = {"namedetails": {"name": "Park"}}
     parser = OSMParser(mock_sensor)
     await parser.parse_namedetails(osm_dict)
@@ -115,6 +127,7 @@ async def test_parse_namedetails_sets_name(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_namedetails_language_specific(mock_sensor):
+    """Test that `parse_namedetails` sets the place name attribute to the language-specific value when available and the current place name is not blank."""
     osm_dict = {"namedetails": {"name": "Park", "name:en": "English Park"}}
     mock_sensor.is_attr_blank.return_value = False
     mock_sensor.get_attr_safe_str.return_value = "en"
@@ -125,6 +138,7 @@ async def test_parse_namedetails_language_specific(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_address_calls_submethods(mock_sensor):
+    """Test that `parse_address` asynchronously calls the address, city, and region detail submethods with the address dictionary from the OSM data."""
     osm_dict = {"address": {"house_number": "123", "road": "Main"}}
     parser = OSMParser(mock_sensor)
     parser.set_address_details = AsyncMock()
@@ -138,6 +152,7 @@ async def test_parse_address_calls_submethods(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_set_address_details_sets_attrs(mock_sensor):
+    """Test that set_address_details sets the street number and street attributes on the sensor from the address dictionary."""
     address = {"house_number": "123", "road": "Main"}
     parser = OSMParser(mock_sensor)
     await parser.set_address_details(address)
@@ -147,6 +162,7 @@ async def test_set_address_details_sets_attrs(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_set_address_details_retail_logic(mock_sensor):
+    """Test that set_address_details sets the place name attribute to the retail value if present and the place name is blank."""
     address = {"retail": "Shop"}
     mock_sensor.is_attr_blank.side_effect = lambda k: k == ATTR_PLACE_NAME
     mock_sensor.get_attr_safe_dict.return_value = {"address": {"retail": "Shop"}}
@@ -157,6 +173,7 @@ async def test_set_address_details_retail_logic(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_set_city_details_sets_city_clean(mock_sensor):
+    """Test that set_city_details sets the cleaned city name attribute based on the city value in the address dictionary."""
     address = {"city": "City of Springfield Township"}
     # Simulate city is not blank
     mock_sensor.is_attr_blank.side_effect = lambda k: k != ATTR_CITY
@@ -170,6 +187,7 @@ async def test_set_city_details_sets_city_clean(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_set_region_details_sets_attrs(mock_sensor):
+    """Test that set_region_details sets region, state abbreviation, county, country, country code, and postal code attributes on the sensor using the provided address dictionary."""
     address = {
         "state": "CA",
         "ISO3166-2-lvl4": "US-CA",
@@ -191,6 +209,7 @@ async def test_set_region_details_sets_attrs(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_miscellaneous_sets_attrs(mock_sensor):
+    """Test that parse_miscellaneous sets formatted address, OSM ID, OSM type, and street reference attributes from the OSM dictionary."""
     osm_dict = {
         "display_name": "123 Main St",
         "osm_id": 123456,
@@ -211,6 +230,7 @@ async def test_parse_miscellaneous_sets_attrs(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_set_place_name_no_dupe_sets(mock_sensor):
+    """Test that set_place_name_no_dupe sets the non-duplicate place name attribute when the current place name is unique."""
     mock_sensor.is_attr_blank.side_effect = lambda k: k != ATTR_PLACE_NAME
     mock_sensor.get_attr_safe_str.side_effect = (
         lambda k: "UniqueName" if k == ATTR_PLACE_NAME else ""
@@ -224,6 +244,7 @@ async def test_set_place_name_no_dupe_sets(mock_sensor):
 @pytest.mark.asyncio
 async def test_set_place_name_no_dupe_duplicate(mock_sensor):
     # Place name is in dupe_attributes_check
+    """Test that set_place_name_no_dupe does not set the attribute when the place name is considered a duplicate."""
     mock_sensor.is_attr_blank.side_effect = lambda k: False
     mock_sensor.get_attr_safe_str.side_effect = lambda k: "DupeName"
     mock_sensor.get_attr.side_effect = lambda k: "DupeName"
@@ -242,6 +263,8 @@ async def test_finalize_last_place_name_initial_update(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_finalize_last_place_name_same_as_new(mock_sensor):
+    """Test that finalize_last_place_name sets the last place name attribute when the last place name, current place name, and device tracker zone name are all the same."""
+
     def get_attr_side_effect(k):
         if k in (ATTR_LAST_PLACE_NAME, ATTR_PLACE_NAME, ATTR_DEVICETRACKER_ZONE_NAME):
             return "same"
@@ -255,6 +278,8 @@ async def test_finalize_last_place_name_same_as_new(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_finalize_last_place_name_else(mock_sensor):
+    """Test that finalize_last_place_name does not set the last place name attribute when the current and previous names do not meet update conditions."""
+
     def get_attr_side_effect(k):
         if k == ATTR_LAST_PLACE_NAME:
             return "last"
@@ -275,6 +300,7 @@ async def test_finalize_last_place_name_else(mock_sensor):
 
 @pytest.mark.asyncio
 async def test_parse_osm_dict_full_flow(mock_sensor):
+    """Test that `parse_osm_dict` calls all parsing submethods with the OSM dictionary and sets attributes as expected."""
     osm_dict = {
         "licence": "OSM License",
         "type": "road",

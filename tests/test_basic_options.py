@@ -16,6 +16,10 @@ async def test_build_display_all_blank():
 
 @pytest.mark.asyncio
 async def test_build_display_some_attrs():
+    """Test that build_display() includes specified attributes in the output string when present.
+
+    Verifies that the display string contains the values for driving status, zone name, place name, street, and city when these attributes are provided.
+    """
     attrs = {
         "driving": "Driving",
         "devicetracker_zone_name": "Home",
@@ -36,6 +40,10 @@ async def test_build_display_some_attrs():
 
 @pytest.mark.asyncio
 async def test_build_display_do_not_reorder():
+    """Test that `build_display()` preserves attribute order and formatting when 'do_not_reorder' is specified in options.
+
+    Verifies that only the city and region (as state) are included in the output, maintaining the specified order.
+    """
     attrs = {"city": "Springfield", "region": "IL"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, ["do_not_reorder", "city", "state"])
@@ -46,6 +54,10 @@ async def test_build_display_do_not_reorder():
 
 @pytest.mark.asyncio
 async def test_build_display_in_zone_logic():
+    """Test that `build_display()` includes the zone name when the sensor is in a zone.
+
+    Verifies that when the sensor's `in_zone` flag is set and `devicetracker_zone_name` is provided, the resulting display string contains the zone name.
+    """
     attrs = {"devicetracker_zone_name": "Work"}
     sensor = MockSensor(attrs, in_zone=True)
     parser = BasicOptionsParser(sensor, attrs, ["zone_name"])
@@ -55,6 +67,7 @@ async def test_build_display_in_zone_logic():
 
 @pytest.mark.asyncio
 async def test_build_formatted_place_not_in_zone_place_name():
+    """Test that `build_formatted_place()` returns the `place_name` when the sensor is not in a zone and `place_name` is non-blank and unique."""
     attrs = {"place_name": "Central Park"}
     sensor = MockSensor(attrs, display_options_list=["driving"])
     parser = BasicOptionsParser(sensor, attrs, ["place"])
@@ -65,6 +78,7 @@ async def test_build_formatted_place_not_in_zone_place_name():
 
 @pytest.mark.asyncio
 async def test_build_formatted_place_not_in_zone_type_category_street():
+    """Test that build_formatted_place() constructs a formatted place string using place_type, place_category, street, and city when not in a zone and place_name is blank."""
     attrs = {
         "place_type": "restaurant",
         "place_category": "food",
@@ -83,6 +97,7 @@ async def test_build_formatted_place_not_in_zone_type_category_street():
 
 @pytest.mark.asyncio
 async def test_build_formatted_place_in_zone():
+    """Test that `build_formatted_place()` returns the zone name when the sensor is in a zone."""
     attrs = {"devicetracker_zone_name": "Home"}
     sensor = MockSensor(attrs, in_zone=True)
     parser = BasicOptionsParser(sensor, attrs, ["zone_name"])
@@ -91,6 +106,7 @@ async def test_build_formatted_place_in_zone():
 
 
 def test_should_use_place_name_true():
+    """Test that `should_use_place_name` returns True when a non-blank place name is present and no duplicates are defined."""
     attrs = {"place_name": "Park"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -99,6 +115,7 @@ def test_should_use_place_name_true():
 
 
 def test_should_use_place_name_false_blank():
+    """Test that should_use_place_name() returns False when the place_name attribute is blank."""
     attrs = {"place_name": ""}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -106,6 +123,7 @@ def test_should_use_place_name_false_blank():
 
 
 def test_should_use_place_name_false_duplicate():
+    """Test that should_use_place_name() returns False when place_name duplicates another attribute specified in the duplicate list."""
     attrs = {"place_name": "Dup", "city": "Dup"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -115,6 +133,7 @@ def test_should_use_place_name_false_duplicate():
 
 
 def test_add_type_or_category_type():
+    """Test that `add_type_or_category` adds the capitalized `place_type` to the list when it is not "unclassified"."""
     attrs = {"place_type": "restaurant", "place_category": "food"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -124,6 +143,7 @@ def test_add_type_or_category_type():
 
 
 def test_add_type_or_category_category():
+    """Test that `add_type_or_category` adds the capitalized place category when the place type is 'unclassified'."""
     attrs = {"place_type": "unclassified", "place_category": "food"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -133,6 +153,7 @@ def test_add_type_or_category_category():
 
 
 def test_add_street_info_street():
+    """Test that `add_street_info` appends the street name to the list when the street number is empty."""
     attrs = {"street": "Main St", "street_number": ""}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -142,6 +163,7 @@ def test_add_street_info_street():
 
 
 def test_add_street_info_street_number():
+    """Test that add_street_info appends the combined street number and street name to the list when both are present."""
     attrs = {"street": "Main St", "street_number": "123"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -151,6 +173,7 @@ def test_add_street_info_street_number():
 
 
 def test_add_neighbourhood_if_house():
+    """Test that `add_neighbourhood_if_house` appends the neighborhood to the list when the place type is 'house'."""
     attrs = {"place_type": "house", "place_neighbourhood": "Downtown"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -160,6 +183,7 @@ def test_add_neighbourhood_if_house():
 
 
 def test_add_city_county_state_city_clean():
+    """Test that `add_city_county_state` adds `city_clean` and `state_abbr` to the output list when present."""
     attrs = {"city_clean": "Springfield", "state_abbr": "IL"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -170,6 +194,7 @@ def test_add_city_county_state_city_clean():
 
 
 def test_add_city_county_state_city():
+    """Test that `add_city_county_state` appends city and state abbreviation to the output list when `city` is present."""
     attrs = {"city": "Springfield", "state_abbr": "IL"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])
@@ -180,6 +205,7 @@ def test_add_city_county_state_city():
 
 
 def test_add_city_county_state_county():
+    """Test that `add_city_county_state` appends county and state abbreviation to the list when city attributes are absent."""
     attrs = {"county": "Clark", "state_abbr": "OH"}
     sensor = MockSensor(attrs)
     parser = BasicOptionsParser(sensor, attrs, [])

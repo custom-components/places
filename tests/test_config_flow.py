@@ -20,6 +20,12 @@ from homeassistant.data_entry_flow import FlowResultType
 
 @pytest.fixture
 def config_entry():
+    """Create a mock configuration entry for the 'places' integration with predefined test data.
+
+    Returns:
+        MockConfigEntry: A mock config entry populated with typical 'places' integration fields for testing.
+
+    """
     return MockConfigEntry(
         domain="places",
         data={
@@ -42,6 +48,7 @@ def config_entry():
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step(hass):
+    """Test that the user step of the PlacesConfigFlow creates an entry with the correct title and data when provided valid user input."""
     flow = PlacesConfigFlow()
     flow.hass = hass
     user_input = {
@@ -65,6 +72,10 @@ async def test_config_flow_user_step(hass):
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step_error(hass):
+    """Test that the config flow user step returns a form with errors when required fields are missing.
+
+    Verifies that omitting the 'name' field in user input triggers error handling in the PlacesConfigFlow.
+    """
     flow = PlacesConfigFlow()
     flow.hass = hass
     # Test missing required 'name' field
@@ -77,7 +88,7 @@ async def test_config_flow_user_step_error(hass):
 
 @pytest.mark.asyncio
 async def test_options_flow_init(hass, config_entry):
-    """Test options flow initialization."""
+    """Test that initializing the options flow for a config entry returns a form with a data schema."""
     config_entry.add_to_hass(hass)
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     assert result["type"] == FlowResultType.FORM
@@ -86,6 +97,10 @@ async def test_options_flow_init(hass, config_entry):
 
 @pytest.mark.asyncio
 async def test_options_flow_update_and_reload(hass, config_entry):
+    """Test that submitting user input to the options flow creates an entry after configuration.
+
+    Ensures that the options flow for the config entry accepts user input and completes successfully, resulting in a new entry being created.
+    """
     with patch("custom_components.places.config_flow.vol", MagicMock(spec=vol)):
         config_entry.add_to_hass(hass)
         user_input = {
@@ -109,6 +124,10 @@ async def test_options_flow_update_and_reload(hass, config_entry):
 @pytest.mark.asyncio
 async def test_async_setup_entry(hass, config_entry):
     # PLATFORMS must be patched if imported from .const
+    """Test that async_setup_entry forwards entry setups to the correct platforms and assigns runtime data.
+
+    Asserts that the setup returns True, the entry setups are forwarded for the "sensor" platform, and the config entry's runtime data matches its data.
+    """
     with patch("custom_components.places.PLATFORMS", ["sensor"]):
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=None)
         result = await async_setup_entry(hass, config_entry)
@@ -120,10 +139,20 @@ async def test_async_setup_entry(hass, config_entry):
 
 
 def test_get_devicetracker_id_entities_filters_latlong(monkeypatch):
-    """Test that only entities with lat/long are included for domains that require them."""
+    """Test that get_devicetracker_id_entities returns only entities with latitude and longitude attributes for domains that require them.
+
+    Ensures that entities lacking required location attributes are excluded, and that included entities have labels containing their friendly names.
+    """
 
     class MockState:
         def __init__(self, entity_id, attributes):
+            """Initialize an entity mock with the given entity ID and attributes.
+
+            Parameters:
+                entity_id (str): The unique identifier for the entity.
+                attributes (dict): The attributes associated with the entity.
+
+            """
             self.entity_id = entity_id
             self.attributes = attributes
 
@@ -162,10 +191,17 @@ def test_get_devicetracker_id_entities_filters_latlong(monkeypatch):
 
 
 def test_get_devicetracker_id_entities_adds_current_entity_with_friendly_name(monkeypatch):
-    """Test current_entity is added with friendly name if not already present."""
+    """Verify that get_devicetracker_id_entities adds the current entity with its friendly name to the entity list if it is not already present."""
 
     class MockState:
         def __init__(self, entity_id, attributes):
+            """Initialize an entity mock with the given entity ID and attributes.
+
+            Parameters:
+                entity_id (str): The unique identifier for the entity.
+                attributes (dict): The attributes associated with the entity.
+
+            """
             self.entity_id = entity_id
             self.attributes = attributes
 
@@ -183,10 +219,17 @@ def test_get_devicetracker_id_entities_adds_current_entity_with_friendly_name(mo
 
 
 def test_get_devicetracker_id_entities_adds_current_entity_without_friendly_name(monkeypatch):
-    """Test current_entity is added without friendly name if not present."""
+    """Test that get_devicetracker_id_entities adds the current entity with its entity ID as the label when it lacks a friendly name and is not already present in the entity list."""
 
     class MockState:
         def __init__(self, entity_id, attributes):
+            """Initialize an entity mock with the given entity ID and attributes.
+
+            Parameters:
+                entity_id (str): The unique identifier for the entity.
+                attributes (dict): The attributes associated with the entity.
+
+            """
             self.entity_id = entity_id
             self.attributes = attributes
 
@@ -204,10 +247,17 @@ def test_get_devicetracker_id_entities_adds_current_entity_without_friendly_name
 
 
 def test_get_devicetracker_id_entities_does_not_add_current_entity_if_already_present(monkeypatch):
-    """Test current_entity is not added if already present in dt_list."""
+    """Verify that `get_devicetracker_id_entities` does not duplicate the current entity if it is already present in the device tracker list."""
 
     class MockState:
         def __init__(self, entity_id, attributes):
+            """Initialize an entity mock with the given entity ID and attributes.
+
+            Parameters:
+                entity_id (str): The unique identifier for the entity.
+                attributes (dict): The attributes associated with the entity.
+
+            """
             self.entity_id = entity_id
             self.attributes = attributes
 
@@ -227,10 +277,17 @@ def test_get_devicetracker_id_entities_does_not_add_current_entity_if_already_pr
 
 
 def test_get_home_zone_entities_builds_zone_list(monkeypatch):
-    """Test that home zone entities are correctly identified and labeled."""
+    """Verify that `get_home_zone_entities` returns a sorted list of zone entities with correct labels based on their friendly names."""
 
     class MockState:
         def __init__(self, entity_id, attributes):
+            """Initialize an entity mock with the given entity ID and attributes.
+
+            Parameters:
+                entity_id (str): The unique identifier for the entity.
+                attributes (dict): The attributes associated with the entity.
+
+            """
             self.entity_id = entity_id
             self.attributes = attributes
 
@@ -257,6 +314,7 @@ def test_get_home_zone_entities_builds_zone_list(monkeypatch):
 
 
 def test_async_get_options_flow_returns_handler():
+    """Test that `async_get_options_flow` returns a `PlacesOptionsFlowHandler` instance for a given config entry."""
     config_entry = MagicMock(spec=ConfigEntry)
     handler = PlacesConfigFlow.async_get_options_flow(config_entry)
     assert isinstance(handler, PlacesOptionsFlowHandler)
@@ -264,6 +322,10 @@ def test_async_get_options_flow_returns_handler():
 
 @pytest.mark.asyncio
 async def test_options_flow_handler_updates_config_and_reloads(hass, config_entry):
+    """Test that the options flow handler updates the config entry with user input and triggers a reload.
+
+    Verifies that submitting user input to the options flow handler results in the config entry being updated with the new data and the entry being reloaded. Asserts that the flow returns a create entry result.
+    """
     config_entry.add_to_hass(hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = hass
@@ -298,6 +360,10 @@ async def test_options_flow_handler_updates_config_and_reloads(hass, config_entr
 
 @pytest.mark.asyncio
 async def test_options_flow_handler_removes_blank_string_keys(hass, config_entry):
+    """Test that the options flow handler removes keys with blank string values from user input before updating the config entry.
+
+    Verifies that submitting user input with empty string values results in those keys being omitted from the updated configuration data.
+    """
     config_entry.add_to_hass(hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = hass
@@ -332,6 +398,10 @@ async def test_options_flow_handler_removes_blank_string_keys(hass, config_entry
 
 @pytest.mark.asyncio
 async def test_options_flow_handler_shows_form_when_no_user_input(hass, config_entry):
+    """Test that the options flow handler displays a form with the correct schema and description placeholders when no user input is provided.
+
+    Ensures that the form includes device tracker and home zone entities, and that placeholders such as sensor name and component config URL are present in the form description.
+    """
     config_entry.add_to_hass(hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = hass
@@ -358,6 +428,10 @@ async def test_options_flow_handler_shows_form_when_no_user_input(hass, config_e
 
 @pytest.mark.asyncio
 async def test_options_flow_handler_shows_form_when_user_input_is_none(hass, config_entry):
+    """Test that the options flow handler displays a form with the correct schema and description placeholders when user input is None.
+
+    Ensures that the form includes the expected step ID, data schema, and placeholders such as the sensor name and configuration URL.
+    """
     config_entry.add_to_hass(hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = hass
@@ -385,6 +459,10 @@ async def test_options_flow_handler_shows_form_when_user_input_is_none(hass, con
 
 @pytest.mark.asyncio
 async def test_options_flow_handler_merges_config_entry_data(hass, config_entry):
+    """Test that the options flow handler merges user input with existing config entry data and updates the entry.
+
+    Asserts that the updated config entry data contains both the original and new values, and that the flow returns a create entry result.
+    """
     config_entry.add_to_hass(hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = hass

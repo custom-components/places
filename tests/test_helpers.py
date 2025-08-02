@@ -26,6 +26,7 @@ def test_create_json_folder_existing(tmp_path):
 
 
 def test_get_dict_from_json_file_reads(tmp_path):
+    """Test that `get_dict_from_json_file` correctly reads and returns the contents of an existing JSON file as a dictionary."""
     folder = tmp_path
     filename = "test.json"
     data = {"a": 1, "b": "x"}
@@ -75,6 +76,7 @@ def test_is_float_false_for_non_float():
 
 
 def test_write_sensor_to_json_excludes_datetime(tmp_path):
+    """Test that `write_sensor_to_json` writes a JSON file excluding dictionary entries with `datetime` values."""
     folder = tmp_path
     filename = "sensor.json"
     data = {"a": 1, "b": datetime.now(), "c": "ok"}
