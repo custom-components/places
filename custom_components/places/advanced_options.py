@@ -351,7 +351,8 @@ class AdvancedOptionsParser:
                     continue
                 if attr_item == "+":
                     continue
-            paren_attr_list.append(str(attr_item).strip().lower())
+            cleaned = str(attr_item).strip().lower().strip("'\"")
+            paren_attr_list.append(cleaned)
         return paren_attr, paren_attr_list, paren_attr_incl
 
     async def parse_parens(
