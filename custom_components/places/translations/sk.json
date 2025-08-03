@@ -1,6 +1,13 @@
 {
     "title": "Miesta: OpenStreetMap snímač",
     "config": {
+        "error": {
+            "unknown": "Neočakávaná chyba",
+            "bracket_mismatch": "Nesúlad počtu zátvoriek v rozšírených možnostiach zobrazenia",
+            "invalid_characters": "Neplatné znaky v rozšírených možnostiach zobrazenia",
+            "invalid_syntax": "Neplatná syntax v rozšírených možnostiach zobrazenia",
+            "invalid_option": "Neplatná možnosť v rozšírených možnostiach zobrazenia"
+        },
         "step": {
             "user": {
                 "title": "Miesta: OpenStreetMap snímač",
@@ -28,6 +35,13 @@
         }
     },
     "options": {
+        "error": {
+            "unknown": "Neočakávaná chyba",
+            "bracket_mismatch": "Nesúlad počtu zátvoriek v rozšírených možnostiach zobrazenia",
+            "invalid_characters": "Neplatné znaky v rozšírených možnostiach zobrazenia",
+            "invalid_syntax": "Neplatná syntax v rozšírených možnostiach zobrazenia",
+            "invalid_option": "Neplatná možnosť v rozšírených možnostiach zobrazenia"
+        },
         "step": {
             "init": {
                 "title": "Miesta: OpenStreetMap snímač",

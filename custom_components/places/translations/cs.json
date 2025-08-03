@@ -1,6 +1,13 @@
 {
     "title": "Místa: OpenStreetMap senzor",
     "config": {
+        "error": {
+            "unknown": "Neočekávaná chyba",
+            "bracket_mismatch": "Nesouhlasí počet závorek v rozšířených možnostech zobrazení",
+            "invalid_characters": "Neplatné znaky v rozšířených možnostech zobrazení",
+            "invalid_syntax": "Neplatná syntaxe v rozšířených možnostech zobrazení",
+            "invalid_option": "Neplatná volba v rozšířených možnostech zobrazení"
+        },
         "step": {
             "user": {
                 "title": "Místa: OpenStreetMap senzor",
@@ -28,6 +35,13 @@
         }
     },
     "options": {
+        "error": {
+            "unknown": "Neočekávaná chyba",
+            "bracket_mismatch": "Nesouhlasí počet závorek v rozšířených možnostech zobrazení",
+            "invalid_characters": "Neplatné znaky v rozšířených možnostech zobrazení",
+            "invalid_syntax": "Neplatná syntaxe v rozšířených možnostech zobrazení",
+            "invalid_option": "Neplatná volba v rozšířených možnostech zobrazení"
+        },
         "step": {
             "init": {
                 "title": "Místa: OpenStreetMap senzor",
