@@ -31,10 +31,21 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AdvancedOptionsParser:
-    """Parser for advanced options in a sensor configuration."""
+    """Parser for advanced sensor options.
+
+    This class provides methods to parse and process complex sensor configuration options,
+    including handling brackets, parentheses, and comma-separated values for flexible sensor state configuration.
+    """
 
     def __init__(self, sensor: Places, curr_options: str) -> None:
-        """Initialize the parser with a sensor instance."""
+        """Initialize the AdvancedOptionsParser with a sensor and current options.
+
+        Args:
+            sensor (Places): The sensor instance to use for option parsing.
+            curr_options (str): The current options string to parse.
+
+        """
+
         self.sensor = sensor
         self.curr_options = curr_options
         self.state_list: list = []
@@ -44,7 +55,12 @@ class AdvancedOptionsParser:
         self._processed_options: set[str] = set()
 
     async def build_from_advanced_options(self, curr_options: str | None = None) -> None:
-        """Parse the current options string and build the state list."""
+        """Build the state list from advanced options string.
+
+        Args:
+            curr_options (str | None): The options string to parse. If None, uses self.curr_options.
+
+        """
         if curr_options is None:
             curr_options = self.curr_options
             self._processed_options = set()
@@ -65,7 +81,15 @@ class AdvancedOptionsParser:
         await self.process_single_term(curr_options)
 
     async def do_brackets_and_parens_count_match(self, curr_options: str) -> bool:
-        """Check if the brackets and parentheses in the options string match."""
+        """Check if the number of opening and closing brackets and parentheses match.
+
+        Args:
+            curr_options (str): The options string to check.
+
+        Returns:
+            bool: True if counts match, False otherwise.
+
+        """
         if curr_options.count("[") != curr_options.count("]"):
             _LOGGER.error("Bracket Count Mismatch: %s", curr_options)
             return False
@@ -82,7 +106,19 @@ class AdvancedOptionsParser:
         incl_attr: MutableMapping[str, Any] | None = None,
         excl_attr: MutableMapping[str, Any] | None = None,
     ) -> str | None:
-        """Get the state of a display option."""
+        """Retrieve the state for a given option, applying inclusion and exclusion filters.
+
+        Args:
+            opt (str): The option to retrieve the state for.
+            incl (list | None): List of values to include.
+            excl (list | None): List of values to exclude.
+            incl_attr (MutableMapping[str, Any] | None): Attributes with values to include.
+            excl_attr (MutableMapping[str, Any] | None): Attributes with values to exclude.
+
+        Returns:
+            str | None: The resulting state string, or None if excluded.
+
+        """
         incl = [] if incl is None else incl
         excl = [] if excl is None else excl
         incl_attr = {} if incl_attr is None else incl_attr
@@ -187,7 +223,12 @@ class AdvancedOptionsParser:
         return None
 
     async def process_bracket_or_parens(self, curr_options: str) -> None:
-        """Process options with brackets or parentheses."""
+        """Process options containing brackets or parentheses.
+
+        Args:
+            curr_options (str): The options string to parse and process.
+
+        """
         comma_num: int = curr_options.find(",")
         bracket_num: int = curr_options.find("[")
         paren_num: int = curr_options.find("(")
@@ -265,7 +306,12 @@ class AdvancedOptionsParser:
                     await self.build_from_advanced_options(next_opt.strip())
 
     async def process_only_commas(self, curr_options: str) -> None:
-        """Process options that are separated by commas."""
+        """Process options separated only by commas.
+
+        Args:
+            curr_options (str): The options string containing comma-separated terms.
+
+        """
         for opt in curr_options.split(","):
             if opt:
                 ret_state = await self.get_option_state(opt.strip())
@@ -273,13 +319,26 @@ class AdvancedOptionsParser:
                     self.state_list.append(ret_state)
 
     async def process_single_term(self, curr_options: str) -> None:
-        """Process a single term option."""
+        """Process a single option term and append its state to the state list.
+
+        Args:
+            curr_options (str): The option string to process.
+
+        """
         ret_state = await self.get_option_state(curr_options.strip())
         if ret_state:
             self.state_list.append(ret_state)
 
     def parse_attribute_parentheses(self, item: str) -> tuple[str, list[str], bool]:
-        """Parse attribute parentheses and return attribute name, list, and inclusion flag."""
+        """Parse attribute parentheses and return attribute name, list, and inclusion flag.
+
+        Args:
+            item (str): The string containing the attribute and its values in parentheses.
+
+        Returns:
+            tuple[str, list[str], bool]: Attribute name, list of values, and inclusion flag.
+
+        """
         paren_attr = item[: item.find("(")]
         paren_attr_first = True
         paren_attr_incl = True
@@ -298,7 +357,20 @@ class AdvancedOptionsParser:
     async def parse_parens(
         self, curr_options: str
     ) -> tuple[list, list, MutableMapping[str, Any], MutableMapping[str, Any], str | None]:
-        """Parse options within parentheses and return included and excluded items."""
+        """Parse options within parentheses and return inclusion/exclusion lists, attribute filters, and the next option string.
+
+        Args:
+            curr_options (str): The options string starting with parentheses.
+
+        Returns:
+            tuple: A tuple containing:
+                - incl (list): List of included values.
+                - excl (list): List of excluded values.
+                - incl_attr (MutableMapping[str, Any]): Dictionary of included attribute values.
+                - excl_attr (MutableMapping[str, Any]): Dictionary of excluded attribute values.
+                - next_opt (str | None): The next option string after the closing parenthesis.
+
+        """
         incl, excl = [], []
         incl_attr, excl_attr = {}, {}
         incl_excl_list = []
@@ -358,7 +430,15 @@ class AdvancedOptionsParser:
         return incl, excl, incl_attr, excl_attr, next_opt
 
     async def parse_bracket(self, curr_options: str) -> tuple[str | None, str | None]:
-        """Parse options within brackets and return the option and the next part."""
+        """Parse options within brackets and return the none option and the next option string.
+
+        Args:
+            curr_options (str): The options string starting with a bracket.
+
+        Returns:
+            tuple[str | None, str | None]: A tuple containing the none option (if any) and the next option string after the closing bracket.
+
+        """
         empty_bracket: bool = False
         none_opt: str | None = None
         next_opt: str | None = None
@@ -388,7 +468,12 @@ class AdvancedOptionsParser:
         return none_opt, next_opt
 
     async def compile_state(self) -> str:
-        """Compile the state list into a formatted string."""
+        """Compile the state list into a formatted string.
+
+        Returns:
+            str: The compiled state string, combining all processed options.
+
+        """
         self._street_num_i += 1
         first = True
         result = ""
