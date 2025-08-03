@@ -41,11 +41,17 @@ class AdvancedOptionsParser:
         self._street_num_i = -1
         self._street_i = -1
         self._temp_i: int = 0
+        self._processed_options: set[str] = set()
 
     async def build_from_advanced_options(self, curr_options: str | None = None) -> None:
         """Parse the current options string and build the state list."""
         if curr_options is None:
             curr_options = self.curr_options
+        # Prevent infinite recursion
+        if curr_options in self._processed_options:
+            _LOGGER.error("Infinite recursion detected for options: %s", curr_options)
+            return
+        self._processed_options.add(curr_options)
         if (
             not await self.do_brackets_and_parens_count_match(self.curr_options)
             or not self.curr_options
