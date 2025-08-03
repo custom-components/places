@@ -47,23 +47,21 @@ class AdvancedOptionsParser:
         """Parse the current options string and build the state list."""
         if curr_options is None:
             curr_options = self.curr_options
-        # Prevent infinite recursion
+        curr_options = curr_options.strip()
+        # Prevent infinite recursion for any substring
         if curr_options in self._processed_options:
             _LOGGER.error("Infinite recursion detected for options: %s", curr_options)
             return
         self._processed_options.add(curr_options)
-        if (
-            not await self.do_brackets_and_parens_count_match(self.curr_options)
-            or not self.curr_options
-        ):
+        if not await self.do_brackets_and_parens_count_match(curr_options) or not curr_options:
             return
-        if "[" in self.curr_options or "(" in self.curr_options:
-            await self.process_bracket_or_parens(self.curr_options)
+        if "[" in curr_options or "(" in curr_options:
+            await self.process_bracket_or_parens(curr_options)
             return
-        if "," in self.curr_options:
-            await self.process_only_commas(self.curr_options)
+        if "," in curr_options:
+            await self.process_only_commas(curr_options)
             return
-        await self.process_single_term(self.curr_options)
+        await self.process_single_term(curr_options)
 
     async def do_brackets_and_parens_count_match(self, curr_options: str) -> bool:
         """Check if the brackets and parentheses in the options string match."""
