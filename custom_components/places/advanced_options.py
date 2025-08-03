@@ -47,6 +47,7 @@ class AdvancedOptionsParser:
         """Parse the current options string and build the state list."""
         if curr_options is None:
             curr_options = self.curr_options
+            self._processed_options = set()
         curr_options = curr_options.strip()
         # Prevent infinite recursion for any substring
         if curr_options in self._processed_options:
