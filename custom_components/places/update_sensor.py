@@ -614,7 +614,7 @@ class PlacesUpdater:
         params = {
             "lat": self.sensor.get_attr_safe_float(ATTR_LATITUDE),
             "lon": self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
-            "accept-language": self.sensor.get_attr(CONF_LANGUAGE) or "en",
+            "accept-language": self.sensor.get_attr(CONF_LANGUAGE) or "",
             "addressdetails": "1",
             "namedetails": "1",
             "zoom": "18",
