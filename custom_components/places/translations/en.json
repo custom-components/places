@@ -1,6 +1,13 @@
 {
     "title": "Places: OpenStreetMap Sensor",
     "config": {
+        "error": {
+            "unknown": "Unexpected error",
+            "bracket_mismatch": "Bracket or Parenthesis count mismatch in advanced display options",
+            "invalid_characters": "Invalid characters in advanced display options",
+            "invalid_syntax": "Invalid syntax in advanced display options",
+            "invalid_option": "Invalid option in advanced display options"
+        },
         "step": {
             "user": {
                 "title": "Places: OpenStreetMap Sensor",
@@ -28,6 +35,13 @@
         }
     },
     "options": {
+        "error": {
+            "unknown": "Unexpected error",
+            "bracket_mismatch": "Bracket or Parenthesis count mismatch in advanced display options",
+            "invalid_characters": "Invalid characters in advanced display options",
+            "invalid_syntax": "Invalid syntax in advanced display options",
+            "invalid_option": "Invalid option in advanced display options"
+        },
         "step": {
             "init": {
                 "title": "Places: OpenStreetMap Sensor",

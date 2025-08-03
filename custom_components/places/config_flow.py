@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import MutableMapping
 import logging
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -38,6 +39,7 @@ from .const import (
     DEFAULT_MAP_ZOOM,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
+    DISPLAY_OPTIONS_MAP,
     DOMAIN,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
@@ -53,7 +55,7 @@ MAP_ZOOM_MAX: int = 20
 COMPONENT_CONFIG_URL: str = "https://github.com/custom-components/places#configuration-options"
 
 # Note the input displayed to the user will be translated. See the
-# translations/<lang>.json file and strings.json. See here for further information:
+# translations/<lang>.json files. See here for further information:
 # https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
 
 
@@ -140,17 +142,161 @@ def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDic
     return zone_list_sorted
 
 
-async def validate_input(
-    _: HomeAssistant, data: MutableMapping[str, Any]
-) -> MutableMapping[str, Any]:
-    """Validate the user input allows us to connect.
+def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
+    stack = []
+    last_token = ""
+    i = 0
+    while i < len(display_options):
+        c = display_options[i]
+        if c in "[(":
+            valid_before = last_token.strip()
+            if not valid_before and i > 0 and display_options[i - 1] in "])":
+                pass
+            elif not valid_before:
+                _LOGGER.error(
+                    "Invalid syntax: Expected an item before '%s' at position %d in '%s'.",
+                    c,
+                    i,
+                    display_options,
+                )
+                errors["base"] = "invalid_syntax"
+                return False
+            elif valid_before[-1] in ",[":
+                _LOGGER.error(
+                    "Invalid syntax: Unexpected '%s' after '%s' before '%s' at position %d in '%s'.",
+                    c,
+                    valid_before[-1],
+                    c,
+                    i,
+                    display_options,
+                )
+                errors["base"] = "invalid_syntax"
+                return False
+            stack.append(c)
+            last_token = ""
+        elif c in "])":
+            if not stack:
+                _LOGGER.error(
+                    "Bracket mismatch: Unmatched closing '%s' at position %d in '%s'.",
+                    c,
+                    i,
+                    display_options,
+                )
+                errors["base"] = "bracket_mismatch"
+                return False
+            expected = "[" if c == "]" else "("
+            if stack[-1] != expected:
+                _LOGGER.error(
+                    "Bracket mismatch: Expected closing '%s' but found '%s' at position %d in '%s'.",
+                    stack[-1],
+                    c,
+                    i,
+                    display_options,
+                )
+                errors["base"] = "bracket_mismatch"
+                return False
+            stack.pop()
+            last_token = ""
+        elif c == ",":
+            last_token = ""
+        else:
+            last_token += c
+        i += 1
+    if stack:
+        _LOGGER.error(
+            "Bracket mismatch: Unmatched opening '%s' in '%s'.", stack[-1], display_options
+        )
+        errors["base"] = "bracket_mismatch"
+        return False
+    return True
 
-    Data has the keys from DATA_SCHEMA with values provided by the user.
-    """
 
-    # _LOGGER.debug("[config_flow validate_input] data: %s", data)
+def _validate_comma_syntax(display_options: str, errors: dict[str, Any]) -> bool:
+    if re.search(r"(,\s*,)", display_options):
+        _LOGGER.error("Invalid syntax: Empty item between commas in '%s'.", display_options)
+        errors["base"] = "invalid_syntax"
+        return False
+    if re.search(r"[\[\(]\s*,", display_options) or re.search(r",\s*[\]\)]", display_options):
+        _LOGGER.error(
+            "Invalid syntax: Leading or trailing comma in brackets/parentheses in '%s'.",
+            display_options,
+        )
+        errors["base"] = "invalid_syntax"
+        return False
+    return True
 
-    return {"title": data[CONF_NAME]}
+
+def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool:
+    tokens = re.split(r"[\[\]\(\),]", display_options)
+    for token in tokens:
+        if " " in token.strip() and token.strip() not in ("", "-", "+"):
+            _LOGGER.error(
+                "Invalid syntax: Spaces in option name '%s' in '%s'.", token, display_options
+            )
+            errors["base"] = "invalid_syntax"
+            return False
+    return True
+
+
+def _validate_known_options(display_options: str, errors: dict[str, Any]) -> bool:
+    valid_options = set(DISPLAY_OPTIONS_MAP.keys())
+    i = 0
+    token = ""
+    while i < len(display_options):
+        c = display_options[i]
+        if c in "[(":
+            # Check the token before the bracket/paren
+            t = token.strip()
+            if t and t not in valid_options and not re.match(r"[-+]", t):
+                _LOGGER.error("Invalid option name '%s' in '%s'.", t, display_options)
+                errors["base"] = "invalid_option"
+                return False
+            token = ""
+        elif c == ",":
+            # Check top-level comma-separated tokens
+            t = token.strip()
+            if t and t not in valid_options and not re.match(r"[-+]", t):
+                _LOGGER.error("Invalid option name '%s' in '%s'.", t, display_options)
+                errors["base"] = "invalid_option"
+                return False
+            token = ""
+        elif c in "])":
+            token = ""
+        else:
+            token += c
+        i += 1
+    # Check last token
+    t = token.strip()
+    if t and t not in valid_options and not re.match(r"[-+]", t):
+        _LOGGER.error("Invalid option name '%s' in '%s'.", t, display_options)
+        errors["base"] = "invalid_option"
+        return False
+    return True
+
+
+async def validate_display_options(display_options: str, errors: dict[str, Any]) -> dict[str, Any]:
+    """Validate the display options string for correct syntax and allowed characters."""
+
+    # Only run advanced validation if brackets or parentheses are present
+    if "[" in display_options or "(" in display_options:
+        # Check bracket/parenthesis matching
+        if not _validate_brackets(display_options, errors):
+            return errors
+
+        # Check for empty items and comma placement
+        if not _validate_comma_syntax(display_options, errors):
+            return errors
+
+        # Check for spaces in option names
+        if not _validate_option_names(display_options, errors):
+            return errors
+
+        # Validate against DISPLAY_OPTIONS_MAP
+        if not _validate_known_options(display_options, errors):
+            return errors
+
+    # For basic options, no advanced validation needed
+    return errors
 
 
 class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -162,22 +308,18 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: MutableMapping[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
-        # This goes through the steps to take the user through the setup process.
-        # Using this it is possible to update the UI and prompt for additional
-        # information. This example provides a single form (built from `DATA_SCHEMA`),
-        # and when that has some validated input, it calls `async_create_entry` to
-        # actually create the HA config entry. Note the "title" value is returned by
-        # `validate_input` above.
+
         errors: dict[str, Any] = {}
         if user_input is not None:
-            try:
-                info: MutableMapping[str, Any] = await validate_input(self.hass, user_input)
-                # _LOGGER.debug("[New Sensor] info: %s", info)
+            errors = await validate_display_options(
+                display_options=user_input.get(CONF_DISPLAY_OPTIONS, ""),
+                errors=errors,
+            )
+
+            if not errors:
                 _LOGGER.debug("[New Sensor] user_input: %s", user_input)
-                return self.async_create_entry(title=info["title"], data=user_input)
-            except Exception as err:  # noqa: BLE001
-                _LOGGER.error("[config_flow async_step_user] Unexpected exception: %s", err)
-                errors["base"] = "unknown"
+                return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
+
         devicetracker_id_list: list[selector.SelectOptionDict] = get_devicetracker_id_entities(
             self.hass
         )
@@ -278,6 +420,7 @@ class PlacesOptionsFlowHandler(OptionsFlow):
         self, user_input: MutableMapping[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the options."""
+        errors: dict[str, Any] = {}
         if user_input is not None:
             # _LOGGER.debug("[options_flow async_step_init] user_input initial: %s", user_input)
             # Bring in other keys not in the Options Flow
@@ -290,11 +433,17 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                     user_input.pop(m)
             # _LOGGER.debug("[Options Update] updated config: %s", user_input)
 
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, data=user_input, options=self.config_entry.options
+            errors = await validate_display_options(
+                display_options=user_input.get(CONF_DISPLAY_OPTIONS, ""),
+                errors=errors,
             )
-            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
-            return self.async_create_entry(title="", data={})
+
+            if not errors:
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=user_input, options=self.config_entry.options
+                )
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+                return self.async_create_entry(title="", data={})
 
         # Include the current entity in the list as well. Although it may still fail in validation checking.
         devicetracker_id_list: list[selector.SelectOptionDict] = get_devicetracker_id_entities(
@@ -424,6 +573,7 @@ class PlacesOptionsFlowHandler(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=OPTIONS_SCHEMA,
+            errors=errors,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
                 "sensor_name": self.config_entry.data[CONF_NAME],

@@ -1,6 +1,13 @@
 {
     "title": "Places: Sensore OpenStreetMap",
     "config": {
+        "error": {
+            "unknown": "Errore imprevisto",
+            "bracket_mismatch": "Numero di parentesi tonde o quadre non corrispondente nelle opzioni di visualizzazione avanzate",
+            "invalid_characters": "Caratteri non validi nelle opzioni di visualizzazione avanzate",
+            "invalid_syntax": "Sintassi non valida nelle opzioni di visualizzazione avanzate",
+            "invalid_option": "Opzione non valida nelle opzioni di visualizzazione avanzate"
+        },
         "step": {
             "user": {
                 "title": "Places: Sensore OpenStreetMap",
@@ -28,6 +35,13 @@
         }
     },
     "options": {
+        "error": {
+            "unknown": "Errore imprevisto",
+            "bracket_mismatch": "Numero di parentesi tonde o quadre non corrispondente nelle opzioni di visualizzazione avanzate",
+            "invalid_characters": "Caratteri non validi nelle opzioni di visualizzazione avanzate",
+            "invalid_syntax": "Sintassi non valida nelle opzioni di visualizzazione avanzate",
+            "invalid_option": "Opzione non valida nelle opzioni di visualizzazione avanzate"
+        },
         "step": {
             "init": {
                 "title": "Places: Sensore OpenStreetMap",
