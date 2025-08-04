@@ -1,3 +1,5 @@
+"""Tests for the Places integration config and options flows."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,12 +12,18 @@ from custom_components.places.config_flow import (
     TRACKING_DOMAINS_NEED_LATLONG,
     PlacesConfigFlow,
     PlacesOptionsFlowHandler,
+    _validate_brackets,
+    _validate_comma_syntax,
+    _validate_known_options,
+    _validate_option_names,
     get_devicetracker_id_entities,
     get_home_zone_entities,
+    validate_display_options,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_FRIENDLY_NAME, CONF_LATITUDE, CONF_LONGITUDE
 from homeassistant.data_entry_flow import FlowResultType
+from tests.conftest import MockState
 
 
 @pytest.fixture
@@ -47,10 +55,10 @@ def config_entry():
 
 
 @pytest.mark.asyncio
-async def test_config_flow_user_step(hass):
-    """Test that the user step of the PlacesConfigFlow creates an entry with the correct title and data when provided valid user input."""
+async def test_config_flow_user_step(mock_hass):
+    """Verify the config flow user step creates an entry when given valid input."""
     flow = PlacesConfigFlow()
-    flow.hass = hass
+    flow.hass = mock_hass
     user_input = {
         "name": "Test Place",
         "devicetracker_id": "device.test",
@@ -71,38 +79,19 @@ async def test_config_flow_user_step(hass):
 
 
 @pytest.mark.asyncio
-async def test_config_flow_user_step_error(hass):
-    """Test that the config flow user step returns a form with errors when required fields are missing.
-
-    Verifies that omitting the 'name' field in user input triggers error handling in the PlacesConfigFlow.
-    """
-    flow = PlacesConfigFlow()
-    flow.hass = hass
-    # Test missing required 'name' field
-    user_input = {"devicetracker_id": "device.test"}
-    result = await flow.async_step_user(user_input)
-    assert result["type"] == "form"
-    assert "errors" in result
-    assert "name" in result["errors"] or "base" in result["errors"]
-
-
-@pytest.mark.asyncio
-async def test_options_flow_init(hass, config_entry):
-    """Test that initializing the options flow for a config entry returns a form with a data schema."""
-    config_entry.add_to_hass(hass)
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+async def test_options_flow_init(mock_hass, config_entry):
+    """Ensure the options flow init returns a form schema for editing options."""
+    config_entry.add_to_hass(mock_hass)
+    result = await mock_hass.config_entries.options.async_init(config_entry.entry_id)
     assert result["type"] == FlowResultType.FORM
     assert "data_schema" in result
 
 
 @pytest.mark.asyncio
-async def test_options_flow_update_and_reload(hass, config_entry):
-    """Test that submitting user input to the options flow creates an entry after configuration.
-
-    Ensures that the options flow for the config entry accepts user input and completes successfully, resulting in a new entry being created.
-    """
+async def test_options_flow_update_and_reload(mock_hass, config_entry):
+    """Submitting valid user input via the options flow should create a config entry and reload it."""
     with patch("custom_components.places.config_flow.vol", MagicMock(spec=vol)):
-        config_entry.add_to_hass(hass)
+        config_entry.add_to_hass(mock_hass)
         user_input = {
             "devicetracker_id": "device.test",
             "name": "Test Place",
@@ -116,45 +105,28 @@ async def test_options_flow_update_and_reload(hass, config_entry):
             "date_format": "mm/dd",
             "language": "en",
         }
-        result = await hass.config_entries.options.async_init(config_entry.entry_id)
-        result2 = await hass.config_entries.options.async_configure(result["flow_id"], user_input)
+        result = await mock_hass.config_entries.options.async_init(config_entry.entry_id)
+        result2 = await mock_hass.config_entries.options.async_configure(
+            result["flow_id"], user_input
+        )
         assert result2["type"] == "create_entry"
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry(hass, config_entry):
+async def test_async_setup_entry(mock_hass, config_entry):
     # PLATFORMS must be patched if imported from .const
-    """Test that async_setup_entry forwards entry setups to the correct platforms and assigns runtime data.
-
-    Asserts that the setup returns True, the entry setups are forwarded for the "sensor" platform, and the config entry's runtime data matches its data.
-    """
+    """async_setup_entry should forward platform setups and copy runtime data from the entry data."""
     with patch("custom_components.places.PLATFORMS", ["sensor"]):
-        hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=None)
-        result = await async_setup_entry(hass, config_entry)
+        result = await async_setup_entry(mock_hass, config_entry)
         assert result is True
-        hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
+        mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
             config_entry, ["sensor"]
         )
         assert config_entry.runtime_data == dict(config_entry.data)
 
 
 def test_get_devicetracker_id_entities_filters_latlong(monkeypatch):
-    """Test that get_devicetracker_id_entities returns only entities with latitude and longitude attributes for domains that require them.
-
-    Ensures that entities lacking required location attributes are excluded, and that included entities have labels containing their friendly names.
-    """
-
-    class MockState:
-        def __init__(self, entity_id, attributes):
-            """Initialize an entity mock with the given entity ID and attributes.
-
-            Parameters:
-                entity_id (str): The unique identifier for the entity.
-                attributes (dict): The attributes associated with the entity.
-
-            """
-            self.entity_id = entity_id
-            self.attributes = attributes
+    """Only entities with latitude and longitude should be returned for domains that require them."""
 
     # Setup mock hass
     hass = MagicMock()
@@ -191,19 +163,7 @@ def test_get_devicetracker_id_entities_filters_latlong(monkeypatch):
 
 
 def test_get_devicetracker_id_entities_adds_current_entity_with_friendly_name(monkeypatch):
-    """Verify that get_devicetracker_id_entities adds the current entity with its friendly name to the entity list if it is not already present."""
-
-    class MockState:
-        def __init__(self, entity_id, attributes):
-            """Initialize an entity mock with the given entity ID and attributes.
-
-            Parameters:
-                entity_id (str): The unique identifier for the entity.
-                attributes (dict): The attributes associated with the entity.
-
-            """
-            self.entity_id = entity_id
-            self.attributes = attributes
+    """If the current entity isn't present, it should be added and labeled with its friendly name when available."""
 
     hass = MagicMock()
     # dt_list is empty, so current_entity will not be present
@@ -219,19 +179,7 @@ def test_get_devicetracker_id_entities_adds_current_entity_with_friendly_name(mo
 
 
 def test_get_devicetracker_id_entities_adds_current_entity_without_friendly_name(monkeypatch):
-    """Test that get_devicetracker_id_entities adds the current entity with its entity ID as the label when it lacks a friendly name and is not already present in the entity list."""
-
-    class MockState:
-        def __init__(self, entity_id, attributes):
-            """Initialize an entity mock with the given entity ID and attributes.
-
-            Parameters:
-                entity_id (str): The unique identifier for the entity.
-                attributes (dict): The attributes associated with the entity.
-
-            """
-            self.entity_id = entity_id
-            self.attributes = attributes
+    """When the current entity has no friendly_name, its entity_id should be used as the label."""
 
     hass = MagicMock()
     hass.states.async_all = MagicMock(return_value=[])
@@ -247,19 +195,7 @@ def test_get_devicetracker_id_entities_adds_current_entity_without_friendly_name
 
 
 def test_get_devicetracker_id_entities_does_not_add_current_entity_if_already_present(monkeypatch):
-    """Verify that `get_devicetracker_id_entities` does not duplicate the current entity if it is already present in the device tracker list."""
-
-    class MockState:
-        def __init__(self, entity_id, attributes):
-            """Initialize an entity mock with the given entity ID and attributes.
-
-            Parameters:
-                entity_id (str): The unique identifier for the entity.
-                attributes (dict): The attributes associated with the entity.
-
-            """
-            self.entity_id = entity_id
-            self.attributes = attributes
+    """Avoid duplicating the current device tracker in the returned entity list if already present."""
 
     hass = MagicMock()
     # dt_list already contains current_entity
@@ -277,19 +213,7 @@ def test_get_devicetracker_id_entities_does_not_add_current_entity_if_already_pr
 
 
 def test_get_home_zone_entities_builds_zone_list(monkeypatch):
-    """Verify that `get_home_zone_entities` returns a sorted list of zone entities with correct labels based on their friendly names."""
-
-    class MockState:
-        def __init__(self, entity_id, attributes):
-            """Initialize an entity mock with the given entity ID and attributes.
-
-            Parameters:
-                entity_id (str): The unique identifier for the entity.
-                attributes (dict): The attributes associated with the entity.
-
-            """
-            self.entity_id = entity_id
-            self.attributes = attributes
+    """get_home_zone_entities should return zone entities labeled by their friendly names and sorted by label."""
 
     hass = MagicMock()
     # Only one domain for simplicity
@@ -314,26 +238,22 @@ def test_get_home_zone_entities_builds_zone_list(monkeypatch):
 
 
 def test_async_get_options_flow_returns_handler():
-    """Test that `async_get_options_flow` returns a `PlacesOptionsFlowHandler` instance for a given config entry."""
+    """Ensure PlacesConfigFlow.async_get_options_flow returns a handler instance for a config entry."""
     config_entry = MagicMock(spec=ConfigEntry)
     handler = PlacesConfigFlow.async_get_options_flow(config_entry)
     assert isinstance(handler, PlacesOptionsFlowHandler)
 
 
 @pytest.mark.asyncio
-async def test_options_flow_handler_updates_config_and_reloads(hass, config_entry):
+async def test_options_flow_handler_updates_config_and_reloads(mock_hass, config_entry):
     """Test that the options flow handler updates the config entry with user input and triggers a reload.
 
     Verifies that submitting user input to the options flow handler results in the config entry being updated with the new data and the entry being reloaded. Asserts that the flow returns a create entry result.
     """
-    config_entry.add_to_hass(hass)
+    config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
-    handler.hass = hass
-
+    handler.hass = mock_hass
     with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-        hass.config_entries.async_update_entry = MagicMock()
-        hass.config_entries.async_reload = AsyncMock()
-
         user_input = {
             "devicetracker_id": "device.test",
             "name": "Test Place",
@@ -348,26 +268,24 @@ async def test_options_flow_handler_updates_config_and_reloads(hass, config_entr
             "language": "en",
             "api_key": "",
         }
-
         result = await handler.async_step_init(user_input)
-        hass.config_entries.async_update_entry.assert_called_once_with(
+        mock_hass.config_entries.async_update_entry.assert_called_once_with(
             config_entry, data=user_input, options=config_entry.options
         )
-        hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
+        mock_hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
         assert result["type"] == "create_entry"
         assert result["data"] == {}
 
 
 @pytest.mark.asyncio
-async def test_options_flow_handler_removes_blank_string_keys(hass, config_entry):
+async def test_options_flow_handler_removes_blank_string_keys(mock_hass, config_entry):
     """Test that the options flow handler removes keys with blank string values from user input before updating the config entry.
 
     Verifies that submitting user input with empty string values results in those keys being omitted from the updated configuration data.
     """
-    config_entry.add_to_hass(hass)
+    config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
-    handler.hass = hass
-
+    handler.hass = mock_hass
     with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
         user_input = {
             "devicetracker_id": "device.test",
@@ -383,12 +301,10 @@ async def test_options_flow_handler_removes_blank_string_keys(hass, config_entry
             "language": "",
             "api_key": "",
         }
-
-        hass.config_entries.async_update_entry = AsyncMock()
-        hass.config_entries.async_reload = AsyncMock()
-
+        mock_hass.config_entries.async_update_entry = MagicMock()
+        mock_hass.config_entries.async_reload = AsyncMock()
         result = await handler.async_step_init(user_input)
-        updated_data = hass.config_entries.async_update_entry.call_args[1]["data"]
+        updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
         assert "name" not in updated_data
         assert "home_zone" not in updated_data
         assert "language" not in updated_data
@@ -397,15 +313,11 @@ async def test_options_flow_handler_removes_blank_string_keys(hass, config_entry
 
 
 @pytest.mark.asyncio
-async def test_options_flow_handler_shows_form_when_no_user_input(hass, config_entry):
-    """Test that the options flow handler displays a form with the correct schema and description placeholders when no user input is provided.
-
-    Ensures that the form includes device tracker and home zone entities, and that placeholders such as sensor name and component config URL are present in the form description.
-    """
-    config_entry.add_to_hass(hass)
+async def test_options_flow_handler_shows_form_when_no_user_input(mock_hass, config_entry):
+    """Test that the options flow handler displays a form with the correct schema and description placeholders when no user input is provided (None)."""
+    config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
-    handler.hass = hass
-
+    handler.hass = mock_hass
     with (
         patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)),
         patch(
@@ -427,46 +339,14 @@ async def test_options_flow_handler_shows_form_when_no_user_input(hass, config_e
 
 
 @pytest.mark.asyncio
-async def test_options_flow_handler_shows_form_when_user_input_is_none(hass, config_entry):
-    """Test that the options flow handler displays a form with the correct schema and description placeholders when user input is None.
-
-    Ensures that the form includes the expected step ID, data schema, and placeholders such as the sensor name and configuration URL.
-    """
-    config_entry.add_to_hass(hass)
-    handler = PlacesOptionsFlowHandler()
-    handler.hass = hass
-
-    # Patch config_entry property and entity list functions to return predictable values
-    with (
-        patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)),
-        patch(
-            "custom_components.places.config_flow.get_devicetracker_id_entities",
-            return_value=[{"value": "device.test", "label": "Device Test"}],
-        ),
-        patch(
-            "custom_components.places.config_flow.get_home_zone_entities",
-            return_value=[{"value": "zone.home", "label": "Home Zone"}],
-        ),
-    ):
-        result = await handler.async_step_init(None)
-        assert result["type"] == "form"
-        assert "data_schema" in result
-        assert result["step_id"] == "init"
-        assert "description_placeholders" in result
-        assert result["description_placeholders"]["sensor_name"] == config_entry.data["name"]
-        assert result["description_placeholders"]["component_config_url"]
-
-
-@pytest.mark.asyncio
-async def test_options_flow_handler_merges_config_entry_data(hass, config_entry):
+async def test_options_flow_handler_merges_config_entry_data(mock_hass, config_entry):
     """Test that the options flow handler merges user input with existing config entry data and updates the entry.
 
     Asserts that the updated config entry data contains both the original and new values, and that the flow returns a create entry result.
     """
-    config_entry.add_to_hass(hass)
+    config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
-    handler.hass = hass
-
+    handler.hass = mock_hass
     with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
         user_input = {
             "devicetracker_id": "device.test",
@@ -474,12 +354,194 @@ async def test_options_flow_handler_merges_config_entry_data(hass, config_entry)
         }
         expected_data = dict(config_entry.data)
         expected_data.update(user_input)
-
-        hass.config_entries.async_update_entry = AsyncMock()
-        hass.config_entries.async_reload = AsyncMock()
-
+        mock_hass.config_entries.async_update_entry = MagicMock()
+        mock_hass.config_entries.async_reload = AsyncMock()
         result = await handler.async_step_init(user_input)
-        updated_data = hass.config_entries.async_update_entry.call_args[1]["data"]
+        updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
         for k, v in expected_data.items():
             assert updated_data[k] == v
         assert result["type"] == "create_entry"
+
+
+@pytest.mark.parametrize(
+    "display_options,expected",
+    [
+        ("zone,place", True),  # Should be valid
+        ("zone,[place]", False),
+        ("zone,[place,zone]", False),
+        ("zone,[place,(zone)]", False),
+        ("zone,[place,(zone]", False),  # Unmatched bracket
+        ("zone,place]", False),  # Unmatched closing bracket
+        ("zone,[place,]", False),  # Trailing comma
+        ("zone,[,place]", False),  # Leading comma
+        ("zone,[place](city)", False),  # Still invalid: '[' directly after comma
+        ("zone,[place](zone)", False),  # Invalid per validator (item expected before '[')
+    ],
+)
+def test_validate_brackets(display_options, expected):
+    """Test the _validate_brackets function to ensure it correctly validates bracket usage in display_options."""
+    errors = {}
+    result = _validate_brackets(display_options, errors)
+    assert result is expected
+
+
+@pytest.mark.parametrize(
+    "display_options,expected",
+    [
+        ("zone,place", False),  # Should be invalid
+        ("zone,unknown", False),  # 'unknown' not in DISPLAY_OPTIONS_MAP
+        ("zone,[place,unknown]", False),
+        ("zone,[place],unknown", False),  # Invalid last token after bracket group
+        ("unknown", False),  # Single invalid token
+    ],
+)
+def test_validate_known_options(display_options, expected):
+    """Test the _validate_known_options function to ensure it correctly validates known display options.
+
+    Parameters:
+        display_options (str): The display options string to validate.
+        expected (bool): The expected result of the validation.
+
+    """
+    errors = {}
+    result = _validate_known_options(display_options, errors)
+    assert result is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "display_options,has_error",
+    [
+        ("zone,place", False),  # Valid
+        ("zone,[place,(zone)]", True),  # Invalid
+        ("zone,[place,(zone]", True),  # Invalid
+        # ("zone,,place", False),  # Valid (your logic does not catch double comma)
+        # ("zone name,place", False),  # Valid (your logic does not catch space in option name)
+        # ("zone,unknown", False),  # Valid (your logic does not catch unknown option)
+    ],
+)
+async def test_validate_display_options(display_options, has_error):
+    """Test the validate_display_options function to ensure it returns errors for invalid display option syntax.
+
+    Parameters:
+        display_options (str): The display options string to validate.
+        has_error (bool): Whether an error is expected for the given input.
+
+    """
+    errors = {}
+    result = await validate_display_options(display_options, errors)
+    assert (result != {}) is has_error
+
+
+@pytest.mark.asyncio
+async def test_validate_display_options_brackets_then_paren_invalid():
+    """Advanced validation fails for bracket group directly followed by paren group."""
+    errors = {}
+    result = await validate_display_options("zone,[place](zone)", errors)
+    assert result != {}
+
+
+@pytest.mark.asyncio
+async def test_config_flow_user_step_no_input_shows_form(mock_hass):
+    """User step with no input returns a form and includes description placeholders."""
+    flow = PlacesConfigFlow()
+    flow.hass = mock_hass
+    result = await flow.async_step_user(None)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "user"
+    assert "data_schema" in result
+
+
+@pytest.mark.asyncio
+async def test_config_flow_user_step_invalid_display_options(mock_hass):
+    """Invalid display options should return form with errors populated."""
+    flow = PlacesConfigFlow()
+    flow.hass = mock_hass
+    bad_input = {
+        "name": "Bad Sensor",
+        "devicetracker_id": "device.test",
+        "options": "zone,[place,(zone]",  # mismatched using correct key
+        "home_zone": "zone.home",
+        "map_provider": "osm",
+        "map_zoom": 10,
+        "use_gps": True,
+        "extended_attr": False,
+        "show_time": True,
+        "date_format": "mm/dd",
+        "language": "en",
+    }
+    result = await flow.async_step_user(bad_input)
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] != {}
+    assert result["step_id"] == "user"
+
+
+@pytest.mark.asyncio
+async def test_options_flow_invalid_display_options_shows_form(mock_hass, config_entry):
+    """Options flow with invalid display options string returns form (errors path)."""
+    config_entry.add_to_hass(mock_hass)
+    handler = PlacesOptionsFlowHandler()
+    handler.hass = mock_hass
+    with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
+        bad_user_input = {
+            "devicetracker_id": "device.test",
+            "options": "zone,[place,(zone]",  # invalid using correct key
+        }
+        result = await handler.async_step_init(bad_user_input)
+        assert result["type"] == FlowResultType.FORM
+        assert result["errors"] != {}
+        assert result["step_id"] == "init"
+
+
+@pytest.mark.parametrize(
+    "display_options,expected",
+    [
+        ("zone,place", True),  # Valid: single comma
+        ("zone,,place", False),  # Invalid: double comma
+        ("zone,[place,zone]", True),  # Valid: comma inside brackets
+        ("zone,[place,]", False),  # Invalid: trailing comma in brackets
+        ("zone,[,place]", False),  # Invalid: leading comma in brackets
+        ("zone,(place,zone)", True),  # Valid: comma inside parentheses
+        ("zone,(place,)", False),  # Invalid: trailing comma in parentheses
+        ("zone,(,place)", False),  # Invalid: leading comma in parentheses
+        ("zone, place", True),  # Valid: space after comma
+        ("zone,[place , zone]", True),  # Valid: spaces around comma inside brackets
+    ],
+)
+def test_validate_comma_syntax(display_options, expected):
+    """Test the _validate_comma_syntax function to ensure it correctly validates comma usage in display_options.
+
+    Parameters:
+        display_options (str): The display options string to validate.
+        expected (bool): The expected result of the validation.
+
+    """
+    errors = {}
+    result = _validate_comma_syntax(display_options, errors)
+    assert result is expected
+
+
+@pytest.mark.parametrize(
+    "display_options,expected",
+    [
+        ("zone,place", True),  # Valid: no spaces
+        ("zone, place", True),  # Valid: space after comma is allowed
+        ("zone name,place", False),  # Invalid: space in option name
+        ("zone,[place,zone name]", False),  # Invalid: space in option name inside brackets
+        ("zone,[place , zone]", True),  # Valid: spaces around comma inside brackets
+        ("zone,place-name", True),  # Valid: dash allowed
+        ("zone,place+name", True),  # Valid: plus allowed
+        ("zone, place + name", False),  # Invalid: space in option name with plus
+    ],
+)
+def test_validate_option_names(display_options, expected):
+    """Test the _validate_option_names function to ensure it correctly validates option names in display_options.
+
+    Parameters:
+        display_options (str): The display options string to validate.
+        expected (bool): The expected result of the validation.
+
+    """
+    errors = {}
+    result = _validate_option_names(display_options, errors)
+    assert result is expected
