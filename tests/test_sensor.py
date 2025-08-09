@@ -731,8 +731,8 @@ async def test_process_display_options_formatted_place(monkeypatch):
         mock_parser.build_formatted_place = AsyncMock(return_value="fp")
         mock_parser_cls.return_value = mock_parser
         await Places.process_display_options(sensor)
-        sensor.set_attr.assert_any_call(ATTR_FORMATTED_PLACE, "fp")
-        sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "formatted_place")
+    sensor.set_attr.assert_any_call(ATTR_FORMATTED_PLACE, "fp")
+    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "formatted_place")
 
 
 @pytest.mark.asyncio
@@ -750,7 +750,7 @@ async def test_process_display_options_advanced_options(monkeypatch):
         mock_parser.compile_state = AsyncMock(return_value="adv_state")
         mock_parser_cls.return_value = mock_parser
         await Places.process_display_options(sensor)
-        sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "adv_state")
+    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "adv_state")
 
 
 @pytest.mark.asyncio
@@ -769,7 +769,7 @@ async def test_process_display_options_not_in_zone(monkeypatch):
         mock_parser.build_display = AsyncMock(return_value="display_state")
         mock_parser_cls.return_value = mock_parser
         await Places.process_display_options(sensor)
-        sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "display_state")
+    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "display_state")
 
 
 @pytest.mark.asyncio

@@ -137,11 +137,7 @@ BASE_INTERNAL_ATTR = {
     ],
 )
 async def test_display_options_state_render(display_option: str, expected_state: str):
-    """Render the expected native state for a variety of CONF_DISPLAY_OPTIONS values.
-
-    This test injects a pre-built internal attribute snapshot and verifies
-    that `process_display_options` outputs the expected `native_value`.
-    """
+    """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
 
     # Minimal config / objects required for Places init
     hass = MagicMock()
