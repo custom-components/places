@@ -6,7 +6,28 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from custom_components.places.advanced_options import AdvancedOptionsParser
-from tests.conftest import MockSensor
+from tests.conftest import mock_sensor
+
+
+@pytest.fixture
+def sensor():
+    """Shared sensor fixture returning a configured MockSensor instance."""
+    return mock_sensor()
+
+
+@pytest.fixture
+def advanced_parser():
+    """Factory fixture to create an AdvancedOptionsParser and its sensor.
+
+    Returns (parser, sensor).
+    """
+
+    def _create(opts_str=None, attrs=None, in_zone=False):
+        sensor = mock_sensor(attrs=attrs, in_zone=in_zone)
+        parser = AdvancedOptionsParser(sensor, opts_str or "")
+        return parser, sensor
+
+    return _create
 
 
 @pytest.mark.asyncio
@@ -19,10 +40,9 @@ from tests.conftest import MockSensor
         ("a[b]c)", False),
     ],
 )
-async def test_do_brackets_and_parens_count_match(input_str, expected):
+async def test_do_brackets_and_parens_count_match(input_str, expected, advanced_parser):
     """Return True when brackets and parens counts match, otherwise False."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
+    parser, sensor = advanced_parser()
     assert await parser.do_brackets_and_parens_count_match(input_str) is expected
 
 
@@ -34,7 +54,7 @@ async def test_do_brackets_and_parens_count_match(input_str, expected):
         ("missing", None),
     ],
 )
-async def test_get_option_state_basic(key, expected):
+async def test_get_option_state_basic(key, expected, advanced_parser):
     """Return the expected option state for a basic key lookup."""
     attrs = {
         "devicetracker_zone_name": "Home",
@@ -42,8 +62,7 @@ async def test_get_option_state_basic(key, expected):
         "street": "Main St",
         "name": "Test",
     }
-    sensor = MockSensor(attrs, in_zone=True)
-    parser = AdvancedOptionsParser(sensor, "")
+    parser, sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state(key)
     assert out == expected
 
@@ -57,11 +76,10 @@ async def test_get_option_state_basic(key, expected):
         (None, ["home"], None),
     ],
 )
-async def test_get_option_state_incl_excl(incl, excl, expected):
+async def test_get_option_state_incl_excl(incl, excl, expected, advanced_parser):
     """Respect inclusion/exclusion lists when resolving option state."""
     attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
-    sensor = MockSensor(attrs, in_zone=True)
-    parser = AdvancedOptionsParser(sensor, "")
+    parser, sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state("zone_name", incl=incl, excl=excl)
     assert out == expected
 
@@ -75,11 +93,12 @@ async def test_get_option_state_incl_excl(incl, excl, expected):
         (None, {"place_type": ["Restaurant"]}, None),
     ],
 )
-async def test_get_option_state_incl_attr_excl_attr(incl_attr, excl_attr, expected):
+async def test_get_option_state_incl_attr_excl_attr(
+    incl_attr, excl_attr, expected, advanced_parser
+):
     """Apply attribute-based inclusion/exclusion filters when resolving option state."""
     attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
-    sensor = MockSensor(attrs, in_zone=True)
-    parser = AdvancedOptionsParser(sensor, "")
+    parser, sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state("zone_name", incl_attr=incl_attr, excl_attr=excl_attr)
     assert out == expected
 
@@ -92,7 +111,7 @@ async def test_get_option_state_incl_attr_excl_attr(incl_attr, excl_attr, expect
         ("place_category", "Food"),
     ],
 )
-async def test_get_option_state_title_case(key, expected):
+async def test_get_option_state_title_case(key, expected, advanced_parser):
     """Return title-cased option values when appropriate."""
     attrs = {
         "devicetracker_zone_name": "home",
@@ -100,8 +119,7 @@ async def test_get_option_state_title_case(key, expected):
         "place_category": "food",
         "name": "Test",
     }
-    sensor = MockSensor(attrs)
-    parser = AdvancedOptionsParser(sensor, "")
+    parser, sensor = advanced_parser(attrs=attrs)
     out = await parser.get_option_state(key)
     assert out == expected
 
@@ -115,11 +133,10 @@ async def test_get_option_state_title_case(key, expected):
     ],
 )
 async def test_parse_attribute_parentheses_incl_excl(
-    input_str, expected_attr, expected_lst, expected_incl
+    input_str, expected_attr, expected_lst, expected_incl, advanced_parser
 ):
     """Parse attribute parentheses into (attr, list, include_flag)."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
+    parser, sensor = advanced_parser()
     attr, lst, incl = parser.parse_attribute_parentheses(input_str)
     assert attr == expected_attr
     assert lst == expected_lst
@@ -135,11 +152,15 @@ async def test_parse_attribute_parentheses_incl_excl(
     ],
 )
 async def test_parse_parens_and_bracket(
-    parens_input, parens_expected_incl, parens_expected_excl, bracket_input, bracket_expected
+    parens_input,
+    parens_expected_incl,
+    parens_expected_excl,
+    bracket_input,
+    bracket_expected,
+    advanced_parser,
 ):
     """Parse parens and bracketed options into their expected parts."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
+    parser, sensor = advanced_parser()
     incl, excl, incl_attr, excl_attr, next_opt = await parser.parse_parens(parens_input)
     assert incl == parens_expected_incl
     assert excl == parens_expected_excl
@@ -149,43 +170,33 @@ async def test_parse_parens_and_bracket(
 
 
 @pytest.mark.asyncio
-async def test_compile_state():
-    """Join state_list elements into a comma-separated string."""
-    attrs = {"zone_name": "home", "place_type": "restaurant"}
-    sensor = MockSensor(attrs)
+@pytest.mark.parametrize(
+    "state_list,street_i,street_num_i,expected",
+    [
+        (["Home", "Restaurant"], None, None, "Home, Restaurant"),
+        ([None, "Home", "", "Restaurant"], None, None, "Home, Restaurant"),
+        (["Home", "123", "Main St"], 1, 1, "Home, 123, Main St"),
+    ],
+)
+async def test_compile_state_variants(state_list, street_i, street_num_i, expected, sensor):
+    """Compile state_list into the expected string across variants."""
+    # Use shared sensor fixture and adjust state for this scenario
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")
-    parser.state_list = ["Home", "Restaurant"]
+    parser.state_list = state_list
+    if street_i is not None:
+        parser._street_i = street_i
+    if street_num_i is not None:
+        parser._street_num_i = street_num_i
     result = await parser.compile_state()
-    assert result == "Home, Restaurant"
+    assert result == expected
 
 
 @pytest.mark.asyncio
-async def test_compile_state_skips_none_or_empty():
-    """Skip falsy values when compiling state_list."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
-    parser.state_list = [None, "Home", "", "Restaurant"]
-    result = await parser.compile_state()
-    assert result == "Home, Restaurant"
-
-
-@pytest.mark.asyncio
-async def test_compile_state_street_space():
-    """Use space separator for street/street number when indices match."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
-    parser.state_list = ["Home", "123", "Main St"]
-    parser._street_i = 1
-    parser._street_num_i = 1
-    # The second item should be joined with a comma to the third (current implementation)
-    result = await parser.compile_state()
-    assert result == "Home, 123, Main St"
-
-
-@pytest.mark.asyncio
-async def test_build_from_advanced_options_bracket_paren_mismatch():
+async def test_build_from_advanced_options_bracket_paren_mismatch(sensor):
     """Return early on unmatched brackets without modifying state_list."""
-    sensor = MockSensor()
+    # Use shared sensor fixture
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "[unmatched")
     # Should return early (no error thrown, state_list unchanged)
     await parser.build_from_advanced_options()
@@ -193,65 +204,64 @@ async def test_build_from_advanced_options_bracket_paren_mismatch():
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_bracket_and_paren():
+async def test_build_from_advanced_options_bracket_and_paren(sensor):
     """Process options that include both brackets and parentheses and call get_option_state."""
     attrs = {"zone_name": "Home", "place_type": "Restaurant"}
-    sensor = MockSensor(attrs)
+    sensor.attrs = attrs
     parser = AdvancedOptionsParser(sensor, "zone_name[place_type(work)]")
     # Patch get_option_state to track calls
     called = {}
 
-    async def fake_get_option_state(opt, *a, **kw):
-        """Fake get_option_state that records the accessed option and returns attrs[opt]."""
+    async def _side(opt, *a, **kw):
         called[opt] = True
         return attrs.get(opt)
 
-    parser.get_option_state = fake_get_option_state
+    parser.get_option_state = AsyncMock(side_effect=_side)
     await parser.build_from_advanced_options()
     assert "zone_name" in called
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_empty_string():
+async def test_build_from_advanced_options_empty_string(sensor):
     """No-op when advanced options string is empty."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")
     await parser.build_from_advanced_options()
     assert parser.state_list == []
 
 
 @pytest.mark.asyncio
-async def test_parse_bracket_mismatch_logs_error():
-    """Log an error and return None/empty for unmatched brackets."""
-    sensor = MockSensor()
+@pytest.mark.parametrize(
+    "fn_name,input_val,expected_empty",
+    [
+        ("parse_bracket", "[unmatched", True),
+        ("parse_parens", "(unmatched", True),
+    ],
+)
+async def test_mismatched_special_chars_log_error(
+    caplog, sensor, fn_name, input_val, expected_empty
+):
+    """Parametrized: unmatched bracket/paren inputs should log an error and return empty-ish results."""
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")
-    # Patch logger to capture error
-    with patch.object(
-        logging.getLogger("custom_components.places.advanced_options"), "error"
-    ) as mock_log:
-        none_opt, next_opt = await parser.parse_bracket("[unmatched")
+    caplog.set_level(logging.ERROR, logger="custom_components.places.advanced_options")
+    fn = getattr(parser, fn_name)
+    res = await fn(input_val)
+    # Expect an error record was emitted
+    assert any(r.levelname == "ERROR" for r in caplog.records)
+    # Both functions return an 'empty' style result on mismatch; assert using simple checks
+    if fn_name == "parse_bracket":
+        none_opt, next_opt = res
         assert none_opt is None or none_opt == ""
-        mock_log.assert_called()
-
-
-@pytest.mark.asyncio
-async def test_parse_parens_mismatch_logs_error():
-    """Log an error and return empty inclusion list for unmatched parentheses."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
-    # Patch logger to capture error
-    with patch.object(
-        logging.getLogger("custom_components.places.advanced_options"), "error"
-    ) as mock_log:
-        incl, excl, incl_attr, excl_attr, next_opt = await parser.parse_parens("(unmatched")
+    else:
+        incl, excl, incl_attr, excl_attr, next_opt = res
         assert incl == []
-        mock_log.assert_called()
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_not_none_calls_normal(monkeypatch):
+async def test_build_from_advanced_options_not_none_calls_normal(sensor):
     """Process single term when curr_options is provided."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
     called = {}
 
@@ -264,9 +274,9 @@ async def test_build_from_advanced_options_not_none_calls_normal(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_processed_options(monkeypatch):
+async def test_build_from_advanced_options_processed_options(sensor):
     """Return early and log error when curr_options already processed."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
     parser._processed_options.add("zone_name")
     with patch.object(
@@ -278,10 +288,11 @@ async def test_build_from_advanced_options_processed_options(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_no_bracket_or_paren(monkeypatch):
+async def test_build_from_advanced_options_no_bracket_or_paren(sensor):
     """Skip bracket/paren processing when none are present."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
+    # Assign AsyncMock stubs directly so they remain on parser for assertions
     parser.process_bracket_or_parens = AsyncMock()
     parser.process_only_commas = AsyncMock()
     parser.process_single_term = AsyncMock()
@@ -290,9 +301,9 @@ async def test_build_from_advanced_options_no_bracket_or_paren(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_with_comma(monkeypatch):
+async def test_build_from_advanced_options_with_comma(sensor):
     """Delegate to process_only_commas when comma present in options."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name,place_type")
     parser.process_only_commas = AsyncMock()
     await parser.build_from_advanced_options("zone_name,place_type")
@@ -300,9 +311,9 @@ async def test_build_from_advanced_options_with_comma(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_no_comma(monkeypatch):
+async def test_build_from_advanced_options_no_comma(sensor):
     """Call process_single_term when options string has no comma."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
     parser.process_single_term = AsyncMock()
     await parser.build_from_advanced_options("zone_name")
@@ -310,43 +321,28 @@ async def test_build_from_advanced_options_no_comma(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_parse_bracket_not_starts_with_bracket():
-    """Handle parse_bracket input that does not start with '[' correctly."""
-    sensor = MockSensor()
+@pytest.mark.parametrize(
+    "input_str,expected_none_opt,expected_next_opt",
+    [
+        ("option]", "option", ""),
+        ("]", "", ""),
+        ("[outer[inner]]", "outer[inner]", ""),
+    ],
+)
+async def test_parse_bracket_variants(input_str, expected_none_opt, expected_next_opt, sensor):
+    """Parse bracket inputs and return expected (none_opt, next_opt) pairs."""
     parser = AdvancedOptionsParser(sensor, "")
-    # Should treat the string as-is
-    none_opt, next_opt = await parser.parse_bracket("option]")
-    assert none_opt == "option"  # Should parse up to the closing bracket
-    assert next_opt == ""
+    none_opt, next_opt = await parser.parse_bracket(input_str)
+    assert none_opt == expected_none_opt
+    assert next_opt == expected_next_opt
 
 
 @pytest.mark.asyncio
-async def test_parse_bracket_starts_with_closing_bracket():
-    """Return empty option when input is just a closing bracket."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
-    none_opt, next_opt = await parser.parse_bracket("]")
-    assert none_opt == ""  # Should be empty
-    assert next_opt == ""
-
-
-@pytest.mark.asyncio
-async def test_parse_bracket_counts_opening_bracket():
-    """Parse nested brackets and return inner content correctly."""
-    sensor = MockSensor()
-    parser = AdvancedOptionsParser(sensor, "")
-    # Input with nested brackets, starting with '['
-    none_opt, next_opt = await parser.parse_bracket("[outer[inner]]")
-    # Should parse up to the matching closing bracket
-    assert none_opt == "outer[inner]"  # Everything inside the outer brackets
-    assert next_opt == ""
-
-
-@pytest.mark.asyncio
-async def test_process_bracket_or_parens_comma_first_builds_states():
+async def test_process_bracket_or_parens_comma_first_builds_states(sensor):
     """Process comma-separated options and append title-cased states."""
     attrs = {"devicetracker_zone_name": "Home", "place_type": "restaurant", "name": "Test"}
-    sensor = MockSensor(attrs, in_zone=True)
+    sensor.attrs = attrs
+    sensor._in_zone = True
     parser = AdvancedOptionsParser(sensor, "zone_name,place_type")
     await parser.build_from_advanced_options()
     # Title casing applied to place_type
@@ -354,10 +350,11 @@ async def test_process_bracket_or_parens_comma_first_builds_states():
 
 
 @pytest.mark.asyncio
-async def test_bracket_fallback_when_primary_option_none():
+async def test_bracket_fallback_when_primary_option_none(sensor):
     """Use bracket fallback when primary option yields None."""
     attrs = {"place_type": "work", "name": "Test"}
-    sensor = MockSensor(attrs, in_zone=False)  # zone_name will be excluded (not in zone)
+    sensor.attrs = attrs
+    sensor._in_zone = False  # zone_name will be excluded (not in zone)
     parser = AdvancedOptionsParser(sensor, "zone_name[place_type(work)]")
     await parser.build_from_advanced_options()
     # zone_name excluded so fallback to place_type(work) -> Work
@@ -365,10 +362,11 @@ async def test_bracket_fallback_when_primary_option_none():
 
 
 @pytest.mark.asyncio
-async def test_paren_then_bracket_fallback_exclusion():
+async def test_paren_then_bracket_fallback_exclusion(sensor):
     """Parenthesis filters can exclude primary option and fall back to bracket option."""
     attrs = {"devicetracker_zone_name": "Home", "place_type": "restaurant", "name": "Test"}
-    sensor = MockSensor(attrs, in_zone=True)
+    sensor.attrs = attrs
+    sensor._in_zone = True
     # Parenthesis after option (parenthesis-first branch relative to first special char): exclude 'home'
     parser = AdvancedOptionsParser(sensor, "zone_name(-,home)[place_type]")
     await parser.build_from_advanced_options()
@@ -377,19 +375,20 @@ async def test_paren_then_bracket_fallback_exclusion():
 
 
 @pytest.mark.asyncio
-async def test_get_option_state_incl_attr_blank_causes_exclusion():
+async def test_get_option_state_incl_attr_blank_causes_exclusion(sensor):
     """Return None when included attribute filters reference missing/blank attributes."""
     attrs = {"devicetracker_zone_name": "Home", "name": "Test"}  # place_type missing -> blank
-    sensor = MockSensor(attrs, in_zone=True)
+    sensor.attrs = attrs
+    sensor._in_zone = True
     parser = AdvancedOptionsParser(sensor, "")
     out = await parser.get_option_state("zone_name", incl_attr={"place_type": ["restaurant"]})
     assert out is None
 
 
 @pytest.mark.asyncio
-async def test_compile_state_space_when_street_indices_match():
+async def test_compile_state_space_when_street_indices_match(sensor):
     """Use a space separator when street indices align after increment."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")
     parser.state_list = ["123", "Main St"]
     # Set indices so after increment _street_num_i becomes 0 and matches _street_i=0 for first element? Need both to match second element, so set before increment to 0 so becomes 1 then set _street_i=1
@@ -401,9 +400,9 @@ async def test_compile_state_space_when_street_indices_match():
 
 
 @pytest.mark.asyncio
-async def test_parse_parens_with_attribute_filters():
+async def test_parse_parens_with_attribute_filters(sensor):
     """Populate incl_attr when attribute-specific filters are present in parens."""
-    sensor = MockSensor()
+    sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")
     incl, excl, incl_attr, excl_attr, next_opt = await parser.parse_parens(
         "(type(restaurant,bar),home)"

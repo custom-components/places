@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import copy
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_DISPLAY_OPTIONS,
@@ -136,15 +137,19 @@ BASE_INTERNAL_ATTR = {
         ),
     ],
 )
-async def test_display_options_state_render(display_option: str, expected_state: str):
+async def test_display_options_state_render(
+    display_option: str, expected_state: str, mock_hass, patch_entity_registry
+):
     """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
 
     # Minimal config / objects required for Places init
-    hass = MagicMock()
-    hass.states = MagicMock()
-    config_entry = MagicMock()
-    config_entry.data = {CONF_NAME: "Test Place"}
+    # Use shared mock_hass fixture for consistency
+    # Ensure entity registry lookups are skipped for this mocked hass
+    # Use the shared `patch_entity_registry` fixture to avoid inline registry patching.
+    config_entry = MockConfigEntry(domain="places", data={CONF_NAME: "Test Place"})
     config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
+
+    hass = mock_hass
 
     sensor = Places(hass, config, config_entry, "Test Place", "unique-id-123", {})
 
@@ -162,9 +167,9 @@ async def test_display_options_state_render(display_option: str, expected_state:
     sensor.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
 
     # Force out-of-zone behavior (devicetracker_zone_name is 'not_home')
-    sensor.in_zone = AsyncMock(return_value=False)
-
-    await sensor.process_display_options()
+    # Temporarily patch the instance method so it is restored after the block.
+    with patch.object(sensor, "in_zone", AsyncMock(return_value=False)):
+        await sensor.process_display_options()
 
     assert sensor.get_attr(ATTR_NATIVE_VALUE) == expected_state, (
         f"Display option '{display_option}' produced '{sensor.get_attr(ATTR_NATIVE_VALUE)}', "

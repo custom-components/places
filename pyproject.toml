@@ -9,8 +9,9 @@ addopts = """
   --timeout=10
   --durations=10
   -o console_output_style=progress
-  --cov=custom_components.places
   --junitxml=pytest.xml
+  --cov=custom_components.places
+  --cov-branch
   --cov-report=term
   --cov-report=xml
   --cov-report=html
@@ -19,7 +20,6 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["custom_components.places"]
 parallel = true
 
 [tool.coverage.report]
@@ -56,7 +56,7 @@ ignore_missing_imports = true
 disallow_untyped_defs = false
 disallow_untyped_calls = false
 disallow_incomplete_defs = false
-disable_error_code = ["arg-type", "method-assign", "no-untyped-def", "index", "union-attr", "operator"]
+disable_error_code = ["import-untyped", "arg-type", "method-assign", "no-untyped-def", "index", "union-attr", "operator"]
 check_untyped_defs = false
 warn_unused_ignores = false
 

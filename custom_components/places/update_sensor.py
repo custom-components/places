@@ -28,6 +28,7 @@ from homeassistant.const import (
     __version__ as HA_VERSION,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.location import distance
 
 from .const import (
@@ -721,10 +722,10 @@ class PlacesUpdater:
             get_dict = None
 
             try:
-                async with (
-                    aiohttp.ClientSession(headers=headers) as session,
-                    session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response,
-                ):
+                session = async_get_clientsession(self._hass)
+                async with session.get(
+                    url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
                     get_json_input = await response.text()
                     _LOGGER.debug(
                         "(%s) %s Response: %s",
@@ -744,7 +745,7 @@ class PlacesUpdater:
                             get_json_input,
                         )
                         return
-            except (aiohttp.ClientError, TimeoutError, OSError) as e:
+            except (aiohttp.ClientError, TimeoutError, OSError, RuntimeError) as e:
                 _LOGGER.warning(
                     "(%s) Error connecting to %s [%s: %s]: %s",
                     self.sensor.get_attr(CONF_NAME),

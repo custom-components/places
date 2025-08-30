@@ -12,84 +12,63 @@ from custom_components.places.helpers import (
     clear_since_from_state,
     create_json_folder,
     get_dict_from_json_file,
-    is_float,
     remove_json_file,
     safe_truncate,
     write_sensor_to_json,
 )
 
 
-def test_create_json_folder_creates(tmp_path):
-    """Ensure create_json_folder creates the target directory when it doesn't exist."""
+@pytest.mark.parametrize(
+    "precreate",
+    [False, True],
+)
+def test_create_json_folder_param(tmp_path: Path | Any, precreate: bool) -> None:
+    """Ensure create_json_folder creates the target directory and is idempotent if it already exists."""
     folder = tmp_path / "json_folder"
+    if precreate:
+        folder.mkdir()
     create_json_folder(str(folder))
     assert folder.exists() and folder.is_dir()
 
 
-def test_create_json_folder_existing(tmp_path):
-    """Ensure create_json_folder is idempotent when the folder already exists."""
-    folder = tmp_path / "json_folder"
-    folder.mkdir()
-    create_json_folder(str(folder))  # Should not raise
-    assert folder.exists()
-
-
-def test_get_dict_from_json_file_reads(tmp_path):
-    """Verify reading a JSON file returns the correct dict payload when the file exists."""
+@pytest.mark.parametrize(
+    "existing,expected",
+    [
+        (True, {"a": 1, "b": "x"}),
+        (False, {}),
+    ],
+)
+def test_get_dict_from_json_file_param(
+    tmp_path: Path | Any, existing: bool, expected: dict[str, Any]
+) -> None:
+    """Read JSON file returns dict when present, else empty dict when missing."""
     folder = tmp_path
     filename = "test.json"
-    data = {"a": 1, "b": "x"}
-    file_path = folder / filename
-    file_path.write_text(json.dumps(data))
+    if existing:
+        data = {"a": 1, "b": "x"}
+        (folder / filename).write_text(json.dumps(data))
     result = get_dict_from_json_file("test", filename, str(folder))
-    assert result == data
+    assert result == expected
 
 
-def test_get_dict_from_json_file_missing(tmp_path):
-    """Verify get_dict_from_json_file returns an empty dict for missing files instead of throwing."""
-    folder = tmp_path
-    filename = "missing.json"
-    result = get_dict_from_json_file("test", filename, str(folder))
-    assert result == {}
-
-
-def test_remove_json_file_removes(tmp_path):
-    """Ensure remove_json_file deletes an existing JSON file and leaves no trace."""
+@pytest.mark.parametrize(
+    "precreate",
+    [True, False],
+)
+def test_remove_json_file_param(tmp_path: Path | Any, precreate: bool) -> None:
+    """remove_json_file deletes the file when present and is a no-op when missing."""
     folder = tmp_path
     filename = "toremove.json"
     file_path = folder / filename
-    file_path.write_text("test")
-    assert file_path.exists()
+    if precreate:
+        file_path.write_text("test")
+        assert file_path.exists()
+    # Should not raise
     remove_json_file("test", filename, str(folder))
     assert not file_path.exists()
 
 
-def test_remove_json_file_missing(tmp_path):
-    """Ensure remove_json_file is a no-op when the target file does not exist."""
-    folder = tmp_path
-    filename = "missing.json"
-    # Should not raise
-    remove_json_file("test", filename, str(folder))
-
-
-def test_is_float_true_for_float():
-    """is_float should accept numeric types and numeric strings as floats."""
-    assert is_float(1.23)
-    assert is_float("2.34")
-    assert is_float(0)
-    assert is_float("0")
-    assert is_float(-5.6)
-
-
-def test_is_float_false_for_non_float():
-    """is_float should reject non-numeric and non-string values."""
-    assert not is_float(None)
-    assert not is_float("abc")
-    assert not is_float({})
-    assert not is_float([])
-
-
-def test_write_sensor_to_json_excludes_datetime(tmp_path):
+def test_write_sensor_to_json_excludes_datetime(tmp_path: Path | Any) -> None:
     """Ensure write_sensor_to_json excludes non-serializable datetime values from the output file."""
     folder = tmp_path
     filename = "sensor.json"
@@ -102,14 +81,17 @@ def test_write_sensor_to_json_excludes_datetime(tmp_path):
     assert "b" not in loaded
 
 
-def test_clear_since_from_state_removes_pattern():
-    """Test that clear_since_from_state removes '(since ...)' patterns from strings."""
-    s = "Home (since 12:34)"
-    assert clear_since_from_state(s) == "Home"
-    s2 = "Work (since 01/23)"
-    assert clear_since_from_state(s2) == "Work"
-    s3 = "Elsewhere"
-    assert clear_since_from_state(s3) == "Elsewhere"
+@pytest.mark.parametrize(
+    "input_str,expected",
+    [
+        ("Home (since 12:34)", "Home"),
+        ("Work (since 01/23)", "Work"),
+        ("Elsewhere", "Elsewhere"),
+    ],
+)
+def test_clear_since_from_state_removes_pattern(input_str: str, expected: str) -> None:
+    """Test that clear_since_from_state removes '(since ...)' patterns from strings (parametrized)."""
+    assert clear_since_from_state(input_str) == expected
 
 
 @pytest.mark.parametrize(
@@ -121,28 +103,32 @@ def test_clear_since_from_state_removes_pattern():
         (None, 3, ""),  # None
     ],
 )
-def test_safe_truncate(input_str, max_len, expected):
+def test_safe_truncate(input_str: str | None, max_len: int, expected: str) -> None:
     """Test that safe_truncate returns the correct truncated string for various input scenarios."""
     assert safe_truncate(input_str, max_len) == expected
 
 
-def test_is_float_various() -> None:
-    """is_float should return True for numbers and numeric strings, False otherwise."""
-    assert helpers.is_float(None) is False
-    assert helpers.is_float(123) is True
-    assert helpers.is_float(123.45) is True
-    assert helpers.is_float("1.23") is True
-    assert helpers.is_float("not-a-number") is False
-
-
-def test_safe_truncate_and_clear_since() -> None:
-    """safe_truncate returns expected truncation and clear_since_from_state removes the since part."""
-    assert helpers.safe_truncate(None, 10) == ""
-    assert helpers.safe_truncate("short", 10) == "short"
-    assert helpers.safe_truncate("this is long", 4) == "this"
-
-    assert helpers.clear_since_from_state("Home (since 12:34)") == "Home"
-    assert helpers.clear_since_from_state("Away") == "Away"
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (1.23, True),
+        ("2.34", True),
+        (0, True),
+        ("0", True),
+        (-5.6, True),
+        (123, True),
+        (123.45, True),
+        ("1.23", True),
+        (None, False),
+        ("abc", False),
+        ({}, False),
+        ([], False),
+        ("not-a-number", False),
+    ],
+)
+def test_is_float_param(value: Any, expected: bool) -> None:
+    """is_float returns expected boolean for a variety of inputs."""
+    assert helpers.is_float(value) is expected
 
 
 def test_write_read_and_remove_json_file(tmp_path: Path) -> None:

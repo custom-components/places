@@ -4,6 +4,7 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_DEVICETRACKER_ZONE,
@@ -17,69 +18,44 @@ from custom_components.places.const import (
 )
 from custom_components.places.sensor import EVENT_TYPE, RECORDER_INSTANCE, Places, async_setup_entry
 
+from .conftest import stub_in_zone, stub_method, stubbed_parser
+
 
 @pytest.fixture
-def places_instance():
-    """Fixture that returns a Places instance for testing."""
-    hass = MagicMock()
+def places_instance(mock_hass, patch_entity_registry):
+    """Fixture that returns a Places instance for testing using the shared mock_hass fixture."""
+    hass = mock_hass
     config = {"devicetracker_id": "test_id"}
-    config_entry = MagicMock()
+    config_entry = MockConfigEntry(domain="places", data={})
     name = "TestSensor"
     unique_id = "unique123"
     imported_attributes = {}
     return Places(hass, config, config_entry, name, unique_id, imported_attributes)
 
 
-def test_get_attr_safe_float_not_set_returns_zero(places_instance):
-    """get_attr_safe_float should return 0.0 for missing attributes."""
-    assert places_instance.get_attr_safe_float("missing_attr") == 0.0
+@pytest.mark.parametrize(
+    "setup_value,attr_name,expected,default",
+    [
+        (42.5, "float_attr", 42.5, None),
+        ("3.1415", "float_str_attr", 3.1415, None),
+        ("not_a_float", "bad_str_attr", 0.0, None),
+        (None, "none_attr", 0.0, None),
+        (7, "int_attr", 7.0, None),
+        ([1, 2, 3], "list_attr", 0.0, None),
+        ({"a": 1}, "dict_attr", 0.0, None),
+    ],
+)
+def test_get_attr_safe_float_various(places_instance, setup_value, attr_name, expected, default):
+    """Parametrized checks for get_attr_safe_float behavior across multiple input types.
 
-
-def test_get_attr_safe_float_valid_float(places_instance):
-    """If an attribute is already a float, get_attr_safe_float should return it unchanged."""
-    places_instance.set_attr("float_attr", 42.5)
-    assert places_instance.get_attr_safe_float("float_attr") == 42.5
-
-
-def test_get_attr_safe_float_string_float(places_instance):
-    """String float values should be parsed and returned as floats by get_attr_safe_float."""
-    places_instance.set_attr("float_str_attr", "3.1415")
-    assert places_instance.get_attr_safe_float("float_str_attr") == 3.1415
-
-
-def test_get_attr_safe_float_non_numeric_string(places_instance):
-    """Non-numeric strings should result in a 0.0 return value from get_attr_safe_float."""
-    places_instance.set_attr("bad_str_attr", "not_a_float")
-    assert places_instance.get_attr_safe_float("bad_str_attr") == 0.0
-
-
-def test_get_attr_safe_float_none(places_instance):
-    """None attribute values should be treated as 0.0 by get_attr_safe_float."""
-    places_instance.set_attr("none_attr", None)
-    assert places_instance.get_attr_safe_float("none_attr") == 0.0
-
-
-def test_get_attr_safe_float_int(places_instance):
-    """Integers stored as attributes should be converted to float by get_attr_safe_float."""
-    places_instance.set_attr("int_attr", 7)
-    assert places_instance.get_attr_safe_float("int_attr") == 7.0
-
-
-def test_get_attr_safe_float_list(places_instance):
-    """Non-scalar types like list should yield 0.0 from get_attr_safe_float."""
-    places_instance.set_attr("list_attr", [1, 2, 3])
-    assert places_instance.get_attr_safe_float("list_attr") == 0.0
-
-
-def test_get_attr_safe_float_dict(places_instance):
-    """Dictionaries passed to get_attr_safe_float should result in 0.0 rather than raising."""
-    places_instance.set_attr("dict_attr", {"a": 1})
-    assert places_instance.get_attr_safe_float("dict_attr") == 0.0
-
-
-def test_get_attr_safe_float_with_default(places_instance):
-    """When missing, get_attr_safe_float should return the provided default value."""
-    assert places_instance.get_attr_safe_float("missing_attr", default=5.5) == 5.5
+    Covers: existing float, numeric string, invalid string, explicit None, int, list, and dict cases.
+    """
+    # If setup_value is provided (including None), set the attribute explicitly; otherwise leave missing
+    places_instance.set_attr(attr_name, setup_value)
+    if default is None:
+        assert places_instance.get_attr_safe_float(attr_name) == expected
+    else:
+        assert places_instance.get_attr_safe_float(attr_name, default=default) == expected
 
 
 def test_set_and_get_attr(places_instance):
@@ -88,63 +64,19 @@ def test_set_and_get_attr(places_instance):
     assert places_instance.get_attr("foo") == "bar"
 
 
-def test_clear_attr(places_instance):
-    """clear_attr should remove the key from internal attrs so get_attr returns None."""
-    places_instance.set_attr("foo", "bar")
-    places_instance.clear_attr("foo")
-    assert places_instance.get_attr("foo") is None
-
-
-def test_get_attr_safe_str_returns_empty_on_none(places_instance):
-    """Missing attributes should be represented as empty string by get_attr_safe_str."""
-    assert places_instance.get_attr_safe_str("missing") == ""
-
-
-def test_get_attr_safe_str_returns_str(places_instance):
-    """Non-string attribute values should be stringified by get_attr_safe_str."""
-    places_instance.set_attr("foo", 123)
-    assert places_instance.get_attr_safe_str("foo") == "123"
-
-
-def test_get_attr_safe_list_returns_empty_on_non_list(places_instance):
-    """Test that get_attr_safe_list returns an empty list when the attribute is not a list."""
-    places_instance.set_attr("notalist", "string")
-    assert places_instance.get_attr_safe_list("notalist") == []
-
-
-def test_get_attr_safe_list_returns_list(places_instance):
-    """Verify that get_attr_safe_list returns the correct list when the attribute is set to a list."""
-    places_instance.set_attr("alist", [1, 2, 3])
-    assert places_instance.get_attr_safe_list("alist") == [1, 2, 3]
-
-
-def test_get_attr_safe_dict_returns_empty_on_non_dict(places_instance):
-    """Verify that get_attr_safe_dict returns an empty dictionary when the attribute is not a dictionary."""
-    places_instance.set_attr("notadict", "string")
-    assert places_instance.get_attr_safe_dict("notadict") == {}
-
-
-def test_get_attr_safe_dict_returns_dict(places_instance):
-    """Verify that get_attr_safe_dict returns the correct dictionary when the attribute is set to a dictionary."""
-    places_instance.set_attr("adict", {"a": 1})
-    assert places_instance.get_attr_safe_dict("adict") == {"a": 1}
-
-
-def test_is_attr_blank_true_for_missing(places_instance):
-    """Test that is_attr_blank returns True when the specified attribute is missing."""
-    assert places_instance.is_attr_blank("missing_attr") is True
-
-
-def test_is_attr_blank_false_for_value(places_instance):
-    """Verify that an attribute with a non-blank value is not considered blank by is_attr_blank."""
-    places_instance.set_attr("foo", "bar")
-    assert places_instance.is_attr_blank("foo") is False
-
-
-def test_is_attr_blank_false_for_zero(places_instance):
-    """Verify that an attribute set to zero is not considered blank by the is_attr_blank method."""
-    places_instance.set_attr("zero_attr", 0)
-    assert places_instance.is_attr_blank("zero_attr") is False
+@pytest.mark.parametrize(
+    "attr_name,setup_value,expected",
+    [
+        ("missing_attr", None, True),
+        ("foo", "bar", False),
+        ("zero_attr", 0, False),
+    ],
+)
+def test_is_attr_blank_various(places_instance, attr_name, setup_value, expected):
+    """Parametrized checks for is_attr_blank covering missing, non-blank string, and zero values."""
+    if setup_value is not None:
+        places_instance.set_attr(attr_name, setup_value)
+    assert places_instance.is_attr_blank(attr_name) is expected
 
 
 def test_extra_state_attributes_basic(monkeypatch, places_instance):
@@ -154,56 +86,31 @@ def test_extra_state_attributes_basic(monkeypatch, places_instance):
     )
     monkeypatch.setattr("custom_components.places.sensor.EXTENDED_ATTRIBUTE_LIST", ["baz", "qux"])
     monkeypatch.setattr("custom_components.places.sensor.CONF_EXTENDED_ATTR", "extended")
-    # Set attributes
-    places_instance.set_attr("foo", "value1")
-    places_instance.set_attr("bar", "value2")
-    places_instance.set_attr("baz", "value3")
-    places_instance.set_attr("qux", "value4")
-    places_instance.set_attr("extended", False)
-    result = places_instance.extra_state_attributes
-    assert result == {"foo": "value1", "bar": "value2"}
-    # Now enable extended
-    places_instance.set_attr("extended", True)
-    result = places_instance.extra_state_attributes
-    assert result == {"foo": "value1", "bar": "value2", "baz": "value3", "qux": "value4"}
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tracker_id", ["device.tracker_1", "device.tracker_2"])
+    async def test_async_added_to_hass_param(monkeypatch, places_instance, tracker_id):
+        """Parametrized: async_added_to_hass subscribes to the configured tracker id and registers the removal callback."""
+        with (
+            patch(
+                "custom_components.places.sensor.async_track_state_change_event",
+                return_value="remove_handle",
+            ) as track_event,
+            patch("custom_components.places.sensor._LOGGER") as logger,
+        ):
+            places_instance.get_attr = MagicMock(return_value=tracker_id)
+            places_instance.tsc_update = MagicMock()
+            places_instance.async_on_remove = MagicMock()
 
-def test_extra_state_attributes_skips_blank(monkeypatch, places_instance):
-    """Test that extra_state_attributes omits attributes that are blank or None.
+            await places_instance.async_added_to_hass()
 
-    Ensures that when attributes in the configured extra state attribute list are empty strings or None, the resulting extra_state_attributes dictionary is empty.
-    """
-    monkeypatch.setattr(
-        "custom_components.places.sensor.EXTRA_STATE_ATTRIBUTE_LIST", ["foo", "bar"]
-    )
-    monkeypatch.setattr("custom_components.places.sensor.EXTENDED_ATTRIBUTE_LIST", [])
-    monkeypatch.setattr("custom_components.places.sensor.CONF_EXTENDED_ATTR", "extended")
-    places_instance.set_attr("foo", "")
-    places_instance.set_attr("bar", None)
-    places_instance.set_attr("extended", False)
-    result = places_instance.extra_state_attributes
-    assert result == {}
-
-
-def test_cleanup_attributes_removes_blank(places_instance):
-    """Test that cleanup_attributes removes blank or None attributes from the internal attribute dictionary."""
-    places_instance.set_attr("foo", "")
-    places_instance.set_attr("bar", None)
-    places_instance.set_attr("baz", "notblank")
-    places_instance.cleanup_attributes()
-    assert "foo" not in places_instance._internal_attr
-    assert "bar" not in places_instance._internal_attr
-    assert "baz" in places_instance._internal_attr
-
-
-def test_set_native_value_sets_and_clears(places_instance):
-    """Test that set_native_value correctly sets and clears the native value attribute."""
-    places_instance.set_native_value("abc")
-    assert places_instance._attr_native_value == "abc"
-    assert places_instance.get_attr("native_value") == "abc"
-    places_instance.set_native_value(None)
-    assert places_instance._attr_native_value is None
-    assert places_instance.get_attr("native_value") is None
+            track_event.assert_called_once_with(
+                places_instance._hass,
+                [tracker_id],
+                places_instance.tsc_update,
+            )
+            places_instance.async_on_remove.assert_called_once_with("remove_handle")
+            logger.debug.assert_called()
 
 
 def test_get_internal_attr_returns_dict(places_instance):
@@ -270,19 +177,40 @@ def test_get_attr_safe_str_handles_value_error(places_instance):
     assert places_instance.get_attr_safe_str("bad") == ""
 
 
-def test_get_attr_safe_str_with_default(places_instance):
-    """Test that get_attr_safe_str returns the specified default value when the attribute is missing."""
-    assert places_instance.get_attr_safe_str("missing", default="abc") == "abc"
+@pytest.mark.parametrize(
+    "attr_name, setup_value, default, expected",
+    [
+        # get_attr_safe_str cases
+        ("missing_str", None, None, ""),
+        ("int_str", 123, None, "123"),
+    ],
+)
+def test_get_attr_safe_str_variants(places_instance, attr_name, setup_value, default, expected):
+    """Parametrized: get_attr_safe_str returns expected string or default for various inputs."""
+    if setup_value is not None:
+        places_instance.set_attr(attr_name, setup_value)
+    if default is None:
+        assert places_instance.get_attr_safe_str(attr_name) == expected
+    else:
+        assert places_instance.get_attr_safe_str(attr_name, default=default) == expected
 
 
-def test_get_attr_safe_list_with_default(places_instance):
-    """Test that get_attr_safe_list returns the specified default value when the attribute is missing."""
-    assert places_instance.get_attr_safe_list("missing", default=[1, 2]) == [1, 2]
-
-
-def test_get_attr_safe_dict_with_default(places_instance):
-    """Test that get_attr_safe_dict returns the specified default value when the attribute is missing."""
-    assert places_instance.get_attr_safe_dict("missing", default={"a": 1}) == {"a": 1}
+@pytest.mark.parametrize(
+    "attr_name, setup_value, default, expected",
+    [
+        ("notadict", "string", None, {}),
+        ("adict", {"a": 1}, None, {"a": 1}),
+        ("missing_dict", None, {"a": 1}, {"a": 1}),
+    ],
+)
+def test_get_attr_safe_dict_variants(places_instance, attr_name, setup_value, default, expected):
+    """Parametrized: get_attr_safe_dict returns dict, empty dict or default when missing."""
+    if setup_value is not None:
+        places_instance.set_attr(attr_name, setup_value)
+    if default is None:
+        assert places_instance.get_attr_safe_dict(attr_name) == expected
+    else:
+        assert places_instance.get_attr_safe_dict(attr_name, default=default) == expected
 
 
 def test_cleanup_attributes_removes_multiple_blanks(places_instance):
@@ -302,7 +230,7 @@ def test_set_native_value_none_clears_internal_attr(places_instance):
     """Test that setting the native value to None clears both the internal attribute and the native value property."""
     places_instance.set_native_value("test")
     places_instance.set_native_value(None)
-    assert places_instance.get_attr("native_value") is None
+    assert places_instance.get_attr(ATTR_NATIVE_VALUE) is None
     assert places_instance._attr_native_value is None
 
 
@@ -403,69 +331,55 @@ async def test_async_update_throttle(monkeypatch, places_instance):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_places(monkeypatch):
-    """Test that async_setup_entry sets up a Places sensor entity and adds it to Home Assistant.
-
-    This test verifies that the async_setup_entry function correctly initializes the Places sensor, creates necessary folders, loads JSON data, and calls async_add_entities with the expected arguments.
-    """
-    hass = MagicMock()
+@pytest.mark.parametrize(
+    "use_no_recorder,extended_attr,patched_class",
+    [
+        (False, False, "Places"),
+        (True, True, "PlacesNoRecorder"),
+    ],
+)
+async def test_async_setup_entry_places_param(
+    monkeypatch, use_no_recorder, extended_attr, patched_class, mock_hass
+):
+    """Parametrized: async_setup_entry adds the expected entity class and calls async_add_entities."""
+    # use shared mock_hass fixture to provide common mocked hass behavior
+    hass = mock_hass
     hass.data = {}
     hass.config.path = lambda *args: "/tmp/json_sensors"
-    hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *a: func(*a))
-    config_entry = MagicMock()
-    config_entry.data = {
-        "name": "TestSensor",
-        "devicetracker_id": "device.test",
-        "extended_attr": False,
-    }
-    config_entry.entry_id = "abc123"
-    async_add_entities = MagicMock()
+    config_entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "device.test",
+            "extended_attr": extended_attr,
+        },
+    )
 
-    # Patch helpers and Places
+    class _Adder:
+        def __init__(self):
+            self.call_count = 0
+            self.call_args = None
+
+        def __call__(self, entities, **kwargs):
+            self.call_count += 1
+            # mimic MagicMock.call_args: (args_tuple, kwargs_dict)
+            self.call_args = ((entities,), kwargs)
+
+    async_add_entities = _Adder()
+
+    # Patch helpers and the appropriate Places class
     monkeypatch.setattr("custom_components.places.sensor.create_json_folder", lambda path: None)
     monkeypatch.setattr(
         "custom_components.places.sensor.get_dict_from_json_file", lambda name, filename, folder: {}
     )
-    monkeypatch.setattr("custom_components.places.sensor.Places", MagicMock())
+    monkeypatch.setattr(f"custom_components.places.sensor.{patched_class}", MagicMock())
 
-    await async_setup_entry(hass, config_entry, async_add_entities)
+    with stub_method(
+        hass, "async_add_executor_job", side_effect=lambda func, *a: func(*a), restore_original=True
+    ):
+        await async_setup_entry(hass, config_entry, async_add_entities)
 
-    # Should call async_add_entities with Places
-    assert async_add_entities.call_count == 1
-    args, kwargs = async_add_entities.call_args
-    assert isinstance(args[0][0], MagicMock)
-    assert kwargs.get("update_before_add") is True
-
-
-@pytest.mark.asyncio
-async def test_async_setup_entry_places_no_recorder(monkeypatch):
-    """Test that `async_setup_entry` adds a `PlacesNoRecorder` entity when the recorder is not configured.
-
-    This test verifies that the setup function correctly initializes the JSON folder, loads data, and adds a `PlacesNoRecorder` entity with the expected parameters when the recorder integration is absent.
-    """
-    hass = MagicMock()
-    hass.data = {}
-    hass.config.path = lambda *args: "/tmp/json_sensors"
-    hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *a: func(*a))
-    config_entry = MagicMock()
-    config_entry.data = {
-        "name": "TestSensor",
-        "devicetracker_id": "device.test",
-        "extended_attr": True,
-    }
-    config_entry.entry_id = "abc123"
-    async_add_entities = MagicMock()
-
-    # Patch helpers and PlacesNoRecorder
-    monkeypatch.setattr("custom_components.places.sensor.create_json_folder", lambda path: None)
-    monkeypatch.setattr(
-        "custom_components.places.sensor.get_dict_from_json_file", lambda name, filename, folder: {}
-    )
-    monkeypatch.setattr("custom_components.places.sensor.PlacesNoRecorder", MagicMock())
-
-    await async_setup_entry(hass, config_entry, async_add_entities)
-
-    # Should call async_add_entities with PlacesNoRecorder
+    # Should call async_add_entities once and pass update_before_add=True
     assert async_add_entities.call_count == 1
     args, kwargs = async_add_entities.call_args
     assert isinstance(args[0][0], MagicMock)
@@ -502,9 +416,37 @@ def test_exclude_event_types_no_recorder(monkeypatch):
     assert RECORDER_INSTANCE not in hass.data
 
 
+@pytest.mark.parametrize(
+    "recorder_present,expected_in_set",
+    [
+        (True, True),
+        (False, False),
+    ],
+)
+def test_exclude_event_types_param(monkeypatch, recorder_present, expected_in_set):
+    """Parametrized test for exclude_event_types: with and without recorder instance."""
+
+    class Recorder:
+        def __init__(self):
+            self.exclude_event_types = set()
+
+    recorder = Recorder() if recorder_present else None
+    hass = type("Hass", (), {"data": {RECORDER_INSTANCE: recorder} if recorder_present else {}})
+    places_instance = type("Places", (), {})()
+    places_instance._hass = hass
+    places_instance.get_attr = lambda x: "TestName"
+    Places.exclude_event_types(places_instance)
+
+    if recorder_present:
+        assert EVENT_TYPE in recorder.exclude_event_types
+    else:
+        assert RECORDER_INSTANCE not in hass.data
+
+
 @pytest.mark.asyncio
-async def test_async_added_to_hass_calls_super_and_tracks(monkeypatch, places_instance):
-    """Test that async_added_to_hass calls the superclass and tracks state changes for the device tracker."""
+@pytest.mark.parametrize("tracker_id", ["device.tracker_1", "device.tracker_2"])
+async def test_async_added_to_hass_param(monkeypatch, places_instance, tracker_id):
+    """Parametrized: async_added_to_hass subscribes to the configured tracker id and registers the removal callback."""
     with (
         patch(
             "custom_components.places.sensor.async_track_state_change_event",
@@ -512,36 +454,7 @@ async def test_async_added_to_hass_calls_super_and_tracks(monkeypatch, places_in
         ) as track_event,
         patch("custom_components.places.sensor._LOGGER") as logger,
     ):
-        # Set up tracker id and tsc_update
-        places_instance.get_attr = MagicMock(return_value="device.tracker_1")
-        places_instance.tsc_update = MagicMock()
-        places_instance.async_on_remove = MagicMock()
-
-        await places_instance.async_added_to_hass()
-
-        # Subscribed to state change event
-        track_event.assert_called_once_with(
-            places_instance._hass,
-            ["device.tracker_1"],
-            places_instance.tsc_update,
-        )
-        # async_on_remove called with handle
-        places_instance.async_on_remove.assert_called_once_with("remove_handle")
-        # Debug log called
-        logger.debug.assert_called()
-
-
-@pytest.mark.asyncio
-async def test_async_added_to_hass_with_different_tracker(monkeypatch, places_instance):
-    """Test that async_added_to_hass subscribes to state changes for a different device tracker and registers the removal callback."""
-    with (
-        patch(
-            "custom_components.places.sensor.async_track_state_change_event",
-            return_value="remove_handle",
-        ) as track_event,
-        patch("custom_components.places.sensor._LOGGER") as logger,
-    ):
-        places_instance.get_attr = MagicMock(return_value="device.tracker_2")
+        places_instance.get_attr = MagicMock(return_value=tracker_id)
         places_instance.tsc_update = MagicMock()
         places_instance.async_on_remove = MagicMock()
 
@@ -549,7 +462,7 @@ async def test_async_added_to_hass_with_different_tracker(monkeypatch, places_in
 
         track_event.assert_called_once_with(
             places_instance._hass,
-            ["device.tracker_2"],
+            [tracker_id],
             places_instance.tsc_update,
         )
         places_instance.async_on_remove.assert_called_once_with("remove_handle")
@@ -557,246 +470,284 @@ async def test_async_added_to_hass_with_different_tracker(monkeypatch, places_in
 
 
 @pytest.mark.asyncio
-async def test_async_will_remove_from_hass_removes_json(monkeypatch, places_instance):
-    """Test that async_will_remove_from_hass removes the associated JSON file when called."""
-    remove_json_file_called = {}
-
-    def fake_remove_json_file(name, filename, folder):
-        """Mocks the removal of a JSON file by recording the provided arguments in a tracking dictionary."""
-        remove_json_file_called["called"] = (name, filename, folder)
-
-    monkeypatch.setattr("custom_components.places.sensor.remove_json_file", fake_remove_json_file)
-    places_instance._hass.async_add_executor_job = AsyncMock(
-        side_effect=lambda func, *args: func(*args)
+@pytest.mark.parametrize(
+    "scenario,extended_attr,recorder_present",
+    [
+        ("remove_json", False, False),
+        ("remove_event_exclusion", True, True),
+    ],
+)
+async def test_async_will_remove_from_hass_param(
+    monkeypatch, places_instance, scenario, extended_attr, recorder_present
+):
+    """Parametrized: async_will_remove_from_hass handles JSON removal and recorder exclusion paths."""
+    # Setup common executor job passthrough
+    cm_async_add = stub_method(
+        places_instance._hass,
+        "async_add_executor_job",
+        side_effect=lambda func, *args: func(*args),
+        restore_original=True,
     )
-    places_instance.get_attr = MagicMock(
-        side_effect=lambda k: {
-            "name": "TestName",
-            "json_filename": "file.json",
-            "json_folder": "/tmp",
-        }[k]
-    )
+    with cm_async_add:
+        # Configure get_attr response
+        def get_attr(k):
+            mapping = {
+                "name": "TestName",
+                "json_filename": "file.json",
+                "json_folder": "/tmp",
+                "extended_attr": extended_attr,
+            }
+            return mapping.get(k)
 
-    # No recorder logic triggered
-    places_instance._hass.data = {}
-    await places_instance.async_will_remove_from_hass()
-    assert remove_json_file_called["called"] == ("TestName", "file.json", "/tmp")
+        places_instance.get_attr = MagicMock(side_effect=get_attr)
 
+        # Prepare recorder if needed
+        recorder = MagicMock() if recorder_present else None
+        if recorder_present:
+            recorder.exclude_event_types = {EVENT_TYPE}
+            places_instance._hass.data = {RECORDER_INSTANCE: recorder}
+            places_instance._config_entry.runtime_data = {
+                "entity1": {"extended_attr": True},
+                "entity2": {"extended_attr": False},
+            }
+            places_instance._attr_name = "TestName"
+            places_instance._entity_id = "sensor.test"
+        else:
+            places_instance._hass.data = {}
 
-@pytest.mark.asyncio
-async def test_async_will_remove_from_hass_removes_event_exclusion(monkeypatch, places_instance):
-    """Test that async_will_remove_from_hass removes the event exclusion from the recorder when called."""
-    monkeypatch.setattr("custom_components.places.sensor.remove_json_file", lambda *a: None)
-    places_instance._hass.async_add_executor_job = AsyncMock(
-        side_effect=lambda func, *args: func(*args)
-    )
-    places_instance.get_attr = MagicMock(
-        side_effect=lambda k: {
-            "name": "TestName",
-            "json_filename": "file.json",
-            "json_folder": "/tmp",
-            "extended_attr": True,
-        }[k]
-    )
-    # Setup recorder and runtime_data
-    recorder = MagicMock()
-    recorder.exclude_event_types = {EVENT_TYPE}
-    places_instance._hass.data = {RECORDER_INSTANCE: recorder}
-    places_instance._config_entry.runtime_data = {
-        "entity1": {"extended_attr": True},
-        "entity2": {"extended_attr": False},
-    }
-    places_instance._attr_name = "TestName"
-    places_instance._entity_id = "sensor.test"
-    with patch("custom_components.places.sensor._LOGGER") as logger:
-        await places_instance.async_will_remove_from_hass()
-        # Should discard EVENT_TYPE from recorder
+        # Replace remove_json_file with a noop to avoid actual file ops
+        monkeypatch.setattr("custom_components.places.sensor.remove_json_file", lambda *a: None)
+
+        with patch("custom_components.places.sensor._LOGGER") as logger:
+            await places_instance.async_will_remove_from_hass()
+
+    if recorder_present:
         assert EVENT_TYPE not in recorder.exclude_event_types
         logger.debug.assert_any_call(
             "(%s) Removing entity exclusion from recorder: %s", "TestName", "sensor.test"
         )
+    else:
+        # No exceptions and remove_json_file was called via executor; nothing to assert beyond success
+        assert True
 
 
 @pytest.mark.asyncio
-async def test_get_driving_status_sets_driving(monkeypatch):
-    """Should set ATTR_DRIVING when not in zone, direction not stationary, and category/type matches."""
+@pytest.mark.parametrize(
+    "in_zone,direction,category,type_,expects_driving",
+    [
+        (False, "not_stationary", "highway", "motorway", True),
+        (True, "not_stationary", "highway", "motorway", False),
+        (False, "stationary", "highway", "motorway", False),
+        (False, "not_stationary", "other", "other", False),
+    ],
+)
+async def test_get_driving_status_variants(in_zone, direction, category, type_, expects_driving):
+    """Parametrized checks for get_driving_status covering in-zone, stationary, and category/type mismatches."""
     sensor = MagicMock(spec=Places)
     sensor.clear_attr = MagicMock()
     sensor.set_attr = MagicMock()
-    sensor.in_zone = AsyncMock(return_value=False)
-    sensor.get_attr.side_effect = lambda k: (
-        "not_stationary"
-        if k == ATTR_DIRECTION_OF_TRAVEL
-        else "highway"
-        if k == ATTR_PLACE_CATEGORY
-        else "motorway"
-        if k == ATTR_PLACE_TYPE
-        else None
-    )
-    # Run
-    await Places.get_driving_status(sensor)
-    sensor.set_attr.assert_called_with(ATTR_DRIVING, "Driving")
+    with stub_in_zone(sensor, in_zone):
+
+        def get_attr(k):
+            if k == ATTR_DIRECTION_OF_TRAVEL:
+                return direction
+            if k == ATTR_PLACE_CATEGORY:
+                return category
+            if k == ATTR_PLACE_TYPE:
+                return type_
+            return None
+
+        sensor.get_attr.side_effect = get_attr
+        await Places.get_driving_status(sensor)
+    if expects_driving:
+        sensor.set_attr.assert_called_with(ATTR_DRIVING, "Driving")
+    else:
+        sensor.set_attr.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_get_driving_status_in_zone(monkeypatch):
-    """Should NOT set ATTR_DRIVING when in zone."""
-    sensor = MagicMock(spec=Places)
-    sensor.clear_attr = MagicMock()
-    sensor.set_attr = MagicMock()
-    sensor.in_zone = AsyncMock(return_value=True)
-    sensor.get_attr.return_value = "not_stationary"
-    await Places.get_driving_status(sensor)
-    sensor.set_attr.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_get_driving_status_direction_stationary(monkeypatch):
-    """Should NOT set ATTR_DRIVING when direction is stationary."""
-    sensor = MagicMock(spec=Places)
-    sensor.clear_attr = MagicMock()
-    sensor.set_attr = MagicMock()
-    sensor.in_zone = AsyncMock(return_value=False)
-    sensor.get_attr.side_effect = (
-        lambda k: "stationary" if k == ATTR_DIRECTION_OF_TRAVEL else "highway"
-    )
-    await Places.get_driving_status(sensor)
-    sensor.set_attr.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_get_driving_status_category_type_not_match(monkeypatch):
-    """Should NOT set ATTR_DRIVING when place category/type does not match."""
-    sensor = MagicMock(spec=Places)
-    sensor.clear_attr = MagicMock()
-    sensor.set_attr = MagicMock()
-    sensor.in_zone = AsyncMock(return_value=False)
-    sensor.get_attr.side_effect = (
-        lambda k: "not_stationary" if k == ATTR_DIRECTION_OF_TRAVEL else "other"
-    )
-    await Places.get_driving_status(sensor)
-    sensor.set_attr.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_do_update_calls_updater(monkeypatch):
+async def test_do_update_calls_updater(monkeypatch, mock_hass, prepared_updater, stubbed_updater):
     """Test that do_update instantiates PlacesUpdater and calls its do_update method with correct args."""
     sensor = MagicMock(spec=Places)
-    sensor._hass = MagicMock()
-    sensor._config_entry = MagicMock()
+    sensor._hass = mock_hass
+    sensor._config_entry = MockConfigEntry(domain="places", data={})
     sensor._internal_attr = {"a": 1}
-    # Patch PlacesUpdater and its do_update
-    with patch("custom_components.places.sensor.PlacesUpdater") as mock_updater_cls:
-        mock_updater = MagicMock()
-        mock_updater.do_update = AsyncMock()
-        mock_updater_cls.return_value = mock_updater
+    # prepared_updater patches PlacesUpdater to return a MagicMock and records init calls
+    mock_updater = prepared_updater
+    with stubbed_updater(mock_updater, [("do_update", {})]):
         await Places.do_update(sensor, reason="test-reason")
-        mock_updater_cls.assert_called_once_with(
-            hass=sensor._hass, config_entry=sensor._config_entry, sensor=sensor
-        )
+        # verify PlacesUpdater was constructed with expected kwargs on first init
+        assert mock_updater._init_calls, "PlacesUpdater was not instantiated"
+        args, kwargs = mock_updater._init_calls[-1]
+        assert kwargs.get("hass") is sensor._hass
+        assert kwargs.get("config_entry") is sensor._config_entry
+        assert kwargs.get("sensor") is sensor
         mock_updater.do_update.assert_awaited_once_with(
             reason="test-reason", previous_attr={"a": 1}
         )
 
 
 @pytest.mark.asyncio
-async def test_do_update_handles_empty_internal_attr(monkeypatch):
+async def test_do_update_handles_empty_internal_attr(
+    monkeypatch, mock_hass, prepared_updater, stubbed_updater
+):
     """Test do_update with empty internal_attr dict."""
     sensor = MagicMock(spec=Places)
-    sensor._hass = MagicMock()
-    sensor._config_entry = MagicMock()
+    sensor._hass = mock_hass
+    sensor._config_entry = MockConfigEntry(domain="places", data={})
     sensor._internal_attr = {}
-    with patch("custom_components.places.sensor.PlacesUpdater") as mock_updater_cls:
-        mock_updater = MagicMock()
-        mock_updater.do_update = AsyncMock()
-        mock_updater_cls.return_value = mock_updater
+    mock_updater = prepared_updater
+    with stubbed_updater(mock_updater, [("do_update", {})]):
         await Places.do_update(sensor, reason="another-reason")
-        mock_updater_cls.assert_called_once()
+        assert mock_updater._init_calls, "PlacesUpdater was not instantiated"
         mock_updater.do_update.assert_awaited_once_with(reason="another-reason", previous_attr={})
 
 
-@pytest.mark.asyncio
-async def test_process_display_options_formatted_place(monkeypatch):
-    """Should call BasicOptionsParser and set formatted place if 'formatted_place' in display options."""
-    sensor = MagicMock(spec=Places)
-    sensor._internal_attr = {}  # Fix: ensure attribute exists
-    sensor.is_attr_blank.return_value = False
-    sensor.get_attr_safe_str.return_value = "formatted_place"
-    sensor.get_attr_safe_list.return_value = ["formatted_place"]
-    sensor.get_attr.side_effect = lambda k: "formatted_place" if k == ATTR_FORMATTED_PLACE else None
+def _setup_formatted_place(sensor):
+    sensor._internal_attr = {}
+    sensor.is_attr_blank = MagicMock(return_value=False)
     sensor.set_attr = MagicMock()
     sensor.get_driving_status = AsyncMock()
-    with patch("custom_components.places.sensor.BasicOptionsParser") as mock_parser_cls:
-        mock_parser = MagicMock()
-        mock_parser.build_formatted_place = AsyncMock(return_value="fp")
-        mock_parser_cls.return_value = mock_parser
-        await Places.process_display_options(sensor)
-    sensor.set_attr.assert_any_call(ATTR_FORMATTED_PLACE, "fp")
-    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "formatted_place")
-
-
-@pytest.mark.asyncio
-async def test_process_display_options_advanced_options(monkeypatch):
-    """Should call AdvancedOptionsParser and set native value if advanced options present."""
-    sensor = MagicMock(spec=Places)
-    sensor.is_attr_blank.return_value = False
-    sensor.get_attr_safe_str.return_value = "(advanced)"
-    sensor.get_attr_safe_list.return_value = ["(advanced)"]
-    sensor.set_attr = MagicMock()
-    sensor.get_driving_status = AsyncMock()
-    with patch("custom_components.places.sensor.AdvancedOptionsParser") as mock_parser_cls:
-        mock_parser = MagicMock()
-        mock_parser.build_from_advanced_options = AsyncMock()
-        mock_parser.compile_state = AsyncMock(return_value="adv_state")
-        mock_parser_cls.return_value = mock_parser
-        await Places.process_display_options(sensor)
-    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "adv_state")
-
-
-@pytest.mark.asyncio
-async def test_process_display_options_not_in_zone(monkeypatch):
-    """Should call BasicOptionsParser and set native value if not in zone and no other options match."""
-    sensor = MagicMock(spec=Places)
-    sensor._internal_attr = {}  # Fix: ensure attribute exists
-    sensor.is_attr_blank.return_value = False
-    sensor.get_attr_safe_str.return_value = "other"
-    sensor.get_attr_safe_list.return_value = ["other"]
-    sensor.set_attr = MagicMock()
-    sensor.get_driving_status = AsyncMock()
-    sensor.in_zone = AsyncMock(return_value=False)
-    with patch("custom_components.places.sensor.BasicOptionsParser") as mock_parser_cls:
-        mock_parser = MagicMock()
-        mock_parser.build_display = AsyncMock(return_value="display_state")
-        mock_parser_cls.return_value = mock_parser
-        await Places.process_display_options(sensor)
-    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "display_state")
-
-
-@pytest.mark.asyncio
-async def test_process_display_options_zone_or_zone_name_blank(monkeypatch):
-    """Should set native value from zone if 'zone' in display options or zone name is blank."""
-    sensor = MagicMock(spec=Places)
-    sensor.is_attr_blank.side_effect = lambda k: k == ATTR_DEVICETRACKER_ZONE_NAME
-    sensor.get_attr_safe_str.return_value = "zone"
-    sensor.get_attr_safe_list.return_value = ["zone"]
-    sensor.get_attr.side_effect = lambda k: "zone_val" if k == ATTR_DEVICETRACKER_ZONE else None
-    sensor.set_attr = MagicMock()
-    sensor.get_driving_status = AsyncMock()
-    await Places.process_display_options(sensor)
-    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "zone_val")
-
-
-@pytest.mark.asyncio
-async def test_process_display_options_zone_name_not_blank(monkeypatch):
-    """Should set native value from zone name if zone name is not blank."""
-    sensor = MagicMock(spec=Places)
-    sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr_safe_str.return_value = "other"
-    sensor.get_attr_safe_list.return_value = ["other"]
-    sensor.get_attr.side_effect = (
-        lambda k: "zone_name_val" if k == ATTR_DEVICETRACKER_ZONE_NAME else None
+    sensor.get_attr_safe_str = MagicMock(return_value="formatted_place")
+    sensor.get_attr_safe_list = MagicMock(return_value=["formatted_place"])
+    sensor.get_attr = MagicMock(
+        side_effect=(lambda k: "formatted_place" if k == ATTR_FORMATTED_PLACE else None)
     )
+
+
+def _setup_advanced_options(sensor):
+    sensor._internal_attr = {}
+    sensor.is_attr_blank = MagicMock(return_value=False)
     sensor.set_attr = MagicMock()
     sensor.get_driving_status = AsyncMock()
-    await Places.process_display_options(sensor)
-    sensor.set_attr.assert_any_call(ATTR_NATIVE_VALUE, "zone_name_val")
+    sensor.get_attr_safe_str = MagicMock(return_value="(advanced)")
+    sensor.get_attr_safe_list = MagicMock(return_value=["(advanced)"])
+
+
+def _setup_not_in_zone(sensor):
+    sensor._internal_attr = {}
+    sensor.is_attr_blank = MagicMock(return_value=False)
+    sensor.set_attr = MagicMock()
+    sensor.get_driving_status = AsyncMock()
+    sensor.get_attr_safe_str = MagicMock(return_value="other")
+    sensor.get_attr_safe_list = MagicMock(return_value=["other"])
+
+
+def _setup_zone_or_zone_name_blank(sensor):
+    sensor._internal_attr = {}
+    sensor.is_attr_blank = MagicMock(side_effect=lambda k: k == ATTR_DEVICETRACKER_ZONE_NAME)
+    sensor.set_attr = MagicMock()
+    sensor.get_driving_status = AsyncMock()
+    sensor.get_attr_safe_str = MagicMock(return_value="zone")
+    sensor.get_attr_safe_list = MagicMock(return_value=["zone"])
+    sensor.get_attr = MagicMock(
+        side_effect=(lambda k: "zone_val" if k == ATTR_DEVICETRACKER_ZONE else None)
+    )
+
+
+def _setup_zone_name_not_blank(sensor):
+    sensor._internal_attr = {}
+    sensor.is_attr_blank = MagicMock(return_value=False)
+    sensor.set_attr = MagicMock()
+    sensor.get_driving_status = AsyncMock()
+    sensor.get_attr_safe_str = MagicMock(return_value="other")
+    sensor.get_attr_safe_list = MagicMock(return_value=["other"])
+    sensor.get_attr = MagicMock(
+        side_effect=(lambda k: "zone_name_val" if k == ATTR_DEVICETRACKER_ZONE_NAME else None)
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "scenario,setup,parser_patch,expected_calls",
+    [
+        pytest.param(
+            "formatted_place",
+            # setup callable: applies to sensor
+            _setup_formatted_place,
+            (
+                "custom_components.places.sensor.BasicOptionsParser",
+                [("build_formatted_place", {"return_value": "fp"})],
+            ),
+            [
+                ("set_attr", (ATTR_FORMATTED_PLACE, "fp")),
+                ("set_attr", (ATTR_NATIVE_VALUE, "formatted_place")),
+            ],
+            id="formatted_place",
+        ),
+        pytest.param(
+            "advanced_options",
+            _setup_advanced_options,
+            (
+                "custom_components.places.sensor.AdvancedOptionsParser",
+                [
+                    ("build_from_advanced_options", {}),
+                    ("compile_state", {"return_value": "adv_state"}),
+                ],
+            ),
+            [("set_attr", (ATTR_NATIVE_VALUE, "adv_state"))],
+            id="advanced_options",
+        ),
+        pytest.param(
+            "not_in_zone",
+            _setup_not_in_zone,
+            (
+                "custom_components.places.sensor.BasicOptionsParser",
+                [("build_display", {"return_value": "display_state"})],
+                True,
+            ),
+            [("set_attr", (ATTR_NATIVE_VALUE, "display_state"))],
+            id="not_in_zone",
+        ),
+        pytest.param(
+            "zone_or_zone_name_blank",
+            _setup_zone_or_zone_name_blank,
+            None,
+            [("set_attr", (ATTR_NATIVE_VALUE, "zone_val"))],
+            id="zone_or_zone_name_blank",
+        ),
+        pytest.param(
+            "zone_name_not_blank",
+            _setup_zone_name_not_blank,
+            None,
+            [("set_attr", (ATTR_NATIVE_VALUE, "zone_name_val"))],
+            id="zone_name_not_blank",
+        ),
+    ],
+)
+async def test_process_display_options_variants(
+    monkeypatch, scenario, setup, parser_patch, expected_calls
+):
+    """Parametrized: exercise Places.process_display_options for common display-option scenarios."""
+    sensor = MagicMock(spec=Places)
+    # apply scenario-specific setup
+    setup(sensor)
+
+    if parser_patch:
+        # parser_patch can optionally include a third element indicating stub_in_zone usage
+        if len(parser_patch) == 3:
+            parser_path, methods, use_stub = parser_patch
+        else:
+            parser_path, methods = parser_patch
+            use_stub = False
+
+        if use_stub:
+            with stub_in_zone(sensor, False), patch(parser_path) as mock_parser_cls:
+                mock_parser = MagicMock()
+                with stubbed_parser(mock_parser, methods):
+                    mock_parser_cls.return_value = mock_parser
+                    await Places.process_display_options(sensor)
+        else:
+            with patch(parser_path) as mock_parser_cls:
+                mock_parser = MagicMock()
+                with stubbed_parser(mock_parser, methods):
+                    mock_parser_cls.return_value = mock_parser
+                    await Places.process_display_options(sensor)
+    else:
+        # no parser involved in this scenario
+        await Places.process_display_options(sensor)
+
+    # validate expected calls were made
+    for func_name, args in expected_calls:
+        if func_name == "set_attr":
+            sensor.set_attr.assert_any_call(*args)

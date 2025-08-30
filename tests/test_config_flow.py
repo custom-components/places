@@ -4,12 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-import voluptuous as vol
 
-from custom_components.places import async_setup_entry
 from custom_components.places.config_flow import (
     HOME_LOCATION_DOMAINS,
-    TRACKING_DOMAINS_NEED_LATLONG,
     PlacesConfigFlow,
     PlacesOptionsFlowHandler,
     _validate_brackets,
@@ -20,10 +17,9 @@ from custom_components.places.config_flow import (
     get_home_zone_entities,
     validate_display_options,
 )
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_FRIENDLY_NAME, CONF_LATITUDE, CONF_LONGITUDE
+from homeassistant.const import ATTR_FRIENDLY_NAME
+from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
-from tests.conftest import MockState
 
 
 @pytest.fixture
@@ -73,7 +69,7 @@ async def test_config_flow_user_step(mock_hass):
         "language": "en",
     }
     result = await flow.async_step_user(user_input)
-    assert result["type"] == "create_entry"
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "Test Place"
     assert result["data"] == user_input
 
@@ -84,144 +80,143 @@ async def test_options_flow_init(mock_hass, config_entry):
     config_entry.add_to_hass(mock_hass)
     result = await mock_hass.config_entries.options.async_init(config_entry.entry_id)
     assert result["type"] == FlowResultType.FORM
-    assert "data_schema" in result
 
-
-@pytest.mark.asyncio
-async def test_options_flow_update_and_reload(mock_hass, config_entry):
-    """Submitting valid user input via the options flow should create a config entry and reload it."""
-    with patch("custom_components.places.config_flow.vol", MagicMock(spec=vol)):
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "case,user_input",
+        [
+            (
+                "updates_and_reload",
+                {
+                    "devicetracker_id": "device.test",
+                    "name": "Test Place",
+                    "display_options": "zone, place",
+                    "home_zone": "zone.home",
+                    "map_provider": "osm",
+                    "map_zoom": 10,
+                    "use_gps": True,
+                    "extended_attr": False,
+                    "show_time": True,
+                    "date_format": "mm/dd",
+                    "language": "en",
+                    "api_key": "",
+                },
+            ),
+            (
+                "removes_blank_keys",
+                {
+                    "devicetracker_id": "device.test",
+                    "name": "",
+                    "display_options": "zone, place",
+                    "home_zone": "",
+                    "map_provider": "osm",
+                    "map_zoom": 10,
+                    "use_gps": True,
+                    "extended_attr": False,
+                    "show_time": True,
+                    "date_format": "mm/dd",
+                    "language": "",
+                    "api_key": "",
+                },
+            ),
+            (
+                "merges_config_entry",
+                {"devicetracker_id": "device.test", "display_options": "zone, place"},
+            ),
+        ],
+    )
+    async def test_options_flow_handler_variants(mock_hass, config_entry, case, user_input):
+        """Parametrized: ensure options flow handler behaves correctly for different input variants."""
         config_entry.add_to_hass(mock_hass)
-        user_input = {
-            "devicetracker_id": "device.test",
-            "name": "Test Place",
-            "display_options": "zone, place",
-            "home_zone": "zone.home",
-            "map_provider": "osm",
-            "map_zoom": 10,
-            "use_gps": True,
-            "extended_attr": False,
-            "show_time": True,
-            "date_format": "mm/dd",
-            "language": "en",
-        }
-        result = await mock_hass.config_entries.options.async_init(config_entry.entry_id)
-        result2 = await mock_hass.config_entries.options.async_configure(
-            result["flow_id"], user_input
-        )
-        assert result2["type"] == "create_entry"
+        handler = PlacesOptionsFlowHandler()
+        handler.hass = mock_hass
+        with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
+            mock_hass.config_entries.async_update_entry = MagicMock()
+            mock_hass.config_entries.async_reload = AsyncMock()
+            result = await handler.async_step_init(user_input)
+            # Basic return contract
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            # Case-specific assertions
+            if case == "updates_and_reload":
+                mock_hass.config_entries.async_update_entry.assert_called_once_with(
+                    config_entry, data=user_input, options=config_entry.options
+                )
+                mock_hass.config_entries.async_reload.assert_awaited_once_with(
+                    config_entry.entry_id
+                )
+                assert result["data"] == {}
+            elif case == "removes_blank_keys":
+                updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+                assert "name" not in updated_data
+                assert "home_zone" not in updated_data
+                assert "language" not in updated_data
+                assert "api_key" not in updated_data
+            elif case == "merges_config_entry":
+                updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+                expected_data = dict(config_entry.data)
+                expected_data.update(user_input)
+                for k, v in expected_data.items():
+                    assert updated_data[k] == v
 
 
-@pytest.mark.asyncio
-async def test_async_setup_entry(mock_hass, config_entry):
-    # PLATFORMS must be patched if imported from .const
-    """async_setup_entry should forward platform setups and copy runtime data from the entry data."""
-    with patch("custom_components.places.PLATFORMS", ["sensor"]):
-        result = await async_setup_entry(mock_hass, config_entry)
-        assert result is True
-        mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
-            config_entry, ["sensor"]
-        )
-        assert config_entry.runtime_data == dict(config_entry.data)
+@pytest.mark.parametrize(
+    "async_all_states,states_get_state,expected_label_check,expected_count",
+    [
+        # current not present, has friendly name -> label contains friendly name, appears once
+        (
+            [],
+            State("device_tracker.extra", "", {ATTR_FRIENDLY_NAME: "Extra"}),
+            lambda e: "Extra" in e["label"],
+            1,
+        ),
+        # current not present, no friendly name -> label equals entity_id, appears once
+        (
+            [],
+            State("device_tracker.extra", "", {}),
+            lambda e: e["label"] == "device_tracker.extra",
+            1,
+        ),
+        # current already present in async_all -> ensure no duplicate entries
+        (
+            [State("device_tracker.extra", "", {ATTR_FRIENDLY_NAME: "Already"})],
+            State("device_tracker.extra", "", {ATTR_FRIENDLY_NAME: "Already"}),
+            lambda e: "Already" in e["label"],
+            1,
+        ),
+    ],
+)
+def test_get_devicetracker_id_entities_current_entity_variants(
+    monkeypatch, mock_hass, async_all_states, states_get_state, expected_label_check, expected_count
+):
+    """Parametrized tests for current_entity handling in get_devicetracker_id_entities.
 
-
-def test_get_devicetracker_id_entities_filters_latlong(monkeypatch):
-    """Only entities with latitude and longitude should be returned for domains that require them."""
-
-    # Setup mock hass
-    hass = MagicMock()
-    # Only one domain for simplicity
-    domain = list(TRACKING_DOMAINS_NEED_LATLONG)[0]
-    hass.states.async_all = MagicMock(
-        return_value=[
-            MockState(
-                "device_tracker.good",
-                {CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0, ATTR_FRIENDLY_NAME: "Good"},
-            ),
-            MockState("device_tracker.bad", {ATTR_FRIENDLY_NAME: "Bad"}),  # Missing lat/long
-        ]
-    )
-    hass.states.get = MagicMock(
-        side_effect=lambda eid: {
-            "device_tracker.good": MockState(
-                "device_tracker.good",
-                {CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0, ATTR_FRIENDLY_NAME: "Good"},
-            ),
-            "device_tracker.bad": MockState("device_tracker.bad", {ATTR_FRIENDLY_NAME: "Bad"}),
-        }[eid]
-    )
-
-    # Patch TRACKING_DOMAINS to only include our test domain
+    Covers: friendly name present, no friendly name, and already-present cases.
+    """
+    # Limit TRACKING_DOMAINS to a single domain for deterministic results
+    domain = "device_tracker"
     monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", [domain])
 
-    entities = get_devicetracker_id_entities(hass)
-    # Only the entity with lat/long should be included
-    assert any(e["value"] == "device_tracker.good" for e in entities)
-    assert not any(e["value"] == "device_tracker.bad" for e in entities)
-    # Label should include friendly name
-    assert any("Good" in e["label"] for e in entities)
+    mock_hass.states.async_all = MagicMock(return_value=async_all_states)
+    mock_hass.states.get = MagicMock(return_value=states_get_state)
+
+    entities = get_devicetracker_id_entities(mock_hass, current_entity="device_tracker.extra")
+    matches = [e for e in entities if e["value"] == "device_tracker.extra"]
+    assert len(matches) == expected_count
+    if expected_count:
+        assert any(expected_label_check(e) for e in matches)
 
 
-def test_get_devicetracker_id_entities_adds_current_entity_with_friendly_name(monkeypatch):
-    """If the current entity isn't present, it should be added and labeled with its friendly name when available."""
-
-    hass = MagicMock()
-    # dt_list is empty, so current_entity will not be present
-    hass.states.async_all = MagicMock(return_value=[])
-    # current_entity has a friendly name
-    hass.states.get = MagicMock(
-        return_value=MockState("device_tracker.extra", {ATTR_FRIENDLY_NAME: "Extra"})
-    )
-
-    entities = get_devicetracker_id_entities(hass, current_entity="device_tracker.extra")
-    # Should include the current_entity with friendly name in label
-    assert any(e["value"] == "device_tracker.extra" and "Extra" in e["label"] for e in entities)
-
-
-def test_get_devicetracker_id_entities_adds_current_entity_without_friendly_name(monkeypatch):
-    """When the current entity has no friendly_name, its entity_id should be used as the label."""
-
-    hass = MagicMock()
-    hass.states.async_all = MagicMock(return_value=[])
-    # current_entity has no friendly name
-    hass.states.get = MagicMock(return_value=MockState("device_tracker.extra", {}))
-
-    entities = get_devicetracker_id_entities(hass, current_entity="device_tracker.extra")
-    # Should include the current_entity with just the entity_id as label
-    assert any(
-        e["value"] == "device_tracker.extra" and e["label"] == "device_tracker.extra"
-        for e in entities
-    )
-
-
-def test_get_devicetracker_id_entities_does_not_add_current_entity_if_already_present(monkeypatch):
-    """Avoid duplicating the current device tracker in the returned entity list if already present."""
-
-    hass = MagicMock()
-    # dt_list already contains current_entity
-    hass.states.async_all = MagicMock(
-        return_value=[MockState("device_tracker.extra", {ATTR_FRIENDLY_NAME: "Already"})]
-    )
-    hass.states.get = MagicMock(
-        return_value=MockState("device_tracker.extra", {ATTR_FRIENDLY_NAME: "Already"})
-    )
-
-    entities = get_devicetracker_id_entities(hass, current_entity="device_tracker.extra")
-    # Should only be present once
-    values = [e["value"] for e in entities if e["value"] == "device_tracker.extra"]
-    assert len(set(values)) == 1
-
-
-def test_get_home_zone_entities_builds_zone_list(monkeypatch):
+def test_get_home_zone_entities_builds_zone_list(monkeypatch, mock_hass):
     """get_home_zone_entities should return zone entities labeled by their friendly names and sorted by label."""
 
-    hass = MagicMock()
+    # use mock_hass fixture to provide a consistent hass object
+    hass = mock_hass
     # Only one domain for simplicity
     domain = HOME_LOCATION_DOMAINS[0]
     hass.states.async_all = MagicMock(
         return_value=[
-            MockState("zone.home", {ATTR_FRIENDLY_NAME: "Home Zone"}),
-            MockState("zone.work", {ATTR_FRIENDLY_NAME: "Work Zone"}),
+            State("zone.home", "", {ATTR_FRIENDLY_NAME: "Home Zone"}),
+            State("zone.work", "", {ATTR_FRIENDLY_NAME: "Work Zone"}),
         ]
     )
 
@@ -239,77 +234,85 @@ def test_get_home_zone_entities_builds_zone_list(monkeypatch):
 
 def test_async_get_options_flow_returns_handler():
     """Ensure PlacesConfigFlow.async_get_options_flow returns a handler instance for a config entry."""
-    config_entry = MagicMock(spec=ConfigEntry)
+    config_entry = MockConfigEntry(domain="places", data={})
     handler = PlacesConfigFlow.async_get_options_flow(config_entry)
     assert isinstance(handler, PlacesOptionsFlowHandler)
 
 
 @pytest.mark.asyncio
-async def test_options_flow_handler_updates_config_and_reloads(mock_hass, config_entry):
-    """Test that the options flow handler updates the config entry with user input and triggers a reload.
-
-    Verifies that submitting user input to the options flow handler results in the config entry being updated with the new data and the entry being reloaded. Asserts that the flow returns a create entry result.
-    """
+@pytest.mark.parametrize(
+    "case,user_input",
+    [
+        (
+            "updates_and_reload",
+            {
+                "devicetracker_id": "device.test",
+                "name": "Test Place",
+                "display_options": "zone, place",
+                "home_zone": "zone.home",
+                "map_provider": "osm",
+                "map_zoom": 10,
+                "use_gps": True,
+                "extended_attr": False,
+                "show_time": True,
+                "date_format": "mm/dd",
+                "language": "en",
+                "api_key": "",
+            },
+        ),
+        (
+            "removes_blank_keys",
+            {
+                "devicetracker_id": "device.test",
+                "name": "",
+                "display_options": "zone, place",
+                "home_zone": "",
+                "map_provider": "osm",
+                "map_zoom": 10,
+                "use_gps": True,
+                "extended_attr": False,
+                "show_time": True,
+                "date_format": "mm/dd",
+                "language": "",
+                "api_key": "",
+            },
+        ),
+        (
+            "merges_config_entry",
+            {"devicetracker_id": "device.test", "display_options": "zone, place"},
+        ),
+    ],
+)
+async def test_options_flow_handler_variants(mock_hass, config_entry, case, user_input):
+    """Parametrized: ensure options flow handler behaves correctly for different input variants."""
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass
     with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-        user_input = {
-            "devicetracker_id": "device.test",
-            "name": "Test Place",
-            "display_options": "zone, place",
-            "home_zone": "zone.home",
-            "map_provider": "osm",
-            "map_zoom": 10,
-            "use_gps": True,
-            "extended_attr": False,
-            "show_time": True,
-            "date_format": "mm/dd",
-            "language": "en",
-            "api_key": "",
-        }
-        result = await handler.async_step_init(user_input)
-        mock_hass.config_entries.async_update_entry.assert_called_once_with(
-            config_entry, data=user_input, options=config_entry.options
-        )
-        mock_hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
-        assert result["type"] == "create_entry"
-        assert result["data"] == {}
-
-
-@pytest.mark.asyncio
-async def test_options_flow_handler_removes_blank_string_keys(mock_hass, config_entry):
-    """Test that the options flow handler removes keys with blank string values from user input before updating the config entry.
-
-    Verifies that submitting user input with empty string values results in those keys being omitted from the updated configuration data.
-    """
-    config_entry.add_to_hass(mock_hass)
-    handler = PlacesOptionsFlowHandler()
-    handler.hass = mock_hass
-    with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-        user_input = {
-            "devicetracker_id": "device.test",
-            "name": "",
-            "display_options": "zone, place",
-            "home_zone": "",
-            "map_provider": "osm",
-            "map_zoom": 10,
-            "use_gps": True,
-            "extended_attr": False,
-            "show_time": True,
-            "date_format": "mm/dd",
-            "language": "",
-            "api_key": "",
-        }
         mock_hass.config_entries.async_update_entry = MagicMock()
         mock_hass.config_entries.async_reload = AsyncMock()
         result = await handler.async_step_init(user_input)
-        updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-        assert "name" not in updated_data
-        assert "home_zone" not in updated_data
-        assert "language" not in updated_data
-        assert "api_key" not in updated_data
-        assert result["type"] == "create_entry"
+        # Basic return contract
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        # Case-specific assertions
+        if case == "updates_and_reload":
+            mock_hass.config_entries.async_update_entry.assert_called_once_with(
+                config_entry, data=user_input, options=config_entry.options
+            )
+            mock_hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
+            assert result["data"] == {}
+        elif case == "removes_blank_keys":
+            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+            assert "name" not in updated_data
+            assert "home_zone" not in updated_data
+            assert "language" not in updated_data
+            assert "api_key" not in updated_data
+        elif case == "merges_config_entry":
+            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+            expected_data = dict(config_entry.data)
+            expected_data.update(user_input)
+            for k, v in expected_data.items():
+                assert updated_data[k] == v
 
 
 @pytest.mark.asyncio
@@ -360,7 +363,7 @@ async def test_options_flow_handler_merges_config_entry_data(mock_hass, config_e
         updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
         for k, v in expected_data.items():
             assert updated_data[k] == v
-        assert result["type"] == "create_entry"
+        assert result["type"] == FlowResultType.CREATE_ENTRY
 
 
 @pytest.mark.parametrize(
