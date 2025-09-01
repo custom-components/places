@@ -167,8 +167,12 @@ async def test_display_options_state_render(
     sensor.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
 
     # Force out-of-zone behavior (devicetracker_zone_name is 'not_home')
-    # Temporarily patch the instance method so it is restored after the block.
-    with patch.object(sensor, "in_zone", AsyncMock(return_value=False)):
+    # Temporarily patch the instance methods so they are restored after the block.
+    # Also patch get_driving_status to avoid I/O or time-dependent work during the test.
+    with (
+        patch.object(sensor, "in_zone", AsyncMock(return_value=False)),
+        patch.object(sensor, "get_driving_status", AsyncMock(return_value=None)),
+    ):
         await sensor.process_display_options()
 
     assert sensor.get_attr(ATTR_NATIVE_VALUE) == expected_state, (

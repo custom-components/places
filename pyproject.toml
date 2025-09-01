@@ -17,6 +17,7 @@ addopts = """
   --cov-report=html
 """
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true

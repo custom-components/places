@@ -81,82 +81,81 @@ async def test_options_flow_init(mock_hass, config_entry):
     result = await mock_hass.config_entries.options.async_init(config_entry.entry_id)
     assert result["type"] == FlowResultType.FORM
 
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "case,user_input",
-        [
-            (
-                "updates_and_reload",
-                {
-                    "devicetracker_id": "device.test",
-                    "name": "Test Place",
-                    "display_options": "zone, place",
-                    "home_zone": "zone.home",
-                    "map_provider": "osm",
-                    "map_zoom": 10,
-                    "use_gps": True,
-                    "extended_attr": False,
-                    "show_time": True,
-                    "date_format": "mm/dd",
-                    "language": "en",
-                    "api_key": "",
-                },
-            ),
-            (
-                "removes_blank_keys",
-                {
-                    "devicetracker_id": "device.test",
-                    "name": "",
-                    "display_options": "zone, place",
-                    "home_zone": "",
-                    "map_provider": "osm",
-                    "map_zoom": 10,
-                    "use_gps": True,
-                    "extended_attr": False,
-                    "show_time": True,
-                    "date_format": "mm/dd",
-                    "language": "",
-                    "api_key": "",
-                },
-            ),
-            (
-                "merges_config_entry",
-                {"devicetracker_id": "device.test", "display_options": "zone, place"},
-            ),
-        ],
-    )
-    async def test_options_flow_handler_variants(mock_hass, config_entry, case, user_input):
-        """Parametrized: ensure options flow handler behaves correctly for different input variants."""
-        config_entry.add_to_hass(mock_hass)
-        handler = PlacesOptionsFlowHandler()
-        handler.hass = mock_hass
-        with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-            mock_hass.config_entries.async_update_entry = MagicMock()
-            mock_hass.config_entries.async_reload = AsyncMock()
-            result = await handler.async_step_init(user_input)
-            # Basic return contract
-            assert result["type"] == FlowResultType.CREATE_ENTRY
-            # Case-specific assertions
-            if case == "updates_and_reload":
-                mock_hass.config_entries.async_update_entry.assert_called_once_with(
-                    config_entry, data=user_input, options=config_entry.options
-                )
-                mock_hass.config_entries.async_reload.assert_awaited_once_with(
-                    config_entry.entry_id
-                )
-                assert result["data"] == {}
-            elif case == "removes_blank_keys":
-                updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-                assert "name" not in updated_data
-                assert "home_zone" not in updated_data
-                assert "language" not in updated_data
-                assert "api_key" not in updated_data
-            elif case == "merges_config_entry":
-                updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-                expected_data = dict(config_entry.data)
-                expected_data.update(user_input)
-                for k, v in expected_data.items():
-                    assert updated_data[k] == v
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case,user_input",
+    [
+        (
+            "updates_and_reload",
+            {
+                "devicetracker_id": "device.test",
+                "name": "Test Place",
+                "display_options": "zone, place",
+                "home_zone": "zone.home",
+                "map_provider": "osm",
+                "map_zoom": 10,
+                "use_gps": True,
+                "extended_attr": False,
+                "show_time": True,
+                "date_format": "mm/dd",
+                "language": "en",
+                "api_key": "",
+            },
+        ),
+        (
+            "removes_blank_keys",
+            {
+                "devicetracker_id": "device.test",
+                "name": "",
+                "display_options": "zone, place",
+                "home_zone": "",
+                "map_provider": "osm",
+                "map_zoom": 10,
+                "use_gps": True,
+                "extended_attr": False,
+                "show_time": True,
+                "date_format": "mm/dd",
+                "language": "",
+                "api_key": "",
+            },
+        ),
+        (
+            "merges_config_entry",
+            {"devicetracker_id": "device.test", "display_options": "zone, place"},
+        ),
+    ],
+)
+async def test_options_flow_handler_variants(mock_hass, config_entry, case, user_input):
+    """Parametrized: ensure options flow handler behaves correctly for different input variants."""
+    config_entry.add_to_hass(mock_hass)
+    handler = PlacesOptionsFlowHandler()
+    handler.hass = mock_hass
+    with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
+        mock_hass.config_entries.async_update_entry = MagicMock()
+        mock_hass.config_entries.async_reload = AsyncMock()
+        result = await handler.async_step_init(user_input)
+        # Basic return contract
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        # Case-specific assertions
+        if case == "updates_and_reload":
+            mock_hass.config_entries.async_update_entry.assert_called_once_with(
+                config_entry, data=user_input, options=config_entry.options
+            )
+            mock_hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
+            assert result["data"] == {}
+        elif case == "removes_blank_keys":
+            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+            assert "name" not in updated_data
+            assert "home_zone" not in updated_data
+            assert "language" not in updated_data
+            assert "api_key" not in updated_data
+        elif case == "merges_config_entry":
+            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+            expected_data = dict(config_entry.data)
+            expected_data.update(user_input)
+            for k, v in expected_data.items():
+                assert updated_data[k] == v
 
 
 @pytest.mark.parametrize(
@@ -237,82 +236,6 @@ def test_async_get_options_flow_returns_handler():
     config_entry = MockConfigEntry(domain="places", data={})
     handler = PlacesConfigFlow.async_get_options_flow(config_entry)
     assert isinstance(handler, PlacesOptionsFlowHandler)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "case,user_input",
-    [
-        (
-            "updates_and_reload",
-            {
-                "devicetracker_id": "device.test",
-                "name": "Test Place",
-                "display_options": "zone, place",
-                "home_zone": "zone.home",
-                "map_provider": "osm",
-                "map_zoom": 10,
-                "use_gps": True,
-                "extended_attr": False,
-                "show_time": True,
-                "date_format": "mm/dd",
-                "language": "en",
-                "api_key": "",
-            },
-        ),
-        (
-            "removes_blank_keys",
-            {
-                "devicetracker_id": "device.test",
-                "name": "",
-                "display_options": "zone, place",
-                "home_zone": "",
-                "map_provider": "osm",
-                "map_zoom": 10,
-                "use_gps": True,
-                "extended_attr": False,
-                "show_time": True,
-                "date_format": "mm/dd",
-                "language": "",
-                "api_key": "",
-            },
-        ),
-        (
-            "merges_config_entry",
-            {"devicetracker_id": "device.test", "display_options": "zone, place"},
-        ),
-    ],
-)
-async def test_options_flow_handler_variants(mock_hass, config_entry, case, user_input):
-    """Parametrized: ensure options flow handler behaves correctly for different input variants."""
-    config_entry.add_to_hass(mock_hass)
-    handler = PlacesOptionsFlowHandler()
-    handler.hass = mock_hass
-    with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-        mock_hass.config_entries.async_update_entry = MagicMock()
-        mock_hass.config_entries.async_reload = AsyncMock()
-        result = await handler.async_step_init(user_input)
-        # Basic return contract
-        assert result["type"] == FlowResultType.CREATE_ENTRY
-        # Case-specific assertions
-        if case == "updates_and_reload":
-            mock_hass.config_entries.async_update_entry.assert_called_once_with(
-                config_entry, data=user_input, options=config_entry.options
-            )
-            mock_hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
-            assert result["data"] == {}
-        elif case == "removes_blank_keys":
-            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-            assert "name" not in updated_data
-            assert "home_zone" not in updated_data
-            assert "language" not in updated_data
-            assert "api_key" not in updated_data
-        elif case == "merges_config_entry":
-            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-            expected_data = dict(config_entry.data)
-            expected_data.update(user_input)
-            for k, v in expected_data.items():
-                assert updated_data[k] == v
 
 
 @pytest.mark.asyncio
@@ -463,7 +386,7 @@ async def test_config_flow_user_step_invalid_display_options(mock_hass):
     bad_input = {
         "name": "Bad Sensor",
         "devicetracker_id": "device.test",
-        "options": "zone,[place,(zone]",  # mismatched using correct key
+        "options": "zone,[place,(zone]",
         "home_zone": "zone.home",
         "map_provider": "osm",
         "map_zoom": 10,

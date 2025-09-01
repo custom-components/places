@@ -78,7 +78,6 @@ async def test_build_display_scenarios(
     scenario, attrs, in_zone, options, expected_contains, expected_eq, mock_hass, sensor
 ):
     """Parametrized scenarios for BasicOptionsParser.build_display covering blank, populated, reorder, and in-zone cases."""
-    mock_hass.states.async_set("sensor._pp_demo", "on")
     # Mutate shared sensor fixture for this scenario
     sensor.attrs = attrs or {}
     sensor._in_zone = in_zone
@@ -173,6 +172,37 @@ def test_add_type_or_category(attrs, expected, basic_parser):
 )
 def test_add_street_info(attrs, expected, basic_parser):
     """Test that `add_street_info` appends the correct street info to the list."""
+    parser, sensor = basic_parser(attrs=attrs)
+    arr = []
+    parser.add_street_info(arr, attrs, sensor)
+    assert expected in arr
+
+
+@pytest.mark.parametrize(
+    "attrs,expected",
+    [
+        (
+            {
+                "place_category": "highway",
+                "place_type": "motorway",
+                "street": "",
+                "street_ref": "I-80",
+            },
+            "I-80",
+        ),
+        (
+            {
+                "place_category": "highway",
+                "place_type": "trunk",
+                "street": "",
+                "street_ref": "US-101",
+            },
+            "US-101",
+        ),
+    ],
+)
+def test_add_street_info_highway(attrs, expected, basic_parser):
+    """Verify that add_street_info prefers street_ref for highway/motorway when street is empty."""
     parser, sensor = basic_parser(attrs=attrs)
     arr = []
     parser.add_street_info(arr, attrs, sensor)

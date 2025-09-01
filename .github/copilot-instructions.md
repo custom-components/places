@@ -26,9 +26,9 @@
 - Add typing annotations to all functions and classes, including return types.
 - Add descriptive docstrings to all functions and classes (PEP 257 convention). Update existing docstrings if needed.
 - Keep all existing comments in files.
-- Use pre-commit hooks configured in `/.pre-commit-config.yaml`.
-- Use Ruff for code style consistency (settings in `/pyproject.toml`).
-- Use mypy for static type checking (settings in `/pyproject.toml`).
+- Pre-commit hooks are configured in `/.pre-commit-config.yaml`.
+- Ruff enforces code style (settings in `/pyproject.toml`).
+- mypy enforces static typing (settings in `/pyproject.toml`).
 
 ## Error Handling & Logging
 - Implement robust error handling and debug logging.
@@ -37,13 +37,13 @@
 
 ## Testing
 - Use pytest (not unittest) and pytest plugins for all tests.
-- Use pytest-homeassistant-custom-component for Home Assistant specific testing utilities whenever possible instead of creating custom ones. Especially use MockConfigEntry for config entries.
+- Use pytest-homeassistant-custom-component for Home Assistant–specific testing utilities (prefer MockConfigEntry for config entries) instead of creating custom ones.
 - All tests must have typing annotations and robust docstrings.
 - Use fixtures and mocks to isolate tests.
 - Use conftest.py for shared test utilities and fixtures.
 - Parameterize tests instead of creating multiple similar test functions.
-- When changing or parameterizing tests, delete any legacy placeholder tests that are no longer needed. Also, remove any comments indicating that a test was removed or combined.
-- Don't create additional _extra files. Just add tests to existing test files.
+- When parameterizing tests, delete any legacy placeholder tests and related comments.
+- Don’t add new *_extra.py files; add tests to existing files.
 - Achieve at least 80% code coverage.
 
 ## CI/CD

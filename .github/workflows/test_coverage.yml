@@ -8,6 +8,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: pytest and coverage report
@@ -26,12 +34,12 @@ jobs:
         uses: actions/cache@v4.2.3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements-dev.txt', 'requirements.txt', 'pyproject.toml', '.pre-commit-config.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install --upgrade pip && pip install -r requirements-dev.txt
 
       - name: Run pytest with Coverage
         continue-on-error: true
@@ -45,7 +53,7 @@ jobs:
           path: htmlcov/
 
       - name: Show Coverage in PR
-        if: ${{ github.event_name != 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'pull_request' }}
         # uses: MishaKav/pytest-coverage-comment@main
         uses: eltoder/pytest-coverage-comment@feature/branch-coverage
         with:

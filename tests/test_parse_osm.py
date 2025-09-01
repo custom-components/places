@@ -32,8 +32,7 @@ from custom_components.places.const import (
     PLACE_NAME_DUPLICATE_LIST,
 )
 from custom_components.places.parse_osm import OSMParser
-
-from .conftest import mock_sensor, stubbed_parser
+from tests.conftest import mock_sensor, stubbed_parser
 
 
 @pytest.fixture
@@ -195,8 +194,10 @@ async def test_parse_namedetails_variants(
     await parser.parse_namedetails(osm_dict)
 
     # Collect all ATTR_PLACE_NAME calls recorded via the internal mock
-    calls = [c for c in sensor._set_attr_mock.call_args_list if c[0][0] == ATTR_PLACE_NAME]
-    values = [c[0][1] for c in calls]
+    place_name_calls = [
+        call for call in sensor._set_attr_mock.call_args_list if call[0][0] == ATTR_PLACE_NAME
+    ]
+    values = [call[0][1] for call in place_name_calls]
 
     if not expected_calls:
         assert values == []
@@ -388,9 +389,13 @@ async def test_parse_miscellaneous_sets_attrs(osm_parser, expected_attr, expecte
     )
     await parser.parse_miscellaneous(osm_dict)
     # verify attribute was set in internal attrs or recorded via internal mock
-    assert sensor.attrs.get(
-        expected_attr
-    ) == expected_value or sensor._set_attr_mock.assert_any_call(expected_attr, expected_value)
+    actual = sensor.attrs.get(expected_attr)
+    if actual == expected_value:
+        # attribute was written directly into the internal attrs
+        assert True
+    else:
+        # otherwise ensure the internal set_attr mock recorded the call
+        sensor._set_attr_mock.assert_any_call(expected_attr, expected_value)
 
 
 @pytest.mark.asyncio
@@ -455,9 +460,6 @@ async def test_set_place_name_no_dupe_param(
 )
 async def test_finalize_last_place_name_variants(osm_parser, case, existing_attrs, should_set):
     """Parametrized finalize_last_place_name covering initial update, identical names, and else-case where it should not set."""
-
-    def get_attr_side_effect(k):
-        return existing_attrs.get(k)
 
     parser, sensor = osm_parser(attrs=existing_attrs)
     await parser.finalize_last_place_name("old_name")

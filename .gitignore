@@ -13,7 +13,7 @@ __pycache__
 [Dd]esktop.ini
 *.lnk
 *.pyc
-/pyvenv.cfg
+pyvenv.cfg
 $RECYCLE.BIN/
 coverage.xml
 env.bak/

@@ -5,8 +5,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places import async_setup_entry, async_unload_entry
 from custom_components.places.const import PLATFORMS
-
-from .conftest import assert_awaited_count
+from tests.conftest import assert_awaited_count
 
 
 @pytest.fixture
@@ -31,6 +30,25 @@ async def test_async_setup_entry_calls_forward_setups(mock_hass, mock_entry):
     result = await async_setup_entry(mock_hass, mock_entry)
     assert result is True
     # Verify the async_forward_entry_setups coroutine was awaited with the expected args
+    mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
+        mock_entry, PLATFORMS
+    )
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_forward_setups_returns_false(mock_hass, mock_entry):
+    """When the forwarded platform setups returns False, current implementation still returns True but should still await forwarding once.
+
+    Note: the integration does not propagate the return value from
+    `async_forward_entry_setups`, so we assert that `async_setup_entry` still
+    returns True while ensuring the forward call was awaited with expected args.
+    """
+    # Make the forwarded setup coroutine return False when awaited
+    mock_hass.config_entries.async_forward_entry_setups.return_value = False
+    result = await async_setup_entry(mock_hass, mock_entry)
+    # Integration does not propagate the forwarded setup result, so it returns True
+    assert result is True
+    # Ensure the coroutine was awaited with the expected args
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )

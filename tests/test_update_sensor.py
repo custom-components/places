@@ -68,8 +68,7 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_ZONE,
 )
-
-from .conftest import assert_awaited_count, stub_in_zone, stubbed_parser, stubbed_sensor
+from tests.conftest import assert_awaited_count, stub_in_zone, stubbed_parser, stubbed_sensor
 
 # Preserve original constructor reference so helper can delegate to it when needed
 _OriginalPlacesUpdater = PlacesUpdater
@@ -295,6 +294,7 @@ async def test_get_gps_accuracy_sets_accuracy(mock_hass, mock_config_entry, sens
     tracker_state = MagicMock()
     tracker_state.attributes = {ATTR_GPS_ACCURACY: 5.0}
     mock_hass.states.get.return_value = tracker_state
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
     sensor.is_attr_blank.return_value = False
     sensor.get_attr.return_value = True
     sensor.get_attr_safe_float.return_value = 5.0
@@ -628,14 +628,9 @@ async def test_rollback_update_calls_restore_and_helpers(
             ("change_show_time_to_date", {}),
         ],
     ) as mocks:
+        # Ensure show_time is False and direction is not 'stationary' so change_dot_to_stationary runs
+        sensor.get_attr.side_effect = lambda k: False
         await updater.rollback_update({"a": 1}, datetime.now(), UpdateStatus.SKIP_SET_STATIONARY)
-    sensor.get_attr.side_effect = (
-        lambda k: True
-        if k == CONF_SHOW_TIME
-        else "stationary"
-        if k == ATTR_DIRECTION_OF_TRAVEL
-        else False
-    )
     sensor.restore_previous_attr.assert_awaited_once()
     # Based on the test setup (proceed SKIP_SET_STATIONARY, default direction not 'stationary', seconds=100),
     # change_dot_to_stationary should have been awaited once; show_time helper should not be awaited.
@@ -687,7 +682,7 @@ async def test_get_dict_from_url_variants(
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {
             OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": AsyncMock(), "last_query": 0},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
         }
 
     if cached:
@@ -811,9 +806,9 @@ async def test_get_seconds_from_last_change_param(mock_hass, mock_config_entry, 
 
     if scenario == "valid_date":
         last_changed = now - timedelta(seconds=123)
-        sensor.get_attr_safe_str.return_value = last_changed.replace(microsecond=0).isoformat()
+        sensor.attrs[ATTR_LAST_CHANGED] = last_changed.replace(microsecond=0).isoformat()
         result = await updater.get_seconds_from_last_change(now.replace(microsecond=0))
-        assert result == 3600
+        assert result == 123
         return
 
     if scenario == "type_error":
@@ -915,7 +910,7 @@ async def test_is_devicetracker_set_param(
     [
         (None, False),
         ("unavailable", False),
-        (MagicMock(), False),
+        (MagicMock(state="home"), True),
     ],
 )
 async def test_is_tracker_available_param(
@@ -926,6 +921,9 @@ async def test_is_tracker_available_param(
     sensor.is_attr_blank.return_value = False
     sensor.get_attr.return_value = "device_tracker.test"
     mock_hass.states.get.return_value = tracker_state
+    # Ensure the sensor reports a configured device_tracker id so it is not
+    # considered blank by MockSensor.is_attr_blank's default behavior.
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
     result = await updater.is_tracker_available()
     assert result is expected_result
 
@@ -1385,7 +1383,7 @@ async def test_get_dict_from_url_network_variants(
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {
             OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": AsyncMock(), "last_query": 0},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
         }
 
     # Avoid real network by registering the test payload with aioclient_mock
@@ -1393,7 +1391,7 @@ async def test_get_dict_from_url_network_variants(
     await updater.get_dict_from_url(url, "NetService", "dict_name")
 
     if expect_log_substr:
-        assert expect_log_substr in caplog.text
+        assert any(expect_log_substr.lower() in r.getMessage().lower() for r in caplog.records)
     if expect_cached:
         assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) is not None
     if expect_sensor_attr:
@@ -1652,7 +1650,7 @@ async def test_get_dict_from_url_respects_throttle(
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {
             OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": AsyncMock(), "last_query": 0},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
         }
 
     # Set last_query to now so wait_time = interval (positive)
@@ -1680,7 +1678,7 @@ async def test_get_dict_from_url_handles_network_error(
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {
             OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": AsyncMock(), "last_query": 0},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
         }
 
     # Simulate aiohttp.ClientError when getting the URL

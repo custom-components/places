@@ -745,7 +745,13 @@ class PlacesUpdater:
                             get_json_input,
                         )
                         return
-            except (aiohttp.ClientError, TimeoutError, OSError, RuntimeError) as e:
+            except (
+                TimeoutError,
+                aiohttp.ClientError,
+                aiohttp.ContentTypeError,
+                OSError,
+                RuntimeError,
+            ) as e:
                 _LOGGER.warning(
                     "(%s) Error connecting to %s [%s: %s]: %s",
                     self.sensor.get_attr(CONF_NAME),
