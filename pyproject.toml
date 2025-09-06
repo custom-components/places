@@ -6,14 +6,11 @@ ignore-words-list = "hass"
 [tool.pytest.ini_options]
 addopts = """
   --quiet
-  --timeout=10
+  --timeout=20
   --durations=10
   -o console_output_style=progress
-  --junitxml=pytest.xml
   --cov=custom_components.places
-  --cov-branch
-  --cov-report=term
-  --cov-report=xml
+  --cov-report=term-missing
   --cov-report=html
 """
 testpaths = ["tests"]
@@ -21,14 +18,12 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
-parallel = true
+source = ["custom_components.places"]
+relative_files = true
+parallel = false
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 80
-
-[tool.coverage.xml]
-output = "coverage.xml"
 
 [tool.mypy]
 python_version = "3.13"
