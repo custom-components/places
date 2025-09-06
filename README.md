@@ -8,6 +8,7 @@
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Release Date][release-date-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
+[![Coverage][coverage-shield]][coverage]
 [![License][license-shield]](LICENSE)
 [![hacs][hacsbadge]][hacs]
 [![Community Forum][community-forum-shield]](community-forum)
@@ -288,3 +289,5 @@ If you want to contribute to this please read the [Contribution guidelines](CONT
 [hacs]: https://hacs.xyz
 [community-forum-shield]: https://img.shields.io/badge/community-forum-orange.svg?label=HA%20Community&style=for-the-badge
 [community-forum]: https://community.home-assistant.io/t/reverse-geocode-sensor-places-using-openstreetmap-custom-component
+[coverage]: https://htmlpreview.github.io/?https://github.com/custom-components/places/blob/python-coverage-comment-action-data/htmlcov/index.html
+[coverage-shield]: https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcustom-components%2Fplaces%2Fpython-coverage-comment-action-data%2Fendpoint.json&style=for-the-badge
