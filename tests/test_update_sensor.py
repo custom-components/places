@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime, timedelta
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 
 import aiohttp
@@ -785,7 +785,9 @@ async def test_update_coordinates_and_distance_calls(
     "scenario",
     ["blank", "invalid_date", "valid_date", "type_error", "value_error"],
 )
-async def test_get_seconds_from_last_change_param(mock_hass, mock_config_entry, sensor, scenario):
+async def test_get_seconds_from_last_change_param(
+    mock_hass, mock_config_entry, sensor, scenario, monkeypatch
+):
     """Parametrized variants for get_seconds_from_last_change covering various error and success paths."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     now = datetime.now()
@@ -819,21 +821,23 @@ async def test_get_seconds_from_last_change_param(mock_hass, mock_config_entry, 
 
         bad_dt = BadDatetime.now()
         sensor.get_attr_safe_str.return_value = bad_dt.isoformat()
-        with patch("custom_components.places.update_sensor.datetime") as mock_dt:
-            # Use side_effect for fromisoformat to avoid mixing return_value and side_effect
-            mock_dt.fromisoformat.side_effect = lambda s: bad_dt
-            mock_dt.now.return_value = bad_dt
-            result = await updater.get_seconds_from_last_change(bad_dt)
-            assert result == 3600
+        mock_dt = MagicMock()
+        # Use side_effect for fromisoformat to avoid mixing return_value and side_effect
+        mock_dt.fromisoformat.side_effect = lambda s: bad_dt
+        mock_dt.now.return_value = bad_dt
+        monkeypatch.setattr("custom_components.places.update_sensor.datetime", mock_dt)
+        result = await updater.get_seconds_from_last_change(bad_dt)
+        assert result == 3600
         return
 
     # value_error
     sensor.get_attr_safe_str.return_value = "bad-date"
-    with patch("custom_components.places.update_sensor.datetime") as mock_dt:
-        mock_dt.fromisoformat.side_effect = ValueError("bad date format")
-        mock_dt.now.return_value = now
-        result = await updater.get_seconds_from_last_change(now)
-        assert result == 3600
+    mock_dt = MagicMock()
+    mock_dt.fromisoformat.side_effect = ValueError("bad date format")
+    mock_dt.now.return_value = now
+    monkeypatch.setattr("custom_components.places.update_sensor.datetime", mock_dt)
+    result = await updater.get_seconds_from_last_change(now)
+    assert result == 3600
 
 
 @pytest.mark.asyncio
@@ -970,7 +974,7 @@ async def test_log_tracker_issue_param(mock_hass, mock_config_entry, sensor, cap
 
 @pytest.mark.asyncio
 async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
+    mock_hass, mock_config_entry, sensor, stubbed_updater, monkeypatch
 ):
     """Test that query_osm_and_finalize runs the OSM parser, finalizes the last place name, processes display options, and sets last_changed."""
     sensor.attrs["osm_dict"] = {"some": "value"}
@@ -984,12 +988,13 @@ async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
         config_entry=mock_config_entry,
         sensor=sensor,
     )
+    mock_parser_cls = MagicMock(return_value=mock_parser)
+    monkeypatch.setattr("custom_components.places.update_sensor.OSMParser", mock_parser_cls)
     with (
         stubbed_sensor(sensor, [("process_display_options", {})]) as sensor_mocks,
         stubbed_parser(
             mock_parser, [("parse_osm_dict", {}), ("finalize_last_place_name", {})]
         ) as parser_mocks,
-        patch("custom_components.places.update_sensor.OSMParser", return_value=mock_parser),
         stubbed_updater(
             updater,
             [
@@ -1198,13 +1203,14 @@ async def test_get_initial_last_place_name_not_in_zone_blank_keeps_previous(
 
 @pytest.mark.asyncio
 async def test_query_osm_and_finalize_no_osm_dict(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
+    mock_hass, mock_config_entry, sensor, stubbed_updater, monkeypatch
 ):
     """If OSM dict blank parser isn't invoked and last_changed not set."""
     sensor.attrs[ATTR_OSM_DICT] = None
     updater = make_updater(mock_hass, mock_config_entry, sensor)
+    mock_parser_cls = MagicMock()
+    monkeypatch.setattr("custom_components.places.update_sensor.OSMParser", mock_parser_cls)
     with (
-        patch("custom_components.places.update_sensor.OSMParser") as mock_parser_cls,
         stubbed_sensor(sensor, [("process_display_options", {})]),
         stubbed_updater(
             updater,

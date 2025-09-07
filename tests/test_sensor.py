@@ -1,7 +1,7 @@
 """Test suite for the Places sensor integration."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -115,26 +115,27 @@ def test_extra_state_attributes_basic(monkeypatch, places_instance):
 @pytest.mark.parametrize("tracker_id", ["device.tracker_1", "device.tracker_2"])
 async def test_async_added_to_hass_param(monkeypatch, places_instance, tracker_id):
     """Parametrized: async_added_to_hass subscribes to the configured tracker id and registers the removal callback."""
-    with (
-        patch(
-            "custom_components.places.sensor.async_track_state_change_event",
-            return_value="remove_handle",
-        ) as track_event,
-        patch("custom_components.places.sensor._LOGGER") as logger,
-    ):
-        places_instance.get_attr = MagicMock(return_value=tracker_id)
-        places_instance.tsc_update = MagicMock()
-        places_instance.async_on_remove = MagicMock()
+    mock_track_event = MagicMock(return_value="remove_handle")
+    monkeypatch.setattr(
+        "custom_components.places.sensor.async_track_state_change_event",
+        mock_track_event,
+    )
+    mock_logger = MagicMock()
+    monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
 
-        await places_instance.async_added_to_hass()
+    places_instance.get_attr = MagicMock(return_value=tracker_id)
+    places_instance.tsc_update = MagicMock()
+    places_instance.async_on_remove = MagicMock()
 
-        track_event.assert_called_once_with(
-            places_instance._hass,
-            [tracker_id],
-            places_instance.tsc_update,
-        )
-        places_instance.async_on_remove.assert_called_once_with("remove_handle")
-        logger.debug.assert_called()
+    await places_instance.async_added_to_hass()
+
+    mock_track_event.assert_called_once_with(
+        places_instance._hass,
+        [tracker_id],
+        places_instance.tsc_update,
+    )
+    places_instance.async_on_remove.assert_called_once_with("remove_handle")
+    mock_logger.debug.assert_called()
 
 
 def test_get_internal_attr_returns_dict(places_instance):
@@ -516,12 +517,13 @@ async def test_async_will_remove_from_hass_param(
         # Replace remove_json_file with a noop to avoid actual file ops
         monkeypatch.setattr("custom_components.places.sensor.remove_json_file", lambda *a: None)
 
-        with patch("custom_components.places.sensor._LOGGER") as logger:
-            await places_instance.async_will_remove_from_hass()
+    mock_logger = MagicMock()
+    monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
+    await places_instance.async_will_remove_from_hass()
 
     if recorder_present:
         assert EVENT_TYPE not in recorder.exclude_event_types
-        logger.debug.assert_any_call(
+        mock_logger.debug.assert_any_call(
             "(%s) Removing entity exclusion from recorder: %s", "TestName", "sensor.test"
         )
     else:
@@ -730,17 +732,20 @@ async def test_process_display_options_variants(
             use_stub = False
 
         if use_stub:
-            with stub_in_zone(sensor, False), patch(parser_path) as mock_parser_cls:
-                mock_parser = MagicMock()
-                with stubbed_parser(mock_parser, methods):
-                    mock_parser_cls.return_value = mock_parser
-                    await Places.process_display_options(sensor)
+            # set parser class to MagicMock via monkeypatch and run with stub_in_zone
+            mock_parser_cls = MagicMock()
+            monkeypatch.setattr(parser_path, mock_parser_cls)
+            mock_parser = MagicMock()
+            with stub_in_zone(sensor, False), stubbed_parser(mock_parser, methods):
+                mock_parser_cls.return_value = mock_parser
+                await Places.process_display_options(sensor)
         else:
-            with patch(parser_path) as mock_parser_cls:
-                mock_parser = MagicMock()
-                with stubbed_parser(mock_parser, methods):
-                    mock_parser_cls.return_value = mock_parser
-                    await Places.process_display_options(sensor)
+            mock_parser_cls = MagicMock()
+            monkeypatch.setattr(parser_path, mock_parser_cls)
+            mock_parser = MagicMock()
+            with stubbed_parser(mock_parser, methods):
+                mock_parser_cls.return_value = mock_parser
+                await Places.process_display_options(sensor)
     else:
         # no parser involved in this scenario
         await Places.process_display_options(sensor)

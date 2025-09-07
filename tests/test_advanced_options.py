@@ -1,7 +1,7 @@
 """Unit tests for AdvancedOptionsParser in custom_components.places.advanced_options."""
 
 import logging
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -274,17 +274,21 @@ async def test_build_from_advanced_options_not_none_calls_normal(sensor):
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_processed_options(sensor):
+async def test_build_from_advanced_options_processed_options(sensor, monkeypatch):
     """Return early and log error when curr_options already processed."""
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
     parser._processed_options.add("zone_name")
-    with patch.object(
-        logging.getLogger("custom_components.places.advanced_options"), "error"
-    ) as mock_log:
-        await parser.build_from_advanced_options("zone_name")
-        mock_log.assert_called()
-        assert parser.state_list == []
+    mock_log = MagicMock()
+    monkeypatch.setattr(
+        logging.getLogger("custom_components.places.advanced_options"),
+        "error",
+        mock_log,
+        raising=False,
+    )
+    await parser.build_from_advanced_options("zone_name")
+    mock_log.assert_called()
+    assert parser.state_list == []
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 """Tests for the Places integration config and options flows."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -126,36 +126,41 @@ async def test_options_flow_init(mock_hass, config_entry):
         ),
     ],
 )
-async def test_options_flow_handler_variants(mock_hass, config_entry, case, user_input):
+async def test_options_flow_handler_variants(
+    mock_hass, config_entry, case, user_input, monkeypatch
+):
     """Parametrized: ensure options flow handler behaves correctly for different input variants."""
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass
-    with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-        mock_hass.config_entries.async_update_entry = MagicMock()
-        mock_hass.config_entries.async_reload = AsyncMock()
-        result = await handler.async_step_init(user_input)
-        # Basic return contract
-        assert result["type"] == FlowResultType.CREATE_ENTRY
-        # Case-specific assertions
-        if case == "updates_and_reload":
-            mock_hass.config_entries.async_update_entry.assert_called_once_with(
-                config_entry, data=user_input, options=config_entry.options
-            )
-            mock_hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
-            assert result["data"] == {}
-        elif case == "removes_blank_keys":
-            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-            assert "name" not in updated_data
-            assert "home_zone" not in updated_data
-            assert "language" not in updated_data
-            assert "api_key" not in updated_data
-        elif case == "merges_config_entry":
-            updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-            expected_data = dict(config_entry.data)
-            expected_data.update(user_input)
-            for k, v in expected_data.items():
-                assert updated_data[k] == v
+    # use monkeypatch to provide the config_entry property on the handler type
+    monkeypatch.setattr(
+        type(handler), "config_entry", property(lambda self: config_entry), raising=False
+    )
+    mock_hass.config_entries.async_update_entry = MagicMock()
+    mock_hass.config_entries.async_reload = AsyncMock()
+    result = await handler.async_step_init(user_input)
+    # Basic return contract
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    # Case-specific assertions
+    if case == "updates_and_reload":
+        mock_hass.config_entries.async_update_entry.assert_called_once_with(
+            config_entry, data=user_input, options=config_entry.options
+        )
+        mock_hass.config_entries.async_reload.assert_awaited_once_with(config_entry.entry_id)
+        assert result["data"] == {}
+    elif case == "removes_blank_keys":
+        updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+        assert "name" not in updated_data
+        assert "home_zone" not in updated_data
+        assert "language" not in updated_data
+        assert "api_key" not in updated_data
+    elif case == "merges_config_entry":
+        updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+        expected_data = dict(config_entry.data)
+        expected_data.update(user_input)
+        for k, v in expected_data.items():
+            assert updated_data[k] == v
 
 
 @pytest.mark.parametrize(
@@ -239,33 +244,39 @@ def test_async_get_options_flow_returns_handler():
 
 
 @pytest.mark.asyncio
-async def test_options_flow_handler_shows_form_when_no_user_input(mock_hass, config_entry):
+async def test_options_flow_handler_shows_form_when_no_user_input(
+    mock_hass, config_entry, monkeypatch
+):
     """Test that the options flow handler displays a form with the correct schema and description placeholders when no user input is provided (None)."""
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass
-    with (
-        patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)),
-        patch(
-            "custom_components.places.config_flow.get_devicetracker_id_entities",
-            return_value=[{"value": "device.test", "label": "Device Test"}],
-        ),
-        patch(
-            "custom_components.places.config_flow.get_home_zone_entities",
-            return_value=[{"value": "zone.home", "label": "Home Zone"}],
-        ),
-    ):
-        result = await handler.async_step_init(None)
-        assert result["type"] == "form"
-        assert "data_schema" in result
-        assert result["step_id"] == "init"
-        assert "description_placeholders" in result
-        assert result["description_placeholders"]["sensor_name"] == config_entry.data["name"]
-        assert result["description_placeholders"]["component_config_url"]
+    # attach config_entry property and stub helper functions via monkeypatch
+    monkeypatch.setattr(
+        type(handler), "config_entry", property(lambda self: config_entry), raising=False
+    )
+    monkeypatch.setattr(
+        "custom_components.places.config_flow.get_devicetracker_id_entities",
+        lambda hass, current_entity=None: [{"value": "device.test", "label": "Device Test"}],
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "custom_components.places.config_flow.get_home_zone_entities",
+        lambda hass: [{"value": "zone.home", "label": "Home Zone"}],
+        raising=False,
+    )
+
+    result = await handler.async_step_init(None)
+    assert result["type"] == "form"
+    assert "data_schema" in result
+    assert result["step_id"] == "init"
+    assert "description_placeholders" in result
+    assert result["description_placeholders"]["sensor_name"] == config_entry.data["name"]
+    assert result["description_placeholders"]["component_config_url"]
 
 
 @pytest.mark.asyncio
-async def test_options_flow_handler_merges_config_entry_data(mock_hass, config_entry):
+async def test_options_flow_handler_merges_config_entry_data(mock_hass, config_entry, monkeypatch):
     """Test that the options flow handler merges user input with existing config entry data and updates the entry.
 
     Asserts that the updated config entry data contains both the original and new values, and that the flow returns a create entry result.
@@ -273,20 +284,23 @@ async def test_options_flow_handler_merges_config_entry_data(mock_hass, config_e
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass
-    with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-        user_input = {
-            "devicetracker_id": "device.test",
-            "display_options": "zone, place",
-        }
-        expected_data = dict(config_entry.data)
-        expected_data.update(user_input)
-        mock_hass.config_entries.async_update_entry = MagicMock()
-        mock_hass.config_entries.async_reload = AsyncMock()
-        result = await handler.async_step_init(user_input)
-        updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-        for k, v in expected_data.items():
-            assert updated_data[k] == v
-        assert result["type"] == FlowResultType.CREATE_ENTRY
+    # attach config_entry property so the handler can access it
+    monkeypatch.setattr(
+        type(handler), "config_entry", property(lambda self: config_entry), raising=False
+    )
+    user_input = {
+        "devicetracker_id": "device.test",
+        "display_options": "zone, place",
+    }
+    expected_data = dict(config_entry.data)
+    expected_data.update(user_input)
+    mock_hass.config_entries.async_update_entry = MagicMock()
+    mock_hass.config_entries.async_reload = AsyncMock()
+    result = await handler.async_step_init(user_input)
+    updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
+    for k, v in expected_data.items():
+        assert updated_data[k] == v
+    assert result["type"] == FlowResultType.CREATE_ENTRY
 
 
 @pytest.mark.parametrize(
@@ -403,20 +417,25 @@ async def test_config_flow_user_step_invalid_display_options(mock_hass):
 
 
 @pytest.mark.asyncio
-async def test_options_flow_invalid_display_options_shows_form(mock_hass, config_entry):
+async def test_options_flow_invalid_display_options_shows_form(
+    mock_hass, config_entry, monkeypatch
+):
     """Options flow with invalid display options string returns form (errors path)."""
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass
-    with patch.object(type(handler), "config_entry", new=property(lambda self: config_entry)):
-        bad_user_input = {
-            "devicetracker_id": "device.test",
-            "options": "zone,[place,(zone]",  # invalid using correct key
-        }
-        result = await handler.async_step_init(bad_user_input)
-        assert result["type"] == FlowResultType.FORM
-        assert result["errors"] != {}
-        assert result["step_id"] == "init"
+    # attach config_entry property directly on handler type
+    monkeypatch.setattr(
+        type(handler), "config_entry", property(lambda self: config_entry), raising=False
+    )
+    bad_user_input = {
+        "devicetracker_id": "device.test",
+        "options": "zone,[place,(zone]",  # invalid using correct key
+    }
+    result = await handler.async_step_init(bad_user_input)
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] != {}
+    assert result["step_id"] == "init"
 
 
 @pytest.mark.parametrize(

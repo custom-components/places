@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -138,7 +138,7 @@ BASE_INTERNAL_ATTR = {
     ],
 )
 async def test_display_options_state_render(
-    display_option: str, expected_state: str, mock_hass, patch_entity_registry
+    display_option: str, expected_state: str, mock_hass, patch_entity_registry, monkeypatch
 ):
     """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
 
@@ -169,11 +169,10 @@ async def test_display_options_state_render(
     # Force out-of-zone behavior (devicetracker_zone_name is 'not_home')
     # Temporarily patch the instance methods so they are restored after the block.
     # Also patch get_driving_status to avoid I/O or time-dependent work during the test.
-    with (
-        patch.object(sensor, "in_zone", AsyncMock(return_value=False)),
-        patch.object(sensor, "get_driving_status", AsyncMock(return_value=None)),
-    ):
-        await sensor.process_display_options()
+    # Use monkeypatch to temporarily replace instance methods
+    monkeypatch.setattr(sensor, "in_zone", AsyncMock(return_value=False), raising=False)
+    monkeypatch.setattr(sensor, "get_driving_status", AsyncMock(return_value=None), raising=False)
+    await sensor.process_display_options()
 
     assert sensor.get_attr(ATTR_NATIVE_VALUE) == expected_state, (
         f"Display option '{display_option}' produced '{sensor.get_attr(ATTR_NATIVE_VALUE)}', "
