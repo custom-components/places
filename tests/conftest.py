@@ -2,7 +2,7 @@
 
 from contextlib import contextmanager, suppress
 from typing import cast
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -373,7 +373,10 @@ def stub_in_zone(obj, return_value: bool):
         with stub_in_zone(sensor, False):
             await sensor.process_display_options()
     """
-    return patch.object(obj, "in_zone", AsyncMock(return_value=return_value))
+    # Use the generic stub_method helper to provide a context manager that
+    # temporarily replaces `in_zone` with an AsyncMock and restores the
+    # original attribute on exit.
+    return stub_method(obj, "in_zone", return_value=return_value)
 
 
 def stub_method(
