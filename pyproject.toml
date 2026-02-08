@@ -1,3 +1,46 @@
+[project]
+name = "places"
+dynamic = ["version"]
+description = "Places Home Assistant integration"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "aiohttp",
+  "cachetools",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "custom_components.places.const.VERSION"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["custom_components*"]
+
+[dependency-groups]
+lint = [
+  "homeassistant-stubs",
+  "mypy",
+  "pre-commit",
+  "ruff",
+  "types-cachetools",
+  "types-cffi",
+  "types-greenlet",
+  "types-PyMySQL",
+  "types-pyRFC3339",
+  "types-python-dateutil",
+  "types-PyYAML",
+  "types-requests",
+  "types-setuptools",
+]
+pytest = [
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "pytest-homeassistant-custom-component",
+  "pytest-timeout",
+]
+dev = [{ include-group = "lint" }, { include-group = "pytest" }]
+
 [tool.codespell]
 skip = "*.py,*.toml,CHANGELOG.*,*.json"
 quiet-level = 3

@@ -269,6 +269,15 @@ logger:
     custom_components.places: debug  
 ```
 
+## Development
+
+To install development and testing dependencies locally, create a virtual environment and use the extras defined in `pyproject.toml`:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install --group dev -e .
+```
+
 ## Prior Contributions:
 * Previous Authors: [Jim Thompson](https://github.com/tenly2000) & [Ian Richardson](https://github.com/iantrich)
 * Current Author: [Snuffy2](https://github.com/Snuffy2)
