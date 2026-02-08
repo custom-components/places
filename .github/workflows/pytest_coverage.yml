@@ -45,7 +45,7 @@ jobs:
       - name: Install pytest Requirements
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e '.[pytest]'
+          python -m pip install --group pytest -e .
 
       - name: Run pytest with coverage (pytest-cov)
         run: pytest

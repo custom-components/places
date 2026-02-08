@@ -34,7 +34,7 @@ jobs:
       - name: Install Linting Requirements
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e '.[lint]'
+          python -m pip install --group lint -e .
 
       - name: Cache pre-commit and mypy
         uses: actions/cache@v5.0.3
