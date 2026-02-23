@@ -161,8 +161,8 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
     # Ensure extended attribute logic is triggered and show_time path exercised
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     # Sensor reports extended attrs enabled and show_time enabled
-    sensor.get_attr.side_effect = (
-        lambda k: True
+    sensor.get_attr.side_effect = lambda k: (
+        True
         if k in (CONF_EXTENDED_ATTR, CONF_SHOW_TIME)
         else "TestSensor"
         if k == CONF_NAME
@@ -221,11 +221,11 @@ async def test_update_previous_state_variants(
         sensor.get_attr_safe_str.side_effect = lambda k: "TestVal" if k == ATTR_NATIVE_VALUE else ""
     else:
         sensor.is_attr_blank.side_effect = lambda k: k == ATTR_NATIVE_VALUE
-        sensor.get_attr.side_effect = (
-            lambda k: "PrevStateValue" if k == ATTR_PREVIOUS_STATE else False
+        sensor.get_attr.side_effect = lambda k: (
+            "PrevStateValue" if k == ATTR_PREVIOUS_STATE else False
         )
-        sensor.get_attr_safe_str.side_effect = (
-            lambda k: "PrevStateValue" if k in [ATTR_NATIVE_VALUE, ATTR_PREVIOUS_STATE] else ""
+        sensor.get_attr_safe_str.side_effect = lambda k: (
+            "PrevStateValue" if k in [ATTR_NATIVE_VALUE, ATTR_PREVIOUS_STATE] else ""
         )
 
     await updater.update_previous_state()
@@ -327,9 +327,13 @@ async def test_get_gps_accuracy_variants(
     sensor.attrs[CONF_USE_GPS] = use_gps
 
     # is_attr_blank should evaluate based on actual attrs
-    sensor.is_attr_blank.side_effect = lambda k: k not in sensor.attrs or sensor.attrs.get(k) in (
-        None,
-        "",
+    sensor.is_attr_blank.side_effect = lambda k: (
+        k not in sensor.attrs
+        or sensor.attrs.get(k)
+        in (
+            None,
+            "",
+        )
     )
 
     result = await updater.get_gps_accuracy()
@@ -412,9 +416,9 @@ async def test_get_initial_last_place_name_param(
                 sensor.get_attr_safe_str.__setattr__(
                     "side_effect",
                     (
-                        lambda k: "home"
-                        if k == ATTR_DEVICETRACKER_ZONE_NAME
-                        else "device_tracker.test"
+                        lambda k: (
+                            "home" if k == ATTR_DEVICETRACKER_ZONE_NAME else "device_tracker.test"
+                        )
                     ),
                 ),
                 sensor.get_attr.__setattr__(
@@ -458,11 +462,13 @@ async def test_get_initial_last_place_name_param(
                 mock_hass.states.get.__setattr__(
                     "side_effect",
                     (
-                        lambda eid: MagicMock(attributes={CONF_ZONE: "home"})
-                        if eid == "device_tracker.test"
-                        else MagicMock(attributes={CONF_FRIENDLY_NAME: "Home Zone"})
-                        if eid == "zone.home"
-                        else None
+                        lambda eid: (
+                            MagicMock(attributes={CONF_ZONE: "home"})
+                            if eid == "device_tracker.test"
+                            else MagicMock(attributes={CONF_FRIENDLY_NAME: "Home Zone"})
+                            if eid == "zone.home"
+                            else None
+                        )
                     ),
                 ),
             ),
@@ -484,9 +490,11 @@ async def test_get_initial_last_place_name_param(
                 mock_hass.states.get.__setattr__(
                     "side_effect",
                     (
-                        lambda eid: MagicMock(attributes={CONF_ZONE: "home"})
-                        if eid == "device_tracker.test"
-                        else None
+                        lambda eid: (
+                            MagicMock(attributes={CONF_ZONE: "home"})
+                            if eid == "device_tracker.test"
+                            else None
+                        )
                     ),
                 ),
             ),
@@ -564,16 +572,12 @@ async def test_get_map_link_providers_all(mock_hass, mock_config_entry, sensor, 
     if provider == "osm":
         # OSM needs lat/lon floats
         sensor.get_attr.side_effect = lambda k: "osm" if k == CONF_MAP_PROVIDER else 10
-        sensor.get_attr_safe_float.side_effect = (
-            lambda k: 1.23456789 if k == ATTR_LATITUDE else 9.87654321
+        sensor.get_attr_safe_float.side_effect = lambda k: (
+            1.23456789 if k == ATTR_LATITUDE else 9.87654321
         )
     else:
-        sensor.get_attr.side_effect = (
-            lambda k: provider
-            if k == CONF_MAP_PROVIDER
-            else "loc"
-            if k == ATTR_LOCATION_CURRENT
-            else 10
+        sensor.get_attr.side_effect = lambda k: (
+            provider if k == CONF_MAP_PROVIDER else "loc" if k == ATTR_LOCATION_CURRENT else 10
         )
     await updater.get_map_link()
     assert_map_link_set(sensor)
@@ -602,12 +606,8 @@ async def test_should_update_state_param(
     """Parametrized test for `should_update_state` for differing and equal values."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr_safe_str.side_effect = (
-        lambda k: prev_val
-        if k == ATTR_PREVIOUS_STATE
-        else native_val
-        if k == ATTR_NATIVE_VALUE
-        else ""
+    sensor.get_attr_safe_str.side_effect = lambda k: (
+        prev_val if k == ATTR_PREVIOUS_STATE else native_val if k == ATTR_NATIVE_VALUE else ""
     )
     sensor.get_attr.side_effect = lambda k: False
     result = await updater.should_update_state(datetime.now())
@@ -643,8 +643,8 @@ async def test_build_osm_url_returns_url(mock_hass, mock_config_entry, sensor):
     """Test that `build_osm_url` constructs a valid OpenStreetMap reverse geocoding URL using sensor attributes."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr_safe_float.side_effect = lambda k: 1.0
-    sensor.get_attr.side_effect = (
-        lambda k: "en" if k == CONF_LANGUAGE else "apikey" if k == CONF_API_KEY else 18
+    sensor.get_attr.side_effect = lambda k: (
+        "en" if k == CONF_LANGUAGE else "apikey" if k == CONF_API_KEY else 18
     )
     url = await updater.build_osm_url()
     assert url.startswith("https://nominatim.openstreetmap.org/reverse?format=json")
@@ -846,15 +846,15 @@ async def test_change_show_time_to_date_param(mock_hass, mock_config_entry, sens
     """Parametrized test for change_show_time_to_date handling both dd/mm and mm/dd formats."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr.side_effect = (
-        lambda k: True
+    sensor.get_attr.side_effect = lambda k: (
+        True
         if k == CONF_SHOW_TIME
         else date_format
         if k == CONF_DATE_FORMAT
         else "2024-01-01 12:00:00"
     )
-    sensor.get_attr_safe_str.side_effect = (
-        lambda k: "2024-01-01 12:00:00" if k == ATTR_LAST_CHANGED else "TestState"
+    sensor.get_attr_safe_str.side_effect = lambda k: (
+        "2024-01-01 12:00:00" if k == ATTR_LAST_CHANGED else "TestState"
     )
     await updater.change_show_time_to_date()
     assert sensor.native_value is not None
@@ -1130,9 +1130,13 @@ async def test_get_gps_accuracy_zero_accuracy_skip(mock_hass, mock_config_entry,
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
     sensor.attrs[CONF_USE_GPS] = True
     # is_attr_blank should evaluate based on actual attrs (don't force False globally)
-    sensor.is_attr_blank.side_effect = lambda k: k not in sensor.attrs or sensor.attrs.get(k) in (
-        None,
-        "",
+    sensor.is_attr_blank.side_effect = lambda k: (
+        k not in sensor.attrs
+        or sensor.attrs.get(k)
+        in (
+            None,
+            "",
+        )
     )
     result = await updater.get_gps_accuracy()
     assert result == UpdateStatus.SKIP
@@ -1281,8 +1285,8 @@ async def test_get_extended_attr_unknown_type(mock_hass, mock_config_entry, capl
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_str.side_effect = lambda k: "foo"
-    sensor.get_attr.side_effect = (
-        lambda k: "123" if k == ATTR_OSM_ID else "foo" if k == ATTR_OSM_TYPE else None
+    sensor.get_attr.side_effect = lambda k: (
+        "123" if k == ATTR_OSM_ID else "foo" if k == ATTR_OSM_TYPE else None
     )
     await updater.get_extended_attr()
     assert any("Unknown OSM type" in r.message for r in caplog.records)
@@ -1310,8 +1314,8 @@ async def test_get_extended_attr_variants(
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_str.side_effect = lambda k: osm_type
-    sensor.get_attr.side_effect = (
-        lambda k: "12345"
+    sensor.get_attr.side_effect = lambda k: (
+        "12345"
         if k == ATTR_OSM_ID
         else osm_type
         if k == ATTR_OSM_TYPE
@@ -1469,15 +1473,11 @@ async def test_determine_if_update_needed_variants(
     if expected == UpdateStatus.PROCEED:
         sensor.get_attr.side_effect = lambda k: False
         sensor.is_attr_blank.return_value = False
-        sensor.get_attr_safe_str.side_effect = (
-            lambda k: cur
-            if k == ATTR_LOCATION_CURRENT
-            else prev_loc
-            if k == ATTR_LOCATION_PREVIOUS
-            else ""
+        sensor.get_attr_safe_str.side_effect = lambda k: (
+            cur if k == ATTR_LOCATION_CURRENT else prev_loc if k == ATTR_LOCATION_PREVIOUS else ""
         )
-        sensor.get_attr_safe_float.side_effect = (
-            lambda k: distance if k == ATTR_DISTANCE_TRAVELED_M else 0
+        sensor.get_attr_safe_float.side_effect = lambda k: (
+            distance if k == ATTR_DISTANCE_TRAVELED_M else 0
         )
     result = await updater.determine_if_update_needed()
     assert result == expected
@@ -1508,15 +1508,15 @@ async def test_determine_direction_of_travel_param(
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     if has_last_distance is not None:
         sensor.attrs[ATTR_DISTANCE_TRAVELED_M] = has_last_distance
-    sensor.get_attr_safe_float.side_effect = (
-        lambda k: reported_distance if k == ATTR_DISTANCE_FROM_HOME_M else 0
+    sensor.get_attr_safe_float.side_effect = lambda k: (
+        reported_distance if k == ATTR_DISTANCE_FROM_HOME_M else 0
     )
     # If a previous travel distance exists, emulate is_attr_blank behavior accordingly
     if expected == "towards home":
         # Match original single-case test: explicit side effects
         sensor.is_attr_blank.side_effect = lambda k: False
-        sensor.get_attr_safe_float.side_effect = (
-            lambda k: 500.0 if k == ATTR_DISTANCE_FROM_HOME_M else 1000.0
+        sensor.get_attr_safe_float.side_effect = lambda k: (
+            500.0 if k == ATTR_DISTANCE_FROM_HOME_M else 1000.0
         )
     elif has_last_distance is not None:
         sensor.is_attr_blank.side_effect = lambda k: k not in sensor.attrs
@@ -1554,9 +1554,13 @@ async def test_is_tracker_available_valid(mock_hass, mock_config_entry, sensor):
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     # Provide tracker id in attrs and let default get_attr work
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.is_attr_blank.side_effect = lambda k: k not in sensor.attrs or sensor.attrs.get(k) in (
-        None,
-        "",
+    sensor.is_attr_blank.side_effect = lambda k: (
+        k not in sensor.attrs
+        or sensor.attrs.get(k)
+        in (
+            None,
+            "",
+        )
     )
     state = MagicMock()
     state.attributes = {}
