@@ -1,0 +1,74 @@
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+
+[[repos.hooks]]
+id = "trailing-whitespace"
+exclude = ".*\\.md$"
+
+[[repos.hooks]]
+id = "end-of-file-fixer"
+exclude = ".*\\.md$"
+
+[[repos.hooks]]
+id = "check-yaml"
+
+[[repos.hooks]]
+id = "check-toml"
+
+[[repos.hooks]]
+id = "check-added-large-files"
+
+[[repos]]
+repo = "https://github.com/rhysd/actionlint"
+rev = "v1.7.12"
+
+[[repos.hooks]]
+id = "actionlint"
+additional_dependencies = ["github.com/wasilibs/go-shellcheck/cmd/shellcheck@v0.11.1"]
+
+[[repos]]
+repo = "https://github.com/codespell-project/codespell"
+rev = "v2.4.2"
+
+[[repos.hooks]]
+id = "codespell"
+args = ["--ignore-words-list=hass"]
+additional_dependencies = ["tomli"]
+
+[[repos]]
+repo = "https://github.com/pre-commit/mirrors-mypy"
+rev = "v1.20.0"
+
+[[repos.hooks]]
+id = "mypy"
+language_version = "python3.14"
+args = ["--config-file=pyproject.toml"]
+additional_dependencies = [
+  "aiohttp",
+  "homeassistant-stubs",
+  "pytest-asyncio",
+  "pytest-cov",
+  "pytest-homeassistant-custom-component",
+  "pytest",
+  "types-cachetools",
+  "types-cffi",
+  "types-greenlet",
+  "types-PyMySQL",
+  "types-pyRFC3339",
+  "types-python-dateutil",
+  "types-PyYAML",
+  "types-requests",
+  "types-setuptools",
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.15.8"
+
+[[repos.hooks]]
+id = "ruff-check"
+args = ["--fix"]
+
+[[repos.hooks]]
+id = "ruff-format"
