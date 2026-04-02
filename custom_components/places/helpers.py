@@ -65,7 +65,7 @@ def is_float(value: Any) -> bool:
         return False
     try:
         float(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return False
     else:
         return True

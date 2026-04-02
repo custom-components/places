@@ -463,7 +463,7 @@ class Places(SensorEntity):
             return 0.0
         try:
             return float(value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return 0.0
 
     def get_attr_safe_list(self, attr: str | None, default: Any | None = None) -> list:

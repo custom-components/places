@@ -10,7 +10,7 @@
 - Be concise and explain coding steps briefly when making code changes; include code snippets and tests where relevant.
 - For non-trivial edits, provide a short plan. For small, low-risk edits, implement and include a one-line summary.
 - Focus on a single conceptual change at a time when public APIs or multiple modules are affected.
-- Maintain project style and Python 3.13+ compatibility. Target latest Home Assistant core.
+- Maintain project style and Python 3.14+ compatibility. Target latest Home Assistant core.
 - If deviating from these guidelines, explicitly state which guideline is deviated from and why.
 
 ## Agent permissions and venv policy
@@ -39,7 +39,7 @@
 ## Coding standards
 
 - Add typing annotations to all functions and classes (including return types).
-- Add or update docstrings for all files, classes and methods, including private methods. Method docstrings must be in NumPy format.
+- Add or update docstrings for all files, classes and methods, including private methods. Method docstrings must be in Google Style.
 - Preserve existing comments and keep imports at the top of files.
 - When editing code, prefer fixing root causes over surface patches.
 - Keep changes minimal and consistent with the codebase style.
@@ -54,15 +54,13 @@
 
 ## Local tooling (common commands)
 
-- Use `pre-commit`, `mypy`, and `pytest` configured in the repo. You must run these inside `./.venv`.
-- Prefer invoking tooling via `./.venv/bin/python -m ...` rather than relying on global/shell entry points (e.g., `pre-commit`).
-- `ruff` is used for linting and formatting but should be called using `pre-commit`.
+- Use `prek` and `pytest` configured in the repo. You must run these inside `./.venv`.
+- Prefer invoking tooling via `./.venv/bin/python -m ...` rather than relying on global/shell entry points (e.g., `prek`).
+- `ruff` is used for linting and formatting but should be called using `prek`.
 - Run tests:
   - `./.venv/bin/python -m pytest`
-- Run pre-commit on all files (includes `ruff`):
-  - `./.venv/bin/python -m pre_commit run --all-files`
-- Run mypy (use repo configuration):
-  - `./.venv/bin/python -m mypy`
+- Run prek on all files (includes `ruff` and `mypy`):
+  - `./.venv/bin/python -m prek run -a`
 
 ## Testing
 
