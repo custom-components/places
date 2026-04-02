@@ -24,18 +24,18 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Debug GitHub Variables
         run: |
-            echo "github.event_name: ${{ github.event_name }}"
-            echo "github.ref_name: ${{ github.ref_name }}"
-            echo "github.event.repository.default_branch: ${{ github.event.repository.default_branch }}"
-            echo "github.event.pull_request.user.type: ${{ github.event.pull_request.user.type }}"
-            echo "PR labels: ${{ github.event_name == 'pull_request' && toJSON(github.event.pull_request.labels.*.name) || '' }}"
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.ref_name: ${{ github.ref_name }}"
+          echo "github.event.repository.default_branch: ${{ github.event.repository.default_branch }}"
+          echo "github.event.pull_request.user.type: ${{ github.event.pull_request.user.type }}"
+          echo "PR labels: ${{ github.event_name == 'pull_request' && toJSON(github.event.pull_request.labels.*.name) || '' }}"
 
       - name: Setup Python 3 (with caching)
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@v6
         with:
           python-version: 3.x
           cache: 'pip'
@@ -50,9 +50,9 @@ jobs:
       - name: Run pytest with coverage (pytest-cov)
         run: pytest
 
-      - name: "Generate coverage Comment (and possibly Post to PR)"
+      - name: 'Generate coverage Comment (and possibly Post to PR)'
         id: coverage_comment
-        uses: py-cov-action/python-coverage-comment-action@v3.40
+        uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MINIMUM_GREEN: 90
@@ -60,7 +60,7 @@ jobs:
 
       - name: Store PR Comment to be Posted
         if: steps.coverage_comment.outputs.COMMENT_FILE_WRITTEN == 'true'
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7
         with:
           # If you use a different name, update COMMENT_ARTIFACT_NAME accordingly
           name: python-coverage-comment-action

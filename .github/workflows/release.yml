@@ -9,17 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Debug Variables
         run: |
-            echo "github.event_name: ${{ github.event_name }}"
-            echo "github.ref_name: ${{ github.ref_name }}"
-            echo "github.event.release.tag_name: ${{ github.event.release.tag_name }}"
-            echo "github.event.repository.default_branch: ${{ github.event.repository.default_branch }}"
-            echo "github.event.release.target_commitish: ${{ github.event.release.target_commitish }}"
-            echo "github.event.release.prerelease: ${{ github.event.release.prerelease }}"
-            echo "github.event.release.draft: ${{ github.event.release.draft }}"
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.ref_name: ${{ github.ref_name }}"
+          echo "github.event.release.tag_name: ${{ github.event.release.tag_name }}"
+          echo "github.event.repository.default_branch: ${{ github.event.repository.default_branch }}"
+          echo "github.event.release.target_commitish: ${{ github.event.release.target_commitish }}"
+          echo "github.event.release.prerelease: ${{ github.event.release.prerelease }}"
+          echo "github.event.release.draft: ${{ github.event.release.draft }}"
 
       - name: Update Version in Manifest
         if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
@@ -33,11 +33,10 @@ jobs:
 
       - name: Commit & Push Version Changes
         if: ${{ github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false  }}
-        uses: actions-js/push@master
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.event.release.target_commitish }}
-          message: 'Updating to version ${{ github.event.release.tag_name }} [skip ci]'
+          commit_message: 'Updating to version ${{ github.event.release.tag_name }} [skip ci]'
 
       - name: Update Release with Version Changes Commit
         if: ${{ github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false  }}
@@ -52,14 +51,14 @@ jobs:
 
       - name: Upload Zip to Release
         if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
-        uses: softprops/action-gh-release@v2.6.1
+        uses: softprops/action-gh-release@v2
         with:
           files: ./custom_components/places/places.zip
           tag_name: ${{ github.event.release.tag_name }}
 
       - name: Add Zip to Action
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7
         with:
           name: places
           path: ./custom_components/places/places.zip
