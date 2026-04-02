@@ -1031,10 +1031,17 @@ async def test_calculate_distances_not_all_attrs_set(
 ):
     """Test calculate_distances does NOT set distance attributes if any required attribute is blank."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
+
     # Patch is_attr_blank to return True for the blank_attr, False otherwise
-    sensor.is_attr_blank = lambda k: k == blank_attr
+    def is_attr_blank(key: str) -> bool:
+        return key == blank_attr
+
+    def set_attr(key: str, value: object) -> None:
+        sensor.attrs[key] = value
+
+    sensor.is_attr_blank = is_attr_blank
     # Patch set_attr to update attrs
-    sensor.set_attr = lambda k, v: sensor.attrs.__setitem__(k, v)
+    sensor.set_attr = set_attr
     await updater.calculate_distances()
     # None of the distance attributes should be set
     assert ATTR_DISTANCE_FROM_HOME_M not in sensor.attrs
@@ -1048,13 +1055,16 @@ async def test_calculate_distances_distance_from_home_m_blank(mock_hass, mock_co
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
     # Patch is_attr_blank so ATTR_DISTANCE_FROM_HOME_M is blank after calculation
-    def is_attr_blank(key):
+    def is_attr_blank(key: str) -> bool:
         # Only ATTR_DISTANCE_FROM_HOME_M is blank
         return key == ATTR_DISTANCE_FROM_HOME_M
 
+    def set_attr(key: str, value: object) -> None:
+        sensor.attrs[key] = value
+
     sensor.is_attr_blank = is_attr_blank
     # Patch set_attr to update attrs
-    sensor.set_attr = lambda k, v: sensor.attrs.__setitem__(k, v)
+    sensor.set_attr = set_attr
     # Patch get_attr_safe_float to return valid floats
     sensor.get_attr_safe_float = lambda k: 1.0
     # Patch all required attributes to not blank except ATTR_DISTANCE_FROM_HOME_M
@@ -1086,9 +1096,16 @@ async def test_calculate_travel_distance_variants(
     sensor.get_attr_safe_float = lambda k: 1.0
 
     if mode == "missing_old_coord":
-        sensor.is_attr_blank = lambda k: k == blank_attr
+
+        def is_attr_blank(key: str) -> bool:
+            return key == blank_attr
+
+        def set_attr(key: str, value: object) -> None:
+            sensor.attrs[key] = value
+
+        sensor.is_attr_blank = is_attr_blank
         # Ensure set_attr updates attrs for this branch
-        sensor.set_attr = lambda k, v: sensor.attrs.__setitem__(k, v)
+        sensor.set_attr = set_attr
         await updater.calculate_travel_distance()
         assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == expected_direction
         assert sensor.attrs[ATTR_DISTANCE_TRAVELED_M] == 0
@@ -1096,12 +1113,19 @@ async def test_calculate_travel_distance_variants(
         return
 
     if mode == "blank_traveled_m":
-        sensor.is_attr_blank = lambda k: k == blank_attr
+
+        def is_attr_blank(key: str) -> bool:
+            return key == blank_attr
+
+        def set_attr(key: str, value: object) -> None:
+            sensor.attrs[key] = value
+
+        sensor.is_attr_blank = is_attr_blank
         # Provide old coords so calculation proceeds
         for attr in [ATTR_LATITUDE_OLD, ATTR_LONGITUDE_OLD]:
             sensor.attrs[attr] = 1.0
         # Ensure set_attr updates attrs for this branch
-        sensor.set_attr = lambda k, v: sensor.attrs.__setitem__(k, v)
+        sensor.set_attr = set_attr
         await updater.calculate_travel_distance()
         assert ATTR_DISTANCE_TRAVELED_M in sensor.attrs
         assert ATTR_DISTANCE_TRAVELED_MI not in sensor.attrs

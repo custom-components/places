@@ -103,7 +103,7 @@ class MockSensor:
                 return float(default) if default is not None else 0.0
             try:
                 return float(val)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 if isinstance(default, MagicMock):
                     return 0.0
                 return float(default) if default is not None else 0.0
