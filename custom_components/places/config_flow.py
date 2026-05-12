@@ -61,7 +61,16 @@ COMPONENT_CONFIG_URL: str = "https://github.com/custom-components/places#configu
 def get_devicetracker_id_entities(
     hass: HomeAssistant, current_entity: str | None = None
 ) -> list[selector.SelectOptionDict]:
-    """Get valid entities with usable tracker coordinates."""
+    """Build selector options for trackable entities with usable coordinates.
+
+    Args:
+        hass: Home Assistant instance used to inspect current states.
+        current_entity: Existing configured entity to retain in the options
+            list even if it is no longer returned by the normal domain scan.
+
+    Returns:
+        Sorted selector options labelled with friendly names and entity IDs.
+    """
     dt_list: list[selector.SelectOptionDict] = []
     for dom in TRACKING_DOMAINS:
         # _LOGGER.debug("Getting entities for domain: %s", dom)
@@ -116,7 +125,14 @@ def get_devicetracker_id_entities(
 
 
 def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
-    """Get the list of valid zones."""
+    """Build selector options for zones that can be used as the home reference.
+
+    Args:
+        hass: Home Assistant instance used to inspect current zone states.
+
+    Returns:
+        Sorted selector options labelled with friendly names and entity IDs.
+    """
     zone_list: list[selector.SelectOptionDict] = []
     for dom in HOME_LOCATION_DOMAINS:
         # _LOGGER.debug("Getting entities for domain: %s", dom)
@@ -326,7 +342,16 @@ def _validate_known_options(display_options: str, errors: dict[str, Any]) -> boo
 
 
 async def validate_display_options(display_options: str, errors: dict[str, Any]) -> dict[str, Any]:
-    """Validate the display options string for correct syntax and allowed characters."""
+    """Validate advanced display option syntax for the config and options flows.
+
+    Args:
+        display_options: Raw display option string entered by the user.
+        errors: Mutable flow error mapping to populate when validation fails.
+
+    Returns:
+        The same error mapping, possibly with ``base`` set to a validation
+        error key.
+    """
     # Only run advanced validation if brackets or parentheses are present
     if "[" in display_options or "(" in display_options:
         # Check bracket/parenthesis matching
@@ -350,14 +375,22 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
 
 
 class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Config Flow for places integration."""
+    """Create new Places config entries from UI input."""
 
     VERSION = 1
 
     async def async_step_user(
         self, user_input: MutableMapping[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial step."""
+        """Show and process the initial Places setup form.
+
+        Args:
+            user_input: Submitted form values, or ``None`` while displaying
+                the form.
+
+        Returns:
+            A Home Assistant config-flow result for a form or created entry.
+        """
         errors: dict[str, Any] = {}
         if user_input is not None:
             errors = await validate_display_options(
@@ -457,17 +490,32 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: ConfigEntry,
     ) -> PlacesOptionsFlowHandler:
-        """Options callback for Places."""
+        """Return the options flow handler for an existing entry.
+
+        Args:
+            config_entry: Existing Places config entry.
+
+        Returns:
+            Options flow handler instance.
+        """
         return PlacesOptionsFlowHandler()
 
 
 class PlacesOptionsFlowHandler(OptionsFlow):
-    """Config flow options for Places."""
+    """Update options for an existing Places config entry."""
 
     async def async_step_init(
         self, user_input: MutableMapping[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options."""
+        """Show and process the Places options form.
+
+        Args:
+            user_input: Submitted option values, or ``None`` while displaying
+                the form.
+
+        Returns:
+            A Home Assistant options-flow result for a form or completed update.
+        """
         errors: dict[str, Any] = {}
         if user_input is not None:
             # _LOGGER.debug("[options_flow async_step_init] user_input initial: %s", user_input)

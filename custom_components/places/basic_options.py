@@ -1,4 +1,4 @@
-"""Parser for basic options in a sensor configuration."""
+"""Build simple Places sensor state strings from configured display options."""
 
 from __future__ import annotations
 
@@ -15,18 +15,30 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class BasicOptionsParser:
-    """Parser for basic options in a sensor configuration."""
+    """Build display strings that do not require advanced option parsing."""
 
     def __init__(
         self, sensor: Places, internal_attr: MutableMapping[str, Any], display_options: list[str]
     ) -> None:
-        """Initialize the BasicOptionsParser."""
+        """Initialize the parser with sensor state and selected display options.
+
+        Args:
+            sensor: Places sensor that provides attribute access helpers.
+            internal_attr: Current sensor attribute mapping used for duplicate
+                checks.
+            display_options: Ordered user-selected display option names.
+        """
         self.sensor = sensor
         self._internal_attr = internal_attr
         self.display_options = display_options
 
     async def build_display(self) -> str:
-        """Generate the display string for basic options."""
+        """Build a comma-separated state string from basic display options.
+
+        Returns:
+            Display state assembled from non-blank attributes allowed by the
+            selected options.
+        """
         user_display: list[str] = []
 
         def add_to_display(
@@ -131,7 +143,12 @@ class BasicOptionsParser:
         return ", ".join(user_display)
 
     async def build_formatted_place(self) -> str:
-        """Build the formatted place string for display."""
+        """Build the opinionated ``formatted_place`` display value.
+
+        Returns:
+            Human-readable place string with driving, place/street, and locality
+            components collapsed into a single line.
+        """
         formatted_place_array: list[str] = []
         if not await self.sensor.in_zone():
             if not self.sensor.is_attr_blank(
@@ -158,7 +175,16 @@ class BasicOptionsParser:
     def should_use_place_name(
         self, internal_attr: MutableMapping[str, Any], sensor: Places
     ) -> bool:
-        """Determine if the place name should be used based on attributes."""
+        """Decide whether the OSM place name adds distinct information.
+
+        Args:
+            internal_attr: Current sensor attribute mapping.
+            sensor: Places sensor used for blank checks and safe value access.
+
+        Returns:
+            ``True`` when ``place_name`` exists and does not duplicate address
+            fields that will already be shown.
+        """
         use_place_name = True
         sensor_attributes_values = [
             sensor.get_attr_safe_str(attr)
@@ -179,7 +205,13 @@ class BasicOptionsParser:
         internal_attr: MutableMapping[str, Any],
         sensor: Places,
     ) -> None:
-        """Add place type or category to the formatted place array."""
+        """Append a useful place type or category to a formatted-place list.
+
+        Args:
+            formatted_place_array: Mutable output list being assembled.
+            internal_attr: Current sensor attribute mapping.
+            sensor: Places sensor used for blank checks and safe value access.
+        """
         if (
             not sensor.is_attr_blank("place_type")
             and sensor.get_attr_safe_str("place_type").lower() != "unclassified"
@@ -204,7 +236,13 @@ class BasicOptionsParser:
         internal_attr: MutableMapping[str, Any],
         sensor: Places,
     ) -> None:
-        """Add street information to the formatted place array."""
+        """Append street reference or house-number/street details.
+
+        Args:
+            formatted_place_array: Mutable output list being assembled.
+            internal_attr: Current sensor attribute mapping.
+            sensor: Places sensor used for blank checks and safe value access.
+        """
         street = None
         if sensor.is_attr_blank("street") and not sensor.is_attr_blank("street_ref"):
             street = sensor.get_attr_safe_str("street_ref").strip()
@@ -235,7 +273,13 @@ class BasicOptionsParser:
         internal_attr: MutableMapping[str, Any],
         sensor: Places,
     ) -> None:
-        """Add neighbourhood to the formatted place array if the place is a house."""
+        """Append neighbourhood context for house-level places.
+
+        Args:
+            formatted_place_array: Mutable output list being assembled.
+            internal_attr: Current sensor attribute mapping.
+            sensor: Places sensor used for blank checks and safe value access.
+        """
         if (
             not sensor.is_attr_blank("place_type")
             and sensor.get_attr_safe_str("place_type").lower() == "house"
@@ -249,7 +293,13 @@ class BasicOptionsParser:
         internal_attr: MutableMapping[str, Any],
         sensor: Places,
     ) -> None:
-        """Add city, county, and state information to the formatted place array."""
+        """Append the best locality and state abbreviation available.
+
+        Args:
+            formatted_place_array: Mutable output list being assembled.
+            internal_attr: Current sensor attribute mapping.
+            sensor: Places sensor used for blank checks and safe value access.
+        """
         if not sensor.is_attr_blank("city_clean"):
             formatted_place_array.append(sensor.get_attr_safe_str("city_clean").strip())
         elif not sensor.is_attr_blank("city"):

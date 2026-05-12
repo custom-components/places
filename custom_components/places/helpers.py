@@ -1,4 +1,4 @@
-"""Helper functions for places."""
+"""Filesystem, parsing, and formatting helpers for the Places integration."""
 
 from __future__ import annotations
 
@@ -14,7 +14,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def create_json_folder(json_folder: str) -> None:
-    """Create a folder for JSON sensor files if it does not exist."""
+    """Ensure the sensor JSON persistence folder exists.
+
+    Args:
+        json_folder: Directory path where Places sensor snapshots are stored.
+    """
     try:
         Path(json_folder).mkdir(parents=True, exist_ok=True)
     except OSError as e:
@@ -24,7 +28,16 @@ def create_json_folder(json_folder: str) -> None:
 
 
 def get_dict_from_json_file(name: str, filename: str, json_folder: str) -> MutableMapping[str, Any]:
-    """Read a JSON file and return its content as a dictionary."""
+    """Load persisted sensor attributes from disk.
+
+    Args:
+        name: Sensor name used for contextual logging.
+        filename: JSON file name within ``json_folder``.
+        json_folder: Directory containing persisted sensor snapshots.
+
+    Returns:
+        Parsed JSON mapping, or an empty mapping when the file cannot be read.
+    """
     sensor_attributes: MutableMapping[str, Any] = {}
     try:
         json_file_path: Path = Path(json_folder) / filename
@@ -43,7 +56,13 @@ def get_dict_from_json_file(name: str, filename: str, json_folder: str) -> Mutab
 
 
 def remove_json_file(name: Any, filename: Any, json_folder: Any) -> None:
-    """Remove a JSON file from the specified folder."""
+    """Remove a persisted sensor snapshot if it exists.
+
+    Args:
+        name: Sensor name used for contextual logging.
+        filename: JSON file name within ``json_folder``.
+        json_folder: Directory containing persisted sensor snapshots.
+    """
     try:
         json_file_path: Path = Path(json_folder) / filename
         json_file_path.unlink()
@@ -60,7 +79,14 @@ def remove_json_file(name: Any, filename: Any, json_folder: Any) -> None:
 
 
 def is_float(value: Any) -> bool:
-    """Check if the provided value can be converted to a float."""
+    """Return whether a value can be safely converted to ``float``.
+
+    Args:
+        value: Candidate value to validate.
+
+    Returns:
+        ``True`` when ``float(value)`` succeeds and ``value`` is not ``None``.
+    """
     if value is None:
         return False
     try:
@@ -77,7 +103,14 @@ def write_sensor_to_json(
     filename: Any,
     json_folder: Any,
 ) -> None:
-    """Write sensor attributes to a JSON file, removing datetime values."""
+    """Persist sensor attributes while omitting non-JSON datetime objects.
+
+    Args:
+        sensor_attributes: Current Places sensor attribute mapping.
+        name: Sensor name used for contextual logging.
+        filename: JSON file name within ``json_folder``.
+        json_folder: Directory where the snapshot should be written.
+    """
     attributes = {k: v for k, v in sensor_attributes.items() if not isinstance(v, datetime)}
     try:
         json_file_path: Path = Path(json_folder) / filename
@@ -94,11 +127,26 @@ def write_sensor_to_json(
 
 
 def clear_since_from_state(orig_state: str) -> str:
-    """Remove the 'since' part from the state string."""
+    """Remove the Places ``(since HH:MM)`` or ``(since MM/DD)`` suffix.
+
+    Args:
+        orig_state: Sensor state that may include a trailing ``since`` suffix.
+
+    Returns:
+        State string without the generated suffix.
+    """
     return re.sub(r" \(since \d\d[:/]\d\d\)", "", orig_state)
 
 
 def safe_truncate(val: Any, max_len: int) -> str:
-    """Safely truncate a string representation of val to max_len characters."""
+    """Convert a value to text and cap it to a maximum length.
+
+    Args:
+        val: Value to stringify. ``None`` is treated as an empty string.
+        max_len: Maximum number of characters to return.
+
+    Returns:
+        String representation truncated to ``max_len`` characters.
+    """
     s = str(val) if val is not None else ""
     return s[:max_len] if len(s) > max_len else s

@@ -113,7 +113,14 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Create places sensor entities."""
+    """Set up the Places sensor entity for a config entry.
+
+    Args:
+        hass: Home Assistant instance.
+        config_entry: Places config entry being set up.
+        async_add_entities: Home Assistant callback used to add created
+            entities to the sensor platform.
+    """
     # _LOGGER.debug("[aync_setup_entity] all entities: %s", hass.data.get(DOMAIN))
 
     config: MutableMapping[str, Any] = dict(config_entry.data)
@@ -173,7 +180,7 @@ async def async_setup_entry(
 
 
 class Places(SensorEntity):
-    """Representation of a Places Sensor."""
+    """Home Assistant sensor that reverse-geocodes a tracked entity."""
 
     def __init__(
         self,
@@ -184,7 +191,17 @@ class Places(SensorEntity):
         unique_id: str,
         imported_attributes: MutableMapping[str, Any],
     ) -> None:
-        """Initialize the sensor."""
+        """Initialize a Places sensor and restore persisted attributes.
+
+        Args:
+            hass: Home Assistant instance that owns this entity.
+            config: Config entry data copied into sensor attributes.
+            config_entry: Source config entry for updates and reloads.
+            name: User-facing sensor name.
+            unique_id: Stable Home Assistant unique ID.
+            imported_attributes: Previously persisted sensor attributes loaded
+                from JSON.
+        """
         self._attr_should_poll = True
         _LOGGER.info("(%s) [Init] Places sensor: %s", name, name)
         _LOGGER.debug("(%s) [Init] System Locale: %s", name, locale.getlocale())
@@ -322,7 +339,12 @@ class Places(SensorEntity):
         )
 
     def set_native_value(self, value: Any) -> None:
-        """Set the native value of the sensor."""
+        """Update the entity state and mirror it into internal attributes.
+
+        Args:
+            value: New state value. ``None`` clears both the entity state and
+                the persisted native-value attribute.
+        """
         if value is not None:
             self._attr_native_value = value
             self.set_attr(ATTR_NATIVE_VALUE, value)
@@ -331,11 +353,15 @@ class Places(SensorEntity):
             self.clear_attr(ATTR_NATIVE_VALUE)
 
     def get_internal_attr(self) -> MutableMapping[str, Any]:
-        """Get the internal attributes dictionary."""
+        """Return the mutable attribute store used for state and persistence.
+
+        Returns:
+            Internal sensor attribute mapping.
+        """
         return self._internal_attr
 
     def exclude_event_types(self) -> None:
-        """Exclude the event type from the recorder."""
+        """Exclude high-cardinality Places update events from HA recorder."""
         if RECORDER_INSTANCE in self._hass.data:
             ha_history_recorder = self._hass.data[RECORDER_INSTANCE]
             ha_history_recorder.exclude_event_types.add(EVENT_TYPE)
@@ -346,7 +372,7 @@ class Places(SensorEntity):
             )
 
     async def async_added_to_hass(self) -> None:
-        """Run after sensor is added to HA."""
+        """Subscribe to tracked-entity state changes after HA adds the entity."""
         await super().async_added_to_hass()
         self.async_on_remove(
             async_track_state_change_event(
@@ -361,7 +387,7 @@ class Places(SensorEntity):
         )
 
     async def async_will_remove_from_hass(self) -> None:
-        """Run when entity will be removed from hass."""
+        """Clean up persisted state and recorder exclusions before entity removal."""
         await self._hass.async_add_executor_job(
             remove_json_file,
             self.get_attr(CONF_NAME),
@@ -390,7 +416,11 @@ class Places(SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return the state attributes."""
+        """Return non-blank attributes exposed on the HA sensor entity.
+
+        Returns:
+            Mapping of normal attributes, plus extended attributes when enabled.
+        """
         return_attr: dict[str, Any] = {}
         self.cleanup_attributes()
         for attr in EXTRA_STATE_ATTRIBUTE_LIST:
@@ -405,7 +435,12 @@ class Places(SensorEntity):
         return return_attr
 
     def import_attributes_from_json(self, json_attr: MutableMapping[str, Any]) -> None:
-        """Import the JSON state attributes. Takes a Dictionary as input."""
+        """Restore persisted runtime attributes from the JSON snapshot.
+
+        Args:
+            json_attr: Mutable mapping loaded from the sensor's persisted JSON
+                file. Imported and ignored keys are removed from this mapping.
+        """
         self.set_attr(ATTR_INITIAL_UPDATE, False)
         for attr in JSON_ATTRIBUTE_LIST:
             if attr in json_attr:
@@ -425,25 +460,51 @@ class Places(SensorEntity):
             )
 
     def cleanup_attributes(self) -> None:
-        """Remove attributes that are blank or not set."""
+        """Remove blank attributes from the internal attribute mapping."""
         for attr in list(self._internal_attr):
             if self.is_attr_blank(attr):
                 self.clear_attr(attr)
 
     def is_attr_blank(self, attr: str) -> bool:
-        """Check if an attribute is blank or not set."""
+        """Return whether an internal attribute is absent or falsey except zero.
+
+        Args:
+            attr: Attribute key to inspect.
+
+        Returns:
+            ``True`` when the value is missing or falsey, with numeric zero
+            treated as a meaningful value.
+        """
         if self._internal_attr.get(attr) or self._internal_attr.get(attr) == 0:
             return False
         return True
 
     def get_attr(self, attr: str | None, default: Any | None = None) -> None | Any:
-        """Get an attribute value, returning None if not set."""
+        """Read an internal attribute with optional default handling.
+
+        Args:
+            attr: Attribute key to read. ``None`` always returns ``None``.
+            default: Fallback returned when the key is missing.
+
+        Returns:
+            Stored value, ``default``, or ``None`` when the attribute is blank
+            and no default was supplied.
+        """
         if attr is None or (default is None and self.is_attr_blank(attr)):
             return None
         return self._internal_attr.get(attr, default)
 
     def get_attr_safe_str(self, attr: str | None, default: Any | None = None) -> str:
-        """Get an attribute value as a string, returning an empty string if not set."""
+        """Read an internal attribute as text without propagating conversion errors.
+
+        Args:
+            attr: Attribute key to read.
+            default: Fallback used when the key is missing.
+
+        Returns:
+            String value, or an empty string when the value is missing or cannot
+            be converted.
+        """
         value: None | Any = self.get_attr(attr=attr, default=default)
         if value is not None:
             try:
@@ -453,7 +514,15 @@ class Places(SensorEntity):
         return ""
 
     def get_attr_safe_float(self, attr: str | None, default: Any | None = None) -> float:
-        """Get an attribute value as a float, returning 0 if not set or not a float."""
+        """Read an internal attribute as a float.
+
+        Args:
+            attr: Attribute key to read.
+            default: Fallback used when the key is missing.
+
+        Returns:
+            Converted float value, or ``0.0`` when conversion is not possible.
+        """
         value: None | Any = self.get_attr(attr=attr, default=default)
         if value is None:
             return 0.0
@@ -463,32 +532,62 @@ class Places(SensorEntity):
             return 0.0
 
     def get_attr_safe_list(self, attr: str | None, default: Any | None = None) -> list:
-        """Get an attribute value as a list, returning an empty list if not set or not a list."""
+        """Read an internal attribute as a list.
+
+        Args:
+            attr: Attribute key to read.
+            default: Fallback used when the key is missing.
+
+        Returns:
+            Stored list value, or an empty list for non-list values.
+        """
         value: None | Any = self.get_attr(attr=attr, default=default)
         if not isinstance(value, list):
             return []
         return value
 
     def get_attr_safe_dict(self, attr: str | None, default: Any | None = None) -> MutableMapping:
-        """Get an attribute value as a dictionary."""
+        """Read an internal attribute as a mutable mapping.
+
+        Args:
+            attr: Attribute key to read.
+            default: Fallback used when the key is missing.
+
+        Returns:
+            Stored mapping value, or an empty mapping for non-mapping values.
+        """
         value: None | Any = self.get_attr(attr=attr, default=default)
         if not isinstance(value, MutableMapping):
             return {}
         return value
 
     def set_attr(self, attr: str, value: Any | None = None) -> None:
-        """Set an attribute value, updating the internal attributes dictionary."""
+        """Store a value in the internal attribute mapping.
+
+        Args:
+            attr: Attribute key to update.
+            value: Value to store.
+        """
         if attr:
             self._internal_attr.update({attr: value})
 
     def clear_attr(self, attr: str) -> None:
-        """Clear an attribute value, removing it from the internal attributes dictionary."""
+        """Remove an internal attribute if present.
+
+        Args:
+            attr: Attribute key to remove.
+        """
         self._internal_attr.pop(attr, None)
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     @callback
     def tsc_update(self, event: Event[EventStateChangedData]) -> None:
-        """Call the do_update function based on the TSC (track state change) event."""
+        """Schedule an update from a tracked-entity state-change event.
+
+        Args:
+            event: Home Assistant state-change event for the configured tracked
+                entity.
+        """
         # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] event: {event}")
         new_state = event.data["new_state"]
         if new_state is None or (
@@ -503,12 +602,17 @@ class Places(SensorEntity):
 
     @Throttle(THROTTLE_INTERVAL)
     async def async_update(self) -> None:
-        """Call the do_update function based on scan interval and throttle."""
+        """Schedule a throttled update from Home Assistant polling."""
         update_type = "Scan Interval"
         self._hass.async_create_task(self.do_update(update_type))
 
     async def in_zone(self) -> bool:
-        """Check if the tracked entity is in a zone."""
+        """Return whether the tracked entity is in a real non-passive zone.
+
+        Returns:
+            ``True`` for normal zones and ``False`` for not-home, stationary,
+            passive, or zone-backed tracker states.
+        """
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
             zone: str = self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower()
             zone_state = self._hass.states.get(f"{CONF_ZONE}.{zone}")
@@ -529,14 +633,14 @@ class Places(SensorEntity):
         return False
 
     async def async_cleanup_attributes(self) -> None:
-        """Remove attributes that are blank or not set."""
+        """Asynchronously remove blank attributes from the internal mapping."""
         attrs: MutableMapping[str, Any] = copy.deepcopy(self._internal_attr)
         for attr in attrs:
             if self.is_attr_blank(attr):
                 self.clear_attr(attr)
 
     async def get_driving_status(self) -> None:
-        """Determine if the tracked entity is driving based on its state and attributes."""
+        """Set the driving attribute when movement and OSM type indicate driving."""
         self.clear_attr(ATTR_DRIVING)
         is_driving: bool = False
         if (
@@ -552,12 +656,16 @@ class Places(SensorEntity):
             self.set_attr(ATTR_DRIVING, "Driving")
 
     async def do_update(self, reason: str) -> None:
-        """Perform the update of the sensor."""
+        """Run the update pipeline through ``PlacesUpdater``.
+
+        Args:
+            reason: Human-readable trigger reason used in logs.
+        """
         updater = PlacesUpdater(hass=self._hass, config_entry=self._config_entry, sensor=self)
         await updater.do_update(reason=reason, previous_attr=copy.deepcopy(self._internal_attr))
 
     async def process_display_options(self) -> None:
-        """Process the display options and build the state."""
+        """Render the configured display options into ``ATTR_NATIVE_VALUE``."""
         display_options: list[str] = []
         if not self.is_attr_blank(ATTR_DISPLAY_OPTIONS):
             options_array: list[str] = self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS).split(",")
@@ -636,11 +744,16 @@ class Places(SensorEntity):
             )
 
     async def restore_previous_attr(self, previous_attr: MutableMapping[str, Any]) -> None:
-        """Restore previous attributes after an update."""
+        """Replace current attributes with a previous snapshot after rollback.
+
+        Args:
+            previous_attr: Attribute mapping captured before the failed or
+                skipped update.
+        """
         self._internal_attr = previous_attr
 
 
 class PlacesNoRecorder(Places):
-    """Places Class without the HA Recorder."""
+    """Places sensor variant that opts all attributes out of HA recorder."""
 
     _unrecorded_attributes = frozenset({MATCH_ALL})
