@@ -96,19 +96,18 @@ class OSMParser:
         """Parse the type from the OSM dictionary and set it in the sensor."""
         if "type" not in osm_dict:
             return
-        self.sensor.set_attr(ATTR_PLACE_TYPE, osm_dict.get("type"))
-        if self.sensor.get_attr(ATTR_PLACE_TYPE) == "yes":
-            if "addresstype" in osm_dict:
-                self.sensor.set_attr(
-                    ATTR_PLACE_TYPE,
-                    osm_dict.get("addresstype"),
-                )
-            else:
+        place_type = osm_dict.get("type")
+        if place_type == "yes":
+            place_type = osm_dict.get("addresstype")
+            if not place_type:
                 self.sensor.clear_attr(ATTR_PLACE_TYPE)
-        if "address" in osm_dict and self.sensor.get_attr(ATTR_PLACE_TYPE) in osm_dict["address"]:
+                return
+        self.sensor.set_attr(ATTR_PLACE_TYPE, place_type)
+        address = osm_dict.get("address")
+        if isinstance(address, MutableMapping) and place_type in address:
             self.sensor.set_attr(
                 ATTR_PLACE_NAME,
-                osm_dict["address"].get(self.sensor.get_attr(ATTR_PLACE_TYPE)),
+                address.get(place_type),
             )
 
     async def parse_category(self, osm_dict: MutableMapping[str, Any]) -> None:

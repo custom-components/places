@@ -144,6 +144,7 @@ async def test_parse_type_variants(
     await parser.parse_type(osm_dict)
     if expect_clear:
         sensor._clear_attr_mock.assert_called_once_with(ATTR_PLACE_TYPE)
+        sensor._set_attr_mock.assert_not_called()
     else:
         for attr, val in expected_set_calls:
             sensor._set_attr_mock.assert_any_call(attr, val)
