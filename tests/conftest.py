@@ -40,6 +40,16 @@ def mock_method(default_func: Callable[..., object]) -> Mock:
     # otherwise falls back to calling the provided default function. If a test
     # sets .side_effect on the mock after creation, that will override this.
     def _side_effect(*args: object, **kwargs: object) -> object:
+        """Dispatch to an explicit mock return value or the default implementation.
+
+        Args:
+            *args: Positional arguments passed to the mock.
+            **kwargs: Keyword arguments passed to the mock.
+
+        Returns:
+            The mock's configured return value, or ``default_func`` evaluated
+            with the same arguments.
+        """
         # If the test explicitly set a return_value (including None), return it.
         # If return_value is still the sentinel, call the provided default func.
         ret = getattr(m, "return_value", no_return)
@@ -72,12 +82,29 @@ class MockSensor:
 
         # get_attr: MagicMock with fallback to real attribute lookup
         def _get_attr_fallback(key: str) -> object:
+            """Return the stored test attribute for a key.
+
+            Args:
+                key: Attribute name requested by production code.
+
+            Returns:
+                Stored attribute value, or ``None`` when it has not been set.
+            """
             return self.attrs.get(key)
 
         self.get_attr = MagicMock(side_effect=_get_attr_fallback)
 
         # Custom is_attr_blank: MagicMock with default side_effect
         def _is_attr_blank_default(attr: str) -> bool:
+            """Apply the mock sensor's blank-value rules for an attribute.
+
+            Args:
+                attr: Attribute name to inspect.
+
+            Returns:
+                ``True`` when the attribute is explicitly blanked, missing,
+                ``None``, or an empty string.
+            """
             if hasattr(self, "blank_attrs") and attr in self.blank_attrs:
                 return True
             val = self.attrs.get(attr)
@@ -89,6 +116,16 @@ class MockSensor:
 
         # Custom get_attr_safe_str: mock_method
         def _get_attr_safe_str_default(attr: str, default: object = None) -> str:
+            """Coerce a stored mock attribute to the string form used by the sensor.
+
+            Args:
+                attr: Attribute name to read.
+                default: Value to use when the attribute is missing or ``None``.
+
+            Returns:
+                String representation of the stored value or default, with
+                MagicMock placeholders treated as blank values.
+            """
             val = self.attrs.get(attr, default)
             # If val is a MagicMock, return default or empty string
             if isinstance(val, MagicMock):
@@ -107,6 +144,17 @@ class MockSensor:
 
         # Custom get_attr_safe_float: mock_method
         def _get_attr_safe_float_default(attr: str, default: object = None) -> float:
+            """Coerce a stored mock attribute to a float like the real helper.
+
+            Args:
+                attr: Attribute name to read.
+                default: Fallback value when conversion cannot use the stored
+                    value.
+
+            Returns:
+                Converted float value, or ``0.0`` when neither the stored value
+                nor the fallback can be converted.
+            """
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
                 if isinstance(default, MagicMock):
@@ -125,6 +173,15 @@ class MockSensor:
         def _get_attr_safe_dict_default(
             attr: str, default: Mapping[str, object] | None = None
         ) -> Mapping[str, object]:
+            """Return a stored mapping attribute with production-like fallback behavior.
+
+            Args:
+                attr: Attribute name to read.
+                default: Fallback mapping when the stored value is not a dict.
+
+            Returns:
+                Stored mapping value, a dict fallback, or an empty dict.
+            """
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
                 return {} if not isinstance(default, dict) else default
@@ -136,6 +193,16 @@ class MockSensor:
         def _get_attr_safe_list_default(
             attr: str, default: Sequence[object] | None = None
         ) -> Sequence[object]:
+            """Return a stored sequence attribute with display-options handling.
+
+            Args:
+                attr: Attribute name to read.
+                default: Fallback sequence when the stored value is not a list.
+
+            Returns:
+                The configured display options, a stored list, a list fallback,
+                or an empty list.
+            """
             if attr == "display_options_list":
                 return self.display_options_list
             val = self.attrs.get(attr, default)
@@ -148,6 +215,12 @@ class MockSensor:
         self._set_attr_mock = MagicMock()
 
         def set_attr(key: str, value: object) -> None:
+            """Store an attribute value and record the call for assertions.
+
+            Args:
+                key: Attribute name to set.
+                value: Value to store on the mock sensor.
+            """
             self.attrs[key] = value
             self._set_attr_mock(key, value)
 
@@ -159,6 +232,11 @@ class MockSensor:
         self._clear_attr_mock = MagicMock()
 
         def clear_attr(key: str) -> None:
+            """Remove an attribute value and record the call for assertions.
+
+            Args:
+                key: Attribute name to remove from the mock sensor.
+            """
             self.attrs.pop(key, None)
             self._clear_attr_mock(key)
 
@@ -170,6 +248,11 @@ class MockSensor:
         self._set_native_value_mock = MagicMock()
 
         def set_native_value(value: object) -> None:
+            """Store the mock sensor's native value and record the call.
+
+            Args:
+                value: Native value to expose from the mock sensor.
+            """
             self.native_value = value
             self._set_native_value_mock(value)
 
@@ -181,9 +264,20 @@ class MockSensor:
         self.get_internal_attr = lambda: self.attrs
 
     def _set_attr(self, key: str, value: object) -> None:
+        """Set an attribute directly without recording a MagicMock call.
+
+        Args:
+            key: Attribute name to set.
+            value: Value to store on the mock sensor.
+        """
         self.attrs[key] = value
 
     def _set_native_value(self, value: object) -> None:
+        """Set the native value directly without recording a MagicMock call.
+
+        Args:
+            value: Native value to store on the mock sensor.
+        """
         self.native_value = value
 
     def _clear_attr(self, key: str | None = None) -> None:
@@ -368,6 +462,15 @@ def prepared_updater(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     init_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
     def _creator(*args: object, **kwargs: object) -> MagicMock:
+        """Record constructor arguments and return the prepared updater mock.
+
+        Args:
+            *args: Positional constructor arguments passed by production code.
+            **kwargs: Keyword constructor arguments passed by production code.
+
+        Returns:
+            The shared updater mock used by the test.
+        """
         init_calls.append((args, kwargs))
         return mock_updater
 
@@ -446,6 +549,11 @@ def stub_method(
     # restored when the context exits to avoid leaking state across tests.
     @contextmanager
     def _cm() -> Iterator[StubMock]:
+        """Temporarily replace a method on an object with a mock.
+
+        Yields:
+            The mock assigned to the target object.
+        """
         # Save original state
         sentinel = object()
         original = getattr(obj, method_name, sentinel)
@@ -486,6 +594,16 @@ def stubbed_updater() -> Callable[
     def _create(
         updater: object, methods: Sequence[MethodSpec]
     ) -> AbstractContextManager[StubMapping]:
+        """Build a context manager that stubs several updater methods.
+
+        Args:
+            updater: Object whose methods should be patched.
+            methods: Method names and stub configuration passed to
+                ``stub_method``.
+
+        Returns:
+            Context manager yielding method names mapped to their mocks.
+        """
         # Create context managers for each requested stub. Helpers now default to
         # restoring originals, so do not opt-out here; tests should capture the
         # returned mocks from the context.
@@ -493,6 +611,11 @@ def stubbed_updater() -> Callable[
 
         @contextmanager
         def _cm() -> Iterator[StubMapping]:
+            """Enter all updater method stubs and restore them on exit.
+
+            Yields:
+                Mapping from updater method name to its mock.
+            """
             # Enter all context managers and yield a mapping of method_name->mock
             entered = [cm.__enter__() for cm in cms]
             mapping = {method_name: entered[i] for i, (method_name, _) in enumerate(methods)}
@@ -522,6 +645,11 @@ def stubbed_parser(
 
     @contextmanager
     def _cm() -> Iterator[StubMapping]:
+        """Enter all parser method stubs and restore them on exit.
+
+        Yields:
+            Mapping from parser method name to its mock.
+        """
         entered = [cm.__enter__() for cm in cms]
         mapping = {method_name: entered[i] for i, (method_name, _) in enumerate(methods)}
         try:
@@ -547,6 +675,11 @@ def stubbed_sensor(
 
     @contextmanager
     def _cm() -> Iterator[StubMapping]:
+        """Enter all sensor method stubs and restore them on exit.
+
+        Yields:
+            Mapping from sensor method name to its mock.
+        """
         entered = [cm.__enter__() for cm in cms]
         mapping = {method_name: entered[i] for i, (method_name, _) in enumerate(methods)}
         try:

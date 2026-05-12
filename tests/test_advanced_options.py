@@ -41,6 +41,16 @@ def advanced_parser() -> AdvancedParserFactory:
     def _create(
         opts_str: str | None = None, attrs: Attrs | None = None, in_zone: bool = False
     ) -> tuple[AdvancedOptionsParser, MockSensor]:
+        """Create an advanced-options parser backed by a configured mock sensor.
+
+        Args:
+            opts_str: Advanced display options string to parse.
+            attrs: Sensor attributes exposed to parser lookups.
+            in_zone: Whether the mock sensor should report itself in a zone.
+
+        Returns:
+            Parser instance and the sensor backing it.
+        """
         sensor = mock_sensor(attrs=attrs, in_zone=in_zone)
         parser = AdvancedOptionsParser(sensor, opts_str or "")
         return parser, sensor
@@ -261,6 +271,16 @@ async def test_build_from_advanced_options_bracket_and_paren(sensor: MockSensor)
     called: dict[str, bool] = {}
 
     async def _side(opt: str, *args: object, **kwargs: object) -> object:
+        """Record option lookups while returning values from the test attributes.
+
+        Args:
+            opt: Option name requested by the parser.
+            *args: Additional lookup arguments ignored by this test stub.
+            **kwargs: Additional lookup filters ignored by this test stub.
+
+        Returns:
+            Attribute value matching ``opt``, or ``None`` when absent.
+        """
         called[opt] = True
         return attrs.get(opt)
 
@@ -318,6 +338,11 @@ async def test_build_from_advanced_options_not_none_calls_normal(sensor: MockSen
     called: dict[str, str] = {}
 
     async def fake_process_single_term(opt: str) -> None:
+        """Capture the single option term processed by the parser.
+
+        Args:
+            opt: Display option term passed to ``process_single_term``.
+        """
         called["single_term"] = opt
 
     object.__setattr__(parser, "process_single_term", fake_process_single_term)

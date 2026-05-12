@@ -35,6 +35,15 @@ class BasicOptionsParser:
             condition: bool = True,
             require_in_display_options: bool = True,
         ) -> None:
+            """Append an attribute value when the display rules allow it.
+
+            Args:
+                attr_key: Sensor attribute whose string value should be added.
+                option_key: Display option that enables the attribute.
+                condition: Scenario-specific gate for including the value.
+                require_in_display_options: Whether ``option_key`` must be
+                    present in the configured display options.
+            """
             if (
                 (not require_in_display_options or option_key in self.display_options)
                 and not self.sensor.is_attr_blank(attr_key)

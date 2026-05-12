@@ -141,6 +141,17 @@ def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDic
 
 
 def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
+    """Validate bracket and parenthesis pairing in advanced display options.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when brackets and parentheses are balanced and placed after an
+        option token; otherwise ``False``.
+    """
     stack = []
     last_token = ""
     i = 0
@@ -212,6 +223,16 @@ def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
 
 
 def _validate_comma_syntax(display_options: str, errors: dict[str, Any]) -> bool:
+    """Reject empty list items and dangling commas in grouped options.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when comma placement is valid; otherwise ``False``.
+    """
     if re.search(r"(,\s*,)", display_options):
         _LOGGER.error("Invalid syntax: Empty item between commas in '%s'.", display_options)
         errors["base"] = "invalid_syntax"
@@ -227,6 +248,17 @@ def _validate_comma_syntax(display_options: str, errors: dict[str, Any]) -> bool
 
 
 def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool:
+    """Ensure parsed display option identifiers do not contain spaces.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when all parsed option identifiers are syntactically valid;
+        otherwise ``False``.
+    """
     tokens = re.split(r"[\[\]\(\),]", display_options)
     for token in tokens:
         if " " in token.strip() and token.strip() not in ("", "-", "+"):
@@ -239,6 +271,17 @@ def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool
 
 
 def _validate_known_options(display_options: str, errors: dict[str, Any]) -> bool:
+    """Validate option identifiers while allowing literal filter values.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when option identifiers are known or are explicit include/
+        exclude markers; otherwise ``False``.
+    """
     valid_options = set(DISPLAY_OPTIONS_MAP.keys())
     stack: list[str] = []
     i = 0

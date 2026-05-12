@@ -65,6 +65,14 @@ def osm_parser() -> OSMParserFactory:
     """
 
     def _create(attrs: Attrs | None = None) -> tuple[OSMParser, MockSensor]:
+        """Create an OSM parser backed by a configured mock sensor.
+
+        Args:
+            attrs: Sensor attributes exposed to parser lookups.
+
+        Returns:
+            Parser instance and the sensor backing it.
+        """
         sensor = mock_sensor(attrs=attrs)
         parser = OSMParser(sensor)
         return parser, sensor

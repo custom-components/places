@@ -45,6 +45,18 @@ def basic_parser() -> BasicParserFactory:
         display_options_list: Sequence[str] | None = None,
         in_zone: bool = False,
     ) -> tuple[BasicOptionsParser, MockSensor]:
+        """Create a basic-options parser backed by a configured mock sensor.
+
+        Args:
+            attrs: Sensor attributes exposed to parser lookups.
+            options: Basic display options to pass into the parser.
+            display_options_list: Raw display-options list exposed by the mock
+                sensor.
+            in_zone: Whether the mock sensor should report itself in a zone.
+
+        Returns:
+            Parser instance and the sensor backing it.
+        """
         sensor = mock_sensor(
             attrs=attrs, display_options_list=display_options_list, in_zone=in_zone
         )

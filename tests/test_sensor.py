@@ -219,7 +219,14 @@ def test_get_attr_safe_str_handles_value_error(places_instance: Places) -> None:
     """Test that get_attr_safe_str returns an empty string when __str__ raises a ValueError."""
 
     class BadStr:
+        """Object whose string conversion raises to exercise fallback handling."""
+
         def __str__(self) -> str:
+            """Raise ValueError when the sensor tries to stringify this object.
+
+            Raises:
+                ValueError: Always raised for this test helper.
+            """
             raise ValueError
 
     places_instance.set_attr("bad", BadStr())
@@ -429,11 +436,20 @@ async def test_async_setup_entry_places_param(
     )
 
     class _Adder:
+        """Callable entity-adder test double that records invocation details."""
+
         def __init__(self) -> None:
+            """Initialize counters used to assert async_add_entities behavior."""
             self.call_count = 0
             self.call_args: tuple[tuple[object], dict[str, object]] | None = None
 
         def __call__(self, entities: object, **kwargs: object) -> None:
+            """Record an async_add_entities-style call.
+
+            Args:
+                entities: Entity collection passed by the integration setup.
+                **kwargs: Keyword arguments passed alongside the entities.
+            """
             self.call_count += 1
             # mimic MagicMock.call_args: (args_tuple, kwargs_dict)
             self.call_args = ((entities,), kwargs)
@@ -464,7 +480,10 @@ def test_exclude_event_types_adds_event(monkeypatch: pytest.MonkeyPatch) -> None
     """Test that exclude_event_types adds EVENT_TYPE to the recorder's exclude_event_types set."""
 
     class Recorder:
+        """Minimal recorder object exposing the event exclusion set."""
+
         def __init__(self) -> None:
+            """Initialize an empty set of excluded event types."""
             self.exclude_event_types: set[str] = set()
 
     recorder = Recorder()
@@ -505,7 +524,10 @@ def test_exclude_event_types_param(
     """Parametrized test for exclude_event_types: with and without recorder instance."""
 
     class Recorder:
+        """Minimal recorder object exposing the event exclusion set."""
+
         def __init__(self) -> None:
+            """Initialize an empty set of excluded event types."""
             self.exclude_event_types: set[str] = set()
 
     recorder = Recorder() if recorder_present else None
@@ -548,6 +570,14 @@ async def test_async_will_remove_from_hass_param(
     with cm_async_add:
         # Configure get_attr response
         def get_attr(k: str) -> object:
+            """Return attributes needed by async_will_remove_from_hass.
+
+            Args:
+                k: Attribute name requested by the Places instance.
+
+            Returns:
+                Test value for the requested attribute, or ``None``.
+            """
             mapping = {
                 "name": "TestName",
                 "json_filename": "file.json",
@@ -609,6 +639,14 @@ async def test_get_driving_status_variants(
     with stub_in_zone(sensor, in_zone):
 
         def get_attr(k: str) -> str | None:
+            """Return movement and place attributes for driving-status checks.
+
+            Args:
+                k: Attribute name requested by ``get_driving_status``.
+
+            Returns:
+                Scenario value for direction, place category, or place type.
+            """
             if k == ATTR_DIRECTION_OF_TRAVEL:
                 return direction
             if k == ATTR_PLACE_CATEGORY:
@@ -672,6 +710,11 @@ async def test_do_update_handles_empty_internal_attr(
 
 
 def _setup_formatted_place(sensor: MagicMock) -> None:
+    """Configure a sensor mock for the formatted-place display path.
+
+    Args:
+        sensor: Sensor mock mutated with attributes and helper methods.
+    """
     sensor._internal_attr = {}
     sensor.is_attr_blank = MagicMock(return_value=False)
     sensor.set_attr = MagicMock()
@@ -684,6 +727,11 @@ def _setup_formatted_place(sensor: MagicMock) -> None:
 
 
 def _setup_advanced_options(sensor: MagicMock) -> None:
+    """Configure a sensor mock for the advanced-options display path.
+
+    Args:
+        sensor: Sensor mock mutated with attributes and helper methods.
+    """
     sensor._internal_attr = {}
     sensor.is_attr_blank = MagicMock(return_value=False)
     sensor.set_attr = MagicMock()
@@ -693,6 +741,11 @@ def _setup_advanced_options(sensor: MagicMock) -> None:
 
 
 def _setup_not_in_zone(sensor: MagicMock) -> None:
+    """Configure a sensor mock for the non-zone basic display path.
+
+    Args:
+        sensor: Sensor mock mutated with attributes and helper methods.
+    """
     sensor._internal_attr = {}
     sensor.is_attr_blank = MagicMock(return_value=False)
     sensor.set_attr = MagicMock()
@@ -702,6 +755,11 @@ def _setup_not_in_zone(sensor: MagicMock) -> None:
 
 
 def _setup_zone_or_zone_name_blank(sensor: MagicMock) -> None:
+    """Configure a sensor mock where zone name is blank but zone is available.
+
+    Args:
+        sensor: Sensor mock mutated with attributes and helper methods.
+    """
     sensor._internal_attr = {}
     sensor.is_attr_blank = MagicMock(side_effect=lambda k: k == ATTR_DEVICETRACKER_ZONE_NAME)
     sensor.set_attr = MagicMock()
@@ -714,6 +772,11 @@ def _setup_zone_or_zone_name_blank(sensor: MagicMock) -> None:
 
 
 def _setup_zone_name_not_blank(sensor: MagicMock) -> None:
+    """Configure a sensor mock where zone name can be shown directly.
+
+    Args:
+        sensor: Sensor mock mutated with attributes and helper methods.
+    """
     sensor._internal_attr = {}
     sensor.is_attr_blank = MagicMock(return_value=False)
     sensor.set_attr = MagicMock()
