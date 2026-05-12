@@ -3,7 +3,6 @@
 from datetime import UTC, datetime
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -22,7 +21,7 @@ from custom_components.places.helpers import (
     "precreate",
     [False, True],
 )
-def test_create_json_folder_param(tmp_path: Path | Any, precreate: bool) -> None:
+def test_create_json_folder_param(tmp_path: Path, precreate: bool) -> None:
     """Ensure create_json_folder creates the target directory and is idempotent if it already exists."""
     folder = tmp_path / "json_folder"
     if precreate:
@@ -32,14 +31,14 @@ def test_create_json_folder_param(tmp_path: Path | Any, precreate: bool) -> None
 
 
 @pytest.mark.parametrize(
-    "existing,expected",
+    ("existing", "expected"),
     [
         (True, {"a": 1, "b": "x"}),
         (False, {}),
     ],
 )
 def test_get_dict_from_json_file_param(
-    tmp_path: Path | Any, existing: bool, expected: dict[str, Any]
+    tmp_path: Path, existing: bool, expected: dict[str, int] | dict[str, str]
 ) -> None:
     """Read JSON file returns dict when present, else empty dict when missing."""
     folder = tmp_path
@@ -55,7 +54,7 @@ def test_get_dict_from_json_file_param(
     "precreate",
     [True, False],
 )
-def test_remove_json_file_param(tmp_path: Path | Any, precreate: bool) -> None:
+def test_remove_json_file_param(tmp_path: Path, precreate: bool) -> None:
     """remove_json_file deletes the file when present and is a no-op when missing."""
     folder = tmp_path
     filename = "toremove.json"
@@ -68,11 +67,11 @@ def test_remove_json_file_param(tmp_path: Path | Any, precreate: bool) -> None:
     assert not file_path.exists()
 
 
-def test_write_sensor_to_json_excludes_datetime(tmp_path: Path | Any) -> None:
+def test_write_sensor_to_json_excludes_datetime(tmp_path: Path) -> None:
     """Ensure write_sensor_to_json excludes non-serializable datetime values from the output file."""
     folder = tmp_path
     filename = "sensor.json"
-    data = {"a": 1, "b": datetime.now(), "c": "ok"}
+    data = {"a": 1, "b": datetime.now(tz=UTC), "c": "ok"}
     write_sensor_to_json(data, "test", filename, str(folder))
     file_path = folder / filename
     assert file_path.exists()
@@ -82,7 +81,7 @@ def test_write_sensor_to_json_excludes_datetime(tmp_path: Path | Any) -> None:
 
 
 @pytest.mark.parametrize(
-    "input_str,expected",
+    ("input_str", "expected"),
     [
         ("Home (since 12:34)", "Home"),
         ("Work (since 01/23)", "Work"),
@@ -95,7 +94,7 @@ def test_clear_since_from_state_removes_pattern(input_str: str, expected: str) -
 
 
 @pytest.mark.parametrize(
-    "input_str,max_len,expected",
+    ("input_str", "max_len", "expected"),
     [
         ("abc", 5, "abc"),  # shorter
         ("abcde", 5, "abcde"),  # exact
@@ -109,7 +108,7 @@ def test_safe_truncate(input_str: str | None, max_len: int, expected: str) -> No
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         (1.23, True),
         ("2.34", True),
@@ -126,14 +125,13 @@ def test_safe_truncate(input_str: str | None, max_len: int, expected: str) -> No
         ("not-a-number", False),
     ],
 )
-def test_is_float_param(value: Any, expected: bool) -> None:
+def test_is_float_param(value: object, expected: bool) -> None:
     """is_float returns expected boolean for a variety of inputs."""
     assert helpers.is_float(value) is expected
 
 
 def test_write_read_and_remove_json_file(tmp_path: Path) -> None:
     """Write sensor attributes to JSON (datetime removed), read them back, then remove the file."""
-
     json_folder = tmp_path / "jsons"
     filename = "sensor1.json"
     name = "test_sensor"
@@ -143,7 +141,7 @@ def test_write_read_and_remove_json_file(tmp_path: Path) -> None:
     assert json_folder.exists() and json_folder.is_dir()
 
     # Prepare attributes including a datetime which should be removed by write_sensor_to_json
-    attrs: dict[str, Any] = {
+    attrs: dict[str, object] = {
         "value": 42,
         "updated": datetime.now(tz=UTC),
     }

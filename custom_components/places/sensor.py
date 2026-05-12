@@ -4,8 +4,8 @@ Previous Authors:  Jim Thompson, Ian Richardson
 Current Author:  Snuffy2
 
 Description:
-  Provides a sensor with a variable state consisting of reverse geocode (place) details for a linked device_tracker entity that provides GPS co-ordinates (ie owntracks, icloud)
-  Allows you to specify a 'home_zone' for each device and calculates distance from home and direction of travel.
+  Provides reverse geocode details for a linked GPS device_tracker entity.
+  Calculates distance from home and direction of travel.
   Configuration Instructions are on GitHub.
 
 GitHub: https://github.com/custom-components/places
@@ -22,7 +22,6 @@ import logging
 from typing import Any
 
 import cachetools
-
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.zone import ATTR_PASSIVE
@@ -308,7 +307,6 @@ class Places(SensorEntity):
         # imported_attributes.update({CONF_NAME: self.get_attr(CONF_NAME)})
         # imported_attributes.update({ATTR_NATIVE_VALUE: self.get_attr(ATTR_NATIVE_VALUE)})
         # imported_attributes.update(self.extra_state_attributes)
-        # _LOGGER.debug("(%s) [Init] Sensor Attributes Imported: %s", self.get_attr(CONF_NAME), imported_attributes)
         ##
         if not self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.debug(
@@ -364,7 +362,6 @@ class Places(SensorEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         """Run when entity will be removed from hass."""
-
         await self._hass.async_add_executor_job(
             remove_json_file,
             self.get_attr(CONF_NAME),
@@ -409,7 +406,6 @@ class Places(SensorEntity):
 
     def import_attributes_from_json(self, json_attr: MutableMapping[str, Any]) -> None:
         """Import the JSON state attributes. Takes a Dictionary as input."""
-
         self.set_attr(ATTR_INITIAL_UPDATE, False)
         for attr in JSON_ATTRIBUTE_LIST:
             if attr in json_attr:
@@ -474,7 +470,7 @@ class Places(SensorEntity):
         return value
 
     def get_attr_safe_dict(self, attr: str | None, default: Any | None = None) -> MutableMapping:
-        """Get an attribute value as a dictionary, returning an empty dict if not set or not a dict."""
+        """Get an attribute value as a dictionary."""
         value: None | Any = self.get_attr(attr=attr, default=default)
         if not isinstance(value, MutableMapping):
             return {}
@@ -542,14 +538,17 @@ class Places(SensorEntity):
     async def get_driving_status(self) -> None:
         """Determine if the tracked entity is driving based on its state and attributes."""
         self.clear_attr(ATTR_DRIVING)
-        isDriving: bool = False
-        if not await self.in_zone():
-            if self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary" and (
+        is_driving: bool = False
+        if (
+            not await self.in_zone()
+            and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+            and (
                 self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
                 or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
-            ):
-                isDriving = True
-        if isDriving:
+            )
+        ):
+            is_driving = True
+        if is_driving:
             self.set_attr(ATTR_DRIVING, "Driving")
 
     async def do_update(self, reason: str) -> None:

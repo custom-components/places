@@ -190,7 +190,7 @@ class OSMParser:
         )
 
     async def set_city_details(self, address: MutableMapping[str, Any]) -> None:
-        """Set city, postal town, and neighbourhood details in the sensor from the OSM address dictionary."""
+        """Set city, postal town, and neighbourhood details from an OSM address."""
         postal_town_list = POSTAL_TOWN_LIST.copy()
         neighbourhood_list = NEIGHBOURHOOD_LIST.copy()
 
@@ -234,7 +234,7 @@ class OSMParser:
                 )
 
     async def set_region_details(self, address: MutableMapping[str, Any]) -> None:
-        """Set region, state abbreviation, county, country, and postal code details in the sensor from the OSM address dictionary."""
+        """Set region, county, country, and postal code details from an OSM address."""
         if "state" in address:
             self.sensor.set_attr(
                 ATTR_REGION,
@@ -344,7 +344,8 @@ class OSMParser:
             # If current place name/zone are the same as previous, keep older last_place_name
             self.sensor.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
-                "(%s) Initial last_place_name is same as new: place_name=%s or devicetracker_zone_name=%s, "
+                "(%s) Initial last_place_name is same as new: place_name=%s or "
+                "devicetracker_zone_name=%s, "
                 "keeping previous last_place_name",
                 self.sensor.get_attr(CONF_NAME),
                 self.sensor.get_attr(ATTR_PLACE_NAME),

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import MutableMapping
-from datetime import datetime
+from datetime import UTC, datetime
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -12,7 +12,6 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import aiohttp
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -25,7 +24,7 @@ from homeassistant.const import (
     CONF_ZONE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
-    __version__ as HA_VERSION,
+    __version__ as ha_version,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -226,7 +225,7 @@ class PlacesUpdater:
         """Get the current time, considering the Home Assistant time zone."""
         if self._hass.config.time_zone:
             return datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
-        return datetime.now()
+        return datetime.now(tz=UTC).astimezone().replace(tzinfo=None)
 
     async def update_entity_name_and_cleanup(self) -> None:
         """Update the entity name and clean up attributes."""
@@ -235,7 +234,6 @@ class PlacesUpdater:
 
     async def check_for_updated_entity_name(self) -> None:
         """Check if the entity name has changed and update it if necessary."""
-
         if not hasattr(self.sensor, "entity_id") or self.sensor.entity_id is None:
             return
 
@@ -448,8 +446,6 @@ class PlacesUpdater:
             if devicetracker_zone_id:
                 devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
                 devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
-            # _LOGGER.debug("(%s) Tracked Entity Zone ID: %s", self.get_attr(CONF_NAME), devicetracker_zone_id)
-            # _LOGGER.debug("(%s) Tracked Entity Zone Name State: %s", self.get_attr(CONF_NAME), devicetracker_zone_name_state)
             if devicetracker_zone_name_state:
                 if devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME):
                     self.sensor.set_attr(
@@ -715,7 +711,7 @@ class PlacesUpdater:
             _LOGGER.debug("(%s) %s URL: %s", self.sensor.get_attr(CONF_NAME), name, url)
             self.sensor.set_attr(dict_name, {})
             user_agent = (
-                f"Mozilla/5.0 (Home Assistant/{HA_VERSION}) "
+                f"Mozilla/5.0 (Home Assistant/{ha_version}) "
                 f"{DOMAIN}/{VERSION} (+https://github.com/custom-components/places)"
             )
             headers: dict[str, str] = {"user-agent": user_agent}
@@ -815,7 +811,8 @@ class PlacesUpdater:
 
         if int(sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M)) < 10:
             _LOGGER.info(
-                "(%s) Not performing update, distance traveled from last update is less than 10 m (%s m)",
+                "(%s) Not performing update, distance traveled from last update is "
+                "less than 10 m (%s m)",
                 sensor.get_attr(CONF_NAME),
                 round(sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M), 1),
             )
@@ -1007,7 +1004,14 @@ class PlacesUpdater:
                 changed_diff_sec = (now - last_changed).total_seconds()
             except TypeError:
                 try:
-                    changed_diff_sec = (datetime.now() - last_changed).total_seconds()
+                    fallback_now = (
+                        datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone))).replace(
+                            tzinfo=None
+                        )
+                        if self._hass.config.time_zone
+                        else datetime.now(tz=UTC).astimezone().replace(tzinfo=None)
+                    )
+                    changed_diff_sec = (fallback_now - last_changed).total_seconds()
                 except (TypeError, OverflowError) as e:
                     _LOGGER.warning(
                         "Error calculating the seconds between last change to now: %r", e
@@ -1132,7 +1136,11 @@ class PlacesUpdater:
     async def log_coordinate_issue(self) -> None:
         """Log device tracker coordinate validation issues."""
         tracker_id = self.sensor.get_attr(CONF_DEVICETRACKER_ID)
-        message = f"({self.sensor.get_attr(CONF_NAME)}) Tracked Entity ({tracker_id}) Latitude/Longitude is not set or is not a number. Not Proceeding with Update."
+        message = (
+            f"({self.sensor.get_attr(CONF_NAME)}) Tracked Entity ({tracker_id}) "
+            "Latitude/Longitude is not set or is not a number. "
+            "Not Proceeding with Update."
+        )
 
         if self.sensor.warn_if_device_tracker_prob or self.sensor.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.warning(message)

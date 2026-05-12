@@ -19,8 +19,8 @@ class BasicOptionsParser:
 
     def __init__(
         self, sensor: Places, internal_attr: MutableMapping[str, Any], display_options: list[str]
-    ):
-        """Initialize the BasicOptionsParser with sensor, internal attributes, and display options."""
+    ) -> None:
+        """Initialize the BasicOptionsParser."""
         self.sensor = sensor
         self._internal_attr = internal_attr
         self.display_options = display_options

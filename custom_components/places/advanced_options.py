@@ -34,7 +34,7 @@ class AdvancedOptionsParser:
     """Parser for advanced sensor options.
 
     This class provides methods to parse and process complex sensor configuration options,
-    including handling brackets, parentheses, and comma-separated values for flexible sensor state configuration.
+    including brackets, parentheses, and comma-separated values.
     """
 
     def __init__(self, sensor: Places, curr_options: str) -> None:
@@ -45,7 +45,6 @@ class AdvancedOptionsParser:
             curr_options (str): The current options string to parse.
 
         """
-
         self.sensor = sensor
         self.curr_options = curr_options
         self.state_list: list = []
@@ -146,11 +145,8 @@ class AdvancedOptionsParser:
             "(%s) [get_option_state] excl_attr dict: %s", self.sensor.get_attr(CONF_NAME), excl_attr
         )
         if out:
-            if (
-                incl
-                and str(out).strip().lower() not in incl
-                or excl
-                and str(out).strip().lower() in excl
+            if (incl and str(out).strip().lower() not in incl) or (
+                excl and str(out).strip().lower() in excl
             ):
                 out = None
             if incl_attr:
@@ -358,7 +354,7 @@ class AdvancedOptionsParser:
     async def parse_parens(
         self, curr_options: str
     ) -> tuple[list, list, MutableMapping[str, Any], MutableMapping[str, Any], str | None]:
-        """Parse options within parentheses and return inclusion/exclusion lists, attribute filters, and the next option string.
+        """Parse options within parentheses.
 
         Args:
             curr_options (str): The options string starting with parentheses.
@@ -437,7 +433,8 @@ class AdvancedOptionsParser:
             curr_options (str): The options string starting with a bracket.
 
         Returns:
-            tuple[str | None, str | None]: A tuple containing the none option (if any) and the next option string after the closing bracket.
+            tuple[str | None, str | None]: A tuple containing the none option
+                and the next option string after the closing bracket.
 
         """
         empty_bracket: bool = False

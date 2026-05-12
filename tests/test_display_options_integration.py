@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -121,7 +121,7 @@ BASE_INTERNAL_ATTR = {
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "display_option,expected_state",
+    ("display_option", "expected_state"),
     [
         ("zone_name", "not_home"),
         ("zone, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
@@ -138,10 +138,13 @@ BASE_INTERNAL_ATTR = {
     ],
 )
 async def test_display_options_state_render(
-    display_option: str, expected_state: str, mock_hass, patch_entity_registry, monkeypatch
-):
+    display_option: str,
+    expected_state: str,
+    mock_hass: MagicMock,
+    patch_entity_registry: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
-
     # Minimal config / objects required for Places init
     # Use shared mock_hass fixture for consistency
     # Ensure entity registry lookups are skipped for this mocked hass

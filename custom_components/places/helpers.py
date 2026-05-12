@@ -78,7 +78,6 @@ def write_sensor_to_json(
     json_folder: Any,
 ) -> None:
     """Write sensor attributes to a JSON file, removing datetime values."""
-
     attributes = {k: v for k, v in sensor_attributes.items() if not isinstance(v, datetime)}
     try:
         json_file_path: Path = Path(json_folder) / filename

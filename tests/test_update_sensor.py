@@ -1,12 +1,26 @@
 """Unit tests for the PlacesUpdater class and related update logic."""
 
 import asyncio
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from datetime import UTC, datetime, timedelta
 import json
+from typing import Protocol
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 
+from _pytest.logging import LogCaptureFixture
 import aiohttp
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    ATTR_GPS_ACCURACY,
+    CONF_API_KEY,
+    CONF_FRIENDLY_NAME,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    CONF_NAME,
+    CONF_ZONE,
+)
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -58,23 +72,30 @@ from custom_components.places.const import (
     UpdateStatus,
 )
 from custom_components.places.update_sensor import PlacesUpdater
-from homeassistant.const import (
-    ATTR_FRIENDLY_NAME,
-    ATTR_GPS_ACCURACY,
-    CONF_API_KEY,
-    CONF_FRIENDLY_NAME,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
-    CONF_NAME,
-    CONF_ZONE,
+from tests.conftest import (
+    MockSensor,
+    assert_awaited_count,
+    stub_in_zone,
+    stubbed_parser,
+    stubbed_sensor,
 )
-from tests.conftest import assert_awaited_count, stub_in_zone, stubbed_parser, stubbed_sensor
+
+type StubbedUpdater = Callable[..., AbstractContextManager[dict[str, AsyncMock]]]
+type ZoneSetup = Callable[[MockSensor, MagicMock], object]
+
+
+class AioClientMock(Protocol):
+    """Minimal aiohttp client mock surface used by these tests."""
+
+    def get(self, url: str, **kwargs: object) -> object:
+        """Register a mocked GET response."""
+
 
 # Preserve original constructor reference so helper can delegate to it when needed
 _OriginalPlacesUpdater = PlacesUpdater
 
 
-def make_updater(*args, **kwargs):
+def make_updater(*args, **kwargs) -> PlacesUpdater:
     """Create a fresh PlacesUpdater instance for tests via the preserved constructor.
 
     Accepts arbitrary args/kwargs so tests that pass positional or keyword arguments
@@ -84,12 +105,12 @@ def make_updater(*args, **kwargs):
 
 
 @pytest.fixture
-def mock_config_entry():
+def mock_config_entry() -> MockConfigEntry:
     """Create and return a mock configuration entry with default sensor name and empty options for testing purposes."""
     return MockConfigEntry(domain="places", data={CONF_NAME: "TestSensor"}, options={})
 
 
-def register_aioclient(aioclient_mock, url: str, **kwargs):
+def register_aioclient(aioclient_mock: AioClientMock, url: str, **kwargs: object) -> None:
     """Register the url with aioclient_mock for common trailing-slash variants.
 
     This helps ensure tests don't accidentally miss registrations due to a
@@ -106,27 +127,30 @@ def register_aioclient(aioclient_mock, url: str, **kwargs):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "check_result,should_rollback,should_handle",
+    ("check_result", "should_rollback", "should_handle"),
     [
         (UpdateStatus.PROCEED, False, True),
         (UpdateStatus.SKIP, True, False),
     ],
 )
 async def test_do_update_flow_variants(
-    mock_hass,
-    mock_config_entry,
-    sensor,
-    stubbed_updater,
-    check_result,
-    should_rollback,
-    should_handle,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    check_result: UpdateStatus,
+    should_rollback: bool,
+    should_handle: bool,
+) -> None:
     """Parametrized test covering both PROCEED and SKIP paths for do_update."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
-            ("get_current_time", {"return_value": datetime(2024, 1, 1, 12, 0)}),
+            (
+                "get_current_time",
+                {"return_value": datetime(2024, 1, 1, 12, 0, tzinfo=UTC).replace(tzinfo=None)},
+            ),
             ("update_entity_name_and_cleanup", {}),
             ("update_previous_state", {}),
             ("update_old_coordinates", {}),
@@ -155,8 +179,11 @@ async def test_do_update_flow_variants(
 
 @pytest.mark.asyncio
 async def test_handle_state_update_sets_native_value_and_calls_helpers(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Set native value and process extended attributes during state update."""
     # Ensure extended attribute logic is triggered and show_time path exercised
     updater = make_updater(mock_hass, mock_config_entry, sensor)
@@ -173,7 +200,7 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
 
     # Patch async helpers so we don't hit external logic
     with stubbed_updater(updater, [("get_extended_attr", {}), ("fire_event_data", {})]) as mocks:
-        now = datetime(2024, 1, 1, 12, 0)
+        now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
         await updater.handle_state_update(now=now, prev_last_place_name="PrevPlace")
 
     # Extended attr logic should have been invoked and event fired
@@ -187,8 +214,8 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
 
 @pytest.mark.asyncio
 async def test_check_for_updated_entity_name_entity_id_new_name(
-    mock_hass, mock_config_entry, sensor
-):
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Test that the entity name is updated and the config entry is updated when a new friendly name is detected."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.entity_id = "sensor.test"
@@ -202,15 +229,19 @@ async def test_check_for_updated_entity_name_entity_id_new_name(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "show_time, expected",
+    ("show_time", "expected"),
     [
         (True, "TestVal"),
         (False, False),
     ],
 )
 async def test_update_previous_state_variants(
-    mock_hass, mock_config_entry, sensor, show_time, expected
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    show_time: bool,
+    expected: object,
+) -> None:
     """Parametrized: previous state handling when show-time enabled or disabled."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
@@ -234,7 +265,7 @@ async def test_update_previous_state_variants(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "lat_val, lon_val, expect_lat_old, expect_lon_old",
+    ("lat_val", "lon_val", "expect_lat_old", "expect_lon_old"),
     [
         (1.0, 1.0, 1.0, 1.0),
         ("not_a_float", 2.0, None, 2.0),
@@ -242,8 +273,14 @@ async def test_update_previous_state_variants(
     ],
 )
 async def test_update_old_coordinates_param(
-    mock_hass, mock_config_entry, sensor, lat_val, lon_val, expect_lat_old, expect_lon_old
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    lat_val: float | str,
+    lon_val: float | str,
+    expect_lat_old: float | None,
+    expect_lon_old: float | None,
+) -> None:
     """Parametrized: update_old_coordinates sets only valid numeric old coordinate attributes."""
     sensor.attrs[ATTR_LATITUDE] = lat_val
     sensor.attrs[ATTR_LONGITUDE] = lon_val
@@ -261,15 +298,20 @@ async def test_update_old_coordinates_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "gps_result,expected",
+    ("gps_result", "expected"),
     [
         (UpdateStatus.PROCEED, UpdateStatus.PROCEED),
         (UpdateStatus.SKIP, UpdateStatus.SKIP),
     ],
 )
 async def test_check_device_tracker_and_update_coords_param(
-    mock_hass, mock_config_entry, sensor, stubbed_updater, gps_result, expected
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    gps_result: UpdateStatus,
+    expected: object,
+) -> None:
     """Parametrized test: check_device_tracker_and_update_coords propagates GPS accuracy results and always updates coordinates first."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -288,7 +330,9 @@ async def test_check_device_tracker_and_update_coords_param(
 
 
 @pytest.mark.asyncio
-async def test_get_gps_accuracy_sets_accuracy(mock_hass, mock_config_entry, sensor):
+async def test_get_gps_accuracy_sets_accuracy(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Retrieve GPS accuracy and set sensor attribute when available."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     tracker_state = MagicMock()
@@ -305,15 +349,20 @@ async def test_get_gps_accuracy_sets_accuracy(mock_hass, mock_config_entry, sens
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "tracker_attrs, use_gps, expected",
+    ("tracker_attrs", "use_gps", "expected"),
     [
         ({ATTR_GPS_ACCURACY: 5.0}, True, UpdateStatus.PROCEED),
         ({ATTR_GPS_ACCURACY: 0}, True, UpdateStatus.SKIP),
     ],
 )
 async def test_get_gps_accuracy_variants(
-    mock_hass, mock_config_entry, sensor, tracker_attrs, use_gps, expected
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    tracker_attrs: dict[str, object] | None,
+    use_gps: bool,
+    expected: object,
+) -> None:
     """Parametrized variants for get_gps_accuracy: valid accuracy, zero accuracy, and missing tracker."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
@@ -342,8 +391,11 @@ async def test_get_gps_accuracy_variants(
 
 @pytest.mark.asyncio
 async def test_update_coordinates_variants_present_and_missing(
-    mock_hass, mock_config_entry, sensor, caplog
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    caplog: LogCaptureFixture,
+) -> None:
     """Parametrized-like variant: when tracker present set coords, when missing log warning."""
     # Present case
     updater = make_updater(mock_hass, mock_config_entry, sensor)
@@ -362,8 +414,11 @@ async def test_update_coordinates_variants_present_and_missing(
 
 @pytest.mark.asyncio
 async def test_determine_update_criteria_calls(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Test that `determine_update_criteria` calls all required helper methods and returns the correct update status."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -385,15 +440,21 @@ async def test_determine_update_criteria_calls(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "in_zone,place_name,zone_name,expected",
+    ("in_zone", "place_name", "zone_name", "expected"),
     [
         (False, "PlaceName", None, "PlaceName"),
         (True, None, "ZoneName", "ZoneName"),
     ],
 )
 async def test_get_initial_last_place_name_param(
-    mock_hass, mock_config_entry, sensor, in_zone, place_name, zone_name, expected
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    in_zone: bool,
+    place_name: str | None,
+    zone_name: str | None,
+    expected: object,
+) -> None:
     """Parametrized test for get_initial_last_place_name covering zone and non-zone cases."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.return_value = False
@@ -408,7 +469,7 @@ async def test_get_initial_last_place_name_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "scenario,setup_func,expected_zone,expected_zone_name_present,expected_zone_name",
+    ("scenario", "setup_func", "expected_zone", "expected_zone_name_present", "expected_zone_name"),
     [
         (
             "not_zone",
@@ -505,15 +566,15 @@ async def test_get_initial_last_place_name_param(
     ],
 )
 async def test_get_zone_details_param(
-    mock_hass,
-    mock_config_entry,
-    sensor,
-    scenario,
-    setup_func,
-    expected_zone,
-    expected_zone_name_present,
-    expected_zone_name,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    scenario: str,
+    setup_func: ZoneSetup,
+    expected_zone: str | None,
+    expected_zone_name_present: bool,
+    expected_zone_name: str | None,
+) -> None:
     """Parametrized variants for get_zone_details covering zone and non-zone flows."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     # Execute scenario-specific setup
@@ -534,7 +595,12 @@ async def test_get_zone_details_param(
 
 
 @pytest.mark.asyncio
-async def test_process_osm_update_calls(mock_hass, mock_config_entry, sensor, stubbed_updater):
+async def test_process_osm_update_calls(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Test that `process_osm_update` calls attribute reset, map link generation, and OSM query finalization methods as expected."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -545,13 +611,13 @@ async def test_process_osm_update_calls(mock_hass, mock_config_entry, sensor, st
             ("query_osm_and_finalize", {}),
         ],
     ) as mocks:
-        await updater.process_osm_update(datetime(2024, 1, 1, 12, 0))
+        await updater.process_osm_update(datetime(2024, 1, 1, 12, 0, tzinfo=UTC))
     mocks["async_reset_attributes"].assert_awaited_once()
     mocks["get_map_link"].assert_awaited_once()
     mocks["query_osm_and_finalize"].assert_awaited_once()
 
 
-def assert_map_link_set(sensor):
+def assert_map_link_set(sensor: MockSensor) -> None:
     """Assert that set_attr was called with ATTR_MAP_LINK and a string value."""
     found = False
     for call in sensor.set_attr.call_args_list:
@@ -566,7 +632,9 @@ def assert_map_link_set(sensor):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["google", "apple", "osm"])
-async def test_get_map_link_providers_all(mock_hass, mock_config_entry, sensor, provider):
+async def test_get_map_link_providers_all(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, provider: str
+) -> None:
     """Parametrized: verify map link generation for multiple providers including OSM."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     if provider == "osm":
@@ -584,7 +652,9 @@ async def test_get_map_link_providers_all(mock_hass, mock_config_entry, sensor, 
 
 
 @pytest.mark.asyncio
-async def test_async_reset_attributes_calls(mock_hass, mock_config_entry, sensor):
+async def test_async_reset_attributes_calls(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Test that `async_reset_attributes` clears sensor attributes and performs asynchronous cleanup."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     await updater.async_reset_attributes()
@@ -594,15 +664,20 @@ async def test_async_reset_attributes_calls(mock_hass, mock_config_entry, sensor
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "prev_val, native_val, expected",
+    ("prev_val", "native_val", "expected"),
     [
         ("a", "b", True),
         ("a", "a", False),
     ],
 )
 async def test_should_update_state_param(
-    mock_hass, mock_config_entry, sensor, prev_val, native_val, expected
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    prev_val: str,
+    native_val: str,
+    expected: object,
+) -> None:
     """Parametrized test for `should_update_state` for differing and equal values."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -610,14 +685,17 @@ async def test_should_update_state_param(
         prev_val if k == ATTR_PREVIOUS_STATE else native_val if k == ATTR_NATIVE_VALUE else ""
     )
     sensor.get_attr.side_effect = lambda k: False
-    result = await updater.should_update_state(datetime.now())
+    result = await updater.should_update_state(datetime.now(tz=UTC))
     assert result is expected
 
 
 @pytest.mark.asyncio
 async def test_rollback_update_calls_restore_and_helpers(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Restore previous attributes and conditionally call helper routines."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -630,7 +708,9 @@ async def test_rollback_update_calls_restore_and_helpers(
     ) as mocks:
         # Ensure show_time is False and direction is not 'stationary' so change_dot_to_stationary runs
         sensor.get_attr.side_effect = lambda k: False
-        await updater.rollback_update({"a": 1}, datetime.now(), UpdateStatus.SKIP_SET_STATIONARY)
+        await updater.rollback_update(
+            {"a": 1}, datetime.now(tz=UTC), UpdateStatus.SKIP_SET_STATIONARY
+        )
     sensor.restore_previous_attr.assert_awaited_once()
     # Based on the test setup (proceed SKIP_SET_STATIONARY, default direction not 'stationary', seconds=100),
     # change_dot_to_stationary should have been awaited once; show_time helper should not be awaited.
@@ -639,7 +719,9 @@ async def test_rollback_update_calls_restore_and_helpers(
 
 
 @pytest.mark.asyncio
-async def test_build_osm_url_returns_url(mock_hass, mock_config_entry, sensor):
+async def test_build_osm_url_returns_url(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Test that `build_osm_url` constructs a valid OpenStreetMap reverse geocoding URL using sensor attributes."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr_safe_float.side_effect = lambda k: 1.0
@@ -659,7 +741,7 @@ async def test_build_osm_url_returns_url(mock_hass, mock_config_entry, sensor):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "cached,payload,expected_attr,network_error",
+    ("cached", "payload", "expected_attr", "network_error"),
     [
         (True, None, {"a": 1}, False),
         (False, '[{"a": 1}]', {"a": 1}, False),
@@ -667,15 +749,15 @@ async def test_build_osm_url_returns_url(mock_hass, mock_config_entry, sensor):
     ],
 )
 async def test_get_dict_from_url_variants(
-    mock_hass,
-    mock_config_entry,
-    aioclient_mock,
-    sensor,
-    cached,
-    payload,
-    expected_attr,
-    network_error,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AioClientMock,
+    sensor: MockSensor,
+    cached: bool,
+    payload: str | None,
+    expected_attr: str,
+    network_error: bool,
+) -> None:
     """Parametrized: cache hit, list-payload behavior, and network-error for get_dict_from_url."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/test"
@@ -710,7 +792,9 @@ async def test_get_dict_from_url_variants(
 
 
 @pytest.mark.asyncio
-async def test_determine_if_update_needed_initial_update(mock_hass, mock_config_entry, sensor):
+async def test_determine_if_update_needed_initial_update(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Test that `determine_if_update_needed` returns `PROCEED` when the initial update attribute is set to True."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr.side_effect = lambda k: True if k == ATTR_INITIAL_UPDATE else None
@@ -719,7 +803,9 @@ async def test_determine_if_update_needed_initial_update(mock_hass, mock_config_
 
 
 @pytest.mark.asyncio
-async def test_update_location_attributes_sets_locations(mock_hass, mock_config_entry, sensor):
+async def test_update_location_attributes_sets_locations(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Test that `update_location_attributes` sets current, previous, and home location attributes to the expected values."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -732,15 +818,20 @@ async def test_update_location_attributes_sets_locations(mock_hass, mock_config_
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "method_name, expected_m_attr, expected_mi_attr",
+    ("method_name", "expected_m_attr", "expected_mi_attr"),
     [
         ("calculate_distances", ATTR_DISTANCE_FROM_HOME_M, ATTR_DISTANCE_FROM_HOME_MI),
         ("calculate_travel_distance", ATTR_DISTANCE_TRAVELED_M, ATTR_DISTANCE_TRAVELED_MI),
     ],
 )
 async def test_calculate_distance_methods(
-    mock_hass, mock_config_entry, sensor, method_name, expected_m_attr, expected_mi_attr
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    method_name: str,
+    expected_m_attr: str,
+    expected_mi_attr: str,
+) -> None:
     """Parametrized test for distance calculation methods to validate m and mi attributes are set appropriately."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -756,8 +847,11 @@ async def test_calculate_distance_methods(
 
 @pytest.mark.asyncio
 async def test_update_coordinates_and_distance_calls(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Call coordinate and distance helpers and return PROCEED."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -786,11 +880,15 @@ async def test_update_coordinates_and_distance_calls(
     ["blank", "invalid_date", "valid_date", "type_error", "value_error"],
 )
 async def test_get_seconds_from_last_change_param(
-    mock_hass, mock_config_entry, sensor, scenario, monkeypatch
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    scenario: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Parametrized variants for get_seconds_from_last_change covering various error and success paths."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
-    now = datetime.now()
+    now = datetime.now(tz=UTC)
 
     if scenario == "blank":
         sensor.is_attr_blank.return_value = True
@@ -814,19 +912,15 @@ async def test_get_seconds_from_last_change_param(
         return
 
     if scenario == "type_error":
+        naive_last_changed = datetime(2024, 1, 1, 12, 0, tzinfo=UTC).replace(tzinfo=None)
+        aware_now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
-        class BadDatetime(datetime):
-            def __sub__(self, other):
-                raise TypeError("test")
-
-        bad_dt = BadDatetime.now()
-        sensor.get_attr_safe_str.return_value = bad_dt.isoformat()
+        sensor.get_attr_safe_str.return_value = naive_last_changed.isoformat()
         mock_dt = MagicMock()
-        # Use side_effect for fromisoformat to avoid mixing return_value and side_effect
-        mock_dt.fromisoformat.side_effect = lambda s: bad_dt
-        mock_dt.now.return_value = bad_dt
+        mock_dt.fromisoformat.return_value = naive_last_changed
+        mock_dt.now.return_value = aware_now
         monkeypatch.setattr("custom_components.places.update_sensor.datetime", mock_dt)
-        result = await updater.get_seconds_from_last_change(bad_dt)
+        result = await updater.get_seconds_from_last_change(aware_now)
         assert result == 3600
         return
 
@@ -842,7 +936,9 @@ async def test_get_seconds_from_last_change_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("date_format", ["dd/mm", "mm/dd"])
-async def test_change_show_time_to_date_param(mock_hass, mock_config_entry, sensor, date_format):
+async def test_change_show_time_to_date_param(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, date_format: str
+) -> None:
     """Parametrized test for change_show_time_to_date handling both dd/mm and mm/dd formats."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -864,11 +960,13 @@ async def test_change_show_time_to_date_param(mock_hass, mock_config_entry, sens
 
 @pytest.mark.asyncio
 async def test_change_dot_to_stationary_sets_direction_and_last_changed(
-    mock_hass, mock_config_entry, sensor
-):
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Set direction to 'stationary' and update last_changed, scheduling executor job."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
-    await updater.change_dot_to_stationary(datetime(2024, 1, 1, 12, 0), 100)
+    await updater.change_dot_to_stationary(
+        datetime(2024, 1, 1, 12, 0, tzinfo=UTC).replace(tzinfo=None), 100
+    )
     assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == "stationary"
     assert sensor.attrs[ATTR_LAST_CHANGED] == "2024-01-01 12:00:00"
     mock_hass.async_add_executor_job.assert_awaited_once()
@@ -876,7 +974,7 @@ async def test_change_dot_to_stationary_sets_direction_and_last_changed(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "tracker_available,has_valid_coords,expected",
+    ("tracker_available", "has_valid_coords", "expected"),
     [
         (False, None, UpdateStatus.SKIP),
         (True, False, UpdateStatus.SKIP),
@@ -884,14 +982,14 @@ async def test_change_dot_to_stationary_sets_direction_and_last_changed(
     ],
 )
 async def test_is_devicetracker_set_param(
-    mock_hass,
-    mock_config_entry,
-    sensor,
-    stubbed_updater,
-    tracker_available,
-    has_valid_coords,
-    expected,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    tracker_available: bool,
+    has_valid_coords: bool,
+    expected: object,
+) -> None:
     """Parametrized test for is_devicetracker_set covering not available, invalid coords, and proceed."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -910,7 +1008,7 @@ async def test_is_devicetracker_set_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "tracker_state, expected_result",
+    ("tracker_state", "expected_result"),
     [
         (None, False),
         ("unavailable", False),
@@ -918,8 +1016,12 @@ async def test_is_devicetracker_set_param(
     ],
 )
 async def test_is_tracker_available_param(
-    mock_hass, mock_config_entry, sensor, tracker_state, expected_result
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    tracker_state: object,
+    expected_result: object,
+) -> None:
     """Test is_tracker_available for missing, unavailable, and valid tracker states."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.return_value = False
@@ -934,7 +1036,7 @@ async def test_is_tracker_available_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "tracker_attrs, expected_result",
+    ("tracker_attrs", "expected_result"),
     [
         (None, False),
         ({CONF_LATITUDE: None, CONF_LONGITUDE: None}, False),
@@ -942,8 +1044,12 @@ async def test_is_tracker_available_param(
     ],
 )
 async def test_has_valid_coordinates_param(
-    mock_hass, mock_config_entry, sensor, tracker_attrs, expected_result
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    tracker_attrs: dict[str, object] | None,
+    expected_result: object,
+) -> None:
     """Test has_valid_coordinates for missing, bad, and valid lat/lon attributes."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     tracker = MagicMock()
@@ -958,7 +1064,13 @@ async def test_has_valid_coordinates_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("warn_flag", [True, False])
-async def test_log_tracker_issue_param(mock_hass, mock_config_entry, sensor, caplog, warn_flag):
+async def test_log_tracker_issue_param(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    caplog: LogCaptureFixture,
+    warn_flag: bool,
+) -> None:
     """Test log_tracker_issue for both warn and info levels."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = warn_flag
@@ -974,8 +1086,12 @@ async def test_log_tracker_issue_param(mock_hass, mock_config_entry, sensor, cap
 
 @pytest.mark.asyncio
 async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
-    mock_hass, mock_config_entry, sensor, stubbed_updater, monkeypatch
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Test that query_osm_and_finalize runs the OSM parser, finalizes the last place name, processes display options, and sets last_changed."""
     sensor.attrs["osm_dict"] = {"some": "value"}
     sensor.attrs["last_place_name"] = "TestPlace"
@@ -1003,7 +1119,7 @@ async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
             ],
         ) as updater_mocks,
     ):
-        now = datetime(2024, 1, 1, 12, 0, 0)
+        now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         await updater.query_osm_and_finalize(now)
         # Assert updater method calls
         updater_mocks["build_osm_url"].assert_awaited_once()
@@ -1027,8 +1143,8 @@ async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
     [ATTR_LATITUDE, ATTR_LONGITUDE, ATTR_HOME_LATITUDE, ATTR_HOME_LONGITUDE],
 )
 async def test_calculate_distances_not_all_attrs_set(
-    mock_hass, mock_config_entry, sensor, blank_attr
-):
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, blank_attr: str
+) -> None:
     """Test calculate_distances does NOT set distance attributes if any required attribute is blank."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
@@ -1039,9 +1155,9 @@ async def test_calculate_distances_not_all_attrs_set(
     def set_attr(key: str, value: object) -> None:
         sensor.attrs[key] = value
 
-    sensor.is_attr_blank = is_attr_blank
+    sensor.is_attr_blank = MagicMock(side_effect=is_attr_blank)
     # Patch set_attr to update attrs
-    sensor.set_attr = set_attr
+    sensor.set_attr = MagicMock(side_effect=set_attr)
     await updater.calculate_distances()
     # None of the distance attributes should be set
     assert ATTR_DISTANCE_FROM_HOME_M not in sensor.attrs
@@ -1050,7 +1166,9 @@ async def test_calculate_distances_not_all_attrs_set(
 
 
 @pytest.mark.asyncio
-async def test_calculate_distances_distance_from_home_m_blank(mock_hass, mock_config_entry, sensor):
+async def test_calculate_distances_distance_from_home_m_blank(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Test calculate_distances does NOT set KM/MI if ATTR_DISTANCE_FROM_HOME_M is blank after calculation."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
@@ -1062,11 +1180,11 @@ async def test_calculate_distances_distance_from_home_m_blank(mock_hass, mock_co
     def set_attr(key: str, value: object) -> None:
         sensor.attrs[key] = value
 
-    sensor.is_attr_blank = is_attr_blank
+    sensor.is_attr_blank = MagicMock(side_effect=is_attr_blank)
     # Patch set_attr to update attrs
-    sensor.set_attr = set_attr
+    sensor.set_attr = MagicMock(side_effect=set_attr)
     # Patch get_attr_safe_float to return valid floats
-    sensor.get_attr_safe_float = lambda k: 1.0
+    sensor.get_attr_safe_float = MagicMock(return_value=1.0)
     # Patch all required attributes to not blank except ATTR_DISTANCE_FROM_HOME_M
     for attr in [ATTR_LATITUDE, ATTR_LONGITUDE, ATTR_HOME_LATITUDE, ATTR_HOME_LONGITUDE]:
         sensor.attrs[attr] = 1.0
@@ -1079,7 +1197,7 @@ async def test_calculate_distances_distance_from_home_m_blank(mock_hass, mock_co
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "mode, blank_attr, expected_direction, expect_mi",
+    ("mode", "blank_attr", "expected_direction", "expect_mi"),
     [
         ("normal", None, None, True),
         ("missing_old_coord", ATTR_LATITUDE_OLD, "stationary", True),
@@ -1087,13 +1205,19 @@ async def test_calculate_distances_distance_from_home_m_blank(mock_hass, mock_co
     ],
 )
 async def test_calculate_travel_distance_variants(
-    mock_hass, mock_config_entry, sensor, mode, blank_attr, expected_direction, expect_mi
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    mode: str,
+    blank_attr: str,
+    expected_direction: str | None,
+    expect_mi: bool,
+) -> None:
     """Parametrized variants for calculate_travel_distance covering normal, missing old coords, and blank traveled m."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
     # Default behaviors
-    sensor.get_attr_safe_float = lambda k: 1.0
+    sensor.get_attr_safe_float = MagicMock(return_value=1.0)
 
     if mode == "missing_old_coord":
 
@@ -1103,9 +1227,9 @@ async def test_calculate_travel_distance_variants(
         def set_attr(key: str, value: object) -> None:
             sensor.attrs[key] = value
 
-        sensor.is_attr_blank = is_attr_blank
+        sensor.is_attr_blank = MagicMock(side_effect=is_attr_blank)
         # Ensure set_attr updates attrs for this branch
-        sensor.set_attr = set_attr
+        sensor.set_attr = MagicMock(side_effect=set_attr)
         await updater.calculate_travel_distance()
         assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == expected_direction
         assert sensor.attrs[ATTR_DISTANCE_TRAVELED_M] == 0
@@ -1120,12 +1244,12 @@ async def test_calculate_travel_distance_variants(
         def set_attr(key: str, value: object) -> None:
             sensor.attrs[key] = value
 
-        sensor.is_attr_blank = is_attr_blank
+        sensor.is_attr_blank = MagicMock(side_effect=is_attr_blank)
         # Provide old coords so calculation proceeds
         for attr in [ATTR_LATITUDE_OLD, ATTR_LONGITUDE_OLD]:
             sensor.attrs[attr] = 1.0
         # Ensure set_attr updates attrs for this branch
-        sensor.set_attr = set_attr
+        sensor.set_attr = MagicMock(side_effect=set_attr)
         await updater.calculate_travel_distance()
         assert ATTR_DISTANCE_TRAVELED_M in sensor.attrs
         assert ATTR_DISTANCE_TRAVELED_MI not in sensor.attrs
@@ -1144,7 +1268,9 @@ async def test_calculate_travel_distance_variants(
 
 
 @pytest.mark.asyncio
-async def test_get_gps_accuracy_zero_accuracy_skip(mock_hass, mock_config_entry, sensor):
+async def test_get_gps_accuracy_zero_accuracy_skip(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """GPS accuracy 0 with use_gps True causes SKIP."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     tracker_state = MagicMock()
@@ -1168,8 +1294,11 @@ async def test_get_gps_accuracy_zero_accuracy_skip(mock_hass, mock_config_entry,
 
 @pytest.mark.asyncio
 async def test_check_device_tracker_and_update_coords_get_gps_accuracy_skip(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """If get_gps_accuracy returns SKIP that status is propagated."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -1187,8 +1316,11 @@ async def test_check_device_tracker_and_update_coords_get_gps_accuracy_skip(
 
 @pytest.mark.asyncio
 async def test_update_coordinates_device_tracker_missing(
-    mock_hass, mock_config_entry, caplog, sensor
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    caplog: LogCaptureFixture,
+    sensor: MockSensor,
+) -> None:
     """update_coordinates logs warning and returns when tracker missing."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     mock_hass.states.get.return_value = None
@@ -1198,8 +1330,11 @@ async def test_update_coordinates_device_tracker_missing(
 
 @pytest.mark.asyncio
 async def test_determine_update_criteria_skip_before_determine_if_update_needed(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """If update_coordinates_and_distance returns SKIP then determine_if_update_needed not called."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -1218,8 +1353,8 @@ async def test_determine_update_criteria_skip_before_determine_if_update_needed(
 
 @pytest.mark.asyncio
 async def test_get_initial_last_place_name_not_in_zone_blank_keeps_previous(
-    mock_hass, mock_config_entry, sensor
-):
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Retains previous last_place_name when not in zone and place_name blank."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: k == ATTR_PLACE_NAME
@@ -1231,8 +1366,12 @@ async def test_get_initial_last_place_name_not_in_zone_blank_keeps_previous(
 
 @pytest.mark.asyncio
 async def test_query_osm_and_finalize_no_osm_dict(
-    mock_hass, mock_config_entry, sensor, stubbed_updater, monkeypatch
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """If OSM dict blank parser isn't invoked and last_changed not set."""
     sensor.attrs[ATTR_OSM_DICT] = None
     updater = make_updater(mock_hass, mock_config_entry, sensor)
@@ -1245,41 +1384,43 @@ async def test_query_osm_and_finalize_no_osm_dict(
             [("build_osm_url", {"return_value": "http://url"}), ("get_dict_from_url", {})],
         ),
     ):
-        now = datetime(2024, 1, 1, 0, 0, 0)
+        now = datetime(2024, 1, 1, 0, 0, 0, tzinfo=UTC)
         await updater.query_osm_and_finalize(now)
     mock_parser_cls.assert_not_called()
     assert ATTR_LAST_CHANGED not in sensor.attrs
 
 
 @pytest.mark.asyncio
-async def test_should_update_state_initial_update_true(mock_hass, mock_config_entry, sensor):
+async def test_should_update_state_initial_update_true(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Returns True when ATTR_INITIAL_UPDATE flag set (forces update)."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr.side_effect = lambda k: k == ATTR_INITIAL_UPDATE
     sensor.is_attr_blank.return_value = True
-    result = await updater.should_update_state(datetime.now())
+    result = await updater.should_update_state(datetime.now(tz=UTC))
     assert result is True
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "status,seconds,show_time,expect_dot,expect_show",
+    ("status", "seconds", "show_time", "expect_dot", "expect_show"),
     [
         (UpdateStatus.SKIP_SET_STATIONARY, 120, False, True, False),
         (UpdateStatus.PROCEED, 90000, True, False, True),
     ],
 )
 async def test_rollback_update_triggers_helpers(
-    mock_hass,
-    mock_config_entry,
-    sensor,
-    status,
-    seconds,
-    show_time,
-    expect_dot,
-    expect_show,
-    stubbed_updater,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    status: UpdateStatus,
+    seconds: int,
+    show_time: bool,
+    expect_dot: bool,
+    expect_show: bool,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Parametrized test for rollback_update helper triggers (dot->stationary and show_time->date)."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -1292,7 +1433,7 @@ async def test_rollback_update_triggers_helpers(
     ) as mocks:
         # show_time controls whether change_show_time_to_date should be called
         sensor.get_attr.side_effect = lambda k: show_time if k == CONF_SHOW_TIME else False
-        await updater.rollback_update({}, datetime.now(), status)
+        await updater.rollback_update({}, datetime.now(tz=UTC), status)
     if expect_dot:
         mocks["change_dot_to_stationary"].assert_awaited_once()
     else:
@@ -1304,7 +1445,12 @@ async def test_rollback_update_triggers_helpers(
 
 
 @pytest.mark.asyncio
-async def test_get_extended_attr_unknown_type(mock_hass, mock_config_entry, caplog, sensor):
+async def test_get_extended_attr_unknown_type(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    caplog: LogCaptureFixture,
+    sensor: MockSensor,
+) -> None:
     """Logs warning for unknown OSM type and returns early."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -1318,22 +1464,22 @@ async def test_get_extended_attr_unknown_type(mock_hass, mock_config_entry, capl
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "osm_type, expect_call, expect_log",
+    ("osm_type", "expect_call", "expect_log"),
     [
         ("way", True, False),
         ("foo", False, True),
     ],
 )
 async def test_get_extended_attr_variants(
-    mock_hass,
-    mock_config_entry,
-    sensor,
-    osm_type,
-    expect_call,
-    expect_log,
-    caplog,
-    stubbed_updater,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    osm_type: str,
+    expect_call: bool,
+    expect_log: bool,
+    caplog: LogCaptureFixture,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Parametrized: extended attr behavior for known and unknown OSM types."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -1359,8 +1505,11 @@ async def test_get_extended_attr_variants(
 
 @pytest.mark.asyncio
 async def test_get_extended_attr_node_triggers_wikidata_lookup(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Test node OSM type triggers details fetch and Wikidata lookup."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
@@ -1370,7 +1519,7 @@ async def test_get_extended_attr_node_triggers_wikidata_lookup(
     # Ensure is_attr_blank returns False for checks in get_extended_attr
     sensor.is_attr_blank.side_effect = lambda k: False
 
-    async def fake_get_dict(url, name, dict_name):
+    async def fake_get_dict(url: str, name: str, dict_name: str) -> None:
         # First call: OpenStreetMaps Details -> populate details with wikidata tag
         if name == "OpenStreetMaps Details":
             sensor.attrs[ATTR_OSM_DETAILS_DICT] = {"extratags": {"wikidata": "Q123"}}
@@ -1393,7 +1542,7 @@ async def test_get_extended_attr_node_triggers_wikidata_lookup(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "payload, expect_log_substr, expect_cached, expect_sensor_attr",
+    ("payload", "expect_log_substr", "expect_cached", "expect_sensor_attr"),
     [
         ("{bad json}", "JSON Decode Error", False, False),
         ('{"error_message": "bad"}', "error occurred contacting the web service", False, False),
@@ -1401,16 +1550,16 @@ async def test_get_extended_attr_node_triggers_wikidata_lookup(
     ],
 )
 async def test_get_dict_from_url_network_variants(
-    mock_hass,
-    mock_config_entry,
-    sensor,
-    caplog,
-    aioclient_mock,
-    payload,
-    expect_log_substr,
-    expect_cached,
-    expect_sensor_attr,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    caplog: LogCaptureFixture,
+    aioclient_mock: AioClientMock,
+    payload: str | None,
+    expect_log_substr: str | None,
+    expect_cached: bool,
+    expect_sensor_attr: object,
+) -> None:
     """Parametrized network-response variants for get_dict_from_url covering JSON errors, service errors, and 1-item list payloads."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/nettest"
@@ -1434,8 +1583,12 @@ async def test_get_dict_from_url_network_variants(
 
 @pytest.mark.asyncio
 async def test_get_dict_from_url_list_conversion_and_throttle(
-    monkeypatch, mock_hass, mock_config_entry, aioclient_mock, sensor
-):
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AioClientMock,
+    sensor: MockSensor,
+) -> None:
     """Ensure get_dict_from_url respects throttle wait and converts single-item list payloads to a dict."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
@@ -1472,7 +1625,7 @@ async def test_get_dict_from_url_list_conversion_and_throttle(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "native,prev,cur,prev_loc,distance,expected",
+    ("native", "prev", "cur", "prev_loc", "distance", "expected"),
     [
         # same location -> SKIP_SET_STATIONARY
         ("state", "state", "1,1", "1,1", 20, UpdateStatus.SKIP_SET_STATIONARY),
@@ -1483,8 +1636,16 @@ async def test_get_dict_from_url_list_conversion_and_throttle(
     ],
 )
 async def test_determine_if_update_needed_variants(
-    mock_hass, mock_config_entry, sensor, native, prev, cur, prev_loc, distance, expected
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    native: object,
+    prev: object,
+    cur: object,
+    prev_loc: object,
+    distance: float,
+    expected: object,
+) -> None:
     """Parametrized variants for determine_if_update_needed covering skip and proceed cases."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     if native is not None:
@@ -1509,7 +1670,7 @@ async def test_determine_if_update_needed_variants(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "has_last_distance,reported_distance,last_distance_arg,expected",
+    ("has_last_distance", "reported_distance", "last_distance_arg", "expected"),
     [
         # towards home: current 500 < previous 1000
         (None, 500, 1000, "towards home"),
@@ -1520,14 +1681,14 @@ async def test_determine_if_update_needed_variants(
     ],
 )
 async def test_determine_direction_of_travel_param(
-    mock_hass,
-    mock_config_entry,
-    sensor,
-    has_last_distance,
-    reported_distance,
-    last_distance_arg,
-    expected,
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    has_last_distance: bool,
+    reported_distance: float,
+    last_distance_arg: float | None,
+    expected: object,
+) -> None:
     """Parametrized variants for determine_direction_of_travel covering towards/away/stationary cases."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     if has_last_distance is not None:
@@ -1552,8 +1713,11 @@ async def test_determine_direction_of_travel_param(
 
 @pytest.mark.asyncio
 async def test_update_coordinates_and_distance_skip_missing_attr(
-    mock_hass, mock_config_entry, sensor, stubbed_updater
-):
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
     """Returns SKIP when required lat/long/home coordinates are blank after updates."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -1573,7 +1737,9 @@ async def test_update_coordinates_and_distance_skip_missing_attr(
 
 
 @pytest.mark.asyncio
-async def test_is_tracker_available_valid(mock_hass, mock_config_entry, sensor):
+async def test_is_tracker_available_valid(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Returns True for existing tracker state object (not string unavailable)."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     # Provide tracker id in attrs and let default get_attr work
@@ -1594,7 +1760,9 @@ async def test_is_tracker_available_valid(mock_hass, mock_config_entry, sensor):
 
 
 @pytest.mark.asyncio
-async def test_has_valid_coordinates_non_numeric(mock_hass, mock_config_entry, sensor):
+async def test_has_valid_coordinates_non_numeric(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Returns False when latitude not numeric though attribute exists."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     tracker = MagicMock()
@@ -1605,7 +1773,12 @@ async def test_has_valid_coordinates_non_numeric(mock_hass, mock_config_entry, s
 
 
 @pytest.mark.asyncio
-async def test_log_tracker_issue_initial_update(mock_hass, mock_config_entry, sensor, caplog):
+async def test_log_tracker_issue_initial_update(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    caplog: LogCaptureFixture,
+) -> None:
     """Logs warning during initial update even if warn flag not set."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = False
@@ -1616,8 +1789,8 @@ async def test_log_tracker_issue_initial_update(mock_hass, mock_config_entry, se
 
 @pytest.mark.asyncio
 async def test_fire_event_data_includes_extended_and_attributes(
-    mock_hass, mock_config_entry, sensor
-):
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
     """Builds and fires event with expected keys including extended attributes."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
 
@@ -1650,7 +1823,12 @@ async def test_fire_event_data_includes_extended_and_attributes(
 
 
 @pytest.mark.asyncio
-async def test_log_coordinate_issue_warn_flag(mock_hass, mock_config_entry, sensor, caplog):
+async def test_log_coordinate_issue_warn_flag(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    caplog: LogCaptureFixture,
+) -> None:
     """Logs warning when warn_if_device_tracker_prob set for coordinate issue."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = True
@@ -1663,7 +1841,9 @@ async def test_log_coordinate_issue_warn_flag(mock_hass, mock_config_entry, sens
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("tz", ["UTC", None])
-async def test_get_current_time_variants(mock_hass, mock_config_entry, sensor, tz):
+async def test_get_current_time_variants(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, tz: str | None
+) -> None:
     """Return timezone-aware datetime when hass.config.time_zone set, naive when not."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     mock_hass.config.time_zone = tz
@@ -1676,8 +1856,12 @@ async def test_get_current_time_variants(mock_hass, mock_config_entry, sensor, t
 
 @pytest.mark.asyncio
 async def test_get_dict_from_url_respects_throttle(
-    monkeypatch, mock_hass, mock_config_entry, aioclient_mock, sensor
-):
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AioClientMock,
+    sensor: MockSensor,
+) -> None:
     """Ensure the throttle path calls asyncio.sleep when last_query indicates we must wait."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/throttle/"
@@ -1704,8 +1888,13 @@ async def test_get_dict_from_url_respects_throttle(
 
 @pytest.mark.asyncio
 async def test_get_dict_from_url_handles_network_error(
-    monkeypatch, mock_hass, mock_config_entry, caplog, aioclient_mock, sensor
-):
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    caplog: LogCaptureFixture,
+    aioclient_mock: AioClientMock,
+    sensor: MockSensor,
+) -> None:
     """If aiohttp raises ClientError, get_dict_from_url should log a warning and not set cache."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/network-error/"
