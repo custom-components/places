@@ -240,36 +240,44 @@ def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool
 
 def _validate_known_options(display_options: str, errors: dict[str, Any]) -> bool:
     valid_options = set(DISPLAY_OPTIONS_MAP.keys())
+    stack: list[str] = []
     i = 0
     token = ""
+
+    def validate_token(option_name: str) -> bool:
+        option_name = option_name.strip()
+        if option_name and option_name not in valid_options and option_name not in ("-", "+"):
+            _LOGGER.error("Invalid option name '%s' in '%s'.", option_name, display_options)
+            errors["base"] = "invalid_option"
+            return False
+        return True
+
     while i < len(display_options):
         c = display_options[i]
         if c in "[(":
-            # Check the token before the bracket/paren
-            t = token.strip()
-            if t and t not in valid_options and not re.match(r"[-+]", t):
-                _LOGGER.error("Invalid option name '%s' in '%s'.", t, display_options)
-                errors["base"] = "invalid_option"
+            if not validate_token(token):
                 return False
+            stack.append(c)
             token = ""
         elif c == ",":
-            # Check top-level comma-separated tokens
-            t = token.strip()
-            if t and t not in valid_options and not re.match(r"[-+]", t):
-                _LOGGER.error("Invalid option name '%s' in '%s'.", t, display_options)
-                errors["base"] = "invalid_option"
+            if (not stack or stack[-1] != "(") and not validate_token(token):
                 return False
             token = ""
-        elif c in "])":
+        elif c == "]":
+            if not validate_token(token):
+                return False
+            if stack:
+                stack.pop()
+            token = ""
+        elif c == ")":
+            if stack:
+                stack.pop()
             token = ""
         else:
             token += c
         i += 1
     # Check last token
-    t = token.strip()
-    if t and t not in valid_options and not re.match(r"[-+]", t):
-        _LOGGER.error("Invalid option name '%s' in '%s'.", t, display_options)
-        errors["base"] = "invalid_option"
+    if (not stack or stack[-1] != "(") and not validate_token(token):
         return False
     return True
 

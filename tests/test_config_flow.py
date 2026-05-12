@@ -11,7 +11,6 @@ from custom_components.places.config_flow import (
     PlacesOptionsFlowHandler,
     _validate_brackets,
     _validate_comma_syntax,
-    _validate_known_options,
     _validate_option_names,
     get_devicetracker_id_entities,
     get_home_zone_entities,
@@ -325,60 +324,116 @@ def test_validate_brackets(display_options, expected):
     assert result is expected
 
 
-@pytest.mark.parametrize(
-    "display_options,expected",
-    [
-        ("zone,place", False),  # Should be invalid
-        ("zone,unknown", False),  # 'unknown' not in DISPLAY_OPTIONS_MAP
-        ("zone,[place,unknown]", False),
-        ("zone,[place],unknown", False),  # Invalid last token after bracket group
-        ("unknown", False),  # Single invalid token
-    ],
-)
-def test_validate_known_options(display_options, expected):
-    """Test the _validate_known_options function to ensure it correctly validates known display options.
-
-    Parameters:
-        display_options (str): The display options string to validate.
-        expected (bool): The expected result of the validation.
-
-    """
-    errors = {}
-    result = _validate_known_options(display_options, errors)
-    assert result is expected
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "display_options,has_error",
+    ("display_options", "expected_errors"),
     [
-        ("zone,place", False),  # Valid
-        ("zone,[place,(zone)]", True),  # Invalid
-        ("zone,[place,(zone]", True),  # Invalid
-        # ("zone,,place", False),  # Valid (your logic does not catch double comma)
-        # ("zone name,place", False),  # Valid (your logic does not catch space in option name)
-        # ("zone,unknown", False),  # Valid (your logic does not catch unknown option)
+        pytest.param("zone,place", {}, id="basic-options-no-space"),
+        pytest.param("zone, place", {}, id="basic-options-skip-advanced-validation"),
+        pytest.param("zone,unknown", {}, id="basic-unknown-option-skips-advanced-validation"),
+        pytest.param("unknown", {}, id="single-unknown-option-skips-advanced-validation"),
+        pytest.param("name_no_dupe[type(-, unclassified)]", {}, id="simple-exclude-values"),
+        pytest.param(
+            "type(house, category(highway))",
+            {},
+            id="implicit-include-literal-with-attribute-filter",
+        ),
+        pytest.param(
+            "route_number(type(+, motorway, trunk))",
+            {},
+            id="simple-include-values",
+        ),
+        pytest.param("city_clean[county]", {}, id="single-fallback-option"),
+        pytest.param("street[route_number]", {}, id="simple-nested-option"),
+        pytest.param(
+            "name_no_dupe[type(house, category(highway))]",
+            {},
+            id="fallback-filter-implicit-include-literal-with-attribute-filter",
+        ),
+        pytest.param(
+            "driving, name_no_dupe[type(-, unclassified, category(-, highway))"
+            "[category(-, highway)], house_number, route_number(type(+, motorway, trunk))"
+            "[street[route_number]], neighborhood(type(house))], city_clean[county], "
+            "state_abbr",
+            {},
+            id="complex-nested-advanced-options",
+        ),
+        pytest.param(
+            "zone,[place](zone)",
+            {"base": "invalid_syntax"},
+            id="bracket-group-followed-by-paren-group",
+        ),
+        pytest.param(
+            "zone,[place,unknown]",
+            {"base": "invalid_syntax"},
+            id="comma-before-bracket-with-unknown-option",
+        ),
+        pytest.param(
+            "zone,[place],unknown",
+            {"base": "invalid_syntax"},
+            id="comma-before-bracket-then-trailing-unknown-option",
+        ),
+        pytest.param(
+            "zone,[place,(zone)]",
+            {"base": "invalid_syntax"},
+            id="mismatched-nested-paren-and-bracket",
+        ),
+        pytest.param(
+            "zone,[place,(zone]",
+            {"base": "invalid_syntax"},
+            id="unclosed-nested-paren",
+        ),
+        pytest.param(
+            "name_no_dupe[type(-, unclassified)",
+            {"base": "bracket_mismatch"},
+            id="unmatched-bracket",
+        ),
+        pytest.param(
+            "route_number(type(+, motorway, trunk,))",
+            {"base": "invalid_syntax"},
+            id="trailing-comma-in-parens",
+        ),
+        pytest.param(
+            "city_clean[county,,state]",
+            {"base": "invalid_syntax"},
+            id="empty-bracketed-option",
+        ),
+        pytest.param(
+            "city clean[county]",
+            {"base": "invalid_syntax"},
+            id="space-in-option-name",
+        ),
+        pytest.param(
+            "city_clean[unknown_option]",
+            {"base": "invalid_option"},
+            id="unknown-bracketed-option",
+        ),
+        pytest.param(
+            "+foo[place]",
+            {"base": "invalid_option"},
+            id="prefixed-plus-token-is-invalid",
+        ),
+        pytest.param(
+            "-bar[place]",
+            {"base": "invalid_option"},
+            id="prefixed-minus-token-is-invalid",
+        ),
+        pytest.param(
+            "zone_name[county],unknown",
+            {"base": "invalid_option"},
+            id="unknown-option-after-valid-advanced-option",
+        ),
     ],
 )
-async def test_validate_display_options(display_options, has_error):
-    """Test the validate_display_options function to ensure it returns errors for invalid display option syntax.
+async def test_validate_display_options_accepts_advanced_options(
+    display_options: str, expected_errors: dict[str, str]
+) -> None:
+    """Validate advanced display option strings across simple and complex permutations."""
+    errors: dict[str, str] = {}
 
-    Parameters:
-        display_options (str): The display options string to validate.
-        has_error (bool): Whether an error is expected for the given input.
-
-    """
-    errors = {}
     result = await validate_display_options(display_options, errors)
-    assert (result != {}) is has_error
 
-
-@pytest.mark.asyncio
-async def test_validate_display_options_brackets_then_paren_invalid():
-    """Advanced validation fails for bracket group directly followed by paren group."""
-    errors = {}
-    result = await validate_display_options("zone,[place](zone)", errors)
-    assert result != {}
+    assert result == expected_errors
 
 
 @pytest.mark.asyncio
