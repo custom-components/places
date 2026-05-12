@@ -38,8 +38,10 @@
 
 ## Coding standards
 
-- Add typing annotations to all functions and classes (including return types).
-- Add or update docstrings for all files, classes and methods, including private methods. Method docstrings must be in Google Style.
+- Add typing annotations to all functions and classes (including return types). 
+- Only use `Any` typing when actually appropriate and don't use `cast` unless there is no alternative. 
+- Do not use `assert` except in tests.
+- Add or update docstrings for all files, classes and methods, including private and nested methods. Method docstrings must be in Google Style.
 - Preserve existing comments and keep imports at the top of files.
 - When editing code, prefer fixing root causes over surface patches.
 - Keep changes minimal and consistent with the codebase style.
@@ -72,7 +74,7 @@
 - By default, the agent should run the full pytest suite when tests are requested (the repo is small and full pytest runs are acceptable). If the user specifically asks for a focused test run, the agent may run targeted tests instead.
 - Use fixtures and mocks to isolate tests.
 - Use `conftest.py` for shared test utilities and fixtures.
-- Add typed, well-documented tests in `tests/` and use fixtures in `conftest.py`. Test documentation must use NumPy format.
+- Add typed, well-documented tests in `tests/` and use fixtures in `conftest.py`. Test documentation must use Google Style format.
 - One test file per integration file: every integration source file should have a single corresponding test module; add new unit tests for that integration to that existing test module. Only split into additional test modules if the existing test module would exceed ~1000 lines, except for explicit end-to-end/integration tests in `test_integration.py`.
 - If tests fail due to missing dev dependencies, install them into `./.venv` and add them into the `pyproject.toml` dependencies when appropriate.
 - When parameterizing tests, delete any legacy placeholder tests and related comments.
@@ -80,7 +82,7 @@
 
 ## PR and branch behavior
 
-- The agent will only create branches or open PRs when the user explicitly requests it or includes the hashtag `#github-pull-request_copilot-coding-agent` to hand off to the asynchronous coding agent.
+- The agent will only push commits or open PRs when the user explicitly requests it.
 
 ## Network / install consent
 
