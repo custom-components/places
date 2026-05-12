@@ -225,7 +225,7 @@ class PlacesUpdater:
         """Get the current time, considering the Home Assistant time zone."""
         if self._hass.config.time_zone:
             return datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
-        return datetime.now(tz=UTC).astimezone().replace(tzinfo=None)
+        return datetime.now(tz=UTC).astimezone()
 
     async def update_entity_name_and_cleanup(self) -> None:
         """Update the entity name and clean up attributes."""
@@ -992,6 +992,10 @@ class PlacesUpdater:
             last_changed: datetime = datetime.fromisoformat(
                 self.sensor.get_attr_safe_str(ATTR_LAST_CHANGED)
             )
+            if last_changed.tzinfo is None:
+                last_changed = last_changed.replace(tzinfo=now.tzinfo or UTC)
+            elif now.tzinfo is not None:
+                last_changed = last_changed.astimezone(now.tzinfo)
         except (TypeError, ValueError) as e:
             _LOGGER.warning(
                 "Error converting Last Changed date/time (%s) into datetime: %r",
@@ -1002,22 +1006,7 @@ class PlacesUpdater:
         else:
             try:
                 changed_diff_sec = (now - last_changed).total_seconds()
-            except TypeError:
-                try:
-                    fallback_now = (
-                        datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone))).replace(
-                            tzinfo=None
-                        )
-                        if self._hass.config.time_zone
-                        else datetime.now(tz=UTC).astimezone().replace(tzinfo=None)
-                    )
-                    changed_diff_sec = (fallback_now - last_changed).total_seconds()
-                except (TypeError, OverflowError) as e:
-                    _LOGGER.warning(
-                        "Error calculating the seconds between last change to now: %r", e
-                    )
-                    return 3600
-            except OverflowError as e:
+            except (TypeError, OverflowError) as e:
                 _LOGGER.warning("Error calculating the seconds between last change to now: %r", e)
                 return 3600
             return int(changed_diff_sec)

@@ -149,6 +149,7 @@ async def test_do_update_flow_variants(
         [
             (
                 "get_current_time",
+                # Create UTC datetime then strip tzinfo to test handling of naive datetimes.
                 {"return_value": datetime(2024, 1, 1, 12, 0, tzinfo=UTC).replace(tzinfo=None)},
             ),
             ("update_entity_name_and_cleanup", {}),
@@ -755,7 +756,7 @@ async def test_get_dict_from_url_variants(
     sensor: MockSensor,
     cached: bool,
     payload: str | None,
-    expected_attr: str,
+    expected_attr: object | None,
     network_error: bool,
 ) -> None:
     """Parametrized: cache hit, list-payload behavior, and network-error for get_dict_from_url."""
@@ -912,8 +913,9 @@ async def test_get_seconds_from_last_change_param(
         return
 
     if scenario == "type_error":
+        # Create UTC datetime then strip tzinfo to test handling of naive datetimes.
         naive_last_changed = datetime(2024, 1, 1, 12, 0, tzinfo=UTC).replace(tzinfo=None)
-        aware_now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+        aware_now = datetime(2024, 1, 1, 13, 0, tzinfo=UTC)
 
         sensor.get_attr_safe_str.return_value = naive_last_changed.isoformat()
         mock_dt = MagicMock()
@@ -1907,14 +1909,11 @@ async def test_log_coordinate_issue_warn_flag(
 async def test_get_current_time_variants(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, tz: str | None
 ) -> None:
-    """Return timezone-aware datetime when hass.config.time_zone set, naive when not."""
+    """Return timezone-aware datetime with and without a configured HA timezone."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
     mock_hass.config.time_zone = tz
     dt = await updater.get_current_time()
-    if tz:
-        assert dt.tzinfo is not None
-    else:
-        assert dt.tzinfo is None
+    assert dt.tzinfo is not None
 
 
 @pytest.mark.asyncio

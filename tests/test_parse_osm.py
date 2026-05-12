@@ -1,6 +1,6 @@
 """Unit tests for the OSMParser class in custom_components.places.parse_osm."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 import pytest
@@ -143,7 +143,7 @@ async def test_parse_type_variants(
     )
     await parser.parse_type(osm_dict)
     if expect_clear:
-        sensor._clear_attr_mock.assert_called_once_with(ATTR_PLACE_TYPE)
+        assert ATTR_PLACE_TYPE not in sensor.attrs
         sensor._set_attr_mock.assert_not_called()
     else:
         for attr, val in expected_set_calls:
@@ -278,7 +278,7 @@ async def test_set_address_details_sets_attrs(
 
 
 @pytest.mark.asyncio
-async def test_set_address_details_retail_logic(osm_parser: OSMParserFactory) -> None:
+async def test_set_address_details_retail_logic() -> None:
     """If place_name is blank and address contains retail, set place_name to the retail value."""
     address = {"retail": "Shop"}
     # Use a sensor that reports ATTR_PLACE_NAME as blank and has the OSM dict populated
@@ -449,24 +449,16 @@ async def test_parse_miscellaneous_sets_attrs(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("case", "current_name", "is_blank", "existing_get_attr", "should_set"),
+    ("case", "current_name", "should_set"),
     [
-        (
-            "unique",
-            "UniqueName",
-            lambda k: k != ATTR_PLACE_NAME,
-            lambda k: "UniqueName" if k == ATTR_PLACE_NAME else None,
-            True,
-        ),
-        ("duplicate", "DupeName", lambda k: False, lambda k: "DupeName", False),
+        ("unique", "UniqueName", True),
+        ("duplicate", "DupeName", False),
     ],
 )
 async def test_set_place_name_no_dupe_param(
     osm_parser: OSMParserFactory,
     case: str,
     current_name: str,
-    is_blank: bool,
-    existing_get_attr: Callable[[str], object],
     should_set: bool,
 ) -> None:
     """Parametrized test for set_place_name_no_dupe covering unique and duplicate name cases."""
@@ -489,7 +481,7 @@ async def test_set_place_name_no_dupe_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("case", "existing_attrs", "should_set"),
+    ("_case", "existing_attrs", "should_set"),
     [
         ("initial_update", {ATTR_INITIAL_UPDATE: True}, True),
         (
@@ -513,7 +505,7 @@ async def test_set_place_name_no_dupe_param(
     ],
 )
 async def test_finalize_last_place_name_variants(
-    osm_parser: OSMParserFactory, case: str, existing_attrs: Attrs, should_set: bool
+    osm_parser: OSMParserFactory, _case: str, existing_attrs: Attrs, should_set: bool
 ) -> None:
     """Parametrized finalize_last_place_name covering initial update, identical names, and else-case where it should not set."""
     parser, sensor = osm_parser(attrs=existing_attrs)

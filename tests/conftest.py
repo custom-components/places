@@ -310,9 +310,8 @@ class MockSensor:
             first = args[0]
             # Mapping case: update attrs with provided mapping
             if isinstance(first, Mapping):
-                # Best-effort: try to convert and update; ignore failures
-
-                with suppress(Exception):
+                # Best-effort: try to convert and update; ignore expected bad mapping data.
+                with suppress(TypeError, ValueError, AttributeError):
                     self.attrs.update(first)
                 # Also apply any kwargs
                 if kwargs:

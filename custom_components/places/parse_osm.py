@@ -233,7 +233,7 @@ class OSMParser:
                 )
 
     async def set_region_details(self, address: MutableMapping[str, Any]) -> None:
-        """Set region, county, country, and postal code details from an OSM address."""
+        """Set region, state abbreviation, county, country, and postal code from an OSM address."""
         if "state" in address:
             self.sensor.set_attr(
                 ATTR_REGION,

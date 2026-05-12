@@ -300,10 +300,10 @@ async def test_build_from_advanced_options_empty_string(sensor: MockSensor) -> N
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("fn_name", "input_val", "expected_empty"),
+    ("fn_name", "input_val"),
     [
-        ("parse_bracket", "[unmatched", True),
-        ("parse_parens", "(unmatched", True),
+        ("parse_bracket", "[unmatched"),
+        ("parse_parens", "(unmatched"),
     ],
 )
 async def test_mismatched_special_chars_log_error(
@@ -311,7 +311,6 @@ async def test_mismatched_special_chars_log_error(
     sensor: MockSensor,
     fn_name: str,
     input_val: str,
-    expected_empty: bool,
 ) -> None:
     """Parametrized: unmatched bracket/paren inputs should log an error and return empty-ish results."""
     sensor.attrs = {}
@@ -345,7 +344,7 @@ async def test_build_from_advanced_options_not_none_calls_normal(sensor: MockSen
         """
         called["single_term"] = opt
 
-    object.__setattr__(parser, "process_single_term", fake_process_single_term)
+    parser.process_single_term = fake_process_single_term  # type: ignore[assignment]
     await parser.build_from_advanced_options("zone_name")
     assert called["single_term"] == "zone_name"
 

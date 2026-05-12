@@ -2,7 +2,6 @@
 
 from collections.abc import Mapping, Sequence
 from typing import Protocol
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -68,10 +67,9 @@ def basic_parser() -> BasicParserFactory:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("scenario", "attrs", "in_zone", "options", "expected_contains", "expected_eq"),
+    ("attrs", "in_zone", "options", "expected_contains", "expected_eq"),
     [
         (
-            "all_blank",
             {},
             False,
             ["driving", "zone_name", "zone", "place"],
@@ -79,7 +77,6 @@ def basic_parser() -> BasicParserFactory:
             None,
         ),
         (
-            "some_attrs",
             {
                 "driving": "Driving",
                 "devicetracker_zone_name": "Home",
@@ -93,7 +90,6 @@ def basic_parser() -> BasicParserFactory:
             None,
         ),
         (
-            "do_not_reorder",
             {"city": "Springfield", "region": "IL"},
             False,
             ["do_not_reorder", "city", "state"],
@@ -101,7 +97,6 @@ def basic_parser() -> BasicParserFactory:
             "Springfield, IL",
         ),
         (
-            "in_zone",
             {"devicetracker_zone_name": "Work"},
             True,
             ["zone_name"],
@@ -111,13 +106,11 @@ def basic_parser() -> BasicParserFactory:
     ],
 )
 async def test_build_display_scenarios(
-    scenario: str,
     attrs: Attrs,
     in_zone: bool,
     options: Sequence[str],
     expected_contains: Sequence[str],
     expected_eq: str | None,
-    mock_hass: MagicMock,
     sensor: MockSensor,
 ) -> None:
     """Parametrized scenarios for BasicOptionsParser.build_display covering blank, populated, reorder, and in-zone cases."""
