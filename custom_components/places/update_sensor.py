@@ -196,9 +196,9 @@ class PlacesUpdater:
         await self._hass.async_add_executor_job(
             write_sensor_to_json,
             self.sensor.get_internal_attr(),
-            self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_attr(ATTR_JSON_FILENAME),
-            self.sensor.get_attr(ATTR_JSON_FOLDER),
+            self.sensor.get_attr_safe_str(CONF_NAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
         )
 
     async def fire_event_data(self, prev_last_place_name: str) -> None:
@@ -252,7 +252,7 @@ class PlacesUpdater:
         """
         if self._hass.config.time_zone:
             return datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
-        return datetime.now(tz=UTC).astimezone()
+        return datetime.now(tz=UTC)
 
     async def update_entity_name_and_cleanup(self) -> None:
         """Synchronize renamed entities and drop blank attributes."""
@@ -1129,9 +1129,9 @@ class PlacesUpdater:
             await self._hass.async_add_executor_job(
                 write_sensor_to_json,
                 self.sensor.get_internal_attr(),
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_JSON_FILENAME),
-                self.sensor.get_attr(ATTR_JSON_FOLDER),
+                self.sensor.get_attr_safe_str(CONF_NAME),
+                self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+                self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
             )
             _LOGGER.debug(
                 "(%s) Updating state to show date instead of time since last change",
@@ -1156,9 +1156,9 @@ class PlacesUpdater:
         await self._hass.async_add_executor_job(
             write_sensor_to_json,
             self.sensor.get_internal_attr(),
-            self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_attr(ATTR_JSON_FILENAME),
-            self.sensor.get_attr(ATTR_JSON_FOLDER),
+            self.sensor.get_attr_safe_str(CONF_NAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
         )
         _LOGGER.debug(
             "(%s) Updating direction of travel to stationary (Last changed %s seconds ago)",

@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from datetime import datetime
 import json
 import logging
+from os import PathLike
 from pathlib import Path
 import re
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
+
+type JsonPath = str | PathLike[str]
 
 
 def create_json_folder(json_folder: str) -> None:
@@ -27,7 +30,9 @@ def create_json_folder(json_folder: str) -> None:
         )
 
 
-def get_dict_from_json_file(name: str, filename: str, json_folder: str) -> MutableMapping[str, Any]:
+def get_dict_from_json_file(
+    name: str, filename: JsonPath, json_folder: JsonPath
+) -> MutableMapping[str, Any]:
     """Load persisted sensor attributes from disk.
 
     Args:
@@ -38,12 +43,11 @@ def get_dict_from_json_file(name: str, filename: str, json_folder: str) -> Mutab
     Returns:
         Parsed JSON mapping, or an empty mapping when the file cannot be read.
     """
-    sensor_attributes: MutableMapping[str, Any] = {}
     try:
         json_file_path: Path = Path(json_folder) / filename
         with json_file_path.open() as jsonfile:
-            sensor_attributes = json.load(jsonfile)
-    except OSError as e:
+            sensor_attributes_from_file: Any = json.load(jsonfile)
+    except (OSError, json.JSONDecodeError) as e:
         _LOGGER.debug(
             "(%s) [Init] No JSON file to import (%s): %s: %s",
             name,
@@ -52,10 +56,18 @@ def get_dict_from_json_file(name: str, filename: str, json_folder: str) -> Mutab
             e,
         )
         return {}
-    return sensor_attributes
+    if not isinstance(sensor_attributes_from_file, Mapping):
+        _LOGGER.debug(
+            "(%s) [Init] JSON file (%s) root is %s, expected mapping",
+            name,
+            filename,
+            type(sensor_attributes_from_file).__name__,
+        )
+        return {}
+    return dict(sensor_attributes_from_file)
 
 
-def remove_json_file(name: Any, filename: Any, json_folder: Any) -> None:
+def remove_json_file(name: str, filename: JsonPath, json_folder: JsonPath) -> None:
     """Remove a persisted sensor snapshot if it exists.
 
     Args:
@@ -99,9 +111,9 @@ def is_float(value: Any) -> bool:
 
 def write_sensor_to_json(
     sensor_attributes: MutableMapping[str, Any],
-    name: Any,
-    filename: Any,
-    json_folder: Any,
+    name: str,
+    filename: JsonPath,
+    json_folder: JsonPath,
 ) -> None:
     """Persist sensor attributes while omitting non-JSON datetime objects.
 
@@ -116,6 +128,26 @@ def write_sensor_to_json(
         json_file_path: Path = Path(json_folder) / filename
         with json_file_path.open("w") as jsonfile:
             json.dump(attributes, jsonfile)
+    except (TypeError, ValueError) as e:
+        _LOGGER.debug(
+            "(%s) Error serializing sensor to JSON (%s): %s: %s",
+            name,
+            filename,
+            type(e).__name__,
+            e,
+        )
+        serializable_attributes = _coerce_json_attributes(attributes)
+        try:
+            with json_file_path.open("w") as jsonfile:
+                json.dump(serializable_attributes, jsonfile)
+        except OSError as write_error:
+            _LOGGER.debug(
+                "(%s) OSError writing sensor to JSON (%s): %s: %s",
+                name,
+                filename,
+                type(write_error).__name__,
+                write_error,
+            )
     except OSError as e:
         _LOGGER.debug(
             "(%s) OSError writing sensor to JSON (%s): %s: %s",
@@ -124,6 +156,26 @@ def write_sensor_to_json(
             type(e).__name__,
             e,
         )
+
+
+def _coerce_json_attributes(attributes: MutableMapping[str, Any]) -> dict[str, Any]:
+    """Convert non-JSON-serializable attribute values to strings.
+
+    Args:
+        attributes: Sensor attributes prepared for JSON persistence.
+
+    Returns:
+        Attribute mapping with values that ``json.dump`` can serialize.
+    """
+    serializable_attributes: dict[str, Any] = {}
+    for key, value in attributes.items():
+        try:
+            json.dumps(value)
+        except TypeError, ValueError:
+            serializable_attributes[key] = str(value)
+        else:
+            serializable_attributes[key] = value
+    return serializable_attributes
 
 
 def clear_since_from_state(orig_state: str) -> str:

@@ -38,7 +38,7 @@ def test_create_json_folder_param(tmp_path: Path, precreate: bool) -> None:
     ],
 )
 def test_get_dict_from_json_file_param(
-    tmp_path: Path, existing: bool, expected: dict[str, int] | dict[str, str]
+    tmp_path: Path, existing: bool, expected: dict[str, int | str]
 ) -> None:
     """Read JSON file returns dict when present, else empty dict when missing."""
     folder = tmp_path
@@ -48,6 +48,28 @@ def test_get_dict_from_json_file_param(
         (folder / filename).write_text(json.dumps(data))
     result = get_dict_from_json_file("test", filename, str(folder))
     assert result == expected
+
+
+def test_get_dict_from_json_file_returns_empty_dict_for_invalid_json(tmp_path: Path) -> None:
+    """Read JSON file returns an empty dict when the stored JSON is corrupt."""
+    filename = "test.json"
+    (tmp_path / filename).write_text("{")
+
+    result = get_dict_from_json_file("test", filename, str(tmp_path))
+
+    assert result == {}
+
+
+def test_get_dict_from_json_file_returns_empty_dict_for_non_mapping_root(
+    tmp_path: Path,
+) -> None:
+    """Read JSON file returns an empty dict when the stored JSON root is not a mapping."""
+    filename = "test.json"
+    (tmp_path / filename).write_text(json.dumps(["not", "a", "mapping"]))
+
+    result = get_dict_from_json_file("test", filename, str(tmp_path))
+
+    assert result == {}
 
 
 @pytest.mark.parametrize(
@@ -78,6 +100,18 @@ def test_write_sensor_to_json_excludes_datetime(tmp_path: Path) -> None:
     loaded = json.loads(file_path.read_text())
     assert "a" in loaded and "c" in loaded
     assert "b" not in loaded
+
+
+def test_write_sensor_to_json_coerces_non_serializable_values(tmp_path: Path) -> None:
+    """Ensure write_sensor_to_json stringifies values that JSON cannot serialize."""
+    filename = "sensor.json"
+    non_serializable = object()
+    data = {"a": 1, "b": non_serializable}
+
+    write_sensor_to_json(data, "test", filename, str(tmp_path))
+
+    loaded = json.loads((tmp_path / filename).read_text())
+    assert loaded == {"a": 1, "b": str(non_serializable)}
 
 
 @pytest.mark.parametrize(

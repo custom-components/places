@@ -34,6 +34,7 @@ type SetupCallable = Callable[[MagicMock], None]
 @pytest.fixture
 def places_instance(mock_hass: MagicMock, patch_entity_registry: object) -> Places:
     """Fixture that returns a Places instance for testing using the shared mock_hass fixture."""
+    _ = patch_entity_registry
     hass = mock_hass
     config = {"devicetracker_id": "test_id"}
     config_entry = MockConfigEntry(domain="places", data={})
@@ -215,19 +216,23 @@ def test_clear_attr_removes_key(places_instance: Places) -> None:
     assert "foo" not in places_instance._internal_attr
 
 
-def test_get_attr_safe_str_handles_value_error(places_instance: Places) -> None:
-    """Test that get_attr_safe_str returns an empty string when __str__ raises a ValueError."""
+@pytest.mark.parametrize("error_type", [ValueError, TypeError])
+def test_get_attr_safe_str_handles_string_conversion_error(
+    places_instance: Places, error_type: type[Exception]
+) -> None:
+    """Test that get_attr_safe_str returns an empty string when __str__ raises."""
 
     class BadStr:
         """Object whose string conversion raises to exercise fallback handling."""
 
         def __str__(self) -> str:
-            """Raise ValueError when the sensor tries to stringify this object.
+            """Raise an error when the sensor tries to stringify this object.
 
             Raises:
-                ValueError: Always raised for this test helper.
+                ValueError: Raised for this test helper in one parameterization.
+                TypeError: Raised for this test helper in one parameterization.
             """
-            raise ValueError
+            raise error_type
 
     places_instance.set_attr("bad", BadStr())
     assert places_instance.get_attr_safe_str("bad") == ""
@@ -408,15 +413,14 @@ async def test_async_update_throttle(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("use_no_recorder", "extended_attr", "patched_class"),
+    ("extended_attr", "patched_class"),
     [
-        (False, False, "Places"),
-        (True, True, "PlacesNoRecorder"),
+        (False, "Places"),
+        (True, "PlacesNoRecorder"),
     ],
 )
 async def test_async_setup_entry_places_param(
     monkeypatch: pytest.MonkeyPatch,
-    use_no_recorder: bool,
     extended_attr: bool,
     patched_class: str,
     mock_hass: MagicMock,
@@ -476,7 +480,7 @@ async def test_async_setup_entry_places_param(
     assert kwargs.get("update_before_add") is True
 
 
-def test_exclude_event_types_adds_event(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_exclude_event_types_adds_event() -> None:
     """Test that exclude_event_types adds EVENT_TYPE to the recorder's exclude_event_types set."""
 
     class Recorder:
@@ -498,7 +502,7 @@ def test_exclude_event_types_adds_event(monkeypatch: pytest.MonkeyPatch) -> None
     assert EVENT_TYPE in recorder.exclude_event_types
 
 
-def test_exclude_event_types_no_recorder(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_exclude_event_types_no_recorder() -> None:
     """Test that exclude_event_types does nothing when no recorder instance is present in hass.data."""
     hass = MagicMock()
     hass.data = {}
@@ -518,9 +522,7 @@ def test_exclude_event_types_no_recorder(monkeypatch: pytest.MonkeyPatch) -> Non
         (False, False),
     ],
 )
-def test_exclude_event_types_param(
-    monkeypatch: pytest.MonkeyPatch, recorder_present: bool, expected_in_set: bool
-) -> None:
+def test_exclude_event_types_param(recorder_present: bool, expected_in_set: bool) -> None:
     """Parametrized test for exclude_event_types: with and without recorder instance."""
 
     class Recorder:
@@ -538,9 +540,8 @@ def test_exclude_event_types_param(
     places_instance.get_attr = MagicMock(return_value="TestName")
     Places.exclude_event_types(places_instance)
 
-    if recorder_present:
-        assert EVENT_TYPE in recorder.exclude_event_types
-    else:
+    assert (recorder_present and EVENT_TYPE in recorder.exclude_event_types) is expected_in_set
+    if not recorder_present:
         assert RECORDER_INSTANCE not in hass.data
 
 
@@ -605,10 +606,11 @@ async def test_async_will_remove_from_hass_param(
         # Replace remove_json_file with a noop to avoid actual file ops
         monkeypatch.setattr("custom_components.places.sensor.remove_json_file", lambda *a: None)
 
-    mock_logger = MagicMock()
-    monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
-    await places_instance.async_will_remove_from_hass()
+        mock_logger = MagicMock()
+        monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
+        await places_instance.async_will_remove_from_hass()
 
+    assert scenario in {"remove_json", "remove_event_exclusion"}
     if recorder_present:
         assert EVENT_TYPE not in recorder.exclude_event_types
         mock_logger.debug.assert_any_call(
@@ -665,7 +667,6 @@ async def test_get_driving_status_variants(
 
 @pytest.mark.asyncio
 async def test_do_update_calls_updater(
-    monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
     prepared_updater: MagicMock,
     stubbed_updater: Callable[..., AbstractContextManager[dict[str, MagicMock]]],
@@ -692,7 +693,6 @@ async def test_do_update_calls_updater(
 
 @pytest.mark.asyncio
 async def test_do_update_handles_empty_internal_attr(
-    monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
     prepared_updater: MagicMock,
     stubbed_updater: Callable[..., AbstractContextManager[dict[str, MagicMock]]],

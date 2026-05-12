@@ -334,7 +334,7 @@ async def test_options_flow_handler_merges_config_entry_data(
         ("zone,[place](zone)", False),  # Invalid per validator (item expected before '[')
     ],
 )
-def test_validate_brackets(display_options: str, expected: object) -> None:
+def test_validate_brackets(display_options: str, expected: bool) -> None:
     """Test the _validate_brackets function to ensure it correctly validates bracket usage in display_options."""
     errors: Errors = {}
     result = _validate_brackets(display_options, errors)
@@ -484,7 +484,7 @@ async def test_config_flow_user_step_invalid_display_options(mock_hass: MagicMoc
     }
     result = await flow.async_step_user(bad_input)
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"] != {}
+    assert result["errors"] == {"base": "invalid_syntax"}
     assert result["step_id"] == "user"
 
 
@@ -502,11 +502,11 @@ async def test_options_flow_invalid_display_options_shows_form(
     )
     bad_user_input = {
         "devicetracker_id": "device.test",
-        "options": "zone,[place,(zone]",  # invalid using correct key
+        "options": "zone,[place,(zone]",
     }
     result = await handler.async_step_init(bad_user_input)
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"] != {}
+    assert result["errors"] == {"base": "invalid_syntax"}
     assert result["step_id"] == "init"
 
 
@@ -525,10 +525,10 @@ async def test_options_flow_invalid_display_options_shows_form(
         ("zone,[place , zone]", True),  # Valid: spaces around comma inside brackets
     ],
 )
-def test_validate_comma_syntax(display_options: str, expected: object) -> None:
+def test_validate_comma_syntax(display_options: str, expected: bool) -> None:
     """Test the _validate_comma_syntax function to ensure it correctly validates comma usage in display_options.
 
-    Parameters:
+    Args:
         display_options (str): The display options string to validate.
         expected (bool): The expected result of the validation.
 
@@ -551,10 +551,10 @@ def test_validate_comma_syntax(display_options: str, expected: object) -> None:
         ("zone, place + name", False),  # Invalid: space in option name with plus
     ],
 )
-def test_validate_option_names(display_options: str, expected: object) -> None:
+def test_validate_option_names(display_options: str, expected: bool) -> None:
     """Test the _validate_option_names function to ensure it correctly validates option names in display_options.
 
-    Parameters:
+    Args:
         display_options (str): The display options string to validate.
         expected (bool): The expected result of the validation.
 

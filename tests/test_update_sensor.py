@@ -90,19 +90,6 @@ class AioClientMock(Protocol):
         """Register a mocked GET response."""
 
 
-# Preserve original constructor reference so helper can delegate to it when needed
-_OriginalPlacesUpdater = PlacesUpdater
-
-
-def make_updater(*args, **kwargs) -> PlacesUpdater:
-    """Create a fresh PlacesUpdater instance for tests via the preserved constructor.
-
-    Accepts arbitrary args/kwargs so tests that pass positional or keyword arguments
-    continue to work without signature mismatches.
-    """
-    return _OriginalPlacesUpdater(*args, **kwargs)
-
-
 @pytest.fixture
 def mock_config_entry() -> MockConfigEntry:
     """Create and return a mock configuration entry with default sensor name and empty options for testing purposes."""
@@ -142,7 +129,7 @@ async def test_do_update_flow_variants(
     should_handle: bool,
 ) -> None:
     """Parametrized test covering both PROCEED and SKIP paths for do_update."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -186,7 +173,7 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
 ) -> None:
     """Set native value and process extended attributes during state update."""
     # Ensure extended attribute logic is triggered and show_time path exercised
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     # Sensor reports extended attrs enabled and show_time enabled
     sensor.get_attr.side_effect = lambda k: (
         True
@@ -217,7 +204,7 @@ async def test_check_for_updated_entity_name_entity_id_new_name(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Test that the entity name is updated and the config entry is updated when a new friendly name is detected."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.entity_id = "sensor.test"
     state = MagicMock()
     state.attributes = {ATTR_FRIENDLY_NAME: "NewName"}
@@ -243,7 +230,7 @@ async def test_update_previous_state_variants(
     expected: object,
 ) -> None:
     """Parametrized: previous state handling when show-time enabled or disabled."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     if show_time:
         sensor.is_attr_blank.side_effect = lambda k: k != ATTR_NATIVE_VALUE
@@ -284,7 +271,7 @@ async def test_update_old_coordinates_param(
     """Parametrized: update_old_coordinates sets only valid numeric old coordinate attributes."""
     sensor.attrs[ATTR_LATITUDE] = lat_val
     sensor.attrs[ATTR_LONGITUDE] = lon_val
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     await updater.update_old_coordinates()
     if expect_lat_old is None:
         assert ATTR_LATITUDE_OLD not in sensor.attrs
@@ -313,7 +300,7 @@ async def test_check_device_tracker_and_update_coords_param(
     expected: object,
 ) -> None:
     """Parametrized test: check_device_tracker_and_update_coords propagates GPS accuracy results and always updates coordinates first."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -334,7 +321,7 @@ async def test_get_gps_accuracy_sets_accuracy(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Retrieve GPS accuracy and set sensor attribute when available."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     tracker_state = MagicMock()
     tracker_state.attributes = {ATTR_GPS_ACCURACY: 5.0}
     mock_hass.states.get.return_value = tracker_state
@@ -364,7 +351,7 @@ async def test_get_gps_accuracy_variants(
     expected: object,
 ) -> None:
     """Parametrized variants for get_gps_accuracy: valid accuracy, zero accuracy, and missing tracker."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     tracker_state = MagicMock() if tracker_attrs is not None else None
     if tracker_attrs is not None:
@@ -398,7 +385,7 @@ async def test_update_coordinates_variants_present_and_missing(
 ) -> None:
     """Parametrized-like variant: when tracker present set coords, when missing log warning."""
     # Present case
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     tracker_state = MagicMock()
     tracker_state.attributes = {CONF_LATITUDE: 1.23, CONF_LONGITUDE: 4.56}
     mock_hass.states.get.return_value = tracker_state
@@ -420,7 +407,7 @@ async def test_determine_update_criteria_calls(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Test that `determine_update_criteria` calls all required helper methods and returns the correct update status."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -456,7 +443,7 @@ async def test_get_initial_last_place_name_param(
     expected: object,
 ) -> None:
     """Parametrized test for get_initial_last_place_name covering zone and non-zone cases."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.return_value = False
     if place_name is not None:
         sensor.attrs[ATTR_PLACE_NAME] = place_name
@@ -576,7 +563,7 @@ async def test_get_zone_details_param(
     expected_zone_name: str | None,
 ) -> None:
     """Parametrized variants for get_zone_details covering zone and non-zone flows."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     # Execute scenario-specific setup
     setup_func(sensor, mock_hass)
 
@@ -602,7 +589,7 @@ async def test_process_osm_update_calls(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Test that `process_osm_update` calls attribute reset, map link generation, and OSM query finalization methods as expected."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -636,7 +623,7 @@ async def test_get_map_link_providers_all(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, provider: str
 ) -> None:
     """Parametrized: verify map link generation for multiple providers including OSM."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if provider == "osm":
         # OSM needs lat/lon floats
         sensor.get_attr.side_effect = lambda k: "osm" if k == CONF_MAP_PROVIDER else 10
@@ -656,7 +643,7 @@ async def test_async_reset_attributes_calls(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Test that `async_reset_attributes` clears sensor attributes and performs asynchronous cleanup."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     await updater.async_reset_attributes()
     sensor.clear_attr.assert_called()
     sensor.async_cleanup_attributes.assert_awaited_once()
@@ -679,7 +666,7 @@ async def test_should_update_state_param(
     expected: object,
 ) -> None:
     """Parametrized test for `should_update_state` for differing and equal values."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_str.side_effect = lambda k: (
         prev_val if k == ATTR_PREVIOUS_STATE else native_val if k == ATTR_NATIVE_VALUE else ""
@@ -697,7 +684,7 @@ async def test_rollback_update_calls_restore_and_helpers(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Restore previous attributes and conditionally call helper routines."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -723,7 +710,7 @@ async def test_build_osm_url_returns_url(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Test that `build_osm_url` constructs a valid OpenStreetMap reverse geocoding URL using sensor attributes."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr_safe_float.side_effect = lambda k: 1.0
     sensor.get_attr.side_effect = lambda k: (
         "en" if k == CONF_LANGUAGE else "apikey" if k == CONF_API_KEY else 18
@@ -759,7 +746,7 @@ async def test_get_dict_from_url_variants(
     network_error: bool,
 ) -> None:
     """Parametrized: cache hit, list-payload behavior, and network-error for get_dict_from_url."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/test"
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {
@@ -796,7 +783,7 @@ async def test_determine_if_update_needed_initial_update(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Test that `determine_if_update_needed` returns `PROCEED` when the initial update attribute is set to True."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr.side_effect = lambda k: True if k == ATTR_INITIAL_UPDATE else None
     result = await updater.determine_if_update_needed()
     assert result == UpdateStatus.PROCEED
@@ -807,7 +794,7 @@ async def test_update_location_attributes_sets_locations(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Test that `update_location_attributes` sets current, previous, and home location attributes to the expected values."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_float.side_effect = lambda k: 1.0
     await updater.update_location_attributes()
@@ -833,7 +820,7 @@ async def test_calculate_distance_methods(
     expected_mi_attr: str,
 ) -> None:
     """Parametrized test for distance calculation methods to validate m and mi attributes are set appropriately."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_float.side_effect = lambda k: 1000.0
     method = getattr(updater, method_name)
@@ -853,7 +840,7 @@ async def test_update_coordinates_and_distance_calls(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Call coordinate and distance helpers and return PROCEED."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     # Patch get_attr_safe_str to return a value with a dot for CONF_HOME_ZONE
     sensor.get_attr_safe_str.side_effect = lambda k: "zone.home" if k == CONF_HOME_ZONE else "other"
@@ -887,7 +874,7 @@ async def test_get_seconds_from_last_change_param(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Parametrized variants for get_seconds_from_last_change covering various error and success paths."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     now = datetime.now(tz=UTC)
 
     if scenario == "blank":
@@ -941,7 +928,7 @@ async def test_change_show_time_to_date_param(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, date_format: str
 ) -> None:
     """Parametrized test for change_show_time_to_date handling both dd/mm and mm/dd formats."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr.side_effect = lambda k: (
         True
@@ -964,7 +951,7 @@ async def test_change_dot_to_stationary_sets_direction_and_last_changed(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Set direction to 'stationary' and update last_changed, scheduling executor job."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     await updater.change_dot_to_stationary(
         datetime(2024, 1, 1, 12, 0, tzinfo=UTC).replace(tzinfo=None), 100
     )
@@ -988,11 +975,11 @@ async def test_is_devicetracker_set_param(
     sensor: MockSensor,
     stubbed_updater: StubbedUpdater,
     tracker_available: bool,
-    has_valid_coords: bool,
+    has_valid_coords: bool | None,
     expected: object,
 ) -> None:
     """Parametrized test for is_devicetracker_set covering not available, invalid coords, and proceed."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -1024,7 +1011,7 @@ async def test_is_tracker_available_param(
     expected_result: object,
 ) -> None:
     """Test is_tracker_available for missing, unavailable, and valid tracker states."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.return_value = False
     sensor.get_attr.return_value = "device_tracker.test"
     mock_hass.states.get.return_value = tracker_state
@@ -1052,7 +1039,7 @@ async def test_has_valid_coordinates_param(
     expected_result: object,
 ) -> None:
     """Test has_valid_coordinates for missing, bad, and valid lat/lon attributes."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     tracker = MagicMock()
     if tracker_attrs is not None:
         tracker.attributes = tracker_attrs
@@ -1073,7 +1060,7 @@ async def test_log_tracker_issue_param(
     warn_flag: bool,
 ) -> None:
     """Test log_tracker_issue for both warn and info levels."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = warn_flag
     await updater.log_tracker_issue("Test message")
     assert "Test message" in caplog.text
@@ -1100,7 +1087,7 @@ async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
     # Create a single updater instance and stub its methods; do NOT create a second instance
     # inside the context (previous version created a new instance whose methods were not stubbed,
     # leading to the real get_dict_from_url accessing hass.data and raising KeyError).
-    updater = make_updater(
+    updater = PlacesUpdater(
         hass=mock_hass,
         config_entry=mock_config_entry,
         sensor=sensor,
@@ -1147,7 +1134,7 @@ async def test_calculate_distances_not_all_attrs_set(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, blank_attr: str
 ) -> None:
     """Test calculate_distances does NOT set distance attributes if any required attribute is blank."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     # Patch is_attr_blank to return True for the blank_attr, False otherwise
     def is_attr_blank(key: str) -> bool:
@@ -1185,7 +1172,7 @@ async def test_calculate_distances_distance_from_home_m_blank(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Test calculate_distances does NOT set KM/MI if ATTR_DISTANCE_FROM_HOME_M is blank after calculation."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     # Patch is_attr_blank so ATTR_DISTANCE_FROM_HOME_M is blank after calculation
     def is_attr_blank(key: str) -> bool:
@@ -1238,11 +1225,11 @@ async def test_calculate_travel_distance_variants(
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
     mode: str,
-    blank_attr: str,
+    blank_attr: str | None,
     expected_direction: str | None,
 ) -> None:
     """Parametrized variants for calculate_travel_distance covering normal, missing old coords, and blank traveled m."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     # Default behaviors
     sensor.get_attr_safe_float = MagicMock(return_value=1.0)
@@ -1328,7 +1315,7 @@ async def test_get_gps_accuracy_zero_accuracy_skip(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """GPS accuracy 0 with use_gps True causes SKIP."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     tracker_state = MagicMock()
     tracker_state.attributes = {ATTR_GPS_ACCURACY: 0}
     mock_hass.states.get.return_value = tracker_state
@@ -1356,7 +1343,7 @@ async def test_check_device_tracker_and_update_coords_get_gps_accuracy_skip(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """If get_gps_accuracy returns SKIP that status is propagated."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -1378,7 +1365,7 @@ async def test_update_coordinates_device_tracker_missing(
     sensor: MockSensor,
 ) -> None:
     """update_coordinates logs warning and returns when tracker missing."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     mock_hass.states.get.return_value = None
     await updater.update_coordinates()
     assert any("Device tracker entity not found" in r.message for r in caplog.records)
@@ -1392,7 +1379,7 @@ async def test_determine_update_criteria_skip_before_determine_if_update_needed(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """If update_coordinates_and_distance returns SKIP then determine_if_update_needed not called."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -1412,7 +1399,7 @@ async def test_get_initial_last_place_name_not_in_zone_blank_keeps_previous(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Retains previous last_place_name when not in zone and place_name blank."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: k == ATTR_PLACE_NAME
     sensor.attrs["last_place_name"] = "Prev"
     with stub_in_zone(sensor, False):
@@ -1430,7 +1417,7 @@ async def test_query_osm_and_finalize_no_osm_dict(
 ) -> None:
     """If OSM dict blank parser isn't invoked and last_changed not set."""
     sensor.attrs[ATTR_OSM_DICT] = None
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     mock_parser_cls = MagicMock()
     monkeypatch.setattr("custom_components.places.update_sensor.OSMParser", mock_parser_cls)
     with (
@@ -1451,7 +1438,7 @@ async def test_should_update_state_initial_update_true(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Returns True when ATTR_INITIAL_UPDATE flag set (forces update)."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr.side_effect = lambda k: k == ATTR_INITIAL_UPDATE
     sensor.is_attr_blank.return_value = True
     result = await updater.should_update_state(datetime.now(tz=UTC))
@@ -1478,7 +1465,7 @@ async def test_rollback_update_triggers_helpers(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Parametrized test for rollback_update helper triggers (dot->stationary and show_time->date)."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -1508,7 +1495,7 @@ async def test_get_extended_attr_unknown_type(
     sensor: MockSensor,
 ) -> None:
     """Logs warning for unknown OSM type and returns early."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_str.side_effect = lambda k: "foo"
     sensor.get_attr.side_effect = lambda k: (
@@ -1537,7 +1524,7 @@ async def test_get_extended_attr_variants(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Parametrized: extended attr behavior for known and unknown OSM types."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_str.side_effect = lambda k: osm_type
     sensor.get_attr.side_effect = lambda k: (
@@ -1567,7 +1554,7 @@ async def test_get_extended_attr_node_triggers_wikidata_lookup(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Test node OSM type triggers details fetch and Wikidata lookup."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     # Prepare sensor to look like it has an OSM node id/type
     sensor.attrs[ATTR_OSM_ID] = "12345"
@@ -1624,7 +1611,7 @@ async def test_get_dict_from_url_network_variants(
     expect_sensor_attr: object,
 ) -> None:
     """Parametrized network-response variants for get_dict_from_url covering JSON errors, service errors, and 1-item list payloads."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/nettest"
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {
@@ -1653,7 +1640,7 @@ async def test_get_dict_from_url_list_conversion_and_throttle(
     sensor: MockSensor,
 ) -> None:
     """Ensure get_dict_from_url respects throttle wait and converts single-item list payloads to a dict."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     url = "https://example.com/nominatim/reverse/"
     name = "OSM Test"
@@ -1710,7 +1697,7 @@ async def test_determine_if_update_needed_variants(
     expected: object,
 ) -> None:
     """Parametrized variants for determine_if_update_needed covering skip and proceed cases."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if native is not None:
         sensor.attrs[ATTR_NATIVE_VALUE] = native
     if prev is not None:
@@ -1747,13 +1734,13 @@ async def test_determine_direction_of_travel_param(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    has_last_distance: bool,
+    has_last_distance: bool | None,
     reported_distance: float,
     last_distance_arg: float | None,
     expected: object,
 ) -> None:
     """Parametrized variants for determine_direction_of_travel covering towards/away/stationary cases."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if has_last_distance is not None:
         sensor.attrs[ATTR_DISTANCE_TRAVELED_M] = has_last_distance
     sensor.get_attr_safe_float.side_effect = lambda k: (
@@ -1782,7 +1769,7 @@ async def test_update_coordinates_and_distance_skip_missing_attr(
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Returns SKIP when required lat/long/home coordinates are blank after updates."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
         [
@@ -1804,7 +1791,7 @@ async def test_is_tracker_available_valid(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Returns True for existing tracker state object (not string unavailable)."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     # Provide tracker id in attrs and let default get_attr work
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
     sensor.is_attr_blank.side_effect = lambda k: (
@@ -1827,7 +1814,7 @@ async def test_has_valid_coordinates_non_numeric(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Returns False when latitude not numeric though attribute exists."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     tracker = MagicMock()
     tracker.attributes = {CONF_LATITUDE: "a", CONF_LONGITUDE: 2.0}
     mock_hass.states.get.return_value = tracker
@@ -1843,7 +1830,7 @@ async def test_log_tracker_issue_initial_update(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Logs warning during initial update even if warn flag not set."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = False
     sensor.get_attr.side_effect = lambda k: True if k == ATTR_INITIAL_UPDATE else None
     await updater.log_tracker_issue("Msg")
@@ -1855,7 +1842,7 @@ async def test_fire_event_data_includes_extended_and_attributes(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Builds and fires event with expected keys including extended attributes."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     # Make sensor report values for several keys so event_data is populated
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -1893,7 +1880,7 @@ async def test_log_coordinate_issue_warn_flag(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Logs warning when warn_if_device_tracker_prob set for coordinate issue."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = True
     sensor.get_attr.side_effect = lambda k: (
         "device_tracker.test" if k == CONF_DEVICETRACKER_ID else False
@@ -1908,10 +1895,12 @@ async def test_get_current_time_variants(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, tz: str | None
 ) -> None:
     """Return timezone-aware datetime with and without a configured HA timezone."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     mock_hass.config.time_zone = tz
     dt = await updater.get_current_time()
     assert dt.tzinfo is not None
+    if mock_hass.config.time_zone is None:
+        assert dt.tzinfo is UTC
 
 
 @pytest.mark.asyncio
@@ -1923,7 +1912,7 @@ async def test_get_dict_from_url_respects_throttle(
     sensor: MockSensor,
 ) -> None:
     """Ensure the throttle path calls asyncio.sleep when last_query indicates we must wait."""
-    updater = make_updater(mock_hass, mock_config_entry, sensor)
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/throttle/"
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {

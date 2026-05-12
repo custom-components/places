@@ -19,7 +19,7 @@ import copy
 from datetime import timedelta
 import locale
 import logging
-from typing import Any
+from typing import Any, SupportsFloat, SupportsIndex, TypeVar
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
@@ -103,6 +103,7 @@ from .helpers import create_json_folder, get_dict_from_json_file, is_float, remo
 from .update_sensor import PlacesUpdater
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+_AttrT = TypeVar("_AttrT", default=Any)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -390,9 +391,9 @@ class Places(SensorEntity):
         """Clean up persisted state and recorder exclusions before entity removal."""
         await self._hass.async_add_executor_job(
             remove_json_file,
-            self.get_attr(CONF_NAME),
-            self.get_attr(ATTR_JSON_FILENAME),
-            self.get_attr(ATTR_JSON_FOLDER),
+            self.get_attr_safe_str(CONF_NAME),
+            self.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.get_attr_safe_str(ATTR_JSON_FOLDER),
         )
 
         if RECORDER_INSTANCE in self._hass.data and self.get_attr(CONF_EXTENDED_ATTR):
@@ -479,7 +480,7 @@ class Places(SensorEntity):
             return False
         return True
 
-    def get_attr(self, attr: str | None, default: Any | None = None) -> None | Any:
+    def get_attr(self, attr: str | None, default: _AttrT | None = None) -> _AttrT | None:
         """Read an internal attribute with optional default handling.
 
         Args:
@@ -494,7 +495,7 @@ class Places(SensorEntity):
             return None
         return self._internal_attr.get(attr, default)
 
-    def get_attr_safe_str(self, attr: str | None, default: Any | None = None) -> str:
+    def get_attr_safe_str(self, attr: str | None, default: object | None = None) -> str:
         """Read an internal attribute as text without propagating conversion errors.
 
         Args:
@@ -505,15 +506,21 @@ class Places(SensorEntity):
             String value, or an empty string when the value is missing or cannot
             be converted.
         """
-        value: None | Any = self.get_attr(attr=attr, default=default)
+        value = self.get_attr(attr) if default is None else self.get_attr(attr, default)
         if value is not None:
             try:
                 return str(value)
-            except ValueError:
+            except (ValueError, TypeError) as e:
+                _LOGGER.debug(
+                    "Unable to convert attribute value to string (%r): %s: %s",
+                    value,
+                    type(e).__name__,
+                    e,
+                )
                 return ""
         return ""
 
-    def get_attr_safe_float(self, attr: str | None, default: Any | None = None) -> float:
+    def get_attr_safe_float(self, attr: str | None, default: object | None = None) -> float:
         """Read an internal attribute as a float.
 
         Args:
@@ -523,15 +530,19 @@ class Places(SensorEntity):
         Returns:
             Converted float value, or ``0.0`` when conversion is not possible.
         """
-        value: None | Any = self.get_attr(attr=attr, default=default)
+        value: object | None = (
+            self.get_attr(attr) if default is None else self.get_attr(attr, default)
+        )
         if value is None:
+            return 0.0
+        if not isinstance(value, str | bytes | bytearray | SupportsFloat | SupportsIndex):
             return 0.0
         try:
             return float(value)
         except TypeError, ValueError:
             return 0.0
 
-    def get_attr_safe_list(self, attr: str | None, default: Any | None = None) -> list:
+    def get_attr_safe_list(self, attr: str | None, default: object | None = None) -> list:
         """Read an internal attribute as a list.
 
         Args:
@@ -541,12 +552,16 @@ class Places(SensorEntity):
         Returns:
             Stored list value, or an empty list for non-list values.
         """
-        value: None | Any = self.get_attr(attr=attr, default=default)
+        value: object | None = (
+            self.get_attr(attr) if default is None else self.get_attr(attr, default)
+        )
         if not isinstance(value, list):
             return []
         return value
 
-    def get_attr_safe_dict(self, attr: str | None, default: Any | None = None) -> MutableMapping:
+    def get_attr_safe_dict(
+        self, attr: str | None, default: MutableMapping[str, _AttrT] | None = None
+    ) -> MutableMapping[str, _AttrT]:
         """Read an internal attribute as a mutable mapping.
 
         Args:
@@ -556,12 +571,12 @@ class Places(SensorEntity):
         Returns:
             Stored mapping value, or an empty mapping for non-mapping values.
         """
-        value: None | Any = self.get_attr(attr=attr, default=default)
+        value = self.get_attr(attr) if default is None else self.get_attr(attr, default)
         if not isinstance(value, MutableMapping):
             return {}
         return value
 
-    def set_attr(self, attr: str, value: Any | None = None) -> None:
+    def set_attr(self, attr: str, value: object | None = None) -> None:
         """Store a value in the internal attribute mapping.
 
         Args:
