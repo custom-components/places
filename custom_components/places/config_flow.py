@@ -212,10 +212,11 @@ def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
                 return False
             expected = "[" if c == "]" else "("
             if stack[-1] != expected:
+                expected_closer = {"(": ")", "[": "]"}[stack[-1]]
                 _LOGGER.error(
                     "Bracket mismatch: Expected closing '%s' but found '%s' "
                     "at position %d in '%s'.",
-                    stack[-1],
+                    expected_closer,
                     c,
                     i,
                     display_options,

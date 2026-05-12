@@ -5,7 +5,6 @@ import logging
 from typing import Protocol
 from unittest.mock import AsyncMock, MagicMock
 
-from _pytest.logging import LogCaptureFixture
 import pytest
 
 from custom_components.places.advanced_options import AdvancedOptionsParser
@@ -307,7 +306,7 @@ async def test_build_from_advanced_options_empty_string(sensor: MockSensor) -> N
     ],
 )
 async def test_mismatched_special_chars_log_error(
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     sensor: MockSensor,
     fn_name: str,
     input_val: str,

@@ -9,7 +9,6 @@ from typing import Protocol
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 
-from _pytest.logging import LogCaptureFixture
 import aiohttp
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -395,7 +394,7 @@ async def test_update_coordinates_variants_present_and_missing(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Parametrized-like variant: when tracker present set coords, when missing log warning."""
     # Present case
@@ -1070,7 +1069,7 @@ async def test_log_tracker_issue_param(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     warn_flag: bool,
 ) -> None:
     """Test log_tracker_issue for both warn and info levels."""
@@ -1227,11 +1226,11 @@ async def test_calculate_distances_distance_from_home_m_blank(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("mode", "blank_attr", "expected_direction", "expect_mi"),
+    ("mode", "blank_attr", "expected_direction"),
     [
-        ("normal", None, None, True),
-        ("missing_old_coord", ATTR_LATITUDE_OLD, "stationary", True),
-        ("blank_traveled_m", ATTR_DISTANCE_TRAVELED_M, None, False),
+        ("normal", None, None),
+        ("missing_old_coord", ATTR_LATITUDE_OLD, "stationary"),
+        ("blank_traveled_m", ATTR_DISTANCE_TRAVELED_M, None),
     ],
 )
 async def test_calculate_travel_distance_variants(
@@ -1241,7 +1240,6 @@ async def test_calculate_travel_distance_variants(
     mode: str,
     blank_attr: str,
     expected_direction: str | None,
-    expect_mi: bool,
 ) -> None:
     """Parametrized variants for calculate_travel_distance covering normal, missing old coords, and blank traveled m."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
@@ -1376,7 +1374,7 @@ async def test_check_device_tracker_and_update_coords_get_gps_accuracy_skip(
 async def test_update_coordinates_device_tracker_missing(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     sensor: MockSensor,
 ) -> None:
     """update_coordinates logs warning and returns when tracker missing."""
@@ -1506,7 +1504,7 @@ async def test_rollback_update_triggers_helpers(
 async def test_get_extended_attr_unknown_type(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     sensor: MockSensor,
 ) -> None:
     """Logs warning for unknown OSM type and returns early."""
@@ -1535,7 +1533,7 @@ async def test_get_extended_attr_variants(
     osm_type: str,
     expect_call: bool,
     expect_log: bool,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     stubbed_updater: StubbedUpdater,
 ) -> None:
     """Parametrized: extended attr behavior for known and unknown OSM types."""
@@ -1618,7 +1616,7 @@ async def test_get_dict_from_url_network_variants(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     aioclient_mock: AioClientMock,
     payload: str | None,
     expect_log_substr: str | None,
@@ -1842,7 +1840,7 @@ async def test_log_tracker_issue_initial_update(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Logs warning during initial update even if warn flag not set."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
@@ -1892,7 +1890,7 @@ async def test_log_coordinate_issue_warn_flag(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Logs warning when warn_if_device_tracker_prob set for coordinate issue."""
     updater = make_updater(mock_hass, mock_config_entry, sensor)
@@ -1950,10 +1948,9 @@ async def test_get_dict_from_url_respects_throttle(
 
 @pytest.mark.asyncio
 async def test_get_dict_from_url_handles_network_error(
-    monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     aioclient_mock: AioClientMock,
     sensor: MockSensor,
 ) -> None:

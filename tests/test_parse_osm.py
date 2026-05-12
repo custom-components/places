@@ -456,7 +456,6 @@ async def test_parse_miscellaneous_sets_attrs(
     ],
 )
 async def test_set_place_name_no_dupe_param(
-    osm_parser: OSMParserFactory,
     case: str,
     current_name: str,
     should_set: bool,

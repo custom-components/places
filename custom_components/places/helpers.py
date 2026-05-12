@@ -138,7 +138,7 @@ def clear_since_from_state(orig_state: str) -> str:
     return re.sub(r" \(since \d\d[:/]\d\d\)", "", orig_state)
 
 
-def safe_truncate(val: Any, max_len: int) -> str:
+def safe_truncate(val: object | None, max_len: int) -> str:
     """Convert a value to text and cap it to a maximum length.
 
     Args:
