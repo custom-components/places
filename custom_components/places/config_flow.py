@@ -7,8 +7,6 @@ import logging
 import re
 from typing import Any
 
-import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -19,6 +17,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
+import voluptuous as vol
 
 from .const import (
     CONF_DATE_FORMAT,
@@ -62,10 +61,19 @@ COMPONENT_CONFIG_URL: str = "https://github.com/custom-components/places#configu
 def get_devicetracker_id_entities(
     hass: HomeAssistant, current_entity: str | None = None
 ) -> list[selector.SelectOptionDict]:
-    """Get the list of valid entities. For sensors, only include ones with latitude and longitude attributes."""
+    """Build selector options for trackable entities with usable coordinates.
+
+    Args:
+        hass: Home Assistant instance used to inspect current states.
+        current_entity: Existing configured entity to retain in the options
+            list even if it is no longer returned by the normal domain scan.
+
+    Returns:
+        Sorted selector options labelled with friendly names and entity IDs.
+    """
     dt_list: list[selector.SelectOptionDict] = []
     for dom in TRACKING_DOMAINS:
-        # _LOGGER.debug(f"Geting entities for domain: {dom}")
+        # _LOGGER.debug("Getting entities for domain: %s", dom)
         for ent in hass.states.async_all(dom):
             if dom not in TRACKING_DOMAINS_NEED_LATLONG or (
                 CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
@@ -113,15 +121,21 @@ def get_devicetracker_id_entities(
     else:
         dt_list_sorted = []
 
-    # _LOGGER.debug("Devicetracker_id name/entities including sensors with lat/long: %s", dt_list_sorted)
     return dt_list_sorted
 
 
 def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
-    """Get the list of valid zones."""
+    """Build selector options for zones that can be used as the home reference.
+
+    Args:
+        hass: Home Assistant instance used to inspect current zone states.
+
+    Returns:
+        Sorted selector options labelled with friendly names and entity IDs.
+    """
     zone_list: list[selector.SelectOptionDict] = []
     for dom in HOME_LOCATION_DOMAINS:
-        # _LOGGER.debug(f"Geting entities for domain: %s", dom)
+        # _LOGGER.debug("Getting entities for domain: %s", dom)
         for ent in hass.states.async_all(dom):
             # _LOGGER.debug("Entity: %s", ent)
             zone_list.extend(
@@ -143,6 +157,17 @@ def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDic
 
 
 def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
+    """Validate bracket and parenthesis pairing in advanced display options.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when brackets and parentheses are balanced and placed after an
+        option token; otherwise ``False``.
+    """
     stack = []
     last_token = ""
     i = 0
@@ -163,7 +188,8 @@ def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
                 return False
             elif valid_before[-1] in ",[":
                 _LOGGER.error(
-                    "Invalid syntax: Unexpected '%s' after '%s' before '%s' at position %d in '%s'.",
+                    "Invalid syntax: Unexpected '%s' after '%s' before '%s' "
+                    "at position %d in '%s'.",
                     c,
                     valid_before[-1],
                     c,
@@ -186,9 +212,11 @@ def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
                 return False
             expected = "[" if c == "]" else "("
             if stack[-1] != expected:
+                expected_closer = {"(": ")", "[": "]"}[stack[-1]]
                 _LOGGER.error(
-                    "Bracket mismatch: Expected closing '%s' but found '%s' at position %d in '%s'.",
-                    stack[-1],
+                    "Bracket mismatch: Expected closing '%s' but found '%s' "
+                    "at position %d in '%s'.",
+                    expected_closer,
                     c,
                     i,
                     display_options,
@@ -212,6 +240,16 @@ def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
 
 
 def _validate_comma_syntax(display_options: str, errors: dict[str, Any]) -> bool:
+    """Reject empty list items and dangling commas in grouped options.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when comma placement is valid; otherwise ``False``.
+    """
     if re.search(r"(,\s*,)", display_options):
         _LOGGER.error("Invalid syntax: Empty item between commas in '%s'.", display_options)
         errors["base"] = "invalid_syntax"
@@ -227,6 +265,17 @@ def _validate_comma_syntax(display_options: str, errors: dict[str, Any]) -> bool
 
 
 def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool:
+    """Ensure parsed display option identifiers do not contain spaces.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when all parsed option identifiers are syntactically valid;
+        otherwise ``False``.
+    """
     tokens = re.split(r"[\[\]\(\),]", display_options)
     for token in tokens:
         if " " in token.strip() and token.strip() not in ("", "-", "+"):
@@ -239,6 +288,17 @@ def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool
 
 
 def _validate_known_options(display_options: str, errors: dict[str, Any]) -> bool:
+    """Validate option identifiers while allowing literal filter values.
+
+    Args:
+        display_options: Raw display options string entered by the user.
+        errors: Mutable config-flow error mapping to populate on validation
+            failure.
+
+    Returns:
+        ``True`` when option identifiers are known or are explicit include/
+        exclude markers; otherwise ``False``.
+    """
     valid_options = set(DISPLAY_OPTIONS_MAP.keys())
     stack: list[str] = []
     i = 0
@@ -283,8 +343,16 @@ def _validate_known_options(display_options: str, errors: dict[str, Any]) -> boo
 
 
 async def validate_display_options(display_options: str, errors: dict[str, Any]) -> dict[str, Any]:
-    """Validate the display options string for correct syntax and allowed characters."""
+    """Validate advanced display option syntax for the config and options flows.
 
+    Args:
+        display_options: Raw display option string entered by the user.
+        errors: Mutable flow error mapping to populate when validation fails.
+
+    Returns:
+        The same error mapping, possibly with ``base`` set to a validation
+        error key.
+    """
     # Only run advanced validation if brackets or parentheses are present
     if "[" in display_options or "(" in display_options:
         # Check bracket/parenthesis matching
@@ -308,15 +376,22 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
 
 
 class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Config Flow for places integration."""
+    """Create new Places config entries from UI input."""
 
     VERSION = 1
 
     async def async_step_user(
         self, user_input: MutableMapping[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial step."""
+        """Show and process the initial Places setup form.
 
+        Args:
+            user_input: Submitted form values, or ``None`` while displaying
+                the form.
+
+        Returns:
+            A Home Assistant config-flow result for a form or created entry.
+        """
         errors: dict[str, Any] = {}
         if user_input is not None:
             errors = await validate_display_options(
@@ -333,7 +408,7 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         zone_list = get_home_zone_entities(self.hass)
         # _LOGGER.debug("Trackable entities with lat/long: %s", devicetracker_id_list)
-        DATA_SCHEMA: vol.Schema = vol.Schema(
+        data_schema: vol.Schema = vol.Schema(
             {
                 vol.Required(CONF_NAME): str,
                 vol.Required(CONF_DEVICETRACKER_ID): selector.SelectSelector(
@@ -402,10 +477,9 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
                 ),
             }
         )
-        # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
             step_id="user",
-            data_schema=DATA_SCHEMA,
+            data_schema=data_schema,
             errors=errors,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
@@ -417,17 +491,32 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: ConfigEntry,
     ) -> PlacesOptionsFlowHandler:
-        """Options callback for Places."""
+        """Return the options flow handler for an existing entry.
+
+        Args:
+            config_entry: Existing Places config entry.
+
+        Returns:
+            Options flow handler instance.
+        """
         return PlacesOptionsFlowHandler()
 
 
 class PlacesOptionsFlowHandler(OptionsFlow):
-    """Config flow options for Places. Does not actually store these into Options but updates the Config instead."""
+    """Update options for an existing Places config entry."""
 
     async def async_step_init(
         self, user_input: MutableMapping[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options."""
+        """Show and process the Places options form.
+
+        Args:
+            user_input: Submitted option values, or ``None`` while displaying
+                the form.
+
+        Returns:
+            A Home Assistant options-flow result for a form or completed update.
+        """
         errors: dict[str, Any] = {}
         if user_input is not None:
             # _LOGGER.debug("[options_flow async_step_init] user_input initial: %s", user_input)
@@ -436,7 +525,6 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                 user_input.setdefault(m, self.config_entry.data[m])
             # Remove any keys with blank values
             for m in dict(user_input):
-                # _LOGGER.debug("[Options Update] %s [%s]: %s", m, type(user_input.get(m)), user_input.get(m))
                 if isinstance(user_input.get(m), str) and not user_input.get(m):
                     user_input.pop(m)
             # _LOGGER.debug("[Options Update] updated config: %s", user_input)
@@ -453,13 +541,12 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                 await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                 return self.async_create_entry(title="", data={})
 
-        # Include the current entity in the list as well. Although it may still fail in validation checking.
+        # Include the current entity in the list as well.
         devicetracker_id_list: list[selector.SelectOptionDict] = get_devicetracker_id_entities(
             self.hass, self.config_entry.data.get(CONF_DEVICETRACKER_ID, None)
         )
         zone_list: list[selector.SelectOptionDict] = get_home_zone_entities(self.hass)
-        # _LOGGER.debug("Trackable entities including sensors with lat/long: %s", devicetracker_id_list)
-        OPTIONS_SCHEMA: vol.Schema = vol.Schema(
+        options_schema: vol.Schema = vol.Schema(
             {
                 vol.Required(
                     CONF_DEVICETRACKER_ID,
@@ -580,7 +667,7 @@ class PlacesOptionsFlowHandler(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=OPTIONS_SCHEMA,
+            data_schema=options_schema,
             errors=errors,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,

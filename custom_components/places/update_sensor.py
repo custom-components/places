@@ -1,10 +1,10 @@
-"""Class to handle update logic for Places sensor."""
+"""Update pipeline for Places sensors and external geocoding lookups."""
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import MutableMapping
-from datetime import datetime
+from datetime import UTC, datetime
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -12,7 +12,6 @@ from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import aiohttp
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -25,7 +24,7 @@ from homeassistant.const import (
     CONF_ZONE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
-    __version__ as HA_VERSION,
+    __version__ as ha_version,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -98,16 +97,29 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class PlacesUpdater:
-    """Handles update logic for Places sensor."""
+    """Coordinate tracker validation, geocoding, state rendering, and persistence."""
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry, sensor: Places) -> None:
-        """Initialize the updater with the sensor instance."""
+        """Initialize an updater for a Places sensor.
+
+        Args:
+            hass: Home Assistant instance.
+            config_entry: Config entry backing the sensor.
+            sensor: Places sensor whose attributes and state will be updated.
+        """
         self.sensor = sensor
         self._config_entry: ConfigEntry = config_entry
         self._hass = hass
 
     async def do_update(self, reason: str, previous_attr: MutableMapping[str, Any]) -> None:
-        """Get the latest data and updates the states."""
+        """Run one complete update attempt.
+
+        Args:
+            reason: Human-readable trigger reason used in logs.
+            previous_attr: Attribute snapshot captured before the update, used
+                for rollback when criteria fail or the rendered state is
+                unchanged.
+        """
         _LOGGER.info(
             "(%s) Starting %s Update (Tracked Entity: %s)",
             self.sensor.get_attr(CONF_NAME),
@@ -145,7 +157,13 @@ class PlacesUpdater:
         _LOGGER.info("(%s) End of Update", self.sensor.get_attr(CONF_NAME))
 
     async def handle_state_update(self, now: datetime, prev_last_place_name: str) -> None:
-        """Handle the state update for the sensor."""
+        """Finalize a successful update and persist the new sensor state.
+
+        Args:
+            now: Update timestamp in the HA timezone.
+            prev_last_place_name: Last-place value from before this update,
+                used to decide event payload contents.
+        """
         if self.sensor.get_attr(CONF_EXTENDED_ATTR):
             await self.get_extended_attr()
         self.sensor.set_attr(ATTR_SHOW_DATE, False)
@@ -178,13 +196,17 @@ class PlacesUpdater:
         await self._hass.async_add_executor_job(
             write_sensor_to_json,
             self.sensor.get_internal_attr(),
-            self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_attr(ATTR_JSON_FILENAME),
-            self.sensor.get_attr(ATTR_JSON_FOLDER),
+            self.sensor.get_attr_safe_str(CONF_NAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
         )
 
     async def fire_event_data(self, prev_last_place_name: str) -> None:
-        """Fire an event with the sensor's state update details."""
+        """Fire the Places state-update event with changed display attributes.
+
+        Args:
+            prev_last_place_name: Last-place value captured before this update.
+        """
         _LOGGER.debug("(%s) Building Event Data", self.sensor.get_attr(CONF_NAME))
         event_data: MutableMapping[str, Any] = {}
         if not self.sensor.is_attr_blank(CONF_NAME):
@@ -223,19 +245,22 @@ class PlacesUpdater:
         )
 
     async def get_current_time(self) -> datetime:
-        """Get the current time, considering the Home Assistant time zone."""
+        """Return the current time in Home Assistant's configured timezone.
+
+        Returns:
+            Timezone-aware current datetime.
+        """
         if self._hass.config.time_zone:
             return datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
-        return datetime.now()
+        return datetime.now(tz=UTC)
 
     async def update_entity_name_and_cleanup(self) -> None:
-        """Update the entity name and clean up attributes."""
+        """Synchronize renamed entities and drop blank attributes."""
         await self.check_for_updated_entity_name()
         await self.sensor.async_cleanup_attributes()
 
     async def check_for_updated_entity_name(self) -> None:
-        """Check if the entity name has changed and update it if necessary."""
-
+        """Copy a changed friendly name back into the config entry."""
         if not hasattr(self.sensor, "entity_id") or self.sensor.entity_id is None:
             return
 
@@ -269,7 +294,7 @@ class PlacesUpdater:
         )
 
     async def update_previous_state(self) -> None:
-        """Update the previous state attribute."""
+        """Store the previous rendered state before recalculating the sensor."""
         if not self.sensor.is_attr_blank(ATTR_NATIVE_VALUE) and self.sensor.get_attr(
             CONF_SHOW_TIME
         ):
@@ -281,7 +306,7 @@ class PlacesUpdater:
             self.sensor.set_attr(ATTR_PREVIOUS_STATE, self.sensor.get_attr(ATTR_NATIVE_VALUE))
 
     async def update_old_coordinates(self) -> None:
-        """Store old coordinates."""
+        """Snapshot current coordinates as old coordinates before replacement."""
         if is_float(self.sensor.get_attr(ATTR_LATITUDE)):
             self.sensor.set_attr(ATTR_LATITUDE_OLD, self.sensor.get_attr_safe_float(ATTR_LATITUDE))
         if is_float(self.sensor.get_attr(ATTR_LONGITUDE)):
@@ -290,7 +315,12 @@ class PlacesUpdater:
             )
 
     async def check_device_tracker_and_update_coords(self) -> UpdateStatus:
-        """Check if the device tracker is set and update coordinates if needed."""
+        """Validate the tracker and refresh coordinates before geocoding.
+
+        Returns:
+            ``PROCEED`` when tracker data is usable, otherwise an update skip
+            status.
+        """
         proceed_with_update: UpdateStatus = await self.is_devicetracker_set()
         _LOGGER.debug(
             "(%s) [check_device_tracker_and_update_coords] proceed_with_update: %s",
@@ -308,7 +338,12 @@ class PlacesUpdater:
         return proceed_with_update
 
     async def get_gps_accuracy(self) -> UpdateStatus:
-        """Get the GPS accuracy from the device tracker."""
+        """Read GPS accuracy and optionally skip zero-accuracy GPS updates.
+
+        Returns:
+            ``SKIP`` when GPS mode is enabled and accuracy is zero, otherwise
+            ``PROCEED``.
+        """
         tracker_state = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
         if (
             tracker_state
@@ -346,7 +381,7 @@ class PlacesUpdater:
         return proceed_with_update
 
     async def update_coordinates(self) -> None:
-        """Update the latitude and longitude attributes from the device tracker."""
+        """Copy latitude and longitude from the tracked entity state."""
         device_tracker = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
         if not device_tracker:
             _LOGGER.warning(
@@ -363,7 +398,11 @@ class PlacesUpdater:
             )
 
     async def determine_update_criteria(self) -> UpdateStatus:
-        """Determine if the update criteria are met."""
+        """Run zone, distance, and movement checks for this update.
+
+        Returns:
+            Status indicating whether the update should continue or be skipped.
+        """
         await self.get_initial_last_place_name()
         await self.get_zone_details()
         proceed_with_update = await self.update_coordinates_and_distance()
@@ -382,7 +421,7 @@ class PlacesUpdater:
         return proceed_with_update
 
     async def get_initial_last_place_name(self) -> None:
-        """Set the initial last place name based on the previous state."""
+        """Set the pre-update last-place value from the old place or zone."""
         _LOGGER.debug(
             "(%s) Previous State: %s",
             self.sensor.get_attr(CONF_NAME),
@@ -428,7 +467,7 @@ class PlacesUpdater:
         )
 
     async def get_zone_details(self) -> None:
-        """Get the zone details for the device tracker."""
+        """Store the tracked entity's zone state and friendly zone name."""
         if self.sensor.get_attr_safe_str(CONF_DEVICETRACKER_ID).split(".")[0] != CONF_ZONE:
             self.sensor.set_attr(
                 ATTR_DEVICETRACKER_ZONE,
@@ -448,8 +487,6 @@ class PlacesUpdater:
             if devicetracker_zone_id:
                 devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
                 devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
-            # _LOGGER.debug("(%s) Tracked Entity Zone ID: %s", self.get_attr(CONF_NAME), devicetracker_zone_id)
-            # _LOGGER.debug("(%s) Tracked Entity Zone Name State: %s", self.get_attr(CONF_NAME), devicetracker_zone_name_state)
             if devicetracker_zone_name_state:
                 if devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME):
                     self.sensor.set_attr(
@@ -490,7 +527,12 @@ class PlacesUpdater:
             )
 
     async def process_osm_update(self, now: datetime) -> None:
-        """Process the OpenStreetMap update if criteria are met."""
+        """Reset transient attributes, build links, and query OSM.
+
+        Args:
+            now: Update timestamp to store as ``last_changed`` when geocoding
+                succeeds.
+        """
         _LOGGER.info(
             "(%s) Meets criteria, proceeding with OpenStreetMap query",
             self.sensor.get_attr(CONF_NAME),
@@ -506,7 +548,7 @@ class PlacesUpdater:
         await self.query_osm_and_finalize(now=now)
 
     async def get_map_link(self) -> None:
-        """Get the map link based on the configured map provider."""
+        """Build the configured map-provider URL for the current coordinates."""
         if self.sensor.get_attr(CONF_MAP_PROVIDER) == "google":
             params = {
                 "q": self.sensor.get_attr(ATTR_LOCATION_CURRENT),
@@ -544,13 +586,17 @@ class PlacesUpdater:
         )
 
     async def async_reset_attributes(self) -> None:
-        """Reset sensor attributes."""
+        """Clear transient attributes before parsing fresh geocoding data."""
         for attr in RESET_ATTRIBUTE_LIST:
             self.sensor.clear_attr(attr)
         await self.sensor.async_cleanup_attributes()
 
     async def query_osm_and_finalize(self, now: datetime) -> None:
-        """Query OpenStreetMap and finalize the last place name."""
+        """Fetch reverse-geocode data and render the display state.
+
+        Args:
+            now: Update timestamp to store when OSM returned usable data.
+        """
         osm_url: str = await self.build_osm_url()
         await self.get_dict_from_url(url=osm_url, name="OpenStreetMaps", dict_name=ATTR_OSM_DICT)
         if not self.sensor.is_attr_blank(ATTR_OSM_DICT):
@@ -563,7 +609,15 @@ class PlacesUpdater:
             self.sensor.set_attr(ATTR_LAST_CHANGED, now.isoformat(sep=" ", timespec="seconds"))
 
     async def should_update_state(self, now: datetime) -> bool:
-        """Determine if the state should be updated based on previous and current values."""
+        """Return whether the rendered state should replace the prior state.
+
+        Args:
+            now: Update timestamp. Reserved for future time-based criteria.
+
+        Returns:
+            ``True`` for initial updates, blank previous/current states, or a
+            meaningful state change.
+        """
         prev_state: str = self.sensor.get_attr_safe_str(ATTR_PREVIOUS_STATE)
         native_value: str = self.sensor.get_attr_safe_str(ATTR_NATIVE_VALUE)
         tracker_zone: str = self.sensor.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
@@ -589,7 +643,13 @@ class PlacesUpdater:
         now: datetime,
         proceed_with_update: UpdateStatus,
     ) -> None:
-        """Rollback the update if conditions are not met."""
+        """Restore prior attributes and perform time-based skipped-update adjustments.
+
+        Args:
+            previous_attr: Attribute snapshot from before the update started.
+            now: Current update timestamp.
+            proceed_with_update: Status that caused the update to stop.
+        """
         await self.sensor.restore_previous_attr(previous_attr)
         _LOGGER.debug(
             "(%s) Reverting attributes back to before the update started",
@@ -610,7 +670,11 @@ class PlacesUpdater:
             await self.change_show_time_to_date()
 
     async def build_osm_url(self) -> str:
-        """Build the OpenStreetMap query URL."""
+        """Build the Nominatim reverse-geocode URL for current coordinates.
+
+        Returns:
+            Fully encoded Nominatim reverse lookup URL.
+        """
         base_url = "https://nominatim.openstreetmap.org/reverse?format=json"
         params = {
             "lat": self.sensor.get_attr_safe_float(ATTR_LATITUDE),
@@ -625,7 +689,7 @@ class PlacesUpdater:
         return f"{base_url}&{urlencode(params)}"
 
     async def get_extended_attr(self) -> None:
-        """Get extended attributes from OpenStreetMap and Wikidata."""
+        """Fetch optional OSM lookup details and related Wikidata payloads."""
         if not self.sensor.is_attr_blank(ATTR_OSM_ID) and not self.sensor.is_attr_blank(
             ATTR_OSM_TYPE
         ):
@@ -691,7 +755,13 @@ class PlacesUpdater:
                     )
 
     async def get_dict_from_url(self, url: str, name: str, dict_name: str) -> None:
-        """Fetch a dictionary from a URL and store it in the sensor's attributes."""
+        """Fetch JSON with shared throttling and cache it on the HA instance.
+
+        Args:
+            url: Absolute URL to request.
+            name: Human-readable service name used in logs.
+            dict_name: Sensor attribute that receives the parsed JSON mapping.
+        """
         osm_cache = self._hass.data[DOMAIN][OSM_CACHE]
         if url in osm_cache:
             self.sensor.set_attr(dict_name, osm_cache[url])
@@ -715,7 +785,7 @@ class PlacesUpdater:
             _LOGGER.debug("(%s) %s URL: %s", self.sensor.get_attr(CONF_NAME), name, url)
             self.sensor.set_attr(dict_name, {})
             user_agent = (
-                f"Mozilla/5.0 (Home Assistant/{HA_VERSION}) "
+                f"Mozilla/5.0 (Home Assistant/{ha_version}) "
                 f"{DOMAIN}/{VERSION} (+https://github.com/custom-components/places)"
             )
             headers: dict[str, str] = {"user-agent": user_agent}
@@ -788,7 +858,12 @@ class PlacesUpdater:
             return
 
     async def determine_if_update_needed(self) -> UpdateStatus:
-        """Determine if an update is needed based on current and previous state."""
+        """Decide whether movement since the last update warrants geocoding.
+
+        Returns:
+            ``PROCEED`` for initial/unknown/moved states, or
+            ``SKIP_SET_STATIONARY`` when the entity has not moved enough.
+        """
         proceed_with_update = UpdateStatus.PROCEED
         sensor = self.sensor
 
@@ -815,7 +890,8 @@ class PlacesUpdater:
 
         if int(sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M)) < 10:
             _LOGGER.info(
-                "(%s) Not performing update, distance traveled from last update is less than 10 m (%s m)",
+                "(%s) Not performing update, distance traveled from last update is "
+                "less than 10 m (%s m)",
                 sensor.get_attr(CONF_NAME),
                 round(sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M), 1),
             )
@@ -824,7 +900,7 @@ class PlacesUpdater:
         return proceed_with_update
 
     async def update_location_attributes(self) -> None:
-        """Update current, previous, and home location attributes."""
+        """Store current, previous, and home coordinates as ``lat,lon`` strings."""
         if not self.sensor.is_attr_blank(ATTR_LATITUDE) and not self.sensor.is_attr_blank(
             ATTR_LONGITUDE
         ):
@@ -848,7 +924,7 @@ class PlacesUpdater:
             )
 
     async def calculate_distances(self) -> None:
-        """Calculate distances from home in meters, km, and mi."""
+        """Calculate distance from home in meters, kilometers, and miles."""
         if (
             not self.sensor.is_attr_blank(ATTR_LATITUDE)
             and not self.sensor.is_attr_blank(ATTR_LONGITUDE)
@@ -879,7 +955,7 @@ class PlacesUpdater:
                 )
 
     async def calculate_travel_distance(self) -> None:
-        """Calculate distance traveled since last update in meters and miles."""
+        """Calculate distance traveled since the previous coordinates."""
         if not self.sensor.is_attr_blank(ATTR_LATITUDE_OLD) and not self.sensor.is_attr_blank(
             ATTR_LONGITUDE_OLD
         ):
@@ -906,7 +982,12 @@ class PlacesUpdater:
             self.sensor.set_attr(ATTR_DISTANCE_TRAVELED_MI, 0)
 
     async def determine_direction_of_travel(self, last_distance_traveled_m: float) -> None:
-        """Determine the direction of travel based on distance from home."""
+        """Classify movement relative to home as towards, away, or stationary.
+
+        Args:
+            last_distance_traveled_m: Prior distance-from-home value captured
+                before recalculating distances.
+        """
         if not self.sensor.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
             if last_distance_traveled_m > self.sensor.get_attr_safe_float(
                 ATTR_DISTANCE_FROM_HOME_M
@@ -922,7 +1003,12 @@ class PlacesUpdater:
             self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
 
     async def update_coordinates_and_distance(self) -> UpdateStatus:
-        """Update coordinates and calculate distances."""
+        """Refresh derived coordinate, distance, and direction attributes.
+
+        Returns:
+            ``PROCEED`` when current and home coordinates are all usable,
+            otherwise ``SKIP``.
+        """
         last_distance_traveled_m: float = self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M)
         proceed_with_update = UpdateStatus.PROCEED
 
@@ -988,13 +1074,25 @@ class PlacesUpdater:
         return proceed_with_update
 
     async def get_seconds_from_last_change(self, now: datetime) -> int:
-        """Calculate the seconds since the last change."""
+        """Calculate elapsed seconds since ``ATTR_LAST_CHANGED``.
+
+        Args:
+            now: Current update timestamp.
+
+        Returns:
+            Elapsed seconds, or ``3600`` when the saved timestamp is missing or
+            cannot be parsed.
+        """
         if self.sensor.is_attr_blank(ATTR_LAST_CHANGED):
             return 3600
         try:
             last_changed: datetime = datetime.fromisoformat(
                 self.sensor.get_attr_safe_str(ATTR_LAST_CHANGED)
             )
+            if last_changed.tzinfo is None:
+                last_changed = last_changed.replace(tzinfo=now.tzinfo or UTC)
+            elif now.tzinfo is not None:
+                last_changed = last_changed.astimezone(now.tzinfo)
         except (TypeError, ValueError) as e:
             _LOGGER.warning(
                 "Error converting Last Changed date/time (%s) into datetime: %r",
@@ -1005,21 +1103,13 @@ class PlacesUpdater:
         else:
             try:
                 changed_diff_sec = (now - last_changed).total_seconds()
-            except TypeError:
-                try:
-                    changed_diff_sec = (datetime.now() - last_changed).total_seconds()
-                except (TypeError, OverflowError) as e:
-                    _LOGGER.warning(
-                        "Error calculating the seconds between last change to now: %r", e
-                    )
-                    return 3600
-            except OverflowError as e:
+            except (TypeError, OverflowError) as e:
                 _LOGGER.warning("Error calculating the seconds between last change to now: %r", e)
                 return 3600
             return int(changed_diff_sec)
 
     async def change_show_time_to_date(self) -> None:
-        """Change the display from time to date if conditions are met."""
+        """Replace a stale ``since HH:MM`` suffix with a date suffix."""
         if not self.sensor.is_attr_blank(ATTR_NATIVE_VALUE) and self.sensor.get_attr(
             CONF_SHOW_TIME
         ):
@@ -1039,9 +1129,9 @@ class PlacesUpdater:
             await self._hass.async_add_executor_job(
                 write_sensor_to_json,
                 self.sensor.get_internal_attr(),
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_JSON_FILENAME),
-                self.sensor.get_attr(ATTR_JSON_FOLDER),
+                self.sensor.get_attr_safe_str(CONF_NAME),
+                self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+                self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
             )
             _LOGGER.debug(
                 "(%s) Updating state to show date instead of time since last change",
@@ -1054,15 +1144,21 @@ class PlacesUpdater:
             )
 
     async def change_dot_to_stationary(self, now: datetime, changed_diff_sec: int) -> None:
-        """Change the direction of travel to stationary if conditions are met."""
+        """Mark direction as stationary after a skipped movement update.
+
+        Args:
+            now: Timestamp to store as the new last-changed value.
+            changed_diff_sec: Seconds since the prior last-changed value, used
+                only for diagnostic logging.
+        """
         self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
         self.sensor.set_attr(ATTR_LAST_CHANGED, now.isoformat(sep=" ", timespec="seconds"))
         await self._hass.async_add_executor_job(
             write_sensor_to_json,
             self.sensor.get_internal_attr(),
-            self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_attr(ATTR_JSON_FILENAME),
-            self.sensor.get_attr(ATTR_JSON_FOLDER),
+            self.sensor.get_attr_safe_str(CONF_NAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
         )
         _LOGGER.debug(
             "(%s) Updating direction of travel to stationary (Last changed %s seconds ago)",
@@ -1071,7 +1167,11 @@ class PlacesUpdater:
         )
 
     async def is_devicetracker_set(self) -> UpdateStatus:
-        """Check if the device tracker is set and available."""
+        """Validate tracker availability and coordinates before an update.
+
+        Returns:
+            ``PROCEED`` when the tracker can be used, otherwise ``SKIP``.
+        """
         if not await self.is_tracker_available():
             return UpdateStatus.SKIP
 
@@ -1082,7 +1182,12 @@ class PlacesUpdater:
         return UpdateStatus.PROCEED
 
     async def is_tracker_available(self) -> bool:
-        """Check if device tracker entity exists and is available."""
+        """Return whether the configured tracked entity exists and is available.
+
+        Returns:
+            ``True`` when Home Assistant has a usable state object for the
+            configured tracker.
+        """
         tracker_id = self.sensor.get_attr(CONF_DEVICETRACKER_ID)
         if self.sensor.is_attr_blank(CONF_DEVICETRACKER_ID):
             await self.log_tracker_issue("Tracked Entity is not set")
@@ -1104,7 +1209,12 @@ class PlacesUpdater:
         return True
 
     async def has_valid_coordinates(self) -> bool:
-        """Check if device tracker has valid latitude/longitude."""
+        """Return whether the tracked entity exposes numeric coordinates.
+
+        Returns:
+            ``True`` when latitude and longitude attributes both exist and are
+            float-convertible.
+        """
         tracker = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
 
         if not hasattr(tracker, ATTR_ATTRIBUTES):
@@ -1121,7 +1231,11 @@ class PlacesUpdater:
         return True
 
     async def log_tracker_issue(self, message: str) -> None:
-        """Log device tracker availability issues."""
+        """Log tracker availability problems at warning or info level.
+
+        Args:
+            message: Specific tracker problem without the standard suffix.
+        """
         full_message = f"({self.sensor.get_attr(CONF_NAME)}) {message}. Not Proceeding with Update"
         if self.sensor.warn_if_device_tracker_prob or self.sensor.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.warning(full_message)
@@ -1130,9 +1244,13 @@ class PlacesUpdater:
             _LOGGER.info(full_message)
 
     async def log_coordinate_issue(self) -> None:
-        """Log device tracker coordinate validation issues."""
+        """Log missing or invalid tracker coordinates with tracker details."""
         tracker_id = self.sensor.get_attr(CONF_DEVICETRACKER_ID)
-        message = f"({self.sensor.get_attr(CONF_NAME)}) Tracked Entity ({tracker_id}) Latitude/Longitude is not set or is not a number. Not Proceeding with Update."
+        message = (
+            f"({self.sensor.get_attr(CONF_NAME)}) Tracked Entity ({tracker_id}) "
+            "Latitude/Longitude is not set or is not a number. "
+            "Not Proceeding with Update."
+        )
 
         if self.sensor.warn_if_device_tracker_prob or self.sensor.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.warning(message)

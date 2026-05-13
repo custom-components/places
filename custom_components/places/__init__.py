@@ -16,7 +16,6 @@ CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
-
     # _LOGGER.debug("[init async_setup_entry] entry: %s", entry.data)
     entry.runtime_data = dict(entry.data)
 

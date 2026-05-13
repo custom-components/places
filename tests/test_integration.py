@@ -1,5 +1,7 @@
 """Integration tests for the custom_components.places module."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -9,13 +11,13 @@ from tests.conftest import assert_awaited_count
 
 
 @pytest.fixture
-def mock_entry():
+def mock_entry() -> MockConfigEntry:
     """Return a MockConfigEntry pre-populated with sample data for tests."""
     return MockConfigEntry(domain="places", data={"name": "test", "other": "value"})
 
 
 @pytest.mark.asyncio
-async def test_runtime_data_set_on_entry(mock_hass, mock_entry):
+async def test_runtime_data_set_on_entry(mock_hass: MagicMock, mock_entry: MockConfigEntry) -> None:
     """async_setup_entry should set entry.runtime_data and forward entry setups once."""
     result = await async_setup_entry(mock_hass, mock_entry)
     assert result is True
@@ -25,7 +27,9 @@ async def test_runtime_data_set_on_entry(mock_hass, mock_entry):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_calls_forward_setups(mock_hass, mock_entry):
+async def test_async_setup_entry_calls_forward_setups(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry
+) -> None:
     """Ensure async_setup_entry forwards platform setups to Home Assistant for the given entry."""
     result = await async_setup_entry(mock_hass, mock_entry)
     assert result is True
@@ -36,7 +40,9 @@ async def test_async_setup_entry_calls_forward_setups(mock_hass, mock_entry):
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_forward_setups_returns_false(mock_hass, mock_entry):
+async def test_async_setup_entry_forward_setups_returns_false(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry
+) -> None:
     """When the forwarded platform setups returns False, current implementation still returns True but should still await forwarding once.
 
     Note: the integration does not propagate the return value from
@@ -55,7 +61,7 @@ async def test_async_setup_entry_forward_setups_returns_false(mock_hass, mock_en
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_with_empty_data(mock_hass):
+async def test_async_setup_entry_with_empty_data(mock_hass: MagicMock) -> None:
     """When config entry data is empty, async_setup_entry should still return True and set runtime_data to {}."""
     entry = MockConfigEntry(domain="places", data={})
     result = await async_setup_entry(mock_hass, entry)
@@ -64,8 +70,10 @@ async def test_async_setup_entry_with_empty_data(mock_hass):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("unload_return,expected", [(True, True), (False, False)])
-async def test_async_unload_entry_result(mock_hass, mock_entry, unload_return, expected):
+@pytest.mark.parametrize(("unload_return", "expected"), [(True, True), (False, False)])
+async def test_async_unload_entry_result(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry, unload_return: bool, expected: bool
+) -> None:
     """async_unload_entry should return the result of async_unload_platforms for the provided entry."""
     mock_hass.config_entries.async_unload_platforms.return_value = unload_return
     result = await async_unload_entry(mock_hass, mock_entry)
@@ -75,7 +83,7 @@ async def test_async_unload_entry_result(mock_hass, mock_entry, unload_return, e
 
 
 @pytest.mark.asyncio
-async def test_runtime_data_isolation(mock_hass):
+async def test_runtime_data_isolation(mock_hass: MagicMock) -> None:
     """Test that each config entry maintains isolated runtime data after setup.
 
     Ensures that calling `async_setup_entry` on multiple entries results in distinct `runtime_data` attributes, confirming no data leakage or sharing between entries.
@@ -88,7 +96,9 @@ async def test_runtime_data_isolation(mock_hass):
 
 
 @pytest.mark.asyncio
-async def test_setup_entry_multiple_calls(mock_hass, mock_entry):
+async def test_setup_entry_multiple_calls(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry
+) -> None:
     """Test that calling async_setup_entry multiple times results in multiple calls to async_forward_entry_setups."""
     await async_setup_entry(mock_hass, mock_entry)
     await async_setup_entry(mock_hass, mock_entry)

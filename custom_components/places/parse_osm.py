@@ -53,14 +53,24 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class OSMParser:
-    """Handles parsing of OSM data for Places."""
+    """Translate Nominatim/OpenStreetMap response fields into sensor attributes."""
 
     def __init__(self, sensor: Places) -> None:
-        """Initialize the OSMParser with a Places sensor."""
+        """Initialize the parser for a Places sensor.
+
+        Args:
+            sensor: Places sensor whose internal attributes receive parsed OSM
+                values.
+        """
         self.sensor = sensor
 
     async def parse_osm_dict(self) -> None:
-        """Parse the OSM dictionary and set attributes in the sensor."""
+        """Parse the current OSM response stored on the sensor.
+
+        Reads ``ATTR_OSM_DICT`` from the sensor, extracts attribution, place
+        classification, address, display, OSM identity, and de-duplicated place
+        name fields, then leaves the parsed values on the sensor attributes.
+        """
         osm_dict: MutableMapping[str, Any] | None = self.sensor.get_attr(ATTR_OSM_DICT)
         if not osm_dict:
             return
@@ -78,7 +88,11 @@ class OSMParser:
         )
 
     async def set_attribution(self, osm_dict: MutableMapping[str, Any]) -> None:
-        """Set the attribution from the OSM dictionary."""
+        """Store OSM licence text when the response provides it.
+
+        Args:
+            osm_dict: Parsed Nominatim response payload.
+        """
         if "licence" not in osm_dict:
             return
         attribution: str | None = osm_dict.get("licence")
@@ -93,26 +107,33 @@ class OSMParser:
         #     _LOGGER.debug("(%s) No OSM Attribution found", self.sensor.get_attr(CONF_NAME))
 
     async def parse_type(self, osm_dict: MutableMapping[str, Any]) -> None:
-        """Parse the type from the OSM dictionary and set it in the sensor."""
+        """Resolve the most specific OSM place type for display decisions.
+
+        Args:
+            osm_dict: Parsed Nominatim response payload.
+        """
         if "type" not in osm_dict:
             return
-        self.sensor.set_attr(ATTR_PLACE_TYPE, osm_dict.get("type"))
-        if self.sensor.get_attr(ATTR_PLACE_TYPE) == "yes":
-            if "addresstype" in osm_dict:
-                self.sensor.set_attr(
-                    ATTR_PLACE_TYPE,
-                    osm_dict.get("addresstype"),
-                )
-            else:
+        place_type = osm_dict.get("type")
+        if place_type == "yes":
+            place_type = osm_dict.get("addresstype")
+            if not place_type:
                 self.sensor.clear_attr(ATTR_PLACE_TYPE)
-        if "address" in osm_dict and self.sensor.get_attr(ATTR_PLACE_TYPE) in osm_dict["address"]:
+                return
+        self.sensor.set_attr(ATTR_PLACE_TYPE, place_type)
+        address = osm_dict.get("address")
+        if isinstance(address, MutableMapping) and place_type in address:
             self.sensor.set_attr(
                 ATTR_PLACE_NAME,
-                osm_dict["address"].get(self.sensor.get_attr(ATTR_PLACE_TYPE)),
+                address.get(place_type),
             )
 
     async def parse_category(self, osm_dict: MutableMapping[str, Any]) -> None:
-        """Parse the category from the OSM dictionary and set it in the sensor."""
+        """Store the broad OSM category and matching address-derived name.
+
+        Args:
+            osm_dict: Parsed Nominatim response payload.
+        """
         if "category" not in osm_dict:
             return
 
@@ -130,7 +151,14 @@ class OSMParser:
             )
 
     async def parse_namedetails(self, osm_dict: MutableMapping[str, Any]) -> None:
-        """Parse the namedetails from the OSM dictionary and set them in the sensor."""
+        """Choose the preferred place name from Nominatim ``namedetails``.
+
+        The generic ``name`` is used first, then any configured language-specific
+        names are checked in order and may replace it.
+
+        Args:
+            osm_dict: Parsed Nominatim response payload.
+        """
         namedetails: MutableMapping[str, Any] | None = osm_dict.get("namedetails")
         if not namedetails:
             return
@@ -149,7 +177,11 @@ class OSMParser:
                     break
 
     async def parse_address(self, osm_dict: MutableMapping[str, Any]) -> None:
-        """Parse the address from the OSM dictionary and set it in the sensor."""
+        """Parse address components when the OSM response includes them.
+
+        Args:
+            osm_dict: Parsed Nominatim response payload.
+        """
         address: MutableMapping[str, Any] | None = osm_dict.get("address")
         if not address:
             return
@@ -159,7 +191,11 @@ class OSMParser:
         await self.set_region_details(address)
 
     async def set_address_details(self, address: MutableMapping[str, Any]) -> None:
-        """Set address details in the sensor from the OSM address dictionary."""
+        """Store street-level address fields and retail fallback place names.
+
+        Args:
+            address: Nominatim ``address`` mapping from the current response.
+        """
         if "house_number" in address:
             self.sensor.set_attr(
                 ATTR_STREET_NUMBER,
@@ -190,7 +226,11 @@ class OSMParser:
         )
 
     async def set_city_details(self, address: MutableMapping[str, Any]) -> None:
-        """Set city, postal town, and neighbourhood details in the sensor from the OSM address dictionary."""
+        """Store the first matching city, postal town, and neighbourhood fields.
+
+        Args:
+            address: Nominatim ``address`` mapping from the current response.
+        """
         postal_town_list = POSTAL_TOWN_LIST.copy()
         neighbourhood_list = NEIGHBOURHOOD_LIST.copy()
 
@@ -234,7 +274,11 @@ class OSMParser:
                 )
 
     async def set_region_details(self, address: MutableMapping[str, Any]) -> None:
-        """Set region, state abbreviation, county, country, and postal code details in the sensor from the OSM address dictionary."""
+        """Store regional and country-level address fields.
+
+        Args:
+            address: Nominatim ``address`` mapping from the current response.
+        """
         if "state" in address:
             self.sensor.set_attr(
                 ATTR_REGION,
@@ -269,7 +313,11 @@ class OSMParser:
             )
 
     async def parse_miscellaneous(self, osm_dict: MutableMapping[str, Any]) -> None:
-        """Parse miscellaneous attributes from the OSM dictionary and set them in the sensor."""
+        """Store display address, OSM identifiers, and highway reference numbers.
+
+        Args:
+            osm_dict: Parsed Nominatim response payload.
+        """
         if "display_name" in osm_dict:
             self.sensor.set_attr(
                 ATTR_FORMATTED_ADDRESS,
@@ -313,7 +361,7 @@ class OSMParser:
                 )
 
     async def set_place_name_no_dupe(self) -> None:
-        """Set the place name without duplicates in the sensor."""
+        """Expose place name only when it is not already shown by another field."""
         dupe_attributes_check: list[str] = []
         dupe_attributes_check.extend(
             [
@@ -329,7 +377,12 @@ class OSMParser:
             self.sensor.set_attr(ATTR_PLACE_NAME_NO_DUPE, self.sensor.get_attr(ATTR_PLACE_NAME))
 
     async def finalize_last_place_name(self, prev_last_place_name: str) -> None:
-        """Finalize the last place name after parsing OSM data."""
+        """Preserve the useful previous place name after a successful parse.
+
+        Args:
+            prev_last_place_name: Last known place name captured before this
+                update began.
+        """
         if self.sensor.get_attr(ATTR_INITIAL_UPDATE):
             self.sensor.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
@@ -344,7 +397,8 @@ class OSMParser:
             # If current place name/zone are the same as previous, keep older last_place_name
             self.sensor.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
-                "(%s) Initial last_place_name is same as new: place_name=%s or devicetracker_zone_name=%s, "
+                "(%s) Initial last_place_name is same as new: place_name=%s or "
+                "devicetracker_zone_name=%s, "
                 "keeping previous last_place_name",
                 self.sensor.get_attr(CONF_NAME),
                 self.sensor.get_attr(ATTR_PLACE_NAME),
