@@ -172,18 +172,7 @@ class OSMClient:
             if get_dict is None:
                 return None
 
-            if (
-                isinstance(get_dict, list)
-                and len(get_dict) == 1
-                and isinstance(get_dict[0], Mapping)
-            ):
-                get_dict = get_dict[0]
-                osm_cache[url] = get_dict
-                return dict(get_dict) if isinstance(get_dict, MutableMapping) else None
-            if not isinstance(get_dict, MutableMapping):
-                return None
-
-            if "error_message" in get_dict:
+            if isinstance(get_dict, MutableMapping) and "error_message" in get_dict:
                 _LOGGER.warning(
                     "(%s) An error occurred contacting the web service for %s: %s",
                     self._sensor_name,
@@ -192,5 +181,16 @@ class OSMClient:
                 )
                 return None
 
-            osm_cache[url] = get_dict
-            return get_dict
+            if (
+                isinstance(get_dict, list)
+                and len(get_dict) == 1
+                and isinstance(get_dict[0], Mapping)
+            ):
+                get_dict = get_dict[0]
+                osm_cache[url] = get_dict
+                return dict(get_dict) if isinstance(get_dict, MutableMapping) else None
+            if isinstance(get_dict, MutableMapping):
+                osm_cache[url] = get_dict
+                return get_dict
+
+            return None

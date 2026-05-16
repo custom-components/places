@@ -1,5 +1,7 @@
 """Unit tests for shared OSM request behavior."""
 
+import asyncio
+from typing import Protocol
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
@@ -8,6 +10,13 @@ import pytest
 
 from custom_components.places.const import DOMAIN, OSM_CACHE, OSM_THROTTLE
 from custom_components.places.osm_client import OSMClient
+
+
+class AioClientMock(Protocol):
+    """Minimal aiohttp mock interface used by these tests."""
+
+    def get(self, url: str, **kwargs: object) -> object:
+        """Register mocked responses for URL requests."""
 
 
 @pytest.mark.asyncio
@@ -80,3 +89,25 @@ async def test_wikidata_url_preserves_lookup_semantics() -> None:
         OSMClient.wikidata_url("Q123")
         == "https://www.wikidata.org/wiki/Special:EntityData/Q123.json"
     )
+
+
+@pytest.mark.asyncio
+async def test_get_json_flattens_one_item_error_list_payload(
+    mock_hass: HomeAssistant, aioclient_mock: AioClientMock
+) -> None:
+    """A one-item list containing ``error_message`` is flattened and cached."""
+    url = "https://example.test/osm"
+    mock_hass.data = {
+        DOMAIN: {
+            OSM_CACHE: {},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+        }
+    }
+    expected = {"error_message": "bad"}
+    aioclient_mock.get(url, text='[{"error_message": "bad"}]')
+    client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
+
+    payload = await client.get_json(url=url, name="OpenStreetMaps")
+
+    assert payload == expected
+    assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == expected
