@@ -67,9 +67,8 @@ class PlacesAttributes:
             ``True`` for missing values, ``None`` and empty string values. Numeric
             zero is treated as non-blank for compatibility with prior behavior.
         """
-        if self._internal_attr.get(attr) or self._internal_attr.get(attr) == 0:
-            return False
-        return True
+        val = self._internal_attr.get(attr)
+        return not (val or val == 0)
 
     def get(self, attr: str | None, default: _AttrT | None = None) -> _AttrT | None:
         """Return a stored value with optional fallback and blank handling.
