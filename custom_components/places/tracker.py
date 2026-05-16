@@ -93,11 +93,17 @@ class TrackerSnapshot:
             if not isinstance(tracker_state, str):
                 tracker_state = None
 
-        if isinstance(tracker_state, str) and tracker_state.lower() in {
-            "none",
-            STATE_UNKNOWN.lower(),
-            STATE_UNAVAILABLE.lower(),
-        }:
+        is_raw_state = isinstance(state_obj, str)
+        if (
+            is_raw_state
+            and tracker_state is not None
+            and tracker_state.lower()
+            in {
+                "none",
+                STATE_UNKNOWN.lower(),
+                STATE_UNAVAILABLE.lower(),
+            }
+        ):
             return cls(
                 entity_id=entity_id,
                 state=tracker_state,

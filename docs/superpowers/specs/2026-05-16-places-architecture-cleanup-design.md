@@ -199,3 +199,8 @@ Targeted tests are acceptable while developing a phase. Phase completion require
 - OSM request URLs, headers, timeout, throttling, and cache behavior are preserved.
 - Core files are smaller or more focused, especially `sensor.py`, `update_sensor.py`, and parser modules.
 - Tests cover the behavior that was moved before each major extraction.
+
+## Regression note: README display contract
+
+The README advanced `place` expression example is not equivalent to current runtime `place` output in existing behavior; this is a pre-existing mismatch already captured by characterizing tests. This branch keeps behavior unchanged and does not alter display rendering.
+The preserved contract remains the README-backed `formatted_place` equivalence, which is verified by tests.

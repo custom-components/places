@@ -1948,3 +1948,8 @@ If no files changed, do not create an empty commit.
 - [ ] README display examples render the same.
 - [ ] Full `./.venv/bin/python -m pytest` passes.
 - [ ] Full `./.venv/bin/python -m prek run -a` passes.
+
+## Regression note: README display contract
+
+The README advanced `place` expression example is pre-existingly mismatched with runtime `place` output; this mismatch is characterized by tests and intentionally preserved by this branch.
+The production contract preserved here is `formatted_place` equivalence against README examples, as that is the README-backed stable behavior under test.

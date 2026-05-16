@@ -2,7 +2,13 @@
 
 from unittest.mock import MagicMock
 
-from homeassistant.const import ATTR_GPS_ACCURACY, CONF_LATITUDE, CONF_LONGITUDE
+from homeassistant.const import (
+    ATTR_GPS_ACCURACY,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
@@ -93,3 +99,40 @@ async def test_tracker_attributes_with_get_only_preserves_ok_path(
 
     assert sensor.attrs[PLACES_ATTR_LATITUDE] == 1.23
     assert sensor.attrs[PLACES_ATTR_LONGITUDE] == 4.56
+
+
+async def _assert_tracker_state_can_proceed_with_coordinates(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    tracker_state: str,
+) -> None:
+    """Return PROCEED when state-like tracker has usable coordinates."""
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
+    tracker = MagicMock()
+    tracker.state = tracker_state
+    tracker.attributes = {CONF_LATITUDE: "1.23", CONF_LONGITUDE: "4.56"}
+    mock_hass.states.get.return_value = tracker
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    result = await updater.is_devicetracker_set()
+
+    assert result is UpdateStatus.PROCEED
+
+
+async def test_tracker_state_object_unknown_with_coordinates_can_proceed(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """HA state-like objects with unknown/unavailable state still use coordinates."""
+    await _assert_tracker_state_can_proceed_with_coordinates(
+        mock_hass, mock_config_entry, sensor, STATE_UNKNOWN
+    )
+
+
+async def test_tracker_state_object_unavailable_with_coordinates_can_proceed(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """HA state-like objects with unavailable state still use coordinates."""
+    await _assert_tracker_state_can_proceed_with_coordinates(
+        mock_hass, mock_config_entry, sensor, STATE_UNAVAILABLE
+    )
