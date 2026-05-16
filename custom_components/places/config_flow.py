@@ -19,6 +19,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 import voluptuous as vol
 
+from .config_schema import (
+    DATE_FORMAT_OPTIONS,
+    MAP_PROVIDER_OPTIONS,
+    MAP_ZOOM_MAX,
+    MAP_ZOOM_MIN,
+    STATE_OPTIONS,
+    user_schema,
+)
 from .const import (
     CONF_DATE_FORMAT,
     CONF_DEVICETRACKER_ID,
@@ -33,7 +41,6 @@ from .const import (
     DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
-    DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_SHOW_TIME,
@@ -46,11 +53,6 @@ from .const import (
 )
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-MAP_PROVIDER_OPTIONS: list[str] = ["apple", "google", "osm"]
-STATE_OPTIONS: list[str] = ["zone, place", "formatted_place", "zone_name, place"]
-DATE_FORMAT_OPTIONS: list[str] = ["mm/dd", "dd/mm"]
-MAP_ZOOM_MIN: int = 1
-MAP_ZOOM_MAX: int = 20
 COMPONENT_CONFIG_URL: str = "https://github.com/custom-components/places#configuration-options"
 
 # Note the input displayed to the user will be translated. See the
@@ -408,75 +410,7 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         )
         zone_list = get_home_zone_entities(self.hass)
         # _LOGGER.debug("Trackable entities with lat/long: %s", devicetracker_id_list)
-        data_schema: vol.Schema = vol.Schema(
-            {
-                vol.Required(CONF_NAME): str,
-                vol.Required(CONF_DEVICETRACKER_ID): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=devicetracker_id_list,
-                        multiple=False,
-                        custom_value=False,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                vol.Optional(CONF_API_KEY): str,
-                vol.Optional(
-                    CONF_DISPLAY_OPTIONS, default=DEFAULT_DISPLAY_OPTIONS
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=STATE_OPTIONS,
-                        multiple=False,
-                        custom_value=True,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                vol.Optional(CONF_HOME_ZONE, default=DEFAULT_HOME_ZONE): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=zone_list,
-                        multiple=False,
-                        custom_value=False,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                vol.Optional(
-                    CONF_MAP_PROVIDER, default=DEFAULT_MAP_PROVIDER
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=MAP_PROVIDER_OPTIONS,
-                        multiple=False,
-                        custom_value=False,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                vol.Optional(CONF_MAP_ZOOM, default=int(DEFAULT_MAP_ZOOM)): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=MAP_ZOOM_MIN,
-                        max=MAP_ZOOM_MAX,
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Optional(CONF_LANGUAGE): str,
-                vol.Optional(CONF_USE_GPS, default=DEFAULT_USE_GPS): selector.BooleanSelector(
-                    selector.BooleanSelectorConfig()
-                ),
-                vol.Optional(
-                    CONF_EXTENDED_ATTR, default=DEFAULT_EXTENDED_ATTR
-                ): selector.BooleanSelector(selector.BooleanSelectorConfig()),
-                vol.Optional(CONF_SHOW_TIME, default=DEFAULT_SHOW_TIME): selector.BooleanSelector(
-                    selector.BooleanSelectorConfig()
-                ),
-                vol.Optional(
-                    CONF_DATE_FORMAT, default=DEFAULT_DATE_FORMAT
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=DATE_FORMAT_OPTIONS,
-                        multiple=False,
-                        custom_value=False,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-            }
-        )
+        data_schema: vol.Schema = user_schema(devicetracker_id_list, zone_list)
         return self.async_show_form(
             step_id="user",
             data_schema=data_schema,
