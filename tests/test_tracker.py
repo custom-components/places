@@ -7,12 +7,26 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_GPS_ACCURACY as PLACES_GPS_ACCURACY,
+    ATTR_LATITUDE as PLACES_ATTR_LATITUDE,
+    ATTR_LONGITUDE as PLACES_ATTR_LONGITUDE,
     CONF_DEVICETRACKER_ID,
     CONF_USE_GPS,
     UpdateStatus,
 )
 from custom_components.places.update_sensor import PlacesUpdater
 from tests.conftest import MockSensor
+
+
+class _TrackerAttributeMapping:
+    """Minimal duck-typed mapping used by tracker attributes tests."""
+
+    def __init__(self, values: dict[str, object]) -> None:
+        """Store an internal mapping for ``get`` access."""
+        self._values = values
+
+    def get(self, key: str, default: object | None = None) -> object | None:
+        """Return a value from the stored attributes."""
+        return self._values.get(key, default)
 
 
 async def test_tracker_missing_skips_update(
@@ -60,3 +74,22 @@ async def test_tracker_zero_gps_accuracy_skips_when_enabled(
 
     assert result is UpdateStatus.SKIP
     assert sensor.attrs[PLACES_GPS_ACCURACY] == 0.0
+
+
+async def test_tracker_attributes_with_get_only_preserves_ok_path(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """Non-Mapping attribute objects with `.get` preserve tracker coordinate flow."""
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
+    tracker = MagicMock()
+    tracker.attributes = _TrackerAttributeMapping(
+        {CONF_LATITUDE: "1.23", CONF_LONGITUDE: "4.56", ATTR_GPS_ACCURACY: "7"}
+    )
+    mock_hass.states.get.return_value = tracker
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    assert await updater.has_valid_coordinates() is True
+    await updater.update_coordinates()
+
+    assert sensor.attrs[PLACES_ATTR_LATITUDE] == 1.23
+    assert sensor.attrs[PLACES_ATTR_LONGITUDE] == 4.56

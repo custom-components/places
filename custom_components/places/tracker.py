@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any
+from typing import Any, cast
 
 from homeassistant.const import (
     ATTR_ENTITY_PICTURE,
@@ -111,7 +111,8 @@ class TrackerSnapshot:
             )
 
         raw_attributes = getattr(state_obj, "attributes", None)
-        if not isinstance(raw_attributes, Mapping):
+        get_attr = cast("Callable[..., object]", getattr(raw_attributes, "get", None))
+        if not callable(get_attr):
             return cls(
                 entity_id=entity_id,
                 state=tracker_state,
@@ -124,16 +125,37 @@ class TrackerSnapshot:
                 entity_picture=None,
             )
 
-        zone = raw_attributes.get(CONF_ZONE)
-        zone_name = raw_attributes.get(ATTR_FRIENDLY_NAME)
-        entity_picture = raw_attributes.get(ATTR_ENTITY_PICTURE)
+        zone = get_attr(CONF_ZONE)
+        zone = zone if isinstance(zone, str) else None
+        zone_name = get_attr(ATTR_FRIENDLY_NAME)
+        zone_name = zone_name if isinstance(zone_name, str) else None
+        entity_picture = get_attr(ATTR_ENTITY_PICTURE)
+        entity_picture = entity_picture if isinstance(entity_picture, str) else None
 
-        latitude_value = raw_attributes.get(CONF_LATITUDE)
-        longitude_value = raw_attributes.get(CONF_LONGITUDE)
-        gps_accuracy_value = raw_attributes.get(ATTR_GPS_ACCURACY)
+        sentinel = object()
+        try:
+            latitude_value = get_attr(CONF_LATITUDE, sentinel)
+        except TypeError:
+            latitude_value = get_attr(CONF_LATITUDE)
+            has_latitude = True
+        else:
+            has_latitude = latitude_value is not sentinel
+
+        try:
+            longitude_value = get_attr(CONF_LONGITUDE, sentinel)
+        except TypeError:
+            longitude_value = get_attr(CONF_LONGITUDE)
+            has_longitude = True
+        else:
+            has_longitude = longitude_value is not sentinel
+
+        try:
+            gps_accuracy_value = get_attr(ATTR_GPS_ACCURACY, sentinel)
+        except TypeError:
+            gps_accuracy_value = get_attr(ATTR_GPS_ACCURACY)
 
         status = TrackerStatus.OK
-        if CONF_LATITUDE not in raw_attributes or CONF_LONGITUDE not in raw_attributes:
+        if not has_latitude or not has_longitude:
             status = TrackerStatus.MISSING_COORDINATES
         elif not is_float(latitude_value) or not is_float(longitude_value):
             status = TrackerStatus.INVALID_COORDINATES
