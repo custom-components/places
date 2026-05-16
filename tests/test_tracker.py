@@ -39,8 +39,10 @@ async def test_tracker_invalid_coordinates_skip_update(
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     result = await updater.has_valid_coordinates()
+    gate_result = await updater.is_devicetracker_set()
 
     assert result is False
+    assert gate_result is UpdateStatus.SKIP
 
 
 async def test_tracker_zero_gps_accuracy_skips_when_enabled(
