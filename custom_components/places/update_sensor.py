@@ -18,8 +18,6 @@ from homeassistant.const import (
     ATTR_GPS_ACCURACY,
     CONF_API_KEY,
     CONF_FRIENDLY_NAME,
-    CONF_LATITUDE,
-    CONF_LONGITUDE,
     CONF_NAME,
     CONF_ZONE,
     STATE_UNAVAILABLE,
@@ -28,10 +26,8 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.util.location import distance
 
 from .const import (
-    ATTR_ATTRIBUTES,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
@@ -79,7 +75,6 @@ from .const import (
     EVENT_ATTRIBUTE_LIST,
     EVENT_TYPE,
     EXTENDED_ATTRIBUTE_LIST,
-    METERS_PER_MILE,
     OSM_CACHE,
     OSM_THROTTLE,
     OSM_THROTTLE_INTERVAL_SECONDS,
@@ -88,7 +83,9 @@ from .const import (
     UpdateStatus,
 )
 from .helpers import clear_since_from_state, is_float, safe_truncate, write_sensor_to_json
+from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .parse_osm import OSMParser
+from .tracker import TrackerSnapshot, TrackerStatus
 
 if TYPE_CHECKING:
     from .sensor import Places
@@ -382,20 +379,23 @@ class PlacesUpdater:
 
     async def update_coordinates(self) -> None:
         """Copy latitude and longitude from the tracked entity state."""
-        device_tracker = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
-        if not device_tracker:
+        tracker_id = self.sensor.get_attr(CONF_DEVICETRACKER_ID)
+        tracker_snapshot = TrackerSnapshot.from_hass(self._hass, tracker_id)
+        if tracker_snapshot.status in {
+            TrackerStatus.MISSING_ENTITY_ID,
+            TrackerStatus.NOT_FOUND,
+            TrackerStatus.UNAVAILABLE,
+        }:
             _LOGGER.warning(
                 "(%s) Device tracker entity not found: %s",
                 self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(CONF_DEVICETRACKER_ID),
+                tracker_id,
             )
             return
-        if is_float(device_tracker.attributes.get(CONF_LATITUDE)):
-            self.sensor.set_attr(ATTR_LATITUDE, float(device_tracker.attributes.get(CONF_LATITUDE)))
-        if is_float(device_tracker.attributes.get(CONF_LONGITUDE)):
-            self.sensor.set_attr(
-                ATTR_LONGITUDE, float(device_tracker.attributes.get(CONF_LONGITUDE))
-            )
+        if tracker_snapshot.status == TrackerStatus.OK and tracker_snapshot.latitude is not None:
+            self.sensor.set_attr(ATTR_LATITUDE, tracker_snapshot.latitude)
+        if tracker_snapshot.status == TrackerStatus.OK and tracker_snapshot.longitude is not None:
+            self.sensor.set_attr(ATTR_LONGITUDE, tracker_snapshot.longitude)
 
     async def determine_update_criteria(self) -> UpdateStatus:
         """Run zone, distance, and movement checks for this update.
@@ -904,24 +904,27 @@ class PlacesUpdater:
         if not self.sensor.is_attr_blank(ATTR_LATITUDE) and not self.sensor.is_attr_blank(
             ATTR_LONGITUDE
         ):
-            self.sensor.set_attr(
-                ATTR_LOCATION_CURRENT,
-                f"{self.sensor.get_attr_safe_float(ATTR_LATITUDE)},{self.sensor.get_attr_safe_float(ATTR_LONGITUDE)}",
+            current = CoordinatePair(
+                latitude=self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+                longitude=self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
             )
+            self.sensor.set_attr(ATTR_LOCATION_CURRENT, current.as_location())
         if not self.sensor.is_attr_blank(ATTR_LATITUDE_OLD) and not self.sensor.is_attr_blank(
             ATTR_LONGITUDE_OLD
         ):
-            self.sensor.set_attr(
-                ATTR_LOCATION_PREVIOUS,
-                f"{self.sensor.get_attr_safe_float(ATTR_LATITUDE_OLD)},{self.sensor.get_attr_safe_float(ATTR_LONGITUDE_OLD)}",
+            previous = CoordinatePair(
+                latitude=self.sensor.get_attr_safe_float(ATTR_LATITUDE_OLD),
+                longitude=self.sensor.get_attr_safe_float(ATTR_LONGITUDE_OLD),
             )
+            self.sensor.set_attr(ATTR_LOCATION_PREVIOUS, previous.as_location())
         if not self.sensor.is_attr_blank(ATTR_HOME_LATITUDE) and not self.sensor.is_attr_blank(
             ATTR_HOME_LONGITUDE
         ):
-            self.sensor.set_attr(
-                ATTR_HOME_LOCATION,
-                f"{self.sensor.get_attr_safe_float(ATTR_HOME_LATITUDE)},{self.sensor.get_attr_safe_float(ATTR_HOME_LONGITUDE)}",
+            home = CoordinatePair(
+                latitude=self.sensor.get_attr_safe_float(ATTR_HOME_LATITUDE),
+                longitude=self.sensor.get_attr_safe_float(ATTR_HOME_LONGITUDE),
             )
+            self.sensor.set_attr(ATTR_HOME_LOCATION, home.as_location())
 
     async def calculate_distances(self) -> None:
         """Calculate distance from home in meters, kilometers, and miles."""
@@ -931,27 +934,29 @@ class PlacesUpdater:
             and not self.sensor.is_attr_blank(ATTR_HOME_LATITUDE)
             and not self.sensor.is_attr_blank(ATTR_HOME_LONGITUDE)
         ):
+            location_snapshot = LocationSnapshot(
+                current=CoordinatePair(
+                    latitude=self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+                    longitude=self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+                ),
+                home=CoordinatePair(
+                    latitude=self.sensor.get_attr_safe_float(ATTR_HOME_LATITUDE),
+                    longitude=self.sensor.get_attr_safe_float(ATTR_HOME_LONGITUDE),
+                ),
+            )
+            location_snapshot.calculate()
             self.sensor.set_attr(
                 ATTR_DISTANCE_FROM_HOME_M,
-                distance(
-                    self.sensor.get_attr_safe_float(ATTR_LATITUDE),
-                    self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
-                    self.sensor.get_attr_safe_float(ATTR_HOME_LATITUDE),
-                    self.sensor.get_attr_safe_float(ATTR_HOME_LONGITUDE),
-                ),
+                location_snapshot.distance_from_home_m,
             )
             if not self.sensor.is_attr_blank(ATTR_DISTANCE_FROM_HOME_M):
                 self.sensor.set_attr(
                     ATTR_DISTANCE_FROM_HOME_KM,
-                    round(self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M) / 1000, 3),
+                    location_snapshot.distance_from_home_km,
                 )
                 self.sensor.set_attr(
                     ATTR_DISTANCE_FROM_HOME_MI,
-                    round(
-                        self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M)
-                        / METERS_PER_MILE,
-                        3,
-                    ),
+                    location_snapshot.distance_from_home_mi,
                 )
 
     async def calculate_travel_distance(self) -> None:
@@ -959,22 +964,25 @@ class PlacesUpdater:
         if not self.sensor.is_attr_blank(ATTR_LATITUDE_OLD) and not self.sensor.is_attr_blank(
             ATTR_LONGITUDE_OLD
         ):
+            location_snapshot = LocationSnapshot(
+                current=CoordinatePair(
+                    latitude=self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+                    longitude=self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+                ),
+                previous=CoordinatePair(
+                    latitude=self.sensor.get_attr_safe_float(ATTR_LATITUDE_OLD),
+                    longitude=self.sensor.get_attr_safe_float(ATTR_LONGITUDE_OLD),
+                ),
+            )
+            location_snapshot.calculate()
             self.sensor.set_attr(
                 ATTR_DISTANCE_TRAVELED_M,
-                distance(
-                    self.sensor.get_attr_safe_float(ATTR_LATITUDE),
-                    self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
-                    self.sensor.get_attr_safe_float(ATTR_LATITUDE_OLD),
-                    self.sensor.get_attr_safe_float(ATTR_LONGITUDE_OLD),
-                ),
+                location_snapshot.distance_traveled_m,
             )
             if not self.sensor.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
                 self.sensor.set_attr(
                     ATTR_DISTANCE_TRAVELED_MI,
-                    round(
-                        self.sensor.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M) / METERS_PER_MILE,
-                        3,
-                    ),
+                    location_snapshot.distance_traveled_mi,
                 )
         else:
             self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
@@ -989,16 +997,13 @@ class PlacesUpdater:
                 before recalculating distances.
         """
         if not self.sensor.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
-            if last_distance_traveled_m > self.sensor.get_attr_safe_float(
-                ATTR_DISTANCE_FROM_HOME_M
-            ):
-                self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "towards home")
-            elif last_distance_traveled_m < self.sensor.get_attr_safe_float(
-                ATTR_DISTANCE_FROM_HOME_M
-            ):
-                self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "away from home")
-            else:
-                self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
+            self.sensor.set_attr(
+                ATTR_DIRECTION_OF_TRAVEL,
+                direction_of_travel(
+                    previous_distance_from_home_m=last_distance_traveled_m,
+                    distance_from_home_m=self.sensor.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME_M),
+                ),
+            )
         else:
             self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
 
@@ -1186,23 +1191,15 @@ class PlacesUpdater:
 
         Returns:
             ``True`` when Home Assistant has a usable state object for the
-            configured tracker.
+                configured tracker.
         """
         tracker_id = self.sensor.get_attr(CONF_DEVICETRACKER_ID)
-        if self.sensor.is_attr_blank(CONF_DEVICETRACKER_ID):
+        tracker_snapshot = TrackerSnapshot.from_hass(self._hass, tracker_id)
+        if tracker_snapshot.status == TrackerStatus.MISSING_ENTITY_ID:
             await self.log_tracker_issue("Tracked Entity is not set")
             return False
 
-        tracker_state = self._hass.states.get(tracker_id)
-        if tracker_state is None:
-            await self.log_tracker_issue(f"Tracked Entity ({tracker_id}) is not available")
-            return False
-
-        if isinstance(tracker_state, str) and tracker_state.lower() in {
-            "none",
-            STATE_UNKNOWN,
-            STATE_UNAVAILABLE,
-        }:
+        if tracker_snapshot.status in {TrackerStatus.NOT_FOUND, TrackerStatus.UNAVAILABLE}:
             await self.log_tracker_issue(f"Tracked Entity ({tracker_id}) is not available")
             return False
 
@@ -1215,16 +1212,10 @@ class PlacesUpdater:
             ``True`` when latitude and longitude attributes both exist and are
             float-convertible.
         """
-        tracker = self._hass.states.get(self.sensor.get_attr(CONF_DEVICETRACKER_ID))
-
-        if not hasattr(tracker, ATTR_ATTRIBUTES):
-            await self.log_coordinate_issue()
-            return False
-
-        lat = tracker.attributes.get(CONF_LATITUDE)
-        lon = tracker.attributes.get(CONF_LONGITUDE)
-
-        if lat is None or lon is None or not is_float(lat) or not is_float(lon):
+        tracker_snapshot = TrackerSnapshot.from_hass(
+            self._hass, self.sensor.get_attr(CONF_DEVICETRACKER_ID)
+        )
+        if not tracker_snapshot.has_valid_coordinates:
             await self.log_coordinate_issue()
             return False
 
