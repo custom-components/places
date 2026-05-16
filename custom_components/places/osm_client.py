@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Mapping, MutableMapping
 import json
 import logging
+from typing import Any
 from urllib.parse import urlencode
 
 import aiohttp
@@ -68,7 +69,7 @@ class OSMClient:
         Args:
             osm_type_abbr: One-letter OSM type prefix (N/W/R).
             osm_id: Object identifier for the feature.
-            language: Accept-Language value to request localized details.
+            language: Accept-Language value to request localized results.
             email: Nominatim contact email value.
 
         Returns:
@@ -86,16 +87,20 @@ class OSMClient:
         """Build the wikidata entity URL used by OSM extras lookup."""
         return f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
 
-    async def get_json(self, url: str, name: str) -> MutableMapping[str, object] | None:
+    def update_sensor_name(self, sensor_name: str) -> None:
+        """Update the cached sensor name used in log messages."""
+        self._sensor_name = sensor_name
+
+    async def get_json(self, url: str, name: str) -> Any | None:
         """Fetch JSON from a URL with OSM cache and throttle behavior.
 
         Args:
-            url: Absolute URL to query.
+            url: Absolute URL to request.
             name: Friendly label for log output.
 
         Returns:
-            Parsed JSON mapping (or a list-item flattened to mapping), or
-            ``None`` when the request or parse fails.
+            Parsed JSON object (or a list-item flattened mapping), or ``None``
+            when the request or parse fails.
         """
         osm_cache: dict[str, object] = self._hass.data[DOMAIN][OSM_CACHE]
         if url in osm_cache:
@@ -106,9 +111,9 @@ class OSMClient:
                 len(osm_cache),
             )
             cached_data = osm_cache[url]
-            if isinstance(cached_data, Mapping):
+            if isinstance(cached_data, MutableMapping):
                 return dict(cached_data)
-            return {}
+            return cached_data
 
         throttle = self._hass.data[DOMAIN][OSM_THROTTLE]
         async with throttle["lock"]:
@@ -121,7 +126,7 @@ class OSMClient:
             _LOGGER.info("(%s) Requesting data for %s", self._sensor_name, name)
             _LOGGER.debug("(%s) %s URL: %s", self._sensor_name, name, url)
 
-            get_dict: object | None = None
+            get_dict: Any | None = None
             user_agent = (
                 f"Mozilla/5.0 (Home Assistant/{ha_version}) "
                 f"{DOMAIN}/{VERSION} (+https://github.com/custom-components/places)"
@@ -172,7 +177,16 @@ class OSMClient:
             if get_dict is None:
                 return None
 
-            if isinstance(get_dict, MutableMapping) and "error_message" in get_dict:
+            if (
+                isinstance(get_dict, list)
+                and len(get_dict) == 1
+                and isinstance(get_dict[0], Mapping)
+            ):
+                get_dict = dict(get_dict[0])
+                osm_cache[url] = get_dict
+                return get_dict
+
+            if isinstance(get_dict, Mapping) and "error_message" in get_dict:
                 _LOGGER.warning(
                     "(%s) An error occurred contacting the web service for %s: %s",
                     self._sensor_name,
@@ -181,16 +195,5 @@ class OSMClient:
                 )
                 return None
 
-            if (
-                isinstance(get_dict, list)
-                and len(get_dict) == 1
-                and isinstance(get_dict[0], Mapping)
-            ):
-                get_dict = get_dict[0]
-                osm_cache[url] = get_dict
-                return dict(get_dict) if isinstance(get_dict, MutableMapping) else None
-            if isinstance(get_dict, MutableMapping):
-                osm_cache[url] = get_dict
-                return get_dict
-
-            return None
+            osm_cache[url] = get_dict
+            return get_dict

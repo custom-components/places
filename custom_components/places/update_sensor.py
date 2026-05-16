@@ -121,6 +121,7 @@ class PlacesUpdater:
         now: datetime = await self.get_current_time()
 
         await self.update_entity_name_and_cleanup()
+        self._osm_client.update_sensor_name(str(self.sensor.get_attr(CONF_NAME)))
         await self.update_previous_state()
         await self.update_old_coordinates()
         prev_last_place_name = self.sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
@@ -744,7 +745,7 @@ class PlacesUpdater:
             dict_name: Sensor attribute that receives the parsed JSON mapping.
         """
         get_dict = await self._osm_client.get_json(url=url, name=name)
-        self.sensor.set_attr(dict_name, get_dict or {})
+        self.sensor.set_attr(dict_name, get_dict if get_dict is not None else {})
         if get_dict is not None:
             return
 

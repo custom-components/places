@@ -111,3 +111,25 @@ async def test_get_json_flattens_one_item_error_list_payload(
 
     assert payload == expected
     assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == expected
+
+
+@pytest.mark.asyncio
+async def test_get_json_caches_non_mapping_payload(
+    mock_hass: HomeAssistant, aioclient_mock: AioClientMock
+) -> None:
+    """Non-mapping payloads such as empty lists are cached and returned as-is."""
+    url = "https://example.test/osm"
+    mock_hass.data = {
+        DOMAIN: {
+            OSM_CACHE: {},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+        }
+    }
+    expected: list[object] = []
+    aioclient_mock.get(url, text="[]")
+    client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
+
+    payload = await client.get_json(url=url, name="OpenStreetMaps")
+
+    assert payload == expected
+    assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == expected

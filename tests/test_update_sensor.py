@@ -775,6 +775,29 @@ async def test_get_dict_from_url_variants(
     assert mock_hass.data[DOMAIN][OSM_CACHE][url] == expected_attr
 
 
+@pytest.mark.asyncio
+async def test_get_dict_from_url_sets_empty_list_payload(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AioClientMock,
+    sensor: MockSensor,
+) -> None:
+    """Non-mapping list payloads are cached and set directly on sensor attributes."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    url = "http://example.com/empty-list"
+    if DOMAIN not in mock_hass.data:
+        mock_hass.data[DOMAIN] = {
+            OSM_CACHE: {},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+        }
+
+    register_aioclient(aioclient_mock, url, text="[]")
+    await updater.get_dict_from_url(url, "NetService", "dict_name")
+
+    assert sensor.attrs["dict_name"] == []
+    assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == []
+
+
 # Network-error case moved into parametrized `test_get_dict_from_url_variants`
 
 
