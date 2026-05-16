@@ -503,19 +503,7 @@ class Places(SensorEntity):
             be converted.
         """
         self._sync_internal_attr()
-        value = self.get_attr(attr) if default is None else self.get_attr(attr, default)
-        if value is not None:
-            try:
-                return str(value)
-            except (ValueError, TypeError) as e:
-                _LOGGER.debug(
-                    "Unable to convert attribute value to string (%r): %s: %s",
-                    value,
-                    type(e).__name__,
-                    e,
-                )
-                return ""
-        return ""
+        return self._attributes.safe_str(attr, default)
 
     def get_attr_safe_float(self, attr: str | None, default: object | None = None) -> float:
         """Read an internal attribute as a float.
