@@ -228,7 +228,7 @@ class OSMParser:
         ):
             self.sensor.set_attr(
                 ATTR_PLACE_NAME,
-                self.current_address().get("retail"),
+                address.get("retail"),
             )
         _LOGGER.debug(
             "(%s) Place Name: %s",
@@ -320,7 +320,7 @@ class OSMParser:
         if "postcode" in address:
             self.sensor.set_attr(
                 ATTR_POSTAL_CODE,
-                self.current_address().get("postcode"),
+                address.get("postcode"),
             )
 
     async def parse_miscellaneous(self, osm_dict: MutableMapping[str, Any]) -> None:
@@ -338,7 +338,7 @@ class OSMParser:
         if "osm_id" in osm_dict:
             self.sensor.set_attr(
                 ATTR_OSM_ID,
-                str(self.current_osm_dict().get("osm_id", "")),
+                str(osm_dict.get("osm_id", "")),
             )
         if "osm_type" in osm_dict:
             self.sensor.set_attr(
