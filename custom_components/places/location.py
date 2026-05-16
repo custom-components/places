@@ -21,7 +21,7 @@ class CoordinatePair:
         return f"{self.latitude},{self.longitude}"
 
 
-@dataclass
+@dataclass(slots=True)
 class LocationSnapshot:
     """Derived-location snapshot used by the Places updater."""
 

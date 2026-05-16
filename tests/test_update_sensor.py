@@ -798,6 +798,29 @@ async def test_get_dict_from_url_sets_empty_list_payload(
     assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == []
 
 
+@pytest.mark.asyncio
+async def test_get_dict_from_url_removes_stale_cache_on_fetch_failure(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed fetch removes any stale cache entry for the requested URL."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    url = "http://example.com/stale"
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {url: {"stale": True}},
+        OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+    }
+
+    monkeypatch.setattr(updater._osm_client, "get_json", AsyncMock(return_value=None))
+
+    await updater.get_dict_from_url(url, "NetService", "dict_name")
+
+    assert sensor.attrs["dict_name"] == {}
+    assert url not in mock_hass.data[DOMAIN][OSM_CACHE]
+
+
 # Network-error case moved into parametrized `test_get_dict_from_url_variants`
 
 

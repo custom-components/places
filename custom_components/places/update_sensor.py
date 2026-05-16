@@ -380,10 +380,11 @@ class PlacesUpdater:
                 tracker_id,
             )
             return
-        if tracker_snapshot.status == TrackerStatus.OK and tracker_snapshot.latitude is not None:
-            self.sensor.set_attr(ATTR_LATITUDE, tracker_snapshot.latitude)
-        if tracker_snapshot.status == TrackerStatus.OK and tracker_snapshot.longitude is not None:
-            self.sensor.set_attr(ATTR_LONGITUDE, tracker_snapshot.longitude)
+        if tracker_snapshot.status == TrackerStatus.OK:
+            if tracker_snapshot.latitude is not None:
+                self.sensor.set_attr(ATTR_LATITUDE, tracker_snapshot.latitude)
+            if tracker_snapshot.longitude is not None:
+                self.sensor.set_attr(ATTR_LONGITUDE, tracker_snapshot.longitude)
 
     async def determine_update_criteria(self) -> UpdateStatus:
         """Run zone, distance, and movement checks for this update.
@@ -740,9 +741,6 @@ class PlacesUpdater:
         get_dict = await self._osm_client.get_json(url=url, name=name)
         self.sensor.set_attr(dict_name, get_dict if get_dict is not None else {})
         if get_dict is not None:
-            return
-
-        if url in self._hass.data[DOMAIN][OSM_CACHE]:
             return
 
         # Ensure no stale key survives when no payload was produced.

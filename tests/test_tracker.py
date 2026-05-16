@@ -19,6 +19,7 @@ from custom_components.places.const import (
     CONF_USE_GPS,
     UpdateStatus,
 )
+from custom_components.places.tracker import TrackerSnapshot, TrackerStatus
 from custom_components.places.update_sensor import PlacesUpdater
 from tests.conftest import MockSensor
 
@@ -33,6 +34,18 @@ class _TrackerAttributeMapping:
     def get(self, key: str, default: object | None = None) -> object | None:
         """Return a value from the stored attributes."""
         return self._values.get(key, default)
+
+
+class _TrackerAttributesWithoutDefault:
+    """Duck-typed attributes object whose ``get`` does not accept a default."""
+
+    def __init__(self, values: dict[str, object]) -> None:
+        """Store an internal mapping for single-argument ``get`` access."""
+        self._values = values
+
+    def get(self, key: str) -> object | None:
+        """Return a value from the stored attributes."""
+        return self._values.get(key)
 
 
 async def test_tracker_missing_skips_update(
@@ -99,6 +112,25 @@ async def test_tracker_attributes_with_get_only_preserves_ok_path(
 
     assert sensor.attrs[PLACES_ATTR_LATITUDE] == 1.23
     assert sensor.attrs[PLACES_ATTR_LONGITUDE] == 4.56
+
+
+async def test_tracker_get_without_default_treats_none_coordinates_as_missing(
+    mock_hass: MagicMock,
+) -> None:
+    """Fallback ``get`` calls treat returned ``None`` coordinates as missing."""
+    tracker = MagicMock()
+    tracker.entity_id = "device_tracker.person"
+    tracker.state = "home"
+    tracker.attributes = _TrackerAttributesWithoutDefault(
+        {CONF_LATITUDE: None, CONF_LONGITUDE: None}
+    )
+    mock_hass.states.get.return_value = tracker
+
+    snapshot = TrackerSnapshot.from_hass(mock_hass, "device_tracker.person")
+
+    assert snapshot.status is TrackerStatus.MISSING_COORDINATES
+    assert snapshot.latitude is None
+    assert snapshot.longitude is None
 
 
 async def _assert_tracker_state_can_proceed_with_coordinates(

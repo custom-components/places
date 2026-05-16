@@ -143,7 +143,7 @@ class TrackerSnapshot:
             latitude_value = get_attr(CONF_LATITUDE, sentinel)
         except TypeError:
             latitude_value = get_attr(CONF_LATITUDE)
-            has_latitude = True
+            has_latitude = latitude_value is not None
         else:
             has_latitude = latitude_value is not sentinel
 
@@ -151,7 +151,7 @@ class TrackerSnapshot:
             longitude_value = get_attr(CONF_LONGITUDE, sentinel)
         except TypeError:
             longitude_value = get_attr(CONF_LONGITUDE)
-            has_longitude = True
+            has_longitude = longitude_value is not None
         else:
             has_longitude = longitude_value is not sentinel
 

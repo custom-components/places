@@ -4,6 +4,7 @@ from collections.abc import MutableMapping
 
 from homeassistant.const import CONF_NAME
 
+from custom_components.places.attributes import PlacesAttributes
 from custom_components.places.const import ATTR_INITIAL_UPDATE, ATTR_NATIVE_VALUE, ATTR_PLACE_NAME
 from custom_components.places.sensor import Places
 
@@ -23,6 +24,15 @@ def test_places_attribute_blank_semantics(places_instance: Places) -> None:
     assert places_instance.is_attr_blank("zero_value") is False
     assert places_instance.is_attr_blank("false_value") is False
     assert places_instance.is_attr_blank("text_value") is False
+
+
+def test_places_attributes_preserves_empty_initial_mapping() -> None:
+    """An explicit empty initial mapping remains the backing storage object."""
+    initial: MutableMapping[str, object] = {}
+
+    attributes = PlacesAttributes(initial)
+
+    assert attributes.data is initial
 
 
 def test_places_attribute_safe_conversions(places_instance: Places) -> None:

@@ -27,7 +27,7 @@ class PlacesAttributes:
         Args:
             initial: Initial mutable attribute mapping used for in-place storage.
         """
-        self._internal_attr: MutableMapping[str, Any] = initial or {}
+        self._internal_attr: MutableMapping[str, Any] = initial if initial is not None else {}
 
     @property
     def data(self) -> MutableMapping[str, Any]:

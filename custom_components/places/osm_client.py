@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping, MutableSequence
 import json
 import logging
 from typing import Any
@@ -75,12 +75,16 @@ class OSMClient:
         Returns:
             Fully encoded OSM lookup URL.
         """
-        return (
-            "https://nominatim.openstreetmap.org/lookup?osm_ids="
-            f"{osm_type_abbr}{osm_id}"
-            "&format=json&addressdetails=1&extratags=1&namedetails=1"
-            f"&email={email or ''}&accept-language={language or ''}"
-        )
+        params = {
+            "osm_ids": f"{osm_type_abbr}{osm_id}",
+            "format": "json",
+            "addressdetails": "1",
+            "extratags": "1",
+            "namedetails": "1",
+            "email": email or "",
+            "accept-language": language or "",
+        }
+        return f"https://nominatim.openstreetmap.org/lookup?{urlencode(params)}"
 
     @staticmethod
     def wikidata_url(wikidata_id: object) -> str:
@@ -113,6 +117,8 @@ class OSMClient:
             cached_data = osm_cache[url]
             if isinstance(cached_data, MutableMapping):
                 return dict(cached_data)
+            if isinstance(cached_data, MutableSequence):
+                return list(cached_data)
             return cached_data
 
         throttle = self._hass.data[DOMAIN][OSM_THROTTLE]
@@ -183,8 +189,6 @@ class OSMClient:
                 and isinstance(get_dict[0], Mapping)
             ):
                 get_dict = dict(get_dict[0])
-                osm_cache[url] = get_dict
-                return get_dict
 
             if isinstance(get_dict, Mapping) and "error_message" in get_dict:
                 _LOGGER.warning(

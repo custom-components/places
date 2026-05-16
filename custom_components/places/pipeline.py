@@ -35,12 +35,13 @@ class PlacesUpdatePipeline:
         """
         await self.updater.log_update_start(reason)
         now: datetime = await self.updater.get_current_time()
+        sensor = self.updater.sensor
 
         await self.updater.update_entity_name_and_cleanup()
         await self.updater.update_client_sensor_name()
         await self.updater.update_previous_state()
         await self.updater.update_old_coordinates()
-        prev_last_place_name = self.updater.sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
+        prev_last_place_name = sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
 
         proceed_with_update: UpdateStatus = (
             await self.updater.check_device_tracker_and_update_coords()
@@ -58,7 +59,7 @@ class PlacesUpdatePipeline:
             else:
                 _LOGGER.info(
                     "(%s) No entity update needed, Previous State = New State",
-                    self.updater.sensor.get_attr(CONF_NAME),
+                    sensor.get_attr(CONF_NAME),
                 )
                 await self.updater.rollback_update(previous_attr, now, proceed_with_update)
         else:

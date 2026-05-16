@@ -34,7 +34,7 @@ async def test_update_pipeline_runs_phases_in_expected_order(
 
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
-    def record_prev_last_place_name(key: str, default: object = None) -> str:
+    def record_prev_last_place_name(key: str, _default: object = None) -> str:
         if key == ATTR_LAST_PLACE_NAME:
             call_order.append("capture_prev_last_place_name")
         return "Last Place"
@@ -111,7 +111,7 @@ async def test_update_pipeline_runs_phases_in_expected_order(
         ],
     ) as mocks:
         updater._osm_client.update_sensor_name = MagicMock(
-            side_effect=lambda sensor_name: call_order.append("update_sensor_name")
+            side_effect=lambda _sensor_name: call_order.append("update_sensor_name")
         )
 
         await PlacesUpdatePipeline(updater).run("manual", {"snapshot": "value"})
