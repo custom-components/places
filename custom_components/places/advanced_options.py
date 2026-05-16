@@ -77,10 +77,11 @@ class AdvancedOptionsParser:
 
     async def build_next_option(self, next_opt: str | None) -> None:
         """Continue parsing after a comma-prefixed next expression."""
-        if next_opt and len(next_opt) > 1 and next_opt[0] == ",":
-            next_opt = next_opt[1:]
+        if not next_opt or len(next_opt) <= 1 or next_opt[0] != ",":
+            return
+        next_opt = next_opt[1:].strip()
         if next_opt:
-            await self.build_from_advanced_options(next_opt.strip())
+            await self.build_from_advanced_options(next_opt)
 
     async def do_brackets_and_parens_count_match(self, curr_options: str) -> bool:
         """Check whether an option expression has balanced delimiters.
@@ -246,7 +247,8 @@ class AdvancedOptionsParser:
                 if ret_state:
                     self.state_list.append(ret_state)
             next_opt = curr_options[(comma_num + 1) :]
-            await self.build_next_option(next_opt)
+            if next_opt:
+                await self.build_from_advanced_options(next_opt.strip())
             return
 
         # Bracket is first symbol

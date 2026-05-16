@@ -32,7 +32,7 @@ class BasicOptionsParser:
         self._internal_attr = internal_attr
         self.display_options = display_options
 
-    def add_to_display(
+    def _add_to_display(
         self,
         user_display: list[str],
         attr_key: str,
@@ -40,7 +40,16 @@ class BasicOptionsParser:
         condition: bool = True,
         require_in_display_options: bool = True,
     ) -> None:
-        """Append an attribute value when the display rules allow it."""
+        """Append an attribute value when the display rules allow it.
+
+        Args:
+            user_display: Mutable list to which the display value is appended.
+            attr_key: Attribute name to check and append.
+            option_key: Display option key that gates inclusion.
+            condition: Additional condition required before adding the value.
+            require_in_display_options: When true, require ``option_key`` to be
+                present in display options.
+        """
         if (
             (not require_in_display_options or option_key in self.display_options)
             and not self.sensor.is_attr_blank(attr_key)
@@ -58,62 +67,62 @@ class BasicOptionsParser:
         user_display: list[str] = []
 
         # Add basic options
-        self.add_to_display(user_display, "driving", option_key="driving")
-        self.add_to_display(
+        self._add_to_display(user_display, "driving", option_key="driving")
+        self._add_to_display(
             user_display,
             attr_key="devicetracker_zone_name",
             option_key="zone_name",
             condition=await self.sensor.in_zone()
             or "do_not_show_not_home" not in self.display_options,
         )
-        self.add_to_display(
+        self._add_to_display(
             user_display,
             attr_key="devicetracker_zone",
             option_key="zone",
             condition=await self.sensor.in_zone()
             or "do_not_show_not_home" not in self.display_options,
         )
-        self.add_to_display(user_display, "place_name", option_key="place_name")
+        self._add_to_display(user_display, "place_name", option_key="place_name")
 
         # Handle "place" and its sub-options
         if "place" in self.display_options:
-            self.add_to_display(
+            self._add_to_display(
                 user_display,
                 attr_key="place_name",
                 condition=self._internal_attr.get("place_name")
                 != self._internal_attr.get("street"),
                 require_in_display_options=False,
             )
-            self.add_to_display(
+            self._add_to_display(
                 user_display,
                 attr_key="place_category",
                 condition=self.sensor.get_attr_safe_str("place_category").lower() != "place",
                 require_in_display_options=False,
             )
-            self.add_to_display(
+            self._add_to_display(
                 user_display,
                 attr_key="place_type",
                 condition=self.sensor.get_attr_safe_str("place_type").lower() != "yes",
                 require_in_display_options=False,
             )
-            self.add_to_display(
+            self._add_to_display(
                 user_display,
                 attr_key="place_neighbourhood",
                 require_in_display_options=False,
             )
-            self.add_to_display(
+            self._add_to_display(
                 user_display,
                 attr_key="street_number",
                 require_in_display_options=False,
             )
-            self.add_to_display(
+            self._add_to_display(
                 user_display,
                 attr_key="street",
                 require_in_display_options=False,
             )
         else:
-            self.add_to_display(user_display, "street_number", option_key="street_number")
-            self.add_to_display(user_display, "street", option_key="street")
+            self._add_to_display(user_display, "street_number", option_key="street_number")
+            self._add_to_display(user_display, "street", option_key="street")
 
         # Add remaining location details
         for option_key, attr_key in {
@@ -125,7 +134,7 @@ class BasicOptionsParser:
             "country": "country",
             "formatted_address": "formatted_address",
         }.items():
-            self.add_to_display(user_display, attr_key, option_key=option_key)
+            self._add_to_display(user_display, attr_key, option_key=option_key)
 
         # Handle "do_not_reorder" option
         if "do_not_reorder" in self.display_options:
