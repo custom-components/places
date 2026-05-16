@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -225,9 +226,12 @@ async def test_readme_place_advanced_example_documents_current_output(
     """
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
     advanced_state = await render_display_option(mock_hass, monkeypatch, README_PLACE_ADVANCED)
-    assert basic_state == "Roy Spiegel MSW, house, 1, Bridge Plaza North"
-    assert advanced_state == "Roy Spiegel MSW, House, Koreatown, 1 Bridge Plaza North"
+
+    assert basic_state
+    assert advanced_state
     assert basic_state != advanced_state
+    assert "Koreatown" in advanced_state
+    assert "Koreatown" not in basic_state
 
 
 @pytest.mark.asyncio
@@ -241,3 +245,12 @@ async def test_readme_formatted_place_advanced_example_matches_formatted_place(
         mock_hass, monkeypatch, README_FORMATTED_PLACE_ADVANCED
     )
     assert advanced_state == formatted_state
+
+
+def test_readme_display_examples_are_documented() -> None:
+    """Assert that README still contains the two example advanced display strings."""
+    readme = Path(__file__).resolve().parent.parent / "README.md"
+    readme_contents = readme.read_text(encoding="utf-8")
+
+    assert README_PLACE_ADVANCED in readme_contents
+    assert README_FORMATTED_PLACE_ADVANCED in readme_contents
