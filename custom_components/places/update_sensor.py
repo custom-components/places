@@ -78,6 +78,7 @@ from .helpers import clear_since_from_state, is_float, safe_truncate, write_sens
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .osm_client import OSMClient
 from .parse_osm import OSMParser
+from .pipeline import PlacesUpdatePipeline
 from .tracker import TrackerSnapshot, TrackerStatus
 
 if TYPE_CHECKING:
@@ -111,6 +112,15 @@ class PlacesUpdater:
                 for rollback when criteria fail or the rendered state is
                 unchanged.
         """
+        pipeline = PlacesUpdatePipeline(self)
+        await pipeline.run(reason=reason, previous_attr=previous_attr)
+
+    async def log_update_start(self, reason: str) -> None:
+        """Log a consistent update-start message.
+
+        Args:
+            reason: Human-readable update reason.
+        """
         _LOGGER.info(
             "(%s) Starting %s Update (Tracked Entity: %s)",
             self.sensor.get_attr(CONF_NAME),
@@ -118,35 +128,18 @@ class PlacesUpdater:
             self.sensor.get_attr(CONF_DEVICETRACKER_ID),
         )
 
-        now: datetime = await self.get_current_time()
+    async def finish_update(self, now: datetime) -> None:
+        """Finalize update bookkeeping.
 
-        await self.update_entity_name_and_cleanup()
-        self._osm_client.update_sensor_name(str(self.sensor.get_attr(CONF_NAME)))
-        await self.update_previous_state()
-        await self.update_old_coordinates()
-        prev_last_place_name = self.sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
-
-        proceed_with_update: UpdateStatus = await self.check_device_tracker_and_update_coords()
-
-        if proceed_with_update == UpdateStatus.PROCEED:
-            proceed_with_update = await self.determine_update_criteria()
-
-        if proceed_with_update == UpdateStatus.PROCEED:
-            await self.process_osm_update(now=now)
-
-            if await self.should_update_state(now=now):
-                await self.handle_state_update(now=now, prev_last_place_name=prev_last_place_name)
-            else:
-                _LOGGER.info(
-                    "(%s) No entity update needed, Previous State = New State",
-                    self.sensor.get_attr(CONF_NAME),
-                )
-                await self.rollback_update(previous_attr, now, proceed_with_update)
-        else:
-            await self.rollback_update(previous_attr, now, proceed_with_update)
-
+        Args:
+            now: Timestamp for the completed update.
+        """
         self.sensor.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
         _LOGGER.info("(%s) End of Update", self.sensor.get_attr(CONF_NAME))
+
+    async def update_client_sensor_name(self) -> None:
+        """Sync the OSM client cache with the current sensor name."""
+        self._osm_client.update_sensor_name(str(self.sensor.get_attr(CONF_NAME)))
 
     async def handle_state_update(self, now: datetime, prev_last_place_name: str) -> None:
         """Finalize a successful update and persist the new sensor state.
