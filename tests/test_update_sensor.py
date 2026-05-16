@@ -583,6 +583,33 @@ async def test_get_zone_details_param(
 
 
 @pytest.mark.asyncio
+async def test_get_zone_details_uses_home_zone_friendly_name_from_state(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+) -> None:
+    """Default home zone state should resolve the configured zone friendly name."""
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
+    tracker_state = MagicMock(state="home", attributes={})
+    home_zone_state = MagicMock(attributes={ATTR_FRIENDLY_NAME: "Casa Concordia"})
+
+    mock_hass.states.get.side_effect = lambda entity_id: (
+        tracker_state
+        if entity_id == "device_tracker.person"
+        else home_zone_state
+        if entity_id == "zone.home"
+        else None
+    )
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    with stub_in_zone(sensor, True):
+        await updater.get_zone_details()
+
+    assert sensor.attrs[ATTR_DEVICETRACKER_ZONE] == "home"
+    assert sensor.attrs[ATTR_DEVICETRACKER_ZONE_NAME] == "Casa Concordia"
+
+
+@pytest.mark.asyncio
 async def test_process_osm_update_calls(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
