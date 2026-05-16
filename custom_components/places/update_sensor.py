@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import MutableMapping
 from datetime import UTC, datetime
-import json
 import logging
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
-import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -22,10 +19,8 @@ from homeassistant.const import (
     CONF_ZONE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
-    __version__ as ha_version,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     ATTR_DEVICETRACKER_ZONE,
@@ -76,14 +71,12 @@ from .const import (
     EVENT_TYPE,
     EXTENDED_ATTRIBUTE_LIST,
     OSM_CACHE,
-    OSM_THROTTLE,
-    OSM_THROTTLE_INTERVAL_SECONDS,
     RESET_ATTRIBUTE_LIST,
-    VERSION,
     UpdateStatus,
 )
 from .helpers import clear_since_from_state, is_float, safe_truncate, write_sensor_to_json
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
+from .osm_client import OSMClient
 from .parse_osm import OSMParser
 from .tracker import TrackerSnapshot, TrackerStatus
 
@@ -107,6 +100,7 @@ class PlacesUpdater:
         self.sensor = sensor
         self._config_entry: ConfigEntry = config_entry
         self._hass = hass
+        self._osm_client = OSMClient(hass=hass, sensor_name=str(sensor.get_attr(CONF_NAME)))
 
     async def do_update(self, reason: str, previous_attr: MutableMapping[str, Any]) -> None:
         """Run one complete update attempt.
@@ -675,18 +669,12 @@ class PlacesUpdater:
         Returns:
             Fully encoded Nominatim reverse lookup URL.
         """
-        base_url = "https://nominatim.openstreetmap.org/reverse?format=json"
-        params = {
-            "lat": self.sensor.get_attr_safe_float(ATTR_LATITUDE),
-            "lon": self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
-            "accept-language": self.sensor.get_attr(CONF_LANGUAGE) or "",
-            "addressdetails": "1",
-            "namedetails": "1",
-            "zoom": "18",
-            "limit": "1",
-            "email": self.sensor.get_attr(CONF_API_KEY) or "",
-        }
-        return f"{base_url}&{urlencode(params)}"
+        return OSMClient.reverse_url(
+            self.sensor.get_attr_safe_float(ATTR_LATITUDE),
+            self.sensor.get_attr_safe_float(ATTR_LONGITUDE),
+            self.sensor.get_attr(CONF_LANGUAGE) or "",
+            self.sensor.get_attr(CONF_API_KEY) or "",
+        )
 
     async def get_extended_attr(self) -> None:
         """Fetch optional OSM lookup details and related Wikidata payloads."""
@@ -707,20 +695,11 @@ class PlacesUpdater:
                 )
                 return
 
-            osm_details_url: str = (
-                "https://nominatim.openstreetmap.org/lookup?osm_ids="
-                f"{osm_type_abbr}{self.sensor.get_attr(ATTR_OSM_ID)}"
-                "&format=json&addressdetails=1&extratags=1&namedetails=1"
-                f"&email={
-                    self.sensor.get_attr(CONF_API_KEY)
-                    if not self.sensor.is_attr_blank(CONF_API_KEY)
-                    else ''
-                }"
-                f"&accept-language={
-                    self.sensor.get_attr(CONF_LANGUAGE)
-                    if not self.sensor.is_attr_blank(CONF_LANGUAGE)
-                    else ''
-                }"
+            osm_details_url: str = OSMClient.details_url(
+                osm_type_abbr=osm_type_abbr,
+                osm_id=self.sensor.get_attr(ATTR_OSM_ID),
+                language=self.sensor.get_attr(CONF_LANGUAGE) or "",
+                email=self.sensor.get_attr(CONF_API_KEY) or "",
             )
             await self.get_dict_from_url(
                 url=osm_details_url,
@@ -747,7 +726,9 @@ class PlacesUpdater:
 
                 self.sensor.set_attr(ATTR_WIKIDATA_DICT, {})
                 if not self.sensor.is_attr_blank(ATTR_WIKIDATA_ID):
-                    wikidata_url: str = f"https://www.wikidata.org/wiki/Special:EntityData/{self.sensor.get_attr(ATTR_WIKIDATA_ID)}.json"
+                    wikidata_url: str = OSMClient.wikidata_url(
+                        self.sensor.get_attr(ATTR_WIKIDATA_ID)
+                    )
                     await self.get_dict_from_url(
                         url=wikidata_url,
                         name="Wikidata",
@@ -762,100 +743,16 @@ class PlacesUpdater:
             name: Human-readable service name used in logs.
             dict_name: Sensor attribute that receives the parsed JSON mapping.
         """
-        osm_cache = self._hass.data[DOMAIN][OSM_CACHE]
-        if url in osm_cache:
-            self.sensor.set_attr(dict_name, osm_cache[url])
-            _LOGGER.debug(
-                "(%s) %s data loaded from cache (Cache size: %s)",
-                self.sensor.get_attr(CONF_NAME),
-                name,
-                len(osm_cache),
-            )
+        get_dict = await self._osm_client.get_json(url=url, name=name)
+        self.sensor.set_attr(dict_name, get_dict or {})
+        if get_dict is not None:
             return
 
-        throttle = self._hass.data[DOMAIN][OSM_THROTTLE]
-        async with throttle["lock"]:
-            now = asyncio.get_running_loop().time()
-            wait_time = max(0, OSM_THROTTLE_INTERVAL_SECONDS - (now - throttle["last_query"]))
-            if wait_time > 0:
-                await asyncio.sleep(wait_time)
-            throttle["last_query"] = asyncio.get_running_loop().time()
-
-            _LOGGER.info("(%s) Requesting data for %s", self.sensor.get_attr(CONF_NAME), name)
-            _LOGGER.debug("(%s) %s URL: %s", self.sensor.get_attr(CONF_NAME), name, url)
-            self.sensor.set_attr(dict_name, {})
-            user_agent = (
-                f"Mozilla/5.0 (Home Assistant/{ha_version}) "
-                f"{DOMAIN}/{VERSION} (+https://github.com/custom-components/places)"
-            )
-            headers: dict[str, str] = {"user-agent": user_agent}
-            get_dict = None
-
-            try:
-                session = async_get_clientsession(self._hass)
-                async with session.get(
-                    url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
-                    get_json_input = await response.text()
-                    _LOGGER.debug(
-                        "(%s) %s Response: %s",
-                        self.sensor.get_attr(CONF_NAME),
-                        name,
-                        get_json_input,
-                    )
-                    try:
-                        get_dict = json.loads(get_json_input)
-                    except json.decoder.JSONDecodeError as e:
-                        _LOGGER.warning(
-                            "(%s) JSON Decode Error with %s info [%s: %s]: %s",
-                            self.sensor.get_attr(CONF_NAME),
-                            name,
-                            type(e).__name__,
-                            e,
-                            get_json_input,
-                        )
-                        return
-            except (
-                TimeoutError,
-                aiohttp.ClientError,
-                aiohttp.ContentTypeError,
-                OSError,
-                RuntimeError,
-            ) as e:
-                _LOGGER.warning(
-                    "(%s) Error connecting to %s [%s: %s]: %s",
-                    self.sensor.get_attr(CONF_NAME),
-                    name,
-                    type(e).__name__,
-                    e,
-                    url,
-                )
-                return
-
-            if get_dict is None:
-                return
-
-            if "error_message" in get_dict:
-                _LOGGER.warning(
-                    "(%s) An error occurred contacting the web service for %s: %s",
-                    self.sensor.get_attr(CONF_NAME),
-                    name,
-                    get_dict.get("error_message"),
-                )
-                return
-
-            if (
-                isinstance(get_dict, list)
-                and len(get_dict) == 1
-                and isinstance(get_dict[0], MutableMapping)
-            ):
-                self.sensor.set_attr(dict_name, get_dict[0])
-                osm_cache[url] = get_dict[0]
-                return
-
-            self.sensor.set_attr(dict_name, get_dict)
-            osm_cache[url] = get_dict
+        if url in self._hass.data[DOMAIN][OSM_CACHE]:
             return
+
+        # Ensure no stale key survives when no payload was produced.
+        self._hass.data[DOMAIN][OSM_CACHE].pop(url, None)
 
     async def determine_if_update_needed(self) -> UpdateStatus:
         """Decide whether movement since the last update warrants geocoding.

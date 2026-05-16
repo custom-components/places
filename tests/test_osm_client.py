@@ -1,42 +1,24 @@
-"""Characterization tests for OSM request behavior."""
+"""Unit tests for shared OSM request behavior."""
 
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
 
 from homeassistant.core import HomeAssistant
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.places.const import (
-    ATTR_LATITUDE,
-    ATTR_LONGITUDE,
-    ATTR_OSM_DICT,
-    CONF_API_KEY,
-    CONF_LANGUAGE,
-    DOMAIN,
-    OSM_CACHE,
-    OSM_THROTTLE,
-)
-from custom_components.places.update_sensor import PlacesUpdater
-from tests.conftest import MockSensor
+from custom_components.places.const import DOMAIN, OSM_CACHE, OSM_THROTTLE
+from custom_components.places.osm_client import OSMClient
 
 
 @pytest.mark.asyncio
-async def test_reverse_osm_url_parameters(
-    mock_hass: HomeAssistant, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Reverse lookup URL parameters remain stable."""
-    sensor.attrs.update(
-        {
-            ATTR_LATITUDE: 40.123,
-            ATTR_LONGITUDE: -70.456,
-            CONF_LANGUAGE: "en,fr",
-            CONF_API_KEY: "person@example.com",
-        }
+async def test_reverse_url_matches_nominatim_query_contract(mock_hass: HomeAssistant) -> None:
+    """Reverse URL params remain stable for latitude/longitude lookup."""
+    url = OSMClient.reverse_url(
+        latitude=40.123,
+        longitude=-70.456,
+        language="en,fr",
+        email="person@example.com",
     )
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-
-    url = await updater.build_osm_url()
     parsed = urlparse(url)
     query = parse_qs(parsed.query)
 
@@ -53,29 +35,48 @@ async def test_reverse_osm_url_parameters(
 
 
 @pytest.mark.asyncio
-async def test_get_dict_from_url_uses_existing_cache(
-    mock_hass: HomeAssistant,
-    mock_config_entry: MockConfigEntry,
-    sensor: MockSensor,
-    monkeypatch: pytest.MonkeyPatch,
+async def test_get_json_uses_existing_cache_without_network(
+    mock_hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Cached OSM responses are used without network calls."""
-    url = "https://example.test/osm"
-    cached = {"place_id": 123}
+    """Cached OSM payloads are returned without session calls."""
     mock_hass.data = {
         DOMAIN: {
-            OSM_CACHE: {url: cached},
+            OSM_CACHE: {"https://example.test/osm": {"place_id": 123}},
             OSM_THROTTLE: {"lock": None, "last_query": 0.0},
         }
     }
+
     client_session_getter = AsyncMock()
     monkeypatch.setattr(
-        "custom_components.places.update_sensor.async_get_clientsession",
+        "custom_components.places.osm_client.async_get_clientsession",
         client_session_getter,
     )
 
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    await updater.get_dict_from_url(url=url, name="OpenStreetMaps", dict_name=ATTR_OSM_DICT)
+    client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
+    result = await client.get_json(url="https://example.test/osm", name="OpenStreetMaps")
 
-    assert sensor.attrs[ATTR_OSM_DICT] == cached
+    assert result == {"place_id": 123}
     client_session_getter.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_details_url_preserves_lookup_semantics() -> None:
+    """Lookup URL matches the historical query shape used by the integration."""
+    assert (
+        OSMClient.details_url(
+            osm_type_abbr="N",
+            osm_id="12345",
+            language="en",
+            email="person@example.com",
+        )
+        == "https://nominatim.openstreetmap.org/lookup?osm_ids=N12345&format=json&addressdetails=1&extratags=1&namedetails=1&email=person@example.com&accept-language=en"
+    )
+
+
+@pytest.mark.asyncio
+async def test_wikidata_url_preserves_lookup_semantics() -> None:
+    """Wikidata URL remains stable."""
+    assert (
+        OSMClient.wikidata_url("Q123")
+        == "https://www.wikidata.org/wiki/Special:EntityData/Q123.json"
+    )
