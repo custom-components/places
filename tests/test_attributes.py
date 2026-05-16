@@ -64,7 +64,7 @@ def test_places_attribute_cleanup_and_restore(places_instance: Places) -> None:
 async def test_places_attribute_restore_previous_attr(
     places_instance: Places,
 ) -> None:
-    """Rollback restores the exact previous mapping object content."""
+    """Rollback restores the exact previous mapping object and content."""
     previous: MutableMapping[str, object] = {
         CONF_NAME: "Restored",
         ATTR_NATIVE_VALUE: "Old State",
@@ -72,4 +72,5 @@ async def test_places_attribute_restore_previous_attr(
 
     await places_instance.restore_previous_attr(previous)
 
+    assert places_instance.get_internal_attr() is previous
     assert places_instance.get_internal_attr() == previous
