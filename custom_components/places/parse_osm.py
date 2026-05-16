@@ -64,6 +64,17 @@ class OSMParser:
         """
         self.sensor = sensor
 
+    def current_osm_dict(self) -> MutableMapping[str, Any]:
+        """Return the current OSM response mapping from sensor attributes."""
+        return self.sensor.get_attr_safe_dict(ATTR_OSM_DICT)
+
+    def current_address(self) -> MutableMapping[str, Any]:
+        """Return the current OSM address mapping from sensor attributes."""
+        address = self.current_osm_dict().get("address", {})
+        if isinstance(address, MutableMapping):
+            return address
+        return {}
+
     async def parse_osm_dict(self) -> None:
         """Parse the current OSM response stored on the sensor.
 
@@ -217,7 +228,7 @@ class OSMParser:
         ):
             self.sensor.set_attr(
                 ATTR_PLACE_NAME,
-                self.sensor.get_attr_safe_dict(ATTR_OSM_DICT).get("address", {}).get("retail"),
+                self.current_address().get("retail"),
             )
         _LOGGER.debug(
             "(%s) Place Name: %s",
@@ -309,7 +320,7 @@ class OSMParser:
         if "postcode" in address:
             self.sensor.set_attr(
                 ATTR_POSTAL_CODE,
-                self.sensor.get_attr_safe_dict(ATTR_OSM_DICT).get("address", {}).get("postcode"),
+                self.current_address().get("postcode"),
             )
 
     async def parse_miscellaneous(self, osm_dict: MutableMapping[str, Any]) -> None:
@@ -327,7 +338,7 @@ class OSMParser:
         if "osm_id" in osm_dict:
             self.sensor.set_attr(
                 ATTR_OSM_ID,
-                str(self.sensor.get_attr_safe_dict(ATTR_OSM_DICT).get("osm_id", "")),
+                str(self.current_osm_dict().get("osm_id", "")),
             )
         if "osm_type" in osm_dict:
             self.sensor.set_attr(

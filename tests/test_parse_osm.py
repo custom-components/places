@@ -291,6 +291,25 @@ async def test_set_address_details_retail_logic() -> None:
 
 
 @pytest.mark.asyncio
+async def test_parse_miscellaneous_osm_id_and_postcode_use_current_osm_dict(
+    sensor: MockSensor,
+) -> None:
+    """Parser keeps using the current OSM dictionary for derived fields."""
+    sensor.attrs[ATTR_OSM_DICT] = {
+        "osm_id": 12345,
+        "osm_type": "way",
+        "address": {"postcode": "07024"},
+    }
+    parser = OSMParser(sensor)
+
+    await parser.set_region_details(sensor.attrs[ATTR_OSM_DICT]["address"])
+    await parser.parse_miscellaneous(sensor.attrs[ATTR_OSM_DICT])
+
+    assert sensor.attrs[ATTR_OSM_ID] == "12345"
+    assert sensor.attrs[ATTR_POSTAL_CODE] == "07024"
+
+
+@pytest.mark.asyncio
 async def test_set_city_details_sets_city_clean(osm_parser: OSMParserFactory) -> None:
     """set_city_details should compute a cleaned city value and set ATTR_CITY_CLEAN accordingly."""
     address = {"city": "City of Springfield"}
