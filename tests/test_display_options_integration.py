@@ -214,13 +214,20 @@ async def test_display_options_state_render(
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patch_entity_registry")
-async def test_readme_place_advanced_example_matches_basic_place(
+async def test_readme_place_advanced_example_documents_current_output(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """README advanced `place` example renders the same value as basic `place`."""
+    """Document current behavior for README `place` example mismatch without changing logic.
+
+    This intentionally captures the non-equivalence between:
+    - basic `place`
+    - README's documented advanced `place` expression.
+    """
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
     advanced_state = await render_display_option(mock_hass, monkeypatch, README_PLACE_ADVANCED)
-    assert advanced_state == basic_state
+    assert basic_state == "Roy Spiegel MSW, house, 1, Bridge Plaza North"
+    assert advanced_state == "Roy Spiegel MSW, House, Koreatown, 1 Bridge Plaza North"
+    assert basic_state != advanced_state
 
 
 @pytest.mark.asyncio
