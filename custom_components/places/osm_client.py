@@ -145,6 +145,15 @@ class OSMClient:
                     url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     get_json_input = await response.text()
+                    if not 200 <= response.status < 300:
+                        _LOGGER.warning(
+                            "(%s) Error response from %s [%s]: %s",
+                            self._sensor_name,
+                            name,
+                            response.status,
+                            get_json_input,
+                        )
+                        return None
                     _LOGGER.debug(
                         "(%s) %s Response: %s",
                         self._sensor_name,

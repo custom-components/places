@@ -19,8 +19,7 @@ class AioClientMock(Protocol):
         """Register mocked responses for URL requests."""
 
 
-@pytest.mark.asyncio
-async def test_reverse_url_matches_nominatim_query_contract() -> None:
+def test_reverse_url_matches_nominatim_query_contract() -> None:
     """Reverse URL params remain stable for latitude/longitude lookup."""
     url = OSMClient.reverse_url(
         latitude=40.123,
@@ -96,8 +95,7 @@ async def test_get_json_returns_list_cache_copy(
     client_session_getter.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_details_url_preserves_lookup_semantics() -> None:
+def test_details_url_preserves_lookup_semantics() -> None:
     """Lookup URL matches the historical query shape used by the integration."""
     url = OSMClient.details_url(
         osm_type_abbr="N",
@@ -118,8 +116,7 @@ async def test_details_url_preserves_lookup_semantics() -> None:
     assert query["accept-language"] == ["en,fr"]
 
 
-@pytest.mark.asyncio
-async def test_wikidata_url_preserves_lookup_semantics() -> None:
+def test_wikidata_url_preserves_lookup_semantics() -> None:
     """Wikidata URL remains stable."""
     assert (
         OSMClient.wikidata_url("Q123")
@@ -168,3 +165,25 @@ async def test_get_json_caches_non_mapping_payload(
 
     assert payload == expected
     assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [429, 500, 503])
+async def test_get_json_returns_none_for_error_status_without_caching(
+    mock_hass: HomeAssistant, aioclient_mock: AioClientMock, status: int
+) -> None:
+    """Non-success HTTP responses are not parsed or cached as payloads."""
+    url = f"https://example.test/osm-{status}"
+    mock_hass.data = {
+        DOMAIN: {
+            OSM_CACHE: {},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+        }
+    }
+    aioclient_mock.get(url, status=status, text='{"error": "temporarily unavailable"}')
+    client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
+
+    payload = await client.get_json(url=url, name="OpenStreetMaps")
+
+    assert payload is None
+    assert url not in mock_hass.data[DOMAIN][OSM_CACHE]

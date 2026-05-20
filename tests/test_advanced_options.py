@@ -295,7 +295,7 @@ async def test_build_next_option_only_traverses_comma_prefixed_suffix(sensor: Mo
     parser = AdvancedOptionsParser(sensor, "zone_name[place_type]place_type")
     calls: list[str] = []
 
-    async def _side(opt: str, *args: object, **kwargs: object) -> object:
+    async def _side(opt: str, *_args: object, **_kwargs: object) -> object:
         calls.append(opt)
         return "Home" if opt == "zone_name" else "Restaurant"
 

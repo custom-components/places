@@ -36,33 +36,39 @@ class PlacesUpdatePipeline:
         await self.updater.log_update_start(reason)
         now: datetime = await self.updater.get_current_time()
         sensor = self.updater.sensor
+        proceed_with_update = UpdateStatus.SKIP
 
-        await self.updater.update_entity_name_and_cleanup()
-        await self.updater.update_client_sensor_name()
-        await self.updater.update_previous_state()
-        await self.updater.update_old_coordinates()
-        prev_last_place_name = sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
+        try:
+            await self.updater.update_entity_name_and_cleanup()
+            await self.updater.update_client_sensor_name()
+            await self.updater.update_previous_state()
+            await self.updater.update_old_coordinates()
+            prev_last_place_name = sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
 
-        proceed_with_update: UpdateStatus = (
-            await self.updater.check_device_tracker_and_update_coords()
-        )
-        if proceed_with_update == UpdateStatus.PROCEED:
-            proceed_with_update = await self.updater.determine_update_criteria()
+            proceed_with_update = await self.updater.check_device_tracker_and_update_coords()
+            if proceed_with_update == UpdateStatus.PROCEED:
+                proceed_with_update = await self.updater.determine_update_criteria()
 
-        if proceed_with_update == UpdateStatus.PROCEED:
-            await self.updater.process_osm_update(now=now)
+            if proceed_with_update == UpdateStatus.PROCEED:
+                await self.updater.process_osm_update(now=now)
 
-            if await self.updater.should_update_state(now=now):
-                await self.updater.handle_state_update(
-                    now=now, prev_last_place_name=prev_last_place_name
-                )
+                if await self.updater.should_update_state(now=now):
+                    await self.updater.handle_state_update(
+                        now=now, prev_last_place_name=prev_last_place_name
+                    )
+                else:
+                    _LOGGER.info(
+                        "(%s) No entity update needed, Previous State = New State",
+                        sensor.get_attr(CONF_NAME),
+                    )
+                    await self.updater.rollback_update(previous_attr, now, proceed_with_update)
             else:
-                _LOGGER.info(
-                    "(%s) No entity update needed, Previous State = New State",
-                    sensor.get_attr(CONF_NAME),
-                )
                 await self.updater.rollback_update(previous_attr, now, proceed_with_update)
-        else:
+        except Exception:
+            # This orchestration boundary must rollback partial state for any
+            # phase failure, then re-raise so Home Assistant can report it.
+            _LOGGER.exception("(%s) Error during Places update", sensor.get_attr(CONF_NAME))
             await self.updater.rollback_update(previous_attr, now, proceed_with_update)
-
-        await self.updater.finish_update(now=now)
+            raise
+        finally:
+            await self.updater.finish_update(now=now)

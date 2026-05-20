@@ -386,6 +386,7 @@ async def test_update_coordinates_variants_present_and_missing(
     """Parametrized-like variant: when tracker present set coords, when missing log warning."""
     # Present case
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker_state = MagicMock()
     tracker_state.attributes = {CONF_LATITUDE: 1.23, CONF_LONGITUDE: 4.56}
     mock_hass.states.get.return_value = tracker_state
@@ -1086,6 +1087,7 @@ async def test_has_valid_coordinates_param(
 ) -> None:
     """Test has_valid_coordinates for missing, bad, and valid lat/lon attributes."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     if tracker_attrs is not None:
         tracker.attributes = tracker_attrs
