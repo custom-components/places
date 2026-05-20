@@ -22,6 +22,11 @@ from homeassistant.core import HomeAssistant
 from .helpers import is_float
 
 
+def _float_or_none(value: Any) -> float | None:
+    """Convert a float-compatible value, returning ``None`` for invalid values."""
+    return float(value) if is_float(value) else None
+
+
 class TrackerStatus(Enum):
     """Enumeration of tracker snapshot resolution states."""
 
@@ -165,21 +170,9 @@ class TrackerSnapshot:
             status = TrackerStatus.MISSING_COORDINATES
         elif not is_float(latitude_value) or not is_float(longitude_value):
             status = TrackerStatus.INVALID_COORDINATES
-        latitude = (
-            float(latitude_value)
-            if isinstance(latitude_value, (int, float, str)) and is_float(latitude_value)
-            else None
-        )
-        longitude = (
-            float(longitude_value)
-            if isinstance(longitude_value, (int, float, str)) and is_float(longitude_value)
-            else None
-        )
-        gps_accuracy = (
-            float(gps_accuracy_value)
-            if isinstance(gps_accuracy_value, (int, float, str)) and is_float(gps_accuracy_value)
-            else None
-        )
+        latitude = _float_or_none(latitude_value)
+        longitude = _float_or_none(longitude_value)
+        gps_accuracy = _float_or_none(gps_accuracy_value)
 
         return cls(
             entity_id=entity_id,

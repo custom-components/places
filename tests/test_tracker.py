@@ -1,5 +1,6 @@
 """Characterization tests for tracked entity handling."""
 
+from decimal import Decimal
 from unittest.mock import MagicMock
 
 from homeassistant.const import (
@@ -130,6 +131,30 @@ async def test_tracker_attributes_with_get_only_preserves_ok_path(
 
     assert sensor.attrs[PLACES_ATTR_LATITUDE] == 1.23
     assert sensor.attrs[PLACES_ATTR_LONGITUDE] == 4.56
+
+
+async def test_tracker_float_like_coordinates_are_converted(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """Float-compatible non-primitive values update tracker coordinates."""
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
+    tracker = MagicMock()
+    tracker.attributes = {
+        CONF_LATITUDE: Decimal("1.23"),
+        CONF_LONGITUDE: Decimal("4.56"),
+        ATTR_GPS_ACCURACY: Decimal(7),
+    }
+    mock_hass.states.get.return_value = tracker
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    assert await updater.has_valid_coordinates() is True
+    await updater.update_coordinates()
+    snapshot = TrackerSnapshot.from_hass(mock_hass, "device_tracker.person")
+
+    assert sensor.attrs[PLACES_ATTR_LATITUDE] == 1.23
+    assert sensor.attrs[PLACES_ATTR_LONGITUDE] == 4.56
+    assert snapshot.status is TrackerStatus.OK
+    assert snapshot.gps_accuracy == 7.0
 
 
 async def test_tracker_get_without_default_treats_none_coordinates_as_missing(
