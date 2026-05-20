@@ -9,6 +9,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
@@ -59,6 +60,23 @@ async def test_tracker_missing_skips_update(
     result = await updater.is_devicetracker_set()
 
     assert result is UpdateStatus.SKIP
+
+
+@pytest.mark.parametrize("missing_tracker_id", [None, ""])
+async def test_tracker_blank_id_skips_without_state_lookup(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    missing_tracker_id: str | None,
+) -> None:
+    """Blank tracked entity IDs skip update before querying HA states."""
+    sensor.attrs[CONF_DEVICETRACKER_ID] = missing_tracker_id
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    result = await updater.is_devicetracker_set()
+
+    assert result is UpdateStatus.SKIP
+    mock_hass.states.get.assert_not_called()
 
 
 async def test_tracker_invalid_coordinates_skip_update(

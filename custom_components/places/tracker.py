@@ -58,9 +58,7 @@ class TrackerSnapshot:
         Returns:
             Snapshot describing tracker availability, state, and location data.
         """
-        has_entity_id = bool(entity_id)
-        state_obj: Any = hass.states.get(entity_id)
-        if not has_entity_id and state_obj is None:
+        if not entity_id:
             return cls(
                 entity_id=entity_id,
                 state=None,
@@ -72,6 +70,8 @@ class TrackerSnapshot:
                 zone_name=None,
                 entity_picture=None,
             )
+
+        state_obj: Any = hass.states.get(entity_id)
         if state_obj is None:
             return cls(
                 entity_id=entity_id,
