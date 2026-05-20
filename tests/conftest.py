@@ -10,6 +10,7 @@ import homeassistant.helpers.entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
 
 # Sentinel value that callers may use to indicate a previous attribute should be removed
@@ -378,6 +379,31 @@ def mock_hass() -> MagicMock:
     # any replacement methods to individual tests; do not assign it here
     # to avoid leaking state across tests.
     return hass_instance
+
+
+@pytest.fixture
+def mock_config_entry() -> MockConfigEntry:
+    """Provide a default Places config entry for unit tests."""
+    return MockConfigEntry(domain="places", data={"name": "Test Place"})
+
+
+@pytest.fixture
+def places_instance(
+    mock_hass: MagicMock,
+    patch_entity_registry: object,
+    mock_config_entry: MockConfigEntry,
+) -> Places:
+    """Provide a real Places sensor instance with minimal configuration."""
+    _ = patch_entity_registry
+    config = {"devicetracker_id": "device_tracker.test"}
+    return Places(
+        mock_hass,
+        config,
+        mock_config_entry,
+        "TestSensor",
+        "unique123",
+        {},
+    )
 
 
 class _DummyRegistry(er.EntityRegistry):

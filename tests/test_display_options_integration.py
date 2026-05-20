@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -118,6 +119,37 @@ BASE_INTERNAL_ATTR = {
     "place_name_no_dupe": "Roy Spiegel MSW",
 }
 
+README_PLACE_ADVANCED = (
+    "name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, street"
+)
+
+README_FORMATTED_PLACE_ADVANCED = (
+    "zone_name[driving, name_no_dupe[type(-, unclassified, category(-, highway))"
+    "[category(-, highway)], house_number, route_number(type(+, motorway, trunk))"
+    "[street[route_number]], neighborhood(type(house))], city_clean[county], state_abbr]"
+)
+
+
+async def render_display_option(
+    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch, display_option: str
+) -> str | None:
+    """Render one display option using the integration test attribute snapshot."""
+    config_entry = MockConfigEntry(domain="places", data={CONF_NAME: "Test Place"})
+    config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
+    sensor = Places(mock_hass, config, config_entry, "Test Place", "unique-id-123", {})
+    sensor._internal_attr = copy.deepcopy(BASE_INTERNAL_ATTR)
+    sensor.clear_attr(ATTR_NATIVE_VALUE)
+    sensor._attr_native_value = None
+    sensor.set_attr(CONF_DISPLAY_OPTIONS, display_option)
+    sensor.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
+    sensor.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
+    monkeypatch.setattr(sensor, "in_zone", AsyncMock(return_value=False), raising=False)
+    monkeypatch.setattr(sensor, "get_driving_status", AsyncMock(return_value=None), raising=False)
+
+    await sensor.process_display_options()
+
+    return sensor.get_attr(ATTR_NATIVE_VALUE)
+
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patch_entity_registry")
@@ -179,3 +211,46 @@ async def test_display_options_state_render(
         f"Display option '{display_option}' produced '{sensor.get_attr(ATTR_NATIVE_VALUE)}', "
         f"expected '{expected_state}'."
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("patch_entity_registry")
+async def test_readme_place_advanced_example_documents_current_output(
+    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Document current behavior for README `place` example mismatch without changing logic.
+
+    This intentionally captures the non-equivalence between:
+    - basic `place`
+    - README's documented advanced `place` expression.
+    """
+    basic_state = await render_display_option(mock_hass, monkeypatch, "place")
+    advanced_state = await render_display_option(mock_hass, monkeypatch, README_PLACE_ADVANCED)
+
+    assert basic_state
+    assert advanced_state
+    assert basic_state != advanced_state
+    assert "Koreatown" in advanced_state
+    assert "Koreatown" not in basic_state
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("patch_entity_registry")
+async def test_readme_formatted_place_advanced_example_matches_formatted_place(
+    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """README advanced formatted_place example renders the same value."""
+    formatted_state = await render_display_option(mock_hass, monkeypatch, "formatted_place")
+    advanced_state = await render_display_option(
+        mock_hass, monkeypatch, README_FORMATTED_PLACE_ADVANCED
+    )
+    assert advanced_state == formatted_state
+
+
+def test_readme_display_examples_are_documented() -> None:
+    """Assert that README still contains the two example advanced display strings."""
+    readme = Path(__file__).resolve().parent.parent / "README.md"
+    readme_contents = readme.read_text(encoding="utf-8")
+
+    assert README_PLACE_ADVANCED in readme_contents
+    assert README_FORMATTED_PLACE_ADVANCED in readme_contents

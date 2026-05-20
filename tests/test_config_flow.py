@@ -20,6 +20,21 @@ from custom_components.places.config_flow import (
     get_home_zone_entities,
     validate_display_options,
 )
+from custom_components.places.config_schema import user_schema
+from custom_components.places.const import (
+    CONF_DISPLAY_OPTIONS,
+    CONF_EXTENDED_ATTR,
+    CONF_SHOW_TIME,
+    CONF_USE_GPS,
+    DEFAULT_DATE_FORMAT,
+    DEFAULT_DISPLAY_OPTIONS,
+    DEFAULT_EXTENDED_ATTR,
+    DEFAULT_HOME_ZONE,
+    DEFAULT_MAP_PROVIDER,
+    DEFAULT_MAP_ZOOM,
+    DEFAULT_SHOW_TIME,
+    DEFAULT_USE_GPS,
+)
 
 type ConfigData = dict[str, object]
 type Errors = dict[str, str]
@@ -76,6 +91,32 @@ async def test_config_flow_user_step(mock_hass: MagicMock) -> None:
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "Test Place"
     assert result["data"] == user_input
+
+
+def test_user_schema_sets_expected_defaults() -> None:
+    """Ensure the extracted user schema injects the documented defaults."""
+    schema = user_schema(
+        [{"value": "device.test", "label": "Device Test"}],
+        [{"value": "zone.home", "label": "Home Zone"}],
+    )
+
+    validated = schema(
+        {
+            "name": "Test Place",
+            "devicetracker_id": "device.test",
+        }
+    )
+
+    assert validated["name"] == "Test Place"
+    assert validated["devicetracker_id"] == "device.test"
+    assert validated[CONF_DISPLAY_OPTIONS] == DEFAULT_DISPLAY_OPTIONS
+    assert validated["home_zone"] == DEFAULT_HOME_ZONE
+    assert validated["map_provider"] == DEFAULT_MAP_PROVIDER
+    assert validated["map_zoom"] == int(DEFAULT_MAP_ZOOM)
+    assert validated[CONF_USE_GPS] == DEFAULT_USE_GPS
+    assert validated[CONF_EXTENDED_ATTR] == DEFAULT_EXTENDED_ATTR
+    assert validated[CONF_SHOW_TIME] == DEFAULT_SHOW_TIME
+    assert validated["date_format"] == DEFAULT_DATE_FORMAT
 
 
 @pytest.mark.asyncio

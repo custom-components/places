@@ -75,6 +75,14 @@ class AdvancedOptionsParser:
             return
         await self.process_single_term(curr_options)
 
+    async def build_next_option(self, next_opt: str | None) -> None:
+        """Continue parsing after a comma-prefixed next expression."""
+        if not next_opt or len(next_opt) <= 1 or next_opt[0] != ",":
+            return
+        next_opt = next_opt[1:].strip()
+        if next_opt:
+            await self.build_from_advanced_options(next_opt)
+
     async def do_brackets_and_parens_count_match(self, curr_options: str) -> bool:
         """Check whether an option expression has balanced delimiters.
 
@@ -265,10 +273,7 @@ class AdvancedOptionsParser:
                     self.state_list.append(ret_state)
                 elif none_opt:
                     await self.build_from_advanced_options(none_opt.strip())
-            if next_opt and len(next_opt) > 1 and next_opt[0] == ",":
-                next_opt = next_opt[1:]
-                if next_opt:
-                    await self.build_from_advanced_options(next_opt.strip())
+            await self.build_next_option(next_opt)
             return
 
         # Parenthesis is first symbol
@@ -292,10 +297,7 @@ class AdvancedOptionsParser:
                     self.state_list.append(ret_state)
                 elif none_opt:
                     await self.build_from_advanced_options(none_opt.strip())
-            if next_opt and len(next_opt) > 1 and next_opt[0] == ",":
-                next_opt = next_opt[1:]
-                if next_opt:
-                    await self.build_from_advanced_options(next_opt.strip())
+            await self.build_next_option(next_opt)
 
     async def process_only_commas(self, curr_options: str) -> None:
         """Append values for a comma-separated list of simple options.

@@ -289,6 +289,23 @@ async def test_build_from_advanced_options_bracket_and_paren(sensor: MockSensor)
 
 
 @pytest.mark.asyncio
+async def test_build_next_option_only_traverses_comma_prefixed_suffix(sensor: MockSensor) -> None:
+    """Do not process malformed non-comma suffix text after a bracket option."""
+    sensor.attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant"}
+    parser = AdvancedOptionsParser(sensor, "zone_name[place_type]place_type")
+    calls: list[str] = []
+
+    async def _side(opt: str, *_args: object, **_kwargs: object) -> object:
+        calls.append(opt)
+        return "Home" if opt == "zone_name" else "Restaurant"
+
+    parser.get_option_state = AsyncMock(side_effect=_side)
+    await parser.build_from_advanced_options()
+    assert calls == ["zone_name"]
+    assert parser.state_list == ["Home"]
+
+
+@pytest.mark.asyncio
 async def test_build_from_advanced_options_empty_string(sensor: MockSensor) -> None:
     """No-op when advanced options string is empty."""
     sensor.attrs = {}

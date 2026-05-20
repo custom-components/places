@@ -19,7 +19,7 @@ import copy
 from datetime import timedelta
 import locale
 import logging
-from typing import Any, SupportsFloat, SupportsIndex, TypeVar
+from typing import Any, TypeVar
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
@@ -46,6 +46,7 @@ from homeassistant.helpers.event import EventStateChangedData, async_track_state
 from homeassistant.util import Throttle, slugify
 
 from .advanced_options import AdvancedOptionsParser
+from .attributes import PlacesAttributes
 from .basic_options import BasicOptionsParser
 from .const import (
     ATTR_DEVICETRACKER_ID,
@@ -76,7 +77,6 @@ from .const import (
     CONF_MAP_ZOOM,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
-    CONFIG_ATTRIBUTES_LIST,
     DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
@@ -91,8 +91,6 @@ from .const import (
     EVENT_TYPE,
     EXTENDED_ATTRIBUTE_LIST,
     EXTRA_STATE_ATTRIBUTE_LIST,
-    JSON_ATTRIBUTE_LIST,
-    JSON_IGNORE_ATTRIBUTE_LIST,
     OSM_CACHE,
     OSM_CACHE_MAX_AGE_HOURS,
     OSM_CACHE_MAX_SIZE,
@@ -212,7 +210,8 @@ class Places(SensorEntity):
         _LOGGER.debug("(%s) [Init] HASS TimeZone: %s", name, hass.config.time_zone)
 
         self.warn_if_device_tracker_prob = False
-        self._internal_attr: MutableMapping[str, Any] = {}
+        self._attributes = PlacesAttributes()
+        self._internal_attr: MutableMapping[str, Any] = self._attributes.data
         self.set_attr(ATTR_INITIAL_UPDATE, True)
         self._config_entry: ConfigEntry = config_entry
         self._hass: HomeAssistant = hass
@@ -359,7 +358,13 @@ class Places(SensorEntity):
         Returns:
             Internal sensor attribute mapping.
         """
+        self._sync_internal_attr()
         return self._internal_attr
+
+    def _sync_internal_attr(self) -> None:
+        """Synchronize direct ``_internal_attr`` assignment with the attribute store."""
+        if self._internal_attr is not self._attributes.data:
+            self._attributes.data = self._internal_attr
 
     def exclude_event_types(self) -> None:
         """Exclude high-cardinality Places update events from HA recorder."""
@@ -443,16 +448,10 @@ class Places(SensorEntity):
                 file. Imported and ignored keys are removed from this mapping.
         """
         self.set_attr(ATTR_INITIAL_UPDATE, False)
-        for attr in JSON_ATTRIBUTE_LIST:
-            if attr in json_attr:
-                self.set_attr(attr, json_attr.pop(attr, None))
+        self._attributes.import_json_attributes(json_attr)
         if not self.is_attr_blank(ATTR_NATIVE_VALUE):
             self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
 
-        # Remove attributes that are part of the Config and are explicitly not imported from JSON
-        for attr in CONFIG_ATTRIBUTES_LIST + JSON_IGNORE_ATTRIBUTE_LIST:
-            if attr in json_attr:
-                json_attr.pop(attr, None)
         if json_attr is not None and json_attr:
             _LOGGER.debug(
                 "(%s) [import_attributes] Attributes not imported: %s",
@@ -462,9 +461,8 @@ class Places(SensorEntity):
 
     def cleanup_attributes(self) -> None:
         """Remove blank attributes from the internal attribute mapping."""
-        for attr in list(self._internal_attr):
-            if self.is_attr_blank(attr):
-                self.clear_attr(attr)
+        self._sync_internal_attr()
+        self._attributes.cleanup()
 
     def is_attr_blank(self, attr: str) -> bool:
         """Return whether an internal attribute is absent or falsey except zero.
@@ -476,9 +474,8 @@ class Places(SensorEntity):
             ``True`` when the value is missing or falsey, with numeric zero
             treated as a meaningful value.
         """
-        if self._internal_attr.get(attr) or self._internal_attr.get(attr) == 0:
-            return False
-        return True
+        self._sync_internal_attr()
+        return self._attributes.is_blank(attr)
 
     def get_attr(self, attr: str | None, default: _AttrT | None = None) -> _AttrT | None:
         """Read an internal attribute with optional default handling.
@@ -491,9 +488,8 @@ class Places(SensorEntity):
             Stored value, ``default``, or ``None`` when the attribute is blank
             and no default was supplied.
         """
-        if attr is None or (default is None and self.is_attr_blank(attr)):
-            return None
-        return self._internal_attr.get(attr, default)
+        self._sync_internal_attr()
+        return self._attributes.get(attr, default)
 
     def get_attr_safe_str(self, attr: str | None, default: object | None = None) -> str:
         """Read an internal attribute as text without propagating conversion errors.
@@ -506,19 +502,8 @@ class Places(SensorEntity):
             String value, or an empty string when the value is missing or cannot
             be converted.
         """
-        value = self.get_attr(attr) if default is None else self.get_attr(attr, default)
-        if value is not None:
-            try:
-                return str(value)
-            except (ValueError, TypeError) as e:
-                _LOGGER.debug(
-                    "Unable to convert attribute value to string (%r): %s: %s",
-                    value,
-                    type(e).__name__,
-                    e,
-                )
-                return ""
-        return ""
+        self._sync_internal_attr()
+        return self._attributes.safe_str(attr, default)
 
     def get_attr_safe_float(self, attr: str | None, default: object | None = None) -> float:
         """Read an internal attribute as a float.
@@ -530,17 +515,8 @@ class Places(SensorEntity):
         Returns:
             Converted float value, or ``0.0`` when conversion is not possible.
         """
-        value: object | None = (
-            self.get_attr(attr) if default is None else self.get_attr(attr, default)
-        )
-        if value is None:
-            return 0.0
-        if not isinstance(value, str | bytes | bytearray | SupportsFloat | SupportsIndex):
-            return 0.0
-        try:
-            return float(value)
-        except TypeError, ValueError:
-            return 0.0
+        self._sync_internal_attr()
+        return self._attributes.safe_float(attr, default)
 
     def get_attr_safe_list(self, attr: str | None, default: object | None = None) -> list:
         """Read an internal attribute as a list.
@@ -552,12 +528,8 @@ class Places(SensorEntity):
         Returns:
             Stored list value, or an empty list for non-list values.
         """
-        value: object | None = (
-            self.get_attr(attr) if default is None else self.get_attr(attr, default)
-        )
-        if not isinstance(value, list):
-            return []
-        return value
+        self._sync_internal_attr()
+        return self._attributes.safe_list(attr, default)
 
     def get_attr_safe_dict(
         self, attr: str | None, default: MutableMapping[str, _AttrT] | None = None
@@ -571,10 +543,8 @@ class Places(SensorEntity):
         Returns:
             Stored mapping value, or an empty mapping for non-mapping values.
         """
-        value = self.get_attr(attr) if default is None else self.get_attr(attr, default)
-        if not isinstance(value, MutableMapping):
-            return {}
-        return value
+        self._sync_internal_attr()
+        return self._attributes.safe_dict(attr, default)
 
     def set_attr(self, attr: str, value: object | None = None) -> None:
         """Store a value in the internal attribute mapping.
@@ -583,8 +553,9 @@ class Places(SensorEntity):
             attr: Attribute key to update.
             value: Value to store.
         """
-        if attr:
-            self._internal_attr.update({attr: value})
+        self._sync_internal_attr()
+        self._attributes.set(attr, value)
+        self._internal_attr = self._attributes.data
 
     def clear_attr(self, attr: str) -> None:
         """Remove an internal attribute if present.
@@ -592,7 +563,9 @@ class Places(SensorEntity):
         Args:
             attr: Attribute key to remove.
         """
-        self._internal_attr.pop(attr, None)
+        self._sync_internal_attr()
+        self._attributes.clear(attr)
+        self._internal_attr = self._attributes.data
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     @callback
@@ -649,7 +622,7 @@ class Places(SensorEntity):
 
     async def async_cleanup_attributes(self) -> None:
         """Asynchronously remove blank attributes from the internal mapping."""
-        attrs: MutableMapping[str, Any] = copy.deepcopy(self._internal_attr)
+        attrs: MutableMapping[str, Any] = copy.deepcopy(self.get_internal_attr())
         for attr in attrs:
             if self.is_attr_blank(attr):
                 self.clear_attr(attr)
@@ -676,6 +649,7 @@ class Places(SensorEntity):
         Args:
             reason: Human-readable trigger reason used in logs.
         """
+        self._sync_internal_attr()
         updater = PlacesUpdater(hass=self._hass, config_entry=self._config_entry, sensor=self)
         await updater.do_update(reason=reason, previous_attr=copy.deepcopy(self._internal_attr))
 
@@ -693,7 +667,7 @@ class Places(SensorEntity):
         if "formatted_place" in display_options:
             basic_parser = BasicOptionsParser(
                 sensor=self,
-                internal_attr=self._internal_attr,
+                internal_attr=self.get_internal_attr(),
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
             )
             formatted_place = await basic_parser.build_formatted_place()
@@ -724,7 +698,7 @@ class Places(SensorEntity):
         elif not await self.in_zone():
             basic_parser = BasicOptionsParser(
                 sensor=self,
-                internal_attr=self._internal_attr,
+                internal_attr=self.get_internal_attr(),
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
             )
             state = await basic_parser.build_display()
@@ -765,7 +739,8 @@ class Places(SensorEntity):
             previous_attr: Attribute mapping captured before the failed or
                 skipped update.
         """
-        self._internal_attr = previous_attr
+        self._attributes.data = previous_attr
+        self._internal_attr = self._attributes.data
 
 
 class PlacesNoRecorder(Places):

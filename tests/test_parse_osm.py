@@ -279,15 +279,44 @@ async def test_set_address_details_sets_attrs(
 
 @pytest.mark.asyncio
 async def test_set_address_details_retail_logic() -> None:
-    """If place_name is blank and address contains retail, set place_name to the retail value."""
+    """If place_name is blank, use the address argument's retail value for place_name."""
     address = {"retail": "Shop"}
-    # Use a sensor that reports ATTR_PLACE_NAME as blank and has the OSM dict populated
+    # Use a sensor that reports ATTR_PLACE_NAME as blank and has stale OSM state
     sensor = mock_sensor(
-        attrs={ATTR_OSM_DICT: {"address": {"retail": "Shop"}}}, blank_attrs={ATTR_PLACE_NAME}
+        attrs={ATTR_OSM_DICT: {"address": {"retail": "Stale-Shop"}}},
+        blank_attrs={ATTR_PLACE_NAME},
     )
     parser = OSMParser(sensor)
     await parser.set_address_details(address)
     assert sensor.attrs[ATTR_PLACE_NAME] == "Shop"
+
+
+@pytest.mark.asyncio
+async def test_set_region_details_postcode_prefers_argument_over_sensor_state() -> None:
+    """Postcode should be derived from the explicit address argument, not stale sensor state."""
+    sensor = mock_sensor(attrs={ATTR_OSM_DICT: {"address": {"postcode": "07024"}}})
+    parser = OSMParser(sensor)
+
+    await parser.set_region_details({"state": "CA", "postcode": "90210", "county": "Orange"})
+
+    assert sensor.attrs[ATTR_POSTAL_CODE] == "90210"
+
+
+@pytest.mark.asyncio
+async def test_parse_miscellaneous_osm_id_prefers_argument_over_sensor_state(
+    sensor: MockSensor,
+) -> None:
+    """osm_id should be derived from the explicit osm_dict argument."""
+    sensor.attrs[ATTR_OSM_DICT] = {
+        "osm_id": 12345,
+        "osm_type": "way",
+        "address": {"postcode": "07024"},
+    }
+    parser = OSMParser(sensor)
+
+    await parser.parse_miscellaneous({"osm_id": 98765, "osm_type": "node"})
+
+    assert sensor.attrs[ATTR_OSM_ID] == "98765"
 
 
 @pytest.mark.asyncio

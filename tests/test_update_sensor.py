@@ -386,6 +386,7 @@ async def test_update_coordinates_variants_present_and_missing(
     """Parametrized-like variant: when tracker present set coords, when missing log warning."""
     # Present case
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker_state = MagicMock()
     tracker_state.attributes = {CONF_LATITUDE: 1.23, CONF_LONGITUDE: 4.56}
     mock_hass.states.get.return_value = tracker_state
@@ -775,6 +776,52 @@ async def test_get_dict_from_url_variants(
     assert mock_hass.data[DOMAIN][OSM_CACHE][url] == expected_attr
 
 
+@pytest.mark.asyncio
+async def test_get_dict_from_url_sets_empty_list_payload(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AioClientMock,
+    sensor: MockSensor,
+) -> None:
+    """Non-mapping list payloads are cached and set directly on sensor attributes."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    url = "http://example.com/empty-list"
+    if DOMAIN not in mock_hass.data:
+        mock_hass.data[DOMAIN] = {
+            OSM_CACHE: {},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+        }
+
+    register_aioclient(aioclient_mock, url, text="[]")
+    await updater.get_dict_from_url(url, "NetService", "dict_name")
+
+    assert sensor.attrs["dict_name"] == []
+    assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == []
+
+
+@pytest.mark.asyncio
+async def test_get_dict_from_url_removes_stale_cache_on_fetch_failure(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed fetch removes any stale cache entry for the requested URL."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    url = "http://example.com/stale"
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {url: {"stale": True}},
+        OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+    }
+
+    monkeypatch.setattr(updater._osm_client, "get_json", AsyncMock(return_value=None))
+
+    await updater.get_dict_from_url(url, "NetService", "dict_name")
+
+    assert sensor.attrs["dict_name"] == {}
+    assert url not in mock_hass.data[DOMAIN][OSM_CACHE]
+
+
 # Network-error case moved into parametrized `test_get_dict_from_url_variants`
 
 
@@ -1040,6 +1087,7 @@ async def test_has_valid_coordinates_param(
 ) -> None:
     """Test has_valid_coordinates for missing, bad, and valid lat/lon attributes."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     if tracker_attrs is not None:
         tracker.attributes = tracker_attrs
