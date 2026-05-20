@@ -21,6 +21,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.util import slugify
 
 from .const import (
     ATTR_DEVICETRACKER_ZONE,
@@ -473,6 +474,10 @@ class PlacesUpdater:
             devicetracker_zone_id: str | None = None
             if state is not None:
                 devicetracker_zone_id = state.attributes.get(CONF_ZONE)
+            if not devicetracker_zone_id and not self.sensor.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
+                devicetracker_zone_id = slugify(
+                    self.sensor.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
+                )
             if devicetracker_zone_id:
                 devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
                 devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
