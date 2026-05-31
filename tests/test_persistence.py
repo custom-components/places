@@ -24,12 +24,13 @@ from custom_components.places.persistence import (
 )
 
 
-def test_normalize_snapshot_keeps_persisted_attributes_and_native_value() -> None:
+def test_normalize_snapshot_keeps_json_attributes_and_native_value() -> None:
     """Persist only attributes that are valid for Places restore."""
     snapshot = {
         ATTR_CITY: "New York",
         ATTR_NATIVE_VALUE: "Koreatown",
         ATTR_DEVICETRACKER_ID: "device_tracker.person",
+        "json_filename": "places-entry.json",
         "unknown": "ignored",
     }
 
@@ -42,7 +43,7 @@ def test_normalize_snapshot_keeps_persisted_attributes_and_native_value() -> Non
 
 
 def test_normalize_snapshot_omits_datetime_values() -> None:
-    """Datetime values are omitted from persisted snapshots."""
+    """Datetime values are omitted to preserve the current JSON persistence contract."""
     snapshot = {
         ATTR_CITY: "New York",
         ATTR_NATIVE_VALUE: "Koreatown",
@@ -57,8 +58,8 @@ def test_normalize_snapshot_omits_datetime_values() -> None:
     }
 
 
-def test_normalize_snapshot_coerces_non_serializable_values() -> None:
-    """Non-serializable values for allowed keys are stringified."""
+def test_normalize_snapshot_coerces_non_json_values() -> None:
+    """Non-JSON values for allowed keys are stringified like the old writer fallback."""
     non_json = object()
     snapshot = {ATTR_CITY: non_json}
 
