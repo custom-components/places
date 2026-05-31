@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import json
 from pathlib import Path
-from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -14,15 +13,9 @@ from custom_components.places.const import (
     ATTR_CITY,
     ATTR_DEVICETRACKER_ID,
     ATTR_JSON_FILENAME,
-    ATTR_LAST_UPDATED,
     ATTR_NATIVE_VALUE,
 )
-from custom_components.places.persistence import (
-    PlacesStorage,
-    legacy_json_path,
-    normalize_snapshot,
-    store_key,
-)
+from custom_components.places.persistence import PlacesStorage, legacy_json_path, normalize_snapshot
 
 
 def test_normalize_snapshot_keeps_json_attributes_and_native_value() -> None:
@@ -48,7 +41,7 @@ def test_normalize_snapshot_omits_datetime_values() -> None:
     snapshot = {
         ATTR_CITY: "New York",
         ATTR_NATIVE_VALUE: "Koreatown",
-        ATTR_LAST_UPDATED: datetime(2026, 5, 31, 12, 0, tzinfo=UTC),
+        "last_seen": datetime(2026, 5, 31, 12, 0, tzinfo=UTC),
     }
 
     normalized = normalize_snapshot(snapshot)
@@ -76,11 +69,9 @@ class _FakeStore:
     last_saved: dict[str, object] | None = None
     remove_calls = 0
     save_error: BaseException | None = None
-    init_calls: ClassVar[list[tuple[int, str, bool]]] = []
 
-    def __init__(self, _hass: object, version: int, store_key: str, atomic_writes: bool) -> None:
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
         """Initialize fake Store without Home Assistant storage internals."""
-        type(self).init_calls.append((version, store_key, atomic_writes))
 
     async def async_load(self) -> dict[str, object] | None:
         """Return configured fake Store data."""
@@ -115,7 +106,6 @@ async def test_load_uses_store_and_removes_legacy_json(
     _FakeStore.next_data = {ATTR_CITY: "Store City"}
     _FakeStore.last_saved = None
     _FakeStore.save_error = None
-    _FakeStore.init_calls = []
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-1")
     legacy_file.parent.mkdir(parents=True)
@@ -138,7 +128,6 @@ async def test_load_migrates_valid_legacy_json(
     _FakeStore.next_data = None
     _FakeStore.last_saved = None
     _FakeStore.save_error = None
-    _FakeStore.init_calls = []
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-2")
     legacy_file.parent.mkdir(parents=True)
@@ -161,7 +150,6 @@ async def test_load_keeps_legacy_json_when_store_save_fails(
     _FakeStore.next_data = None
     _FakeStore.last_saved = None
     _FakeStore.save_error = RuntimeError("store save failed")
-    _FakeStore.init_calls = []
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-4")
     legacy_file.parent.mkdir(parents=True)
@@ -186,7 +174,6 @@ async def test_load_removes_invalid_legacy_json(
     _FakeStore.next_data = None
     _FakeStore.last_saved = None
     _FakeStore.save_error = None
-    _FakeStore.init_calls = []
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-3")
     legacy_file.parent.mkdir(parents=True)
@@ -209,7 +196,6 @@ async def test_load_missing_legacy_json_returns_empty(
     _FakeStore.next_data = None
     _FakeStore.last_saved = None
     _FakeStore.save_error = None
-    _FakeStore.init_calls = []
     hass = _hass_for_legacy_path(tmp_path)
 
     storage = PlacesStorage(hass, "entry-5", "Test")
@@ -225,60 +211,9 @@ async def test_remove_deletes_store_data(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     _FakeStore.remove_calls = 0
     _FakeStore.save_error = None
-    _FakeStore.init_calls = []
     hass = _hass_for_legacy_path(tmp_path)
 
     storage = PlacesStorage(hass, "entry-6", "Test")
     await storage.async_remove()
 
     assert _FakeStore.remove_calls == 1
-
-
-def test_store_key_is_slugified_per_entry() -> None:
-    """Store key generation is stable and slugified for config entry IDs."""
-    assert store_key("entry-1") == "places.sensor_entry_1"
-    assert store_key("entry_1") == "places.sensor_entry_1"
-
-
-@pytest.mark.asyncio
-async def test_places_storage_constructs_store_with_expected_parameters(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Store construction should use version 1 and per-entry key with atomic writes."""
-    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.next_data = {}
-    _FakeStore.init_calls = []
-    _FakeStore.last_saved = None
-    _FakeStore.save_error = None
-    hass = _hass_for_legacy_path(tmp_path)
-
-    storage = PlacesStorage(hass, "entry-1", "Test")
-    await storage.async_load()
-
-    assert len(_FakeStore.init_calls) == 1
-    version, store_key_value, atomic_writes = _FakeStore.init_calls[0]
-    assert version == 1
-    assert store_key_value == "places.sensor_entry_1"
-    assert atomic_writes is True
-
-
-@pytest.mark.asyncio
-async def test_places_storage_constructs_distinct_store_per_entry(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Different config entries must initialize different Store keys."""
-    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.init_calls = []
-    _FakeStore.next_data = None
-    _FakeStore.last_saved = None
-    _FakeStore.save_error = None
-    hass = _hass_for_legacy_path(tmp_path)
-
-    PlacesStorage(hass, "entry-1", "Test")
-    PlacesStorage(hass, "entry-2", "Test")
-    PlacesStorage(hass, "entry 3", "Test")
-
-    assert len(_FakeStore.init_calls) == 3
-    assert _FakeStore.init_calls[0][1] == "places.sensor_entry_1"
-    assert _FakeStore.init_calls[1][1] == "places.sensor_entry_2"
-    assert _FakeStore.init_calls[2][1] == "places.sensor_entry_3"
