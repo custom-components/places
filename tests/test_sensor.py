@@ -551,41 +551,6 @@ async def test_async_setup_entry_places_param(
     assert kwargs.get("update_before_add") is True
 
 
-def test_exclude_event_types_adds_event() -> None:
-    """Test that exclude_event_types adds EVENT_TYPE to the recorder's exclude_event_types set."""
-
-    class Recorder:
-        """Minimal recorder object exposing the event exclusion set."""
-
-        def __init__(self) -> None:
-            """Initialize an empty set of excluded event types."""
-            self.exclude_event_types: set[str] = set()
-
-    recorder = Recorder()
-    hass = MagicMock()
-    hass.data = {RECORDER_INSTANCE: recorder}
-    places_instance = MagicMock(spec=Places)
-    places_instance._hass = hass
-    places_instance.get_attr = MagicMock(return_value="TestName")
-    Places.exclude_event_types(places_instance)
-
-    # Assert EVENT_TYPE was added
-    assert EVENT_TYPE in recorder.exclude_event_types
-
-
-def test_exclude_event_types_no_recorder() -> None:
-    """Test that exclude_event_types does nothing when no recorder instance is present in hass.data."""
-    hass = MagicMock()
-    hass.data = {}
-    places_instance = MagicMock(spec=Places)
-    places_instance._hass = hass
-    places_instance.get_attr = MagicMock(return_value="TestName")
-    Places.exclude_event_types(places_instance)
-
-    # Nothing should happen, no error
-    assert RECORDER_INSTANCE not in hass.data
-
-
 @pytest.mark.parametrize(
     ("recorder_present", "expected_in_set"),
     [
