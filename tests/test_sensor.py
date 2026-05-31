@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import AbstractContextManager
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -41,7 +42,39 @@ def places_instance(mock_hass: MagicMock, patch_entity_registry: object) -> Plac
     name = "TestSensor"
     unique_id = "unique123"
     imported_attributes: dict[str, object] = {}
-    return Places(hass, config, config_entry, name, unique_id, imported_attributes)
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    return Places(
+        hass,
+        config,
+        config_entry,
+        name,
+        unique_id,
+        imported_attributes,
+        persistence,
+    )
+
+
+class _FakePlacesStorage:
+    """PlacesStorage test double used by async_setup_entry."""
+
+    instances: ClassVar[list[_FakePlacesStorage]] = []
+
+    def __init__(self, hass: object, entry_id: str, name: str) -> None:
+        """Record construction arguments for assertions."""
+        self.hass = hass
+        self.entry_id = entry_id
+        self.name = name
+        self.saved: list[dict[str, object]] = []
+        self.instances.append(self)
+
+    async def async_load(self) -> dict[str, object]:
+        """Return attributes used to initialize sensor state."""
+        return {"native_value": "Restored"}
+
+    async def async_save(self, attributes: dict[str, object]) -> None:
+        """Record the attributes the sensor asks to persist."""
+        self.saved.append(dict(attributes))
 
 
 @pytest.mark.parametrize(
@@ -174,13 +207,13 @@ def test_get_internal_attr_returns_dict(places_instance: Places) -> None:
 def test_import_attributes_from_json(
     monkeypatch: pytest.MonkeyPatch, places_instance: Places
 ) -> None:
-    """Test that attributes are correctly imported from a JSON dictionary, respecting configured attribute lists and ignoring specified keys."""
+    """Test that attributes are correctly imported from persisted data."""
     monkeypatch.setattr("custom_components.places.attributes.JSON_ATTRIBUTE_LIST", ["a", "b"])
     monkeypatch.setattr("custom_components.places.attributes.CONFIG_ATTRIBUTES_LIST", ["c"])
     monkeypatch.setattr("custom_components.places.attributes.JSON_IGNORE_ATTRIBUTE_LIST", ["d"])
     monkeypatch.setattr("custom_components.places.sensor.ATTR_NATIVE_VALUE", "native_value")
     json_attr = {"a": 1, "b": 2, "c": 3, "d": 4, "native_value": "nv"}
-    places_instance.import_attributes_from_json(json_attr)
+    places_instance.import_persisted_attributes(json_attr)
     assert places_instance.get_attr("a") == 1
     assert places_instance.get_attr("b") == 2
     # The import only sets _attr_native_value if ATTR_NATIVE_VALUE is not blank
@@ -429,7 +462,6 @@ async def test_async_setup_entry_places_param(
     # use shared mock_hass fixture to provide common mocked hass behavior
     hass = mock_hass
     hass.data = {}
-    hass.config.path = lambda *args: "/tmp/json_sensors"
     config_entry = MockConfigEntry(
         domain="places",
         data={
@@ -460,17 +492,18 @@ async def test_async_setup_entry_places_param(
 
     async_add_entities = _Adder()
 
-    # Patch helpers and the appropriate Places class
-    monkeypatch.setattr("custom_components.places.sensor.create_json_folder", lambda path: None)
-    monkeypatch.setattr(
-        "custom_components.places.sensor.get_dict_from_json_file", lambda name, filename, folder: {}
-    )
+    # Patch persistence and the appropriate Places class
+    _FakePlacesStorage.instances = []
+    monkeypatch.setattr("custom_components.places.sensor.PlacesStorage", _FakePlacesStorage)
     monkeypatch.setattr(f"custom_components.places.sensor.{patched_class}", MagicMock())
 
     with stub_method(
         hass, "async_add_executor_job", side_effect=lambda func, *a: func(*a), restore_original=True
     ):
         await async_setup_entry(hass, config_entry, async_add_entities)
+
+    assert _FakePlacesStorage.instances
+    assert _FakePlacesStorage.instances[0].entry_id == config_entry.entry_id
 
     # Should call async_add_entities once and pass update_before_add=True
     assert async_add_entities.call_count == 1
@@ -560,55 +593,32 @@ async def test_async_will_remove_from_hass_param(
     extended_attr: bool,
     recorder_present: bool,
 ) -> None:
-    """Parametrized: async_will_remove_from_hass handles JSON removal and recorder exclusion paths."""
-    # Setup common executor job passthrough
-    cm_async_add = stub_method(
-        places_instance._hass,
-        "async_add_executor_job",
-        side_effect=lambda func, *args: func(*args),
-        restore_original=True,
-    )
-    with cm_async_add:
-        # Configure get_attr response
-        def get_attr(k: str) -> object:
-            """Return attributes needed by async_will_remove_from_hass.
+    """Parametrized: async_will_remove_from_hass handles recorder exclusion only."""
 
-            Args:
-                k: Attribute name requested by the Places instance.
+    def get_attr(k: str) -> object:
+        """Return attributes needed by async_will_remove_from_hass."""
+        mapping = {"name": "TestName", "extended_attr": extended_attr}
+        return mapping.get(k)
 
-            Returns:
-                Test value for the requested attribute, or ``None``.
-            """
-            mapping = {
-                "name": "TestName",
-                "json_filename": "file.json",
-                "json_folder": "/tmp",
-                "extended_attr": extended_attr,
-            }
-            return mapping.get(k)
+    places_instance.get_attr = MagicMock(side_effect=get_attr)
 
-        places_instance.get_attr = MagicMock(side_effect=get_attr)
+    # Prepare recorder if needed
+    recorder = MagicMock() if recorder_present else None
+    if recorder_present:
+        recorder.exclude_event_types = {EVENT_TYPE}
+        places_instance._hass.data = {RECORDER_INSTANCE: recorder}
+        places_instance._config_entry.runtime_data = {
+            "entity1": {"extended_attr": True},
+            "entity2": {"extended_attr": False},
+        }
+        places_instance._attr_name = "TestName"
+        places_instance._entity_id = "sensor.test"
+    else:
+        places_instance._hass.data = {}
 
-        # Prepare recorder if needed
-        recorder = MagicMock() if recorder_present else None
-        if recorder_present:
-            recorder.exclude_event_types = {EVENT_TYPE}
-            places_instance._hass.data = {RECORDER_INSTANCE: recorder}
-            places_instance._config_entry.runtime_data = {
-                "entity1": {"extended_attr": True},
-                "entity2": {"extended_attr": False},
-            }
-            places_instance._attr_name = "TestName"
-            places_instance._entity_id = "sensor.test"
-        else:
-            places_instance._hass.data = {}
-
-        # Replace remove_json_file with a noop to avoid actual file ops
-        monkeypatch.setattr("custom_components.places.sensor.remove_json_file", lambda *a: None)
-
-        mock_logger = MagicMock()
-        monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
-        await places_instance.async_will_remove_from_hass()
+    mock_logger = MagicMock()
+    monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
+    await places_instance.async_will_remove_from_hass()
 
     assert scenario in {"remove_json", "remove_event_exclusion"}
     if recorder_present:
@@ -617,7 +627,6 @@ async def test_async_will_remove_from_hass_param(
             "(%s) Removing entity exclusion from recorder: %s", "TestName", "sensor.test"
         )
     else:
-        # No exceptions and remove_json_file was called via executor; nothing to assert beyond success
         assert True
 
 
