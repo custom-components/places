@@ -13,7 +13,6 @@ import pytest
 from custom_components.places.const import (
     ATTR_CITY,
     ATTR_DEVICETRACKER_ID,
-    ATTR_JSON_FILENAME,
     ATTR_LAST_UPDATED,
     ATTR_NATIVE_VALUE,
 )
@@ -31,7 +30,7 @@ def test_normalize_snapshot_keeps_json_attributes_and_native_value() -> None:
         ATTR_CITY: "New York",
         ATTR_NATIVE_VALUE: "Koreatown",
         ATTR_DEVICETRACKER_ID: "device_tracker.person",
-        ATTR_JSON_FILENAME: "places-entry.json",
+        "json_filename": "places-entry.json",
         "unknown": "ignored",
     }
 
