@@ -262,7 +262,6 @@ class MockSensor:
         self.set_native_value.assert_any_call = self._set_native_value_mock.assert_any_call
         self.async_cleanup_attributes = AsyncMock()
         self.restore_previous_attr = AsyncMock(side_effect=self._restore_previous_attr)
-        self.async_persist_attributes = AsyncMock()
         self.get_internal_attr = lambda: self.attrs
 
     def _set_attr(self, key: str, value: object) -> None:
@@ -397,9 +396,6 @@ def places_instance(
     """Provide a real Places sensor instance with minimal configuration."""
     _ = patch_entity_registry
     config = {"devicetracker_id": "device_tracker.test"}
-    persistence = MagicMock()
-    persistence.async_save = AsyncMock()
-    persistence.async_remove = AsyncMock()
     return Places(
         mock_hass,
         config,
@@ -407,7 +403,6 @@ def places_instance(
         "TestSensor",
         "unique123",
         {},
-        persistence,
     )
 
 

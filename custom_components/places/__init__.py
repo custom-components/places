@@ -7,8 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import CONF_NAME, DOMAIN, PLATFORMS
-from .persistence import PlacesStorage
+from .const import DOMAIN, PLATFORMS
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -34,12 +33,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     return unload_ok
-
-
-async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Remove config-entry specific persisted state."""
-    _LOGGER.info("Removing: %s", entry.data)
-    await PlacesStorage(
-        hass=hass, entry_id=entry.entry_id, name=entry.data.get(CONF_NAME, entry.entry_id)
-    ).async_remove()
-    return True

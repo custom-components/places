@@ -25,7 +25,7 @@ import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.zone import ATTR_PASSIVE
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_ICON,
@@ -60,6 +60,8 @@ from .const import (
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
+    ATTR_JSON_FILENAME,
+    ATTR_JSON_FOLDER,
     ATTR_NATIVE_VALUE,
     ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
@@ -95,8 +97,7 @@ from .const import (
     OSM_THROTTLE,
     PLATFORM,
 )
-from .helpers import is_float
-from .persistence import PlacesStorage
+from .helpers import create_json_folder, get_dict_from_json_file, is_float, remove_json_file
 from .update_sensor import PlacesUpdater
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -124,8 +125,12 @@ async def async_setup_entry(
     config: MutableMapping[str, Any] = dict(config_entry.data)
     unique_id: str = config_entry.entry_id
     name: str = config[CONF_NAME]
-    persistence = PlacesStorage(hass=hass, entry_id=unique_id, name=name)
-    imported_attributes: MutableMapping[str, Any] = await persistence.async_load()
+    json_folder: str = hass.config.path("custom_components", DOMAIN, "json_sensors")
+    await hass.async_add_executor_job(create_json_folder, json_folder)
+    filename: str = f"{DOMAIN}-{slugify(unique_id)}.json"
+    imported_attributes: MutableMapping[str, Any] = await hass.async_add_executor_job(
+        get_dict_from_json_file, name, filename, json_folder
+    )
     # _LOGGER.debug("[async_setup_entry] name: %s", name)
     # _LOGGER.debug("[async_setup_entry] unique_id: %s", unique_id)
     # _LOGGER.debug("[async_setup_entry] config: %s", config)
@@ -153,7 +158,6 @@ async def async_setup_entry(
                     name=name,
                     unique_id=unique_id,
                     imported_attributes=imported_attributes,
-                    persistence=persistence,
                 )
             ],
             update_before_add=True,
@@ -168,7 +172,6 @@ async def async_setup_entry(
                     name=name,
                     unique_id=unique_id,
                     imported_attributes=imported_attributes,
-                    persistence=persistence,
                 )
             ],
             update_before_add=True,
@@ -186,7 +189,6 @@ class Places(SensorEntity):
         name: str,
         unique_id: str,
         imported_attributes: MutableMapping[str, Any],
-        persistence: PlacesStorage,
     ) -> None:
         """Initialize a Places sensor and restore persisted attributes.
 
@@ -197,8 +199,7 @@ class Places(SensorEntity):
             name: User-facing sensor name.
             unique_id: Stable Home Assistant unique ID.
             imported_attributes: Previously persisted sensor attributes loaded
-                from Store.
-            persistence: Store-backed persistence for this config entry.
+                from JSON.
         """
         self._attr_should_poll = True
         _LOGGER.info("(%s) [Init] Places sensor: %s", name, name)
@@ -214,12 +215,13 @@ class Places(SensorEntity):
         self.set_attr(ATTR_INITIAL_UPDATE, True)
         self._config_entry: ConfigEntry = config_entry
         self._hass: HomeAssistant = hass
-        self._persistence: PlacesStorage = persistence
         self.set_attr(CONF_NAME, name)
         self._attr_name: str = name
         self.set_attr(CONF_UNIQUE_ID, unique_id)
         self._attr_unique_id: str = unique_id
         registry: er.EntityRegistry | None = er.async_get(self._hass)
+        json_folder: str = hass.config.path("custom_components", DOMAIN, "json_sensors")
+        _LOGGER.debug("json_sensors Location: %s", json_folder)
         current_entity_id: str | None = None
         if registry:
             current_entity_id = registry.async_get_entity_id(PLATFORM, DOMAIN, self._attr_unique_id)
@@ -264,7 +266,17 @@ class Places(SensorEntity):
             config.setdefault(CONF_DATE_FORMAT, DEFAULT_DATE_FORMAT).lower(),
         )
         self.set_attr(CONF_USE_GPS, config.setdefault(CONF_USE_GPS, DEFAULT_USE_GPS))
+        self.set_attr(
+            ATTR_JSON_FILENAME,
+            f"{DOMAIN}-{slugify(str(self.get_attr(CONF_UNIQUE_ID)))}.json",
+        )
+        self.set_attr(ATTR_JSON_FOLDER, json_folder)
         self.set_attr(ATTR_DISPLAY_OPTIONS, self.get_attr(CONF_DISPLAY_OPTIONS))
+        _LOGGER.debug(
+            "(%s) [Init] JSON Filename: %s",
+            self.get_attr(CONF_NAME),
+            self.get_attr(ATTR_JSON_FILENAME),
+        )
 
         self._attr_native_value = None  # Represents the state in SensorEntity
         self.clear_attr(ATTR_NATIVE_VALUE)
@@ -305,7 +317,7 @@ class Places(SensorEntity):
         )
         self.set_attr(ATTR_SHOW_DATE, False)
 
-        self.import_persisted_attributes(imported_attributes)
+        self.import_attributes_from_json(imported_attributes)
         ##
         # For debugging:
         # imported_attributes = {}
@@ -315,8 +327,7 @@ class Places(SensorEntity):
         ##
         if not self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.debug(
-                "(%s) [Init] Sensor attributes imported from persisted snapshot",
-                self.get_attr(CONF_NAME),
+                "(%s) [Init] Sensor Attributes Imported from JSON file", self.get_attr(CONF_NAME)
             )
         self.cleanup_attributes()
         if self.get_attr(CONF_EXTENDED_ATTR):
@@ -382,27 +393,25 @@ class Places(SensorEntity):
         )
 
     async def async_will_remove_from_hass(self) -> None:
-        """Clean up recorder exclusions before entity removal."""
-        if (
-            RECORDER_INSTANCE in self._hass.data
-            and self.get_attr(CONF_EXTENDED_ATTR)
-            and self._hass.config_entries is not None
-        ):
+        """Clean up persisted state and recorder exclusions before entity removal."""
+        await self._hass.async_add_executor_job(
+            remove_json_file,
+            self.get_attr_safe_str(CONF_NAME),
+            self.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.get_attr_safe_str(ATTR_JSON_FOLDER),
+        )
+
+        if RECORDER_INSTANCE in self._hass.data and self.get_attr(CONF_EXTENDED_ATTR):
             _LOGGER.debug(
                 "(%s) Removing entity exclusion from recorder: %s", self._attr_name, self._entity_id
             )
-            # Only remove recorder exclusion when no other loaded Places entries
-            # still have extended_attr enabled.
-            extended_count = 0
-            for config_entry in self._hass.config_entries.async_entries(DOMAIN):
-                if config_entry is self._config_entry:
-                    continue
-                if config_entry.state is ConfigEntryState.LOADED and config_entry.data.get(
-                    CONF_EXTENDED_ATTR
-                ):
-                    extended_count += 1
+            # Only do this if no places entities with extended_attr exist
+            ex_attr_count = 0
+            for ent in self._config_entry.runtime_data.values():
+                if ent.get(CONF_EXTENDED_ATTR):
+                    ex_attr_count += 1
 
-            if extended_count == 0:
+            if (self.get_attr(CONF_EXTENDED_ATTR) and ex_attr_count == 1) or ex_attr_count == 0:
                 _LOGGER.debug(
                     "(%s) Removing event exclusion from recorder: %s",
                     self.get_attr(CONF_NAME),
@@ -431,27 +440,23 @@ class Places(SensorEntity):
         # _LOGGER.debug("(%s) Extra State Attributes: %s", self.get_attr(CONF_NAME), return_attr)
         return return_attr
 
-    async def async_persist_attributes(self) -> None:
-        """Persist the current runtime attributes to Home Assistant Store."""
-        await self._persistence.async_save(self.get_internal_attr())
-
-    def import_persisted_attributes(self, persisted_attr: MutableMapping[str, Any]) -> None:
-        """Restore persisted runtime attributes from a stored snapshot.
+    def import_attributes_from_json(self, json_attr: MutableMapping[str, Any]) -> None:
+        """Restore persisted runtime attributes from the JSON snapshot.
 
         Args:
-            persisted_attr: Mapping loaded from persisted data.
-                Imported and ignored keys are removed from this mapping.
+            json_attr: Mutable mapping loaded from the sensor's persisted JSON
+                file. Imported and ignored keys are removed from this mapping.
         """
         self.set_attr(ATTR_INITIAL_UPDATE, False)
-        self._attributes.import_persisted_attributes(persisted_attr)
+        self._attributes.import_json_attributes(json_attr)
         if not self.is_attr_blank(ATTR_NATIVE_VALUE):
             self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
 
-        if persisted_attr is not None and persisted_attr:
+        if json_attr is not None and json_attr:
             _LOGGER.debug(
-                "(%s) [import_persisted_attributes] Attributes not imported: %s",
+                "(%s) [import_attributes] Attributes not imported: %s",
                 self.get_attr(CONF_NAME),
-                persisted_attr,
+                json_attr,
             )
 
     def cleanup_attributes(self) -> None:
