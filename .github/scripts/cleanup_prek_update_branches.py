@@ -209,9 +209,10 @@ def cleanup_update_branches(
     protected_branches: set[str] = set()
     branches_to_delete: set[str] = set()
 
-    open_pulls = [
+    all_open_pulls = client.list_pulls(state="open")
+    workflow_open_pulls = [
         pull
-        for pull in client.list_pulls(state="open")
+        for pull in all_open_pulls
         if _is_workflow_pull(
             pull,
             repository=repository,
@@ -222,12 +223,18 @@ def cleanup_update_branches(
             body_marker=body_marker,
         )
     ]
-    latest_open_pr_number = (
-        max((_pull_number(pull) for pull in open_pulls), default=None)
-        if keep_latest_open_pr
-        else None
+    workflow_open_pull_numbers = {_pull_number(pull) for pull in workflow_open_pulls}
+    protected_branches.update(
+        head_ref
+        for pull in all_open_pulls
+        if _pull_number(pull) not in workflow_open_pull_numbers
+        and (head_ref := _same_repo_head_ref(pull, repository=repository)) is not None
+        and head_ref.startswith(branch_prefix)
     )
-    for pull in open_pulls:
+    latest_open_pr_number = (
+        max(workflow_open_pull_numbers, default=None) if keep_latest_open_pr else None
+    )
+    for pull in workflow_open_pulls:
         pull_number = _pull_number(pull)
         head_ref = _head_ref(pull)
         if pull_number in {keep_pr_number, latest_open_pr_number}:
@@ -266,6 +273,28 @@ def cleanup_update_branches(
         result.deleted_branches.append(branch_name)
 
     return result
+
+
+def _same_repo_head_ref(pull: Mapping[str, object], *, repository: str) -> str | None:
+    """Return the head ref when a pull request head belongs to this repository.
+
+    Args:
+        pull: Pull request object.
+        repository: Repository in ``owner/name`` format.
+
+    Returns:
+        Same-repository head ref, or None for malformed or forked PR heads.
+    """
+    head = pull.get("head", {})
+    if not isinstance(head, dict):
+        return None
+    head_ref = head.get("ref")
+    if not isinstance(head_ref, str):
+        return None
+    head_repo = head.get("repo", {})
+    if not isinstance(head_repo, dict) or head_repo.get("full_name") != repository:
+        return None
+    return head_ref
 
 
 def _branch_from_ref(ref: str) -> str:

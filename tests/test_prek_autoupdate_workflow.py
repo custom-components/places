@@ -73,6 +73,7 @@ def _workflow_pull(
     label: str = WORKFLOW_LABEL,
     author: str = WORKFLOW_AUTHOR,
     body: str = WORKFLOW_BODY_MARKER,
+    repository: str = REPOSITORY,
     merged_at: str | None = None,
 ) -> dict[str, object]:
     """Return a fake workflow pull request object.
@@ -83,6 +84,7 @@ def _workflow_pull(
         label: Pull request label name.
         author: Pull request author login.
         body: Pull request body text.
+        repository: Head repository full name.
         merged_at: Optional merge timestamp for closed PRs.
 
     Returns:
@@ -93,7 +95,7 @@ def _workflow_pull(
         "merged_at": merged_at,
         "body": body,
         "user": {"login": author},
-        "head": {"ref": ref, "repo": {"full_name": REPOSITORY}},
+        "head": {"ref": ref, "repo": {"full_name": repository}},
         "labels": [{"name": label}],
     }
 
@@ -332,6 +334,54 @@ def test_cleanup_script_deletes_orphaned_workflow_branches(cleanup_script: Modul
         f"{WORKFLOW_BRANCH}-manual",
         f"{WORKFLOW_BRANCH}-orphan",
     ]
+
+
+def test_cleanup_script_preserves_open_non_workflow_pr_branches(
+    cleanup_script: ModuleType,
+) -> None:
+    """Cleanup script should not delete branches used by open non-workflow PRs."""
+    client = FakeCleanupClient(
+        open_pulls=[
+            _workflow_pull(number=18),
+            _workflow_pull(
+                number=19,
+                ref=f"{WORKFLOW_BRANCH}-manual-fix",
+                author="maintainer",
+                body="Manual maintenance PR.",
+            ),
+            _workflow_pull(
+                number=20,
+                ref=f"{WORKFLOW_BRANCH}-external",
+                author="maintainer",
+                body="External fork PR.",
+                repository="fork/r",
+            ),
+        ],
+        closed_pulls=[],
+        branch_refs=[
+            f"refs/heads/{WORKFLOW_BRANCH}",
+            f"refs/heads/{WORKFLOW_BRANCH}-manual-fix",
+            f"refs/heads/{WORKFLOW_BRANCH}-orphan",
+        ],
+    )
+
+    result = cleanup_script.cleanup_update_branches(
+        client=client,
+        repository=REPOSITORY,
+        branch=WORKFLOW_BRANCH,
+        branch_prefix=WORKFLOW_BRANCH,
+        label_name=WORKFLOW_LABEL,
+        author_login=WORKFLOW_AUTHOR,
+        body_marker=WORKFLOW_BODY_MARKER,
+        keep_pr_number=None,
+        keep_latest_open_pr=True,
+        close_stale_prs=True,
+        delete_stale_branches=True,
+        delete_merged_branches=False,
+    )
+
+    assert client.deleted_refs == [f"heads/{WORKFLOW_BRANCH}-orphan"]
+    assert result.deleted_branches == [f"{WORKFLOW_BRANCH}-orphan"]
 
 
 def test_cleanup_script_preserves_human_prs_with_matching_label_and_prefix(
