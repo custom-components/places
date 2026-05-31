@@ -74,11 +74,19 @@ class _FakeStore:
     last_saved: dict[str, object] | None = None
     remove_calls = 0
     save_error: BaseException | None = None
-    init_calls: ClassVar[list[tuple[int, str, bool]]] = []
+    init_calls: ClassVar[list[tuple[int, str, bool, bool]]] = []
 
-    def __init__(self, _hass: object, version: int, store_key: str, atomic_writes: bool) -> None:
+    def __init__(
+        self,
+        _hass: object,
+        version: int,
+        store_key: str,
+        *,
+        atomic_writes: bool,
+        serialize_in_event_loop: bool = True,
+    ) -> None:
         """Initialize fake Store without Home Assistant storage internals."""
-        type(self).init_calls.append((version, store_key, atomic_writes))
+        type(self).init_calls.append((version, store_key, atomic_writes, serialize_in_event_loop))
 
     async def async_load(self) -> object | None:
         """Return configured fake Store data."""
@@ -222,6 +230,22 @@ async def test_remove_deletes_store_data(tmp_path: Path, monkeypatch: pytest.Mon
     assert _FakeStore.remove_calls == 1
 
 
+@pytest.mark.asyncio
+async def test_remove_deletes_legacy_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Config-entry deletion removes unmigrated legacy JSON snapshots."""
+    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
+    hass = _hass_for_legacy_path(tmp_path)
+    legacy_file = legacy_json_path(hass, "entry-6")
+    legacy_file.parent.mkdir(parents=True)
+    legacy_file.write_text(json.dumps({ATTR_CITY: "Legacy City"}))
+
+    storage = PlacesStorage(hass, "entry-6", "Test")
+    await storage.async_remove()
+
+    assert _FakeStore.remove_calls == 1
+    assert not legacy_file.exists()
+
+
 def test_store_key_is_slugified_per_entry() -> None:
     """Store key generation is stable and slugified for config entry IDs."""
     assert store_key("entry-1") == "places.sensor_entry_1"
@@ -232,7 +256,7 @@ def test_store_key_is_slugified_per_entry() -> None:
 async def test_places_storage_constructs_store_with_expected_parameters(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Store construction should use version 1 and per-entry key with atomic writes."""
+    """Store construction should use the expected per-entry persistence options."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
 
@@ -240,10 +264,11 @@ async def test_places_storage_constructs_store_with_expected_parameters(
     await storage.async_load()
 
     assert len(_FakeStore.init_calls) == 1
-    version, store_key_value, atomic_writes = _FakeStore.init_calls[0]
+    version, store_key_value, atomic_writes, serialize_in_event_loop = _FakeStore.init_calls[0]
     assert version == 1
     assert store_key_value == "places.sensor_entry_1"
     assert atomic_writes is True
+    assert serialize_in_event_loop is False
 
 
 @pytest.mark.asyncio

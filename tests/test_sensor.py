@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import AbstractContextManager
+import logging
 from typing import ClassVar, cast
 from unittest.mock import AsyncMock, MagicMock
 
@@ -90,6 +91,22 @@ async def test_async_persist_attributes(
     await places_instance.async_persist_attributes()
     persistence_save = cast("AsyncMock", places_instance._persistence.async_save)
     persistence_save.assert_awaited_once_with(expected_attrs)
+
+
+@pytest.mark.asyncio
+async def test_async_persist_attributes_logs_save_failure(
+    places_instance: Places, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Store write failures should not abort freshly computed sensor updates."""
+    places_instance.set_attr(ATTR_NATIVE_VALUE, "Home")
+    persistence_save = cast("AsyncMock", places_instance._persistence.async_save)
+    persistence_save.side_effect = OSError("disk full")
+
+    with caplog.at_level(logging.WARNING, logger="custom_components.places.sensor"):
+        await places_instance.async_persist_attributes()
+
+    persistence_save.assert_awaited_once()
+    assert "Could not persist Places attributes" in caplog.text
 
 
 @pytest.mark.parametrize(

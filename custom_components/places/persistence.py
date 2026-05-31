@@ -96,6 +96,7 @@ class PlacesStorage:
             STORE_VERSION,
             store_key(entry_id),
             atomic_writes=True,
+            serialize_in_event_loop=False,
         )
 
     async def async_load(self) -> MutableMapping[str, Any]:
@@ -152,8 +153,9 @@ class PlacesStorage:
         await self._store.async_save(normalize_snapshot(attributes))
 
     async def async_remove(self) -> None:
-        """Remove Store data for a deleted config entry."""
+        """Remove Store and legacy JSON data for a deleted config entry."""
         await self._store.async_remove()
+        await self._async_remove_legacy_json(legacy_json_path(self._hass, self._entry_id))
 
     async def _async_remove_legacy_json(self, path: Path) -> None:
         """Remove a legacy JSON file if it exists.

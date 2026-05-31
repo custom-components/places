@@ -44,6 +44,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 import homeassistant.helpers.entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 from homeassistant.util import Throttle, slugify
+from homeassistant.util.file import WriteError
+from homeassistant.util.json import SerializationError
 
 from .advanced_options import AdvancedOptionsParser
 from .attributes import PlacesAttributes
@@ -433,7 +435,15 @@ class Places(SensorEntity):
 
     async def async_persist_attributes(self) -> None:
         """Persist the current runtime attributes to Home Assistant Store."""
-        await self._persistence.async_save(self.get_internal_attr())
+        try:
+            await self._persistence.async_save(self.get_internal_attr())
+        except (OSError, TypeError, ValueError, SerializationError, WriteError) as error:
+            _LOGGER.warning(
+                "(%s) Could not persist Places attributes: %s: %s",
+                self.get_attr(CONF_NAME),
+                type(error).__name__,
+                error,
+            )
 
     def import_persisted_attributes(self, persisted_attr: MutableMapping[str, Any]) -> None:
         """Restore persisted runtime attributes from a stored snapshot.
