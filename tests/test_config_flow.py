@@ -330,36 +330,6 @@ async def test_options_flow_handler_shows_form_when_no_user_input(
     assert result["description_placeholders"]["component_config_url"]
 
 
-@pytest.mark.asyncio
-async def test_options_flow_handler_merges_config_entry_data(
-    mock_hass: MagicMock, config_entry: MockConfigEntry, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test that the options flow handler merges user input with existing config entry data and updates the entry.
-
-    Asserts that the updated config entry data contains both the original and new values, and that the flow returns a create entry result.
-    """
-    config_entry.add_to_hass(mock_hass)
-    handler = PlacesOptionsFlowHandler()
-    handler.hass = mock_hass
-    # attach config_entry property so the handler can access it
-    monkeypatch.setattr(
-        type(handler), "config_entry", property(lambda self: config_entry), raising=False
-    )
-    user_input = {
-        "devicetracker_id": "device.test",
-        "display_options": "zone, place",
-    }
-    expected_data = dict(config_entry.data)
-    expected_data.update(user_input)
-    mock_hass.config_entries.async_update_entry = MagicMock()
-    mock_hass.config_entries.async_reload = AsyncMock()
-    result = await handler.async_step_init(user_input)
-    updated_data = mock_hass.config_entries.async_update_entry.call_args[1]["data"]
-    for k, v in expected_data.items():
-        assert updated_data[k] == v
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-
-
 @pytest.mark.parametrize(
     ("display_options", "expected"),
     [

@@ -195,19 +195,14 @@ async def _assert_tracker_state_can_proceed_with_coordinates(
     assert result is UpdateStatus.PROCEED
 
 
-async def test_tracker_state_object_unknown_with_coordinates_can_proceed(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+@pytest.mark.parametrize("tracker_state", [STATE_UNKNOWN, STATE_UNAVAILABLE])
+async def test_tracker_state_object_with_coordinates_can_proceed(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    tracker_state: str,
 ) -> None:
     """HA state-like objects with unknown/unavailable state still use coordinates."""
     await _assert_tracker_state_can_proceed_with_coordinates(
-        mock_hass, mock_config_entry, sensor, STATE_UNKNOWN
-    )
-
-
-async def test_tracker_state_object_unavailable_with_coordinates_can_proceed(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """HA state-like objects with unavailable state still use coordinates."""
-    await _assert_tracker_state_can_proceed_with_coordinates(
-        mock_hass, mock_config_entry, sensor, STATE_UNAVAILABLE
+        mock_hass, mock_config_entry, sensor, tracker_state
     )
