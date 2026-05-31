@@ -85,12 +85,13 @@ class _FakeStore:
     last_saved: dict[str, object] | None = None
     remove_calls = 0
     save_error: BaseException | None = None
+    save_without_write = False
     remove_error: BaseException | None = None
     init_calls: ClassVar[list[tuple[int, str, bool, bool]]] = []
 
     def __init__(
         self,
-        _hass: object,
+        _hass: MagicMock,
         version: int,
         store_key: str,
         *,
@@ -98,6 +99,10 @@ class _FakeStore:
         serialize_in_event_loop: bool = True,
     ) -> None:
         """Initialize fake Store without Home Assistant storage internals."""
+        self._hass = _hass
+        self._version = version
+        self._store_key = store_key
+        self.path = str(_hass.config.path(".storage", store_key))
         type(self).init_calls.append((version, store_key, atomic_writes, serialize_in_event_loop))
 
     async def async_load(self) -> object | None:
@@ -110,6 +115,18 @@ class _FakeStore:
         if save_error is not None:
             raise save_error
         type(self).last_saved = data
+        if type(self).save_without_write:
+            return
+        await self._hass.async_add_executor_job(
+            _write_fake_store_snapshot,
+            Path(self.path),
+            {
+                "version": self._version,
+                "minor_version": 1,
+                "key": self._store_key,
+                "data": data,
+            },
+        )
 
     async def async_remove(self) -> None:
         """Record Store removal."""
@@ -126,6 +143,7 @@ def reset_fake_store_state() -> None:
     _FakeStore.last_saved = None
     _FakeStore.remove_calls = 0
     _FakeStore.save_error = None
+    _FakeStore.save_without_write = False
     _FakeStore.remove_error = None
     _FakeStore.init_calls = []
 
@@ -136,6 +154,12 @@ def _hass_for_legacy_path(tmp_path: Path) -> MagicMock:
     hass.config.path.side_effect = lambda *parts: str(tmp_path.joinpath(*parts))
     hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
     return hass
+
+
+def _write_fake_store_snapshot(path: Path, data: dict[str, object]) -> None:
+    """Write a fake Home Assistant Store snapshot to disk."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data))
 
 
 @pytest.mark.asyncio
@@ -195,6 +219,26 @@ async def test_load_keeps_legacy_json_when_store_save_fails(
     assert loaded == {ATTR_CITY: "Legacy City"}
     assert legacy_file.exists()
     assert _FakeStore.last_saved is None
+
+
+@pytest.mark.asyncio
+async def test_load_keeps_legacy_json_when_store_save_is_not_durable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Migration preserves legacy JSON when Store save returns without a file write."""
+    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
+    _FakeStore.save_without_write = True
+    hass = _hass_for_legacy_path(tmp_path)
+    legacy_file = legacy_json_path(hass, "entry-4")
+    legacy_file.parent.mkdir(parents=True)
+    legacy_file.write_text(json.dumps({ATTR_CITY: "Legacy City", "unknown": "ignored"}))
+
+    storage = PlacesStorage(hass, "entry-4", "Test")
+    loaded = await storage.async_load()
+
+    assert loaded == {ATTR_CITY: "Legacy City"}
+    assert legacy_file.exists()
+    assert _FakeStore.last_saved == {ATTR_CITY: "Legacy City"}
 
 
 @pytest.mark.asyncio

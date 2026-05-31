@@ -152,6 +152,8 @@ class PlacesStorage:
             await self._async_remove_legacy_json(legacy_path)
             return {}
         normalized = normalize_snapshot(legacy_data)
+        store_path = Path(self._store.path)
+        key = store_key(self._entry_id)
         try:
             await self._store.async_save(normalized)
         except STORE_WRITE_ERRORS as error:
@@ -163,7 +165,22 @@ class PlacesStorage:
                 error,
             )
         else:
-            await self._async_remove_legacy_json(legacy_path)
+            if await self._hass.async_add_executor_job(
+                _store_file_contains_snapshot,
+                store_path,
+                key,
+                normalized,
+                self._name,
+            ):
+                await self._async_remove_legacy_json(legacy_path)
+            else:
+                _LOGGER.warning(
+                    "(%s) Keeping legacy Places JSON snapshot (%s) because Store "
+                    "migration was not verified durable: %s",
+                    self._name,
+                    legacy_path,
+                    key,
+                )
         return dict(normalized)
 
     async def async_save(self, attributes: Mapping[str, Any]) -> None:
@@ -231,6 +248,55 @@ def _read_legacy_json(path: Path, name: str) -> Snapshot | None:
         )
         return None
     return dict(data)
+
+
+def _store_file_contains_snapshot(
+    path: Path,
+    key: str,
+    snapshot: Mapping[str, Any],
+    name: str,
+) -> bool:
+    """Return whether a Store file durably contains a migrated snapshot.
+
+    Args:
+        path: Store file path.
+        key: Expected Store key.
+        snapshot: Snapshot expected in the Store data.
+        name: Sensor name used for logging.
+
+    Returns:
+        ``True`` when the Store file exists and contains the expected snapshot.
+    """
+    try:
+        with path.open() as store_file:
+            data: Any = json.load(store_file)
+    except FileNotFoundError:
+        return False
+    except json.JSONDecodeError as error:
+        _LOGGER.debug(
+            "(%s) Store snapshot is not readable for migration verification (%s): %s: %s",
+            name,
+            path,
+            type(error).__name__,
+            error,
+        )
+        return False
+    except OSError as error:
+        _LOGGER.debug(
+            "(%s) Store snapshot is not readable for migration verification (%s): %s: %s",
+            name,
+            path,
+            type(error).__name__,
+            error,
+        )
+        return False
+    if not isinstance(data, Mapping):
+        return False
+    return (
+        data.get("version") == STORE_VERSION
+        and data.get("key") == key
+        and data.get("data") == snapshot
+    )
 
 
 def _remove_legacy_json(path: Path, name: str) -> None:
