@@ -36,8 +36,6 @@ BASE_INTERNAL_ATTR = {
     "show_time": False,
     "date_format": "mm/dd",
     "use_gps_accuracy": True,
-    "json_filename": "places-5a00ead04bce9bbd7ab4a40c8ed70e3c.json",
-    "json_folder": "/config/custom_components/places/json_sensors",
     "display_options": "formatted_place",
     "home_latitude": 40.824763,
     "home_longitude": -73.973675,
@@ -134,9 +132,18 @@ async def render_display_option(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch, display_option: str
 ) -> str | None:
     """Render one display option using the integration test attribute snapshot."""
+
+    def _persistence() -> MagicMock:
+        persistence = MagicMock()
+        persistence.async_save = AsyncMock()
+        persistence.async_remove = AsyncMock()
+        return persistence
+
     config_entry = MockConfigEntry(domain="places", data={CONF_NAME: "Test Place"})
     config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
-    sensor = Places(mock_hass, config, config_entry, "Test Place", "unique-id-123", {})
+    sensor = Places(
+        mock_hass, config, config_entry, "Test Place", "unique-id-123", {}, _persistence()
+    )
     sensor._internal_attr = copy.deepcopy(BASE_INTERNAL_ATTR)
     sensor.clear_attr(ATTR_NATIVE_VALUE)
     sensor._attr_native_value = None
@@ -183,8 +190,11 @@ async def test_display_options_state_render(
     config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
 
     hass = mock_hass
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    persistence.async_remove = AsyncMock()
 
-    sensor = Places(hass, config, config_entry, "Test Place", "unique-id-123", {})
+    sensor = Places(hass, config, config_entry, "Test Place", "unique-id-123", {}, persistence)
 
     # Inject snapshot of attributes (simulate post-parse_osm_dict state)
     sensor._internal_attr = copy.deepcopy(BASE_INTERNAL_ATTR)
