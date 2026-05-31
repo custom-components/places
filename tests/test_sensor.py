@@ -217,7 +217,7 @@ def test_get_internal_attr_returns_dict(places_instance: Places) -> None:
     assert result["baz"] == 123
 
 
-def test_import_persisted_attributes(
+def test_import_attributes_from_json(
     monkeypatch: pytest.MonkeyPatch, places_instance: Places
 ) -> None:
     """Test that attributes are correctly imported from persisted data."""
@@ -225,8 +225,8 @@ def test_import_persisted_attributes(
     monkeypatch.setattr("custom_components.places.attributes.CONFIG_ATTRIBUTES_LIST", ["c"])
     monkeypatch.setattr("custom_components.places.attributes.JSON_IGNORE_ATTRIBUTE_LIST", ["d"])
     monkeypatch.setattr("custom_components.places.sensor.ATTR_NATIVE_VALUE", "native_value")
-    persisted_attr = {"a": 1, "b": 2, "c": 3, "d": 4, "native_value": "nv"}
-    places_instance.import_persisted_attributes(persisted_attr)
+    json_attr = {"a": 1, "b": 2, "c": 3, "d": 4, "native_value": "nv"}
+    places_instance.import_persisted_attributes(json_attr)
     assert places_instance.get_attr("a") == 1
     assert places_instance.get_attr("b") == 2
     # The import only sets _attr_native_value if ATTR_NATIVE_VALUE is not blank

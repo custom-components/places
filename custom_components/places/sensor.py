@@ -315,8 +315,7 @@ class Places(SensorEntity):
         ##
         if not self.get_attr(ATTR_INITIAL_UPDATE):
             _LOGGER.debug(
-                "(%s) [Init] Sensor attributes imported from persisted snapshot",
-                self.get_attr(CONF_NAME),
+                "(%s) [Init] Sensor Attributes Imported from JSON file", self.get_attr(CONF_NAME)
             )
         self.cleanup_attributes()
         if self.get_attr(CONF_EXTENDED_ATTR):
@@ -430,20 +429,22 @@ class Places(SensorEntity):
         """Restore persisted runtime attributes from a stored snapshot.
 
         Args:
-            persisted_attr: Mapping loaded from persisted data.
+            persisted_attr: Mapping loaded from Store or migrated from legacy JSON.
                 Imported and ignored keys are removed from this mapping.
         """
         self.set_attr(ATTR_INITIAL_UPDATE, False)
-        self._attributes.import_persisted_attributes(persisted_attr)
+        self._attributes.import_json_attributes(persisted_attr)
         if not self.is_attr_blank(ATTR_NATIVE_VALUE):
             self._attr_native_value = self.get_attr(ATTR_NATIVE_VALUE)
 
         if persisted_attr is not None and persisted_attr:
             _LOGGER.debug(
-                "(%s) [import_persisted_attributes] Attributes not imported: %s",
+                "(%s) [import_attributes] Attributes not imported: %s",
                 self.get_attr(CONF_NAME),
                 persisted_attr,
             )
+
+    import_attributes_from_json = import_persisted_attributes
 
     def cleanup_attributes(self) -> None:
         """Remove blank attributes from the internal attribute mapping."""

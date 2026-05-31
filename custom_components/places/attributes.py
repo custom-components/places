@@ -160,18 +160,18 @@ class PlacesAttributes:
             if self.is_blank(attr):
                 self.clear(attr)
 
-    def import_persisted_attributes(self, persisted_attr: MutableMapping[str, Any]) -> None:
-        """Populate runtime attributes from persisted snapshot data.
+    def import_json_attributes(self, json_attr: MutableMapping[str, Any]) -> None:
+        """Populate runtime attributes from JSON while removing filtered keys.
 
-        This performs the existing persisted-import filtering contract used by
-        ``Places.import_persisted_attributes``.
+        This performs the existing JSON import filtering contract used by
+        ``Places.import_attributes_from_json``.
 
         Args:
-            persisted_attr: Mutable mapping loaded from a persisted snapshot.
+            json_attr: Mutable mapping loaded from sensor JSON persistence.
         """
         for attr in JSON_ATTRIBUTE_LIST:
-            if attr in persisted_attr:
-                self.set(attr, persisted_attr.pop(attr, None))
+            if attr in json_attr:
+                self.set(attr, json_attr.pop(attr, None))
         for attr in CONFIG_ATTRIBUTES_LIST + JSON_IGNORE_ATTRIBUTE_LIST:
-            if attr in persisted_attr:
-                persisted_attr.pop(attr, None)
+            if attr in json_attr:
+                json_attr.pop(attr, None)
