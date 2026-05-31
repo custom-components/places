@@ -601,7 +601,7 @@ def test_exclude_event_types_param(recorder_present: bool, expected_in_set: bool
 @pytest.mark.parametrize(
     ("scenario", "extended_attr", "recorder_present"),
     [
-        ("normal_unload", False, False),
+        ("remove_json", False, False),
         ("remove_event_exclusion", True, True),
     ],
 )
@@ -641,7 +641,7 @@ async def test_async_will_remove_from_hass_param(
     persistence_remove = cast("AsyncMock", places_instance._persistence.async_remove)
     persistence_remove.assert_not_awaited()
 
-    assert scenario in {"normal_unload", "remove_event_exclusion"}
+    assert scenario in {"remove_json", "remove_event_exclusion"}
     if recorder_present:
         assert EVENT_TYPE not in recorder.exclude_event_types
         mock_logger.debug.assert_any_call(
