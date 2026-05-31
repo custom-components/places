@@ -25,7 +25,7 @@ import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.components.zone import ATTR_PASSIVE
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_ICON,
@@ -397,9 +397,7 @@ class Places(SensorEntity):
             for config_entry in self._hass.config_entries.async_entries(DOMAIN):
                 if config_entry is self._config_entry:
                     continue
-                if config_entry.state is ConfigEntryState.LOADED and config_entry.data.get(
-                    CONF_EXTENDED_ATTR
-                ):
+                if config_entry.data.get(CONF_EXTENDED_ATTR):
                     extended_count += 1
 
             if extended_count == 0:
