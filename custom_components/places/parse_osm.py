@@ -6,8 +6,7 @@ and setting them in the sensor's internal attributes.
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
-import contextlib
+from collections.abc import Mapping, MutableMapping
 import logging
 import re
 from typing import TYPE_CHECKING, Any
@@ -109,13 +108,6 @@ class OSMParser:
         attribution: str | None = osm_dict.get("licence")
         if attribution:
             self.sensor.set_attr(ATTR_ATTRIBUTION, attribution)
-        #     _LOGGER.debug(
-        #         "(%s) OSM Attribution: %s",
-        #         self.sensor.get_attr(CONF_NAME),
-        #         self.sensor.get_attr(ATTR_ATTRIBUTION),
-        #     )
-        # else:
-        #     _LOGGER.debug("(%s) No OSM Attribution found", self.sensor.get_attr(CONF_NAME))
 
     async def parse_type(self, osm_dict: MutableMapping[str, Any]) -> None:
         """Resolve the most specific OSM place type for display decisions.
@@ -242,30 +234,35 @@ class OSMParser:
         Args:
             address: Nominatim ``address`` mapping from the current response.
         """
-        postal_town_list = POSTAL_TOWN_LIST.copy()
-        neighbourhood_list = NEIGHBOURHOOD_LIST.copy()
-
+        city_types_to_skip: list[str] = []
         for city_type in CITY_LIST:
-            with contextlib.suppress(ValueError):
-                postal_town_list.remove(city_type)
-            with contextlib.suppress(ValueError):
-                neighbourhood_list.remove(city_type)
             if city_type in address:
                 self.sensor.set_attr(
                     ATTR_CITY,
                     address.get(city_type),
                 )
+                city_types_to_skip = _prioritized_types_through_match(CITY_LIST, city_type)
                 break
-        for postal_town_type in postal_town_list:
-            with contextlib.suppress(ValueError):
-                neighbourhood_list.remove(postal_town_type)
+
+        postal_town_types = _without_prioritized_types(POSTAL_TOWN_LIST, city_types_to_skip)
+        postal_town_types_to_skip: list[str] = []
+        for postal_town_type in postal_town_types:
             if postal_town_type in address:
                 self.sensor.set_attr(
                     ATTR_POSTAL_TOWN,
                     address.get(postal_town_type),
                 )
+                postal_town_types_to_skip = _prioritized_types_through_match(
+                    postal_town_types,
+                    postal_town_type,
+                )
                 break
-        for neighbourhood_type in neighbourhood_list:
+
+        neighbourhood_types = _without_prioritized_types(
+            NEIGHBOURHOOD_LIST,
+            [*city_types_to_skip, *postal_town_types_to_skip],
+        )
+        for neighbourhood_type in neighbourhood_types:
             if neighbourhood_type in address:
                 self.sensor.set_attr(
                     ATTR_PLACE_NEIGHBOURHOOD,
@@ -346,23 +343,30 @@ class OSMParser:
                 osm_dict.get("osm_type"),
             )
 
+        namedetails = osm_dict.get("namedetails")
         if (
             not self.sensor.is_attr_blank(ATTR_PLACE_CATEGORY)
             and self.sensor.get_attr_safe_str(ATTR_PLACE_CATEGORY).lower() == "highway"
-            and "namedetails" in osm_dict
-            and osm_dict.get("namedetails") is not None
-            and "ref" in osm_dict["namedetails"]
+            and isinstance(namedetails, Mapping)
+            and "ref" in namedetails
         ):
-            street_refs: list = re.split(
-                r"[;\\/,.:]",
-                osm_dict["namedetails"].get("ref"),
-            )
-            street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
-            # _LOGGER.debug("(%s) Street Refs: %s", self.sensor.get_attr(CONF_NAME), street_refs)
-            for ref in street_refs:
-                if bool(re.search(r"\d", ref)):
-                    self.sensor.set_attr(ATTR_STREET_REF, ref)
-                    break
+            raw_ref = namedetails.get("ref")
+            if not isinstance(raw_ref, str) or not raw_ref.strip():
+                self.sensor.clear_attr(ATTR_STREET_REF)
+                _LOGGER.debug(
+                    "(%s) Skipping street ref parsing due to invalid ref value: %r",
+                    self.sensor.get_attr(CONF_NAME),
+                    raw_ref,
+                )
+            else:
+                street_refs: list[str] = re.split(r"[;\\/,.:]", raw_ref)
+                street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
+                for ref in street_refs:
+                    if bool(re.search(r"\d", ref)):
+                        self.sensor.set_attr(ATTR_STREET_REF, ref)
+                        break
+                else:
+                    self.sensor.clear_attr(ATTR_STREET_REF)
             if not self.sensor.is_attr_blank(ATTR_STREET_REF):
                 _LOGGER.debug(
                     "(%s) Street: %s / Street Ref: %s",
@@ -422,3 +426,30 @@ class OSMParser:
             self.sensor.get_attr(CONF_NAME),
             self.sensor.get_attr(ATTR_LAST_PLACE_NAME),
         )
+
+
+def _without_prioritized_types(types: list[str], prioritized_types: list[str]) -> list[str]:
+    """Return address types not already claimed by a higher-priority group.
+
+    Args:
+        types: Candidate address types for the current group.
+        prioritized_types: Address types already considered by earlier groups.
+
+    Returns:
+        Candidate address types preserving original order and excluding higher-priority types.
+    """
+    prioritized = set(prioritized_types)
+    return [address_type for address_type in types if address_type not in prioritized]
+
+
+def _prioritized_types_through_match(types: list[str], matched_type: str) -> list[str]:
+    """Return candidate types through the matched type, preserving precedence order.
+
+    Args:
+        types: Candidate address types in precedence order.
+        matched_type: Address type selected from the candidate list.
+
+    Returns:
+        Address types at or above the selected type in the precedence order.
+    """
+    return types[: types.index(matched_type) + 1]

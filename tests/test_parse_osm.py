@@ -410,6 +410,48 @@ async def test_set_city_details_neighbourhood(
 
 
 @pytest.mark.asyncio
+async def test_set_city_details_preserves_overlapping_type_precedence(
+    osm_parser: OSMParserFactory,
+) -> None:
+    """Higher-priority city types are not reused as postal town or neighbourhood."""
+    address = {
+        "town": "City Value",
+        "suburb": "Postal Town Value",
+        "neighbourhood": "Neighbourhood Value",
+    }
+    parser, sensor = osm_parser()
+
+    await parser.set_city_details(address)
+
+    assert sensor.attrs[ATTR_CITY] == "City Value"
+    assert sensor.attrs[ATTR_POSTAL_TOWN] == "Postal Town Value"
+    assert sensor.attrs[ATTR_PLACE_NEIGHBOURHOOD] == "Neighbourhood Value"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("address", "expected_city", "expected_postal_town"),
+    [
+        ({"city": "City Value", "village": "Village Value"}, "City Value", "Village Value"),
+        ({"town": "Town Value", "hamlet": "Hamlet Value"}, "Town Value", "Hamlet Value"),
+    ],
+)
+async def test_set_city_details_preserves_lower_priority_postal_town(
+    osm_parser: OSMParserFactory,
+    address: Address,
+    expected_city: str,
+    expected_postal_town: str,
+) -> None:
+    """Lower-priority city-like fields remain candidates for postal town."""
+    parser, sensor = osm_parser()
+
+    await parser.set_city_details(address)
+
+    assert sensor.attrs[ATTR_CITY] == expected_city
+    assert sensor.attrs[ATTR_POSTAL_TOWN] == expected_postal_town
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("expected_attr", "expected_value"),
     [
@@ -466,14 +508,59 @@ async def test_parse_miscellaneous_sets_attrs(
         }
     )
     await parser.parse_miscellaneous(osm_dict)
-    # verify attribute was set in internal attrs or recorded via internal mock
-    actual = sensor.attrs.get(expected_attr)
-    if actual == expected_value:
-        # attribute was written directly into the internal attrs
-        assert True
-    else:
-        # otherwise ensure the internal set_attr mock recorded the call
-        sensor._set_attr_mock.assert_any_call(expected_attr, expected_value)
+    assert sensor.attrs[expected_attr] == expected_value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_ref", [None, 123, "", "   "])
+async def test_parse_miscellaneous_ignores_invalid_street_ref(
+    osm_parser: OSMParserFactory, raw_ref: object
+) -> None:
+    """Invalid OSM street refs should not abort miscellaneous parsing."""
+    osm_dict = {
+        "display_name": "123 Main St",
+        "osm_id": 123456,
+        "osm_type": "way",
+        "namedetails": {"ref": raw_ref},
+        "category": "highway",
+    }
+    parser, sensor = osm_parser(
+        attrs={
+            ATTR_PLACE_CATEGORY: "highway",
+            ATTR_OSM_DICT: {"osm_id": 123456},
+        }
+    )
+
+    await parser.parse_miscellaneous(osm_dict)
+
+    assert sensor.attrs[ATTR_FORMATTED_ADDRESS] == "123 Main St"
+    assert ATTR_STREET_REF not in sensor.attrs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_ref", [None, 123, "", "   ", "County Road"])
+async def test_parse_miscellaneous_clears_stale_street_ref_without_usable_ref(
+    osm_parser: OSMParserFactory, raw_ref: object
+) -> None:
+    """Highway payloads without usable refs clear any previously stored street ref."""
+    osm_dict = {
+        "display_name": "123 Main St",
+        "osm_id": 123456,
+        "osm_type": "way",
+        "namedetails": {"ref": raw_ref},
+        "category": "highway",
+    }
+    parser, sensor = osm_parser(
+        attrs={
+            ATTR_PLACE_CATEGORY: "highway",
+            ATTR_OSM_DICT: {"osm_id": 123456},
+            ATTR_STREET_REF: "A1",
+        }
+    )
+
+    await parser.parse_miscellaneous(osm_dict)
+
+    assert ATTR_STREET_REF not in sensor.attrs
 
 
 @pytest.mark.asyncio

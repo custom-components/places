@@ -1,0 +1,322 @@
+"""Store-backed persistence for Places sensor snapshots."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, MutableMapping
+from datetime import datetime
+import json
+import logging
+from pathlib import Path
+from typing import Any
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
+from homeassistant.util import slugify
+from homeassistant.util.file import WriteError
+from homeassistant.util.json import SerializationError
+
+from .const import ATTR_NATIVE_VALUE, DOMAIN, PERSISTED_ATTRIBUTE_LIST
+
+_LOGGER = logging.getLogger(__name__)
+STORE_VERSION = 1
+STORE_WRITE_ERRORS = (OSError, TypeError, ValueError, SerializationError, WriteError)
+
+type Snapshot = dict[str, Any]
+
+
+def store_key(entry_id: str) -> str:
+    """Return the per-config-entry Store key.
+
+    Args:
+        entry_id: Home Assistant config entry ID.
+
+    Returns:
+        Stable Store key for this config entry.
+    """
+    return f"{DOMAIN}.sensor_{slugify(entry_id)}"
+
+
+def legacy_json_path(hass: HomeAssistant, entry_id: str) -> Path:
+    """Return the legacy JSON snapshot path for a config entry.
+
+    Args:
+        hass: Home Assistant instance.
+        entry_id: Home Assistant config entry ID.
+
+    Returns:
+        Path to the legacy JSON snapshot file.
+    """
+    return Path(
+        hass.config.path(
+            "custom_components",
+            DOMAIN,
+            "json_sensors",
+            f"{DOMAIN}-{slugify(entry_id)}.json",
+        )
+    )
+
+
+def normalize_snapshot(attributes: Mapping[str, Any]) -> Snapshot:
+    """Prepare sensor attributes for persistence.
+
+    Args:
+        attributes: Runtime sensor attribute mapping.
+
+    Returns:
+        JSON-compatible snapshot containing only restorable Places attributes.
+    """
+    allowed = set(PERSISTED_ATTRIBUTE_LIST)
+    allowed.add(ATTR_NATIVE_VALUE)
+    normalized: Snapshot = {}
+    for key, value in attributes.items():
+        if key not in allowed or isinstance(value, datetime):
+            continue
+        try:
+            serialized_value = json.dumps(value)
+        except TypeError, ValueError:
+            normalized[key] = str(value)
+        else:
+            normalized[key] = json.loads(serialized_value)
+    return normalized
+
+
+class PlacesStorage:
+    """Persist Places sensor snapshots with Home Assistant Store."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str, name: str) -> None:
+        """Initialize Store persistence for one Places config entry.
+
+        Args:
+            hass: Home Assistant instance.
+            entry_id: Config entry ID used for Store and legacy file naming.
+            name: Sensor name used for contextual logging.
+        """
+        self._hass = hass
+        self._entry_id = entry_id
+        self._name = name
+        self._store: Store[Snapshot] = Store(
+            hass,
+            STORE_VERSION,
+            store_key(entry_id),
+            atomic_writes=True,
+            serialize_in_event_loop=False,
+        )
+
+    async def async_load(self) -> MutableMapping[str, Any]:
+        """Load a persisted snapshot and clean up any legacy JSON file.
+
+        Returns:
+            Persisted attribute mapping, or an empty mapping when no valid
+            snapshot exists.
+        """
+        store_data = await self._store.async_load()
+        legacy_path = legacy_json_path(self._hass, self._entry_id)
+        if store_data is not None:
+            if not isinstance(store_data, Mapping):
+                _LOGGER.debug(
+                    "(%s) Invalid Store snapshot root is %s, expected mapping: %s",
+                    self._name,
+                    type(store_data).__name__,
+                    legacy_path,
+                )
+                try:
+                    await self._store.async_remove()
+                except STORE_WRITE_ERRORS as error:
+                    _LOGGER.warning(
+                        "(%s) Could not remove invalid Store snapshot (%s): %s: %s",
+                        self._name,
+                        store_key(self._entry_id),
+                        type(error).__name__,
+                        error,
+                    )
+            else:
+                await self._async_remove_legacy_json(legacy_path)
+                return dict(store_data)
+
+        try:
+            legacy_data = await self._hass.async_add_executor_job(
+                _read_legacy_json,
+                legacy_path,
+                self._name,
+            )
+        except OSError as error:
+            _LOGGER.debug(
+                "(%s) Unable to read legacy Places JSON snapshot (%s): %s: %s",
+                self._name,
+                legacy_path,
+                type(error).__name__,
+                error,
+            )
+            return {}
+        if legacy_data is None:
+            await self._async_remove_legacy_json(legacy_path)
+            return {}
+        normalized = normalize_snapshot(legacy_data)
+        store_path = Path(self._store.path)
+        key = store_key(self._entry_id)
+        try:
+            await self._store.async_save(normalized)
+        except STORE_WRITE_ERRORS as error:
+            _LOGGER.warning(
+                "(%s) Could not migrate legacy Places JSON snapshot (%s) to Store: %s: %s",
+                self._name,
+                legacy_path,
+                type(error).__name__,
+                error,
+            )
+        else:
+            if await self._hass.async_add_executor_job(
+                _store_file_contains_snapshot,
+                store_path,
+                key,
+                normalized,
+                self._name,
+            ):
+                await self._async_remove_legacy_json(legacy_path)
+            else:
+                _LOGGER.warning(
+                    "(%s) Keeping legacy Places JSON snapshot (%s) because Store "
+                    "migration was not verified durable: %s",
+                    self._name,
+                    legacy_path,
+                    key,
+                )
+        return dict(normalized)
+
+    async def async_save(self, attributes: Mapping[str, Any]) -> None:
+        """Persist the current sensor attributes immediately.
+
+        Args:
+            attributes: Runtime sensor attribute mapping to save.
+        """
+        await self._store.async_save(normalize_snapshot(attributes))
+
+    async def async_remove(self) -> None:
+        """Remove Store and legacy JSON data for a deleted config entry."""
+        await self._store.async_remove()
+        await self._async_remove_legacy_json(legacy_json_path(self._hass, self._entry_id))
+
+    async def _async_remove_legacy_json(self, path: Path) -> None:
+        """Remove a legacy JSON file if it exists.
+
+        Args:
+            path: Legacy JSON file path.
+        """
+        await self._hass.async_add_executor_job(_remove_legacy_json, path, self._name)
+
+
+def _read_legacy_json(path: Path, name: str) -> Snapshot | None:
+    """Read a legacy JSON snapshot from disk.
+
+    Args:
+        path: Legacy JSON file path.
+        name: Sensor name used for logging.
+
+    Returns:
+        Mapping from a valid legacy file, or ``None`` for missing/corrupt/non-mapping
+        files. Raises on unreadable-file I/O errors.
+    """
+    try:
+        with path.open() as jsonfile:
+            data: Any = json.load(jsonfile)
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError as error:
+        _LOGGER.debug(
+            "(%s) Legacy Places JSON snapshot is not importable (%s): %s: %s",
+            name,
+            path,
+            type(error).__name__,
+            error,
+        )
+        return None
+    except OSError as error:
+        _LOGGER.debug(
+            "(%s) Legacy Places JSON snapshot is not importable (%s): %s: %s",
+            name,
+            path,
+            type(error).__name__,
+            error,
+        )
+        raise
+    if not isinstance(data, Mapping):
+        _LOGGER.debug(
+            "(%s) Legacy Places JSON snapshot root is %s, expected mapping: %s",
+            name,
+            type(data).__name__,
+            path,
+        )
+        return None
+    return dict(data)
+
+
+def _store_file_contains_snapshot(
+    path: Path,
+    key: str,
+    snapshot: Mapping[str, Any],
+    name: str,
+) -> bool:
+    """Return whether a Store file durably contains a migrated snapshot.
+
+    Args:
+        path: Store file path.
+        key: Expected Store key.
+        snapshot: Snapshot expected in the Store data.
+        name: Sensor name used for logging.
+
+    Returns:
+        ``True`` when the Store file exists and contains the expected snapshot.
+    """
+    try:
+        with path.open() as store_file:
+            data: Any = json.load(store_file)
+    except FileNotFoundError:
+        return False
+    except json.JSONDecodeError as error:
+        _LOGGER.debug(
+            "(%s) Store snapshot is not readable for migration verification (%s): %s: %s",
+            name,
+            path,
+            type(error).__name__,
+            error,
+        )
+        return False
+    except OSError as error:
+        _LOGGER.debug(
+            "(%s) Store snapshot is not readable for migration verification (%s): %s: %s",
+            name,
+            path,
+            type(error).__name__,
+            error,
+        )
+        return False
+    if not isinstance(data, Mapping):
+        return False
+    return (
+        data.get("version") == STORE_VERSION
+        and data.get("key") == key
+        and data.get("data") == snapshot
+    )
+
+
+def _remove_legacy_json(path: Path, name: str) -> None:
+    """Remove a legacy JSON snapshot file.
+
+    Args:
+        path: Legacy JSON file path.
+        name: Sensor name used for logging.
+    """
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        _LOGGER.debug(
+            "(%s) Could not remove legacy Places JSON snapshot (%s): %s: %s",
+            name,
+            path,
+            type(error).__name__,
+            error,
+        )
+    else:
+        _LOGGER.debug("(%s) Removed legacy Places JSON snapshot: %s", name, path)
