@@ -1106,6 +1106,7 @@ async def test_is_tracker_available_param(
     [
         (None, False),
         ({CONF_LATITUDE: None, CONF_LONGITUDE: None}, False),
+        ({CONF_LATITUDE: "a", CONF_LONGITUDE: 2.0}, False),
         ({CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0}, True),
     ],
 )
@@ -1825,19 +1826,6 @@ async def test_is_tracker_available_valid(
     mock_hass.states.get.return_value = state
     result = await updater.is_tracker_available()
     assert result is True
-
-
-@pytest.mark.asyncio
-async def test_has_valid_coordinates_non_numeric(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Returns False when latitude not numeric though attribute exists."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    tracker = MagicMock()
-    tracker.attributes = {CONF_LATITUDE: "a", CONF_LONGITUDE: 2.0}
-    mock_hass.states.get.return_value = tracker
-    result = await updater.has_valid_coordinates()
-    assert result is False
 
 
 @pytest.mark.asyncio
