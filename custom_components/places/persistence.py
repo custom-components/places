@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import slugify
 
-from .const import ATTR_NATIVE_VALUE, DOMAIN, PERSISTED_ATTRIBUTE_LIST
+from .const import ATTR_NATIVE_VALUE, DOMAIN, JSON_ATTRIBUTE_LIST
 
 _LOGGER = logging.getLogger(__name__)
 STORE_VERSION = 1
@@ -62,7 +62,7 @@ def normalize_snapshot(attributes: Mapping[str, Any]) -> Snapshot:
     Returns:
         JSON-compatible snapshot containing only restorable Places attributes.
     """
-    allowed = set(PERSISTED_ATTRIBUTE_LIST)
+    allowed = set(JSON_ATTRIBUTE_LIST)
     allowed.add(ATTR_NATIVE_VALUE)
     normalized: Snapshot = {}
     for key, value in attributes.items():
