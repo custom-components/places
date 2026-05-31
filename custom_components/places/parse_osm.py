@@ -7,7 +7,6 @@ and setting them in the sensor's internal attributes.
 from __future__ import annotations
 
 from collections.abc import MutableMapping
-import contextlib
 import logging
 import re
 from typing import TYPE_CHECKING, Any
@@ -109,13 +108,6 @@ class OSMParser:
         attribution: str | None = osm_dict.get("licence")
         if attribution:
             self.sensor.set_attr(ATTR_ATTRIBUTION, attribution)
-        #     _LOGGER.debug(
-        #         "(%s) OSM Attribution: %s",
-        #         self.sensor.get_attr(CONF_NAME),
-        #         self.sensor.get_attr(ATTR_ATTRIBUTION),
-        #     )
-        # else:
-        #     _LOGGER.debug("(%s) No OSM Attribution found", self.sensor.get_attr(CONF_NAME))
 
     async def parse_type(self, osm_dict: MutableMapping[str, Any]) -> None:
         """Resolve the most specific OSM place type for display decisions.
@@ -242,30 +234,28 @@ class OSMParser:
         Args:
             address: Nominatim ``address`` mapping from the current response.
         """
-        postal_town_list = POSTAL_TOWN_LIST.copy()
-        neighbourhood_list = NEIGHBOURHOOD_LIST.copy()
-
         for city_type in CITY_LIST:
-            with contextlib.suppress(ValueError):
-                postal_town_list.remove(city_type)
-            with contextlib.suppress(ValueError):
-                neighbourhood_list.remove(city_type)
             if city_type in address:
                 self.sensor.set_attr(
                     ATTR_CITY,
                     address.get(city_type),
                 )
                 break
-        for postal_town_type in postal_town_list:
-            with contextlib.suppress(ValueError):
-                neighbourhood_list.remove(postal_town_type)
+
+        postal_town_types = _without_prioritized_types(POSTAL_TOWN_LIST, CITY_LIST)
+        for postal_town_type in postal_town_types:
             if postal_town_type in address:
                 self.sensor.set_attr(
                     ATTR_POSTAL_TOWN,
                     address.get(postal_town_type),
                 )
                 break
-        for neighbourhood_type in neighbourhood_list:
+
+        neighbourhood_types = _without_prioritized_types(
+            NEIGHBOURHOOD_LIST,
+            [*CITY_LIST, *postal_town_types],
+        )
+        for neighbourhood_type in neighbourhood_types:
             if neighbourhood_type in address:
                 self.sensor.set_attr(
                     ATTR_PLACE_NEIGHBOURHOOD,
@@ -353,7 +343,7 @@ class OSMParser:
             and osm_dict.get("namedetails") is not None
             and "ref" in osm_dict["namedetails"]
         ):
-            street_refs: list = re.split(
+            street_refs: list[str] = re.split(
                 r"[;\\/,.:]",
                 osm_dict["namedetails"].get("ref"),
             )
@@ -422,3 +412,17 @@ class OSMParser:
             self.sensor.get_attr(CONF_NAME),
             self.sensor.get_attr(ATTR_LAST_PLACE_NAME),
         )
+
+
+def _without_prioritized_types(types: list[str], prioritized_types: list[str]) -> list[str]:
+    """Return address types not already claimed by a higher-priority group.
+
+    Args:
+        types: Candidate address types for the current group.
+        prioritized_types: Address types already considered by earlier groups.
+
+    Returns:
+        Candidate address types preserving original order and excluding higher-priority types.
+    """
+    prioritized = set(prioritized_types)
+    return [address_type for address_type in types if address_type not in prioritized]

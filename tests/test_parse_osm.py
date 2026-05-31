@@ -410,6 +410,25 @@ async def test_set_city_details_neighbourhood(
 
 
 @pytest.mark.asyncio
+async def test_set_city_details_preserves_overlapping_type_precedence(
+    osm_parser: OSMParserFactory,
+) -> None:
+    """Higher-priority city types are not reused as postal town or neighbourhood."""
+    address = {
+        "town": "City Value",
+        "suburb": "Postal Town Value",
+        "neighbourhood": "Neighbourhood Value",
+    }
+    parser, sensor = osm_parser()
+
+    await parser.set_city_details(address)
+
+    assert sensor.attrs[ATTR_CITY] == "City Value"
+    assert sensor.attrs[ATTR_POSTAL_TOWN] == "Postal Town Value"
+    assert sensor.attrs[ATTR_PLACE_NEIGHBOURHOOD] == "Neighbourhood Value"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("expected_attr", "expected_value"),
     [
