@@ -221,9 +221,11 @@ def test_import_persisted_attributes(
     monkeypatch: pytest.MonkeyPatch, places_instance: Places
 ) -> None:
     """Test that attributes are correctly imported from persisted data."""
-    monkeypatch.setattr("custom_components.places.attributes.JSON_ATTRIBUTE_LIST", ["a", "b"])
+    monkeypatch.setattr("custom_components.places.attributes.PERSISTED_ATTRIBUTE_LIST", ["a", "b"])
     monkeypatch.setattr("custom_components.places.attributes.CONFIG_ATTRIBUTES_LIST", ["c"])
-    monkeypatch.setattr("custom_components.places.attributes.JSON_IGNORE_ATTRIBUTE_LIST", ["d"])
+    monkeypatch.setattr(
+        "custom_components.places.attributes.PERSISTENCE_IGNORE_ATTRIBUTE_LIST", ["d"]
+    )
     monkeypatch.setattr("custom_components.places.sensor.ATTR_NATIVE_VALUE", "native_value")
     persisted_attr = {"a": 1, "b": 2, "c": 3, "d": 4, "native_value": "nv"}
     places_instance.import_persisted_attributes(persisted_attr)
