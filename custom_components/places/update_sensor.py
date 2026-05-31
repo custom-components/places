@@ -36,6 +36,8 @@ from .const import (
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
+    ATTR_JSON_FILENAME,
+    ATTR_JSON_FOLDER,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
     ATTR_LAST_UPDATED,
@@ -73,7 +75,7 @@ from .const import (
     RESET_ATTRIBUTE_LIST,
     UpdateStatus,
 )
-from .helpers import clear_since_from_state, is_float, safe_truncate
+from .helpers import clear_since_from_state, is_float, safe_truncate, write_sensor_to_json
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .osm_client import OSMClient
 from .parse_osm import OSMParser
@@ -177,7 +179,13 @@ class PlacesUpdater:
 
         await self.fire_event_data(prev_last_place_name=prev_last_place_name)
         self.sensor.set_attr(ATTR_INITIAL_UPDATE, False)
-        await self.sensor.async_persist_attributes()
+        await self._hass.async_add_executor_job(
+            write_sensor_to_json,
+            self.sensor.get_internal_attr(),
+            self.sensor.get_attr_safe_str(CONF_NAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
+        )
 
     async def fire_event_data(self, prev_last_place_name: str) -> None:
         """Fire the Places state-update event with changed display attributes.
@@ -1017,7 +1025,13 @@ class PlacesUpdater:
             cleared_state = clear_since_from_state(self.sensor.get_attr_safe_str(ATTR_NATIVE_VALUE))
             self.sensor.set_native_value(value=f"{cleared_state} (since {mmddstring})")
             self.sensor.set_attr(ATTR_SHOW_DATE, True)
-            await self.sensor.async_persist_attributes()
+            await self._hass.async_add_executor_job(
+                write_sensor_to_json,
+                self.sensor.get_internal_attr(),
+                self.sensor.get_attr_safe_str(CONF_NAME),
+                self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+                self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
+            )
             _LOGGER.debug(
                 "(%s) Updating state to show date instead of time since last change",
                 self.sensor.get_attr(CONF_NAME),
@@ -1038,7 +1052,13 @@ class PlacesUpdater:
         """
         self.sensor.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
         self.sensor.set_attr(ATTR_LAST_CHANGED, now.isoformat(sep=" ", timespec="seconds"))
-        await self.sensor.async_persist_attributes()
+        await self._hass.async_add_executor_job(
+            write_sensor_to_json,
+            self.sensor.get_internal_attr(),
+            self.sensor.get_attr_safe_str(CONF_NAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FILENAME),
+            self.sensor.get_attr_safe_str(ATTR_JSON_FOLDER),
+        )
         _LOGGER.debug(
             "(%s) Updating direction of travel to stationary (Last changed %s seconds ago)",
             self.sensor.get_attr(CONF_NAME),

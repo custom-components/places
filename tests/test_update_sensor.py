@@ -195,8 +195,8 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
     mocks["fire_event_data"].assert_awaited_once()
     # show_time path should set a native value with suffix
     assert sensor.native_value is not None
-    # State persistence now flows through sensor.async_persist_attributes.
-    sensor.async_persist_attributes.assert_awaited_once()
+    # write_sensor_to_json is executed via hass.async_add_executor_job
+    mock_hass.async_add_executor_job.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1017,7 +1017,7 @@ async def test_change_show_time_to_date_param(
     await updater.change_show_time_to_date()
     assert sensor.native_value is not None
     assert sensor.attrs[ATTR_SHOW_DATE] is True
-    sensor.async_persist_attributes.assert_awaited_once()
+    mock_hass.async_add_executor_job.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1031,7 +1031,7 @@ async def test_change_dot_to_stationary_sets_direction_and_last_changed(
     )
     assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == "stationary"
     assert sensor.attrs[ATTR_LAST_CHANGED] == "2024-01-01 12:00:00"
-    sensor.async_persist_attributes.assert_awaited_once()
+    mock_hass.async_add_executor_job.assert_awaited_once()
 
 
 @pytest.mark.asyncio
