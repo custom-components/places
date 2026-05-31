@@ -265,10 +265,10 @@ async def test_places_storage_constructs_distinct_store_per_entry(
 
 
 @pytest.mark.asyncio
-async def test_load_degrades_when_legacy_read_raises_oserror(
+async def test_load_keeps_legacy_file_on_legacy_read_oserror(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Unreadable legacy JSON is logged and startup continues with empty data."""
+    """Legacy unreadable file errors are surfaced and do not remove the file."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     monkeypatch.setattr(
         "custom_components.places.persistence._read_legacy_json",
@@ -280,8 +280,10 @@ async def test_load_degrades_when_legacy_read_raises_oserror(
     legacy_file.write_text(json.dumps({ATTR_CITY: "Legacy City"}))
 
     storage = PlacesStorage(hass, "entry-7", "Test")
-    loaded = await storage.async_load()
-    assert loaded == {}
+
+    with pytest.raises(PermissionError, match="denied"):
+        await storage.async_load()
+
     assert legacy_file.exists()
     assert _FakeStore.last_saved is None
 
