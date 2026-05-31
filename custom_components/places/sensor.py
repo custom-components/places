@@ -186,7 +186,7 @@ class Places(SensorEntity):
         name: str,
         unique_id: str,
         imported_attributes: MutableMapping[str, Any],
-        persistence: PlacesStorage | None = None,
+        persistence: PlacesStorage,
     ) -> None:
         """Initialize a Places sensor and restore persisted attributes.
 
@@ -214,11 +214,7 @@ class Places(SensorEntity):
         self.set_attr(ATTR_INITIAL_UPDATE, True)
         self._config_entry: ConfigEntry = config_entry
         self._hass: HomeAssistant = hass
-        self._persistence: PlacesStorage = (
-            persistence
-            if persistence is not None
-            else PlacesStorage(hass=hass, entry_id=unique_id, name=name)
-        )
+        self._persistence: PlacesStorage = persistence
         self.set_attr(CONF_NAME, name)
         self._attr_name: str = name
         self.set_attr(CONF_UNIQUE_ID, unique_id)

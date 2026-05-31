@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import AbstractContextManager
-from typing import ClassVar
+from typing import ClassVar, cast
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -44,6 +44,7 @@ def places_instance(mock_hass: MagicMock, patch_entity_registry: object) -> Plac
     imported_attributes: dict[str, object] = {}
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
+    persistence.async_remove = AsyncMock()
     return Places(
         hass,
         config,
@@ -75,6 +76,18 @@ class _FakePlacesStorage:
     async def async_save(self, attributes: dict[str, object]) -> None:
         """Record the attributes the sensor asks to persist."""
         self.saved.append(dict(attributes))
+
+
+@pytest.mark.asyncio
+async def test_async_persist_attributes(
+    places_instance: Places,
+) -> None:
+    """Test that async_persist_attributes writes runtime attrs to injected persistence."""
+    places_instance.set_attr(ATTR_NATIVE_VALUE, "Home")
+    expected_attrs = dict(places_instance.get_internal_attr())
+    await places_instance.async_persist_attributes()
+    persistence_save = cast("AsyncMock", places_instance._persistence.async_save)
+    persistence_save.assert_awaited_once_with(expected_attrs)
 
 
 @pytest.mark.parametrize(
@@ -495,7 +508,8 @@ async def test_async_setup_entry_places_param(
     # Patch persistence and the appropriate Places class
     _FakePlacesStorage.instances = []
     monkeypatch.setattr("custom_components.places.sensor.PlacesStorage", _FakePlacesStorage)
-    monkeypatch.setattr(f"custom_components.places.sensor.{patched_class}", MagicMock())
+    entity_class = MagicMock()
+    monkeypatch.setattr(f"custom_components.places.sensor.{patched_class}", entity_class)
 
     with stub_method(
         hass, "async_add_executor_job", side_effect=lambda func, *a: func(*a), restore_original=True
@@ -504,6 +518,9 @@ async def test_async_setup_entry_places_param(
 
     assert _FakePlacesStorage.instances
     assert _FakePlacesStorage.instances[0].entry_id == config_entry.entry_id
+    assert entity_class.call_args is not None
+    assert entity_class.call_args.kwargs["persistence"] is _FakePlacesStorage.instances[0]
+    assert entity_class.call_args.kwargs["imported_attributes"] == {"native_value": "Restored"}
 
     # Should call async_add_entities once and pass update_before_add=True
     assert async_add_entities.call_count == 1
@@ -619,6 +636,8 @@ async def test_async_will_remove_from_hass_param(
     mock_logger = MagicMock()
     monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
     await places_instance.async_will_remove_from_hass()
+    persistence_remove = cast("AsyncMock", places_instance._persistence.async_remove)
+    persistence_remove.assert_not_awaited()
 
     assert scenario in {"remove_json", "remove_event_exclusion"}
     if recorder_present:
