@@ -168,11 +168,11 @@ async def render_display_option(
         ("zone_name, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
         ("formatted_place", "Roy Spiegel MSW, Fort Lee, NJ"),
         (
-            "name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, street",
+            README_PLACE_ADVANCED,
             "Roy Spiegel MSW, House, Koreatown, 1 Bridge Plaza North",
         ),
         (
-            "zone_name[driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city_clean[county], state_abbr]",
+            README_FORMATTED_PLACE_ADVANCED,
             "Roy Spiegel MSW, Fort Lee, NJ",
         ),
     ],
@@ -242,19 +242,6 @@ async def test_readme_place_advanced_example_documents_current_output(
     assert basic_state != advanced_state
     assert "Koreatown" in advanced_state
     assert "Koreatown" not in basic_state
-
-
-@pytest.mark.asyncio
-@pytest.mark.usefixtures("patch_entity_registry")
-async def test_readme_formatted_place_advanced_example_matches_formatted_place(
-    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """README advanced formatted_place example renders the same value."""
-    formatted_state = await render_display_option(mock_hass, monkeypatch, "formatted_place")
-    advanced_state = await render_display_option(
-        mock_hass, monkeypatch, README_FORMATTED_PLACE_ADVANCED
-    )
-    assert advanced_state == formatted_state
 
 
 def test_readme_display_examples_are_documented() -> None:

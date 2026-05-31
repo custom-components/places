@@ -320,19 +320,10 @@ async def test_parse_miscellaneous_osm_id_prefers_argument_over_sensor_state(
 
 
 @pytest.mark.asyncio
-async def test_set_city_details_sets_city_clean(osm_parser: OSMParserFactory) -> None:
-    """set_city_details should compute a cleaned city value and set ATTR_CITY_CLEAN accordingly."""
-    address = {"city": "City of Springfield"}
-    parser, sensor = osm_parser()
-    await parser.set_city_details(address)
-    assert ATTR_CITY_CLEAN in sensor.attrs
-    assert "Springfield" in sensor.attrs[ATTR_CITY_CLEAN]
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("address", "expected_city", "expected_city_clean"),
     [
+        ({"city": "City of Springfield"}, "City of Springfield", "Springfield City"),
         ({"city": "Springfield Township"}, "Springfield Township", "Springfield"),
         ({"city": "Springfield"}, "Springfield", "Springfield"),
         ({"town": "Shelbyville"}, "Shelbyville", "Shelbyville"),
