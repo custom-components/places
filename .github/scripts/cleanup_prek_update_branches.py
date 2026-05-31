@@ -11,6 +11,7 @@ import os
 import sys
 from typing import Protocol
 from urllib.error import HTTPError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 GITHUB_API_URL = "https://api.github.com"
@@ -36,6 +37,9 @@ class GithubCleanupClient(Protocol):
 
     def list_pulls(self, *, state: str, max_pages: int | None = None) -> list[dict[str, object]]:
         """List pull requests by state."""
+
+    def list_refs(self, *, ref_prefix: str) -> list[str]:
+        """List git refs by ref prefix."""
 
     def close_pull(self, pull_number: int) -> None:
         """Close a pull request by number."""
@@ -89,6 +93,34 @@ class GithubClient:
                 break
             url = next_url
         return pulls
+
+    def list_refs(self, *, ref_prefix: str) -> list[str]:
+        """List git refs by ref prefix.
+
+        Args:
+            ref_prefix: Ref prefix after ``refs/`` such as ``heads/branch``.
+
+        Returns:
+            Full git ref names matching the prefix.
+        """
+        refs: list[str] = []
+        safe_ref_prefix = quote(ref_prefix, safe="/")
+        url: str | None = (
+            f"{GITHUB_API_URL}/repos/{self.repository}/git/matching-refs/{safe_ref_prefix}"
+        )
+        while url is not None:
+            payload, link_header = self._request("GET", url)
+            if not isinstance(payload, list):
+                raise TypeError(f"Expected ref list from {url}")
+            refs.extend(
+                ref
+                for item in payload
+                if isinstance(item, dict)
+                and isinstance(ref := item.get("ref"), str)
+                and ref.startswith(f"refs/{ref_prefix}")
+            )
+            url = _next_link(link_header)
+        return refs
 
     def close_pull(self, pull_number: int) -> None:
         """Close a pull request.
@@ -150,8 +182,9 @@ def cleanup_update_branches(
     body_marker: str | None,
     keep_pr_number: int | None,
     close_stale_prs: bool,
-    delete_stale_branch: bool,
     delete_merged_branches: bool,
+    delete_stale_branches: bool = False,
+    keep_latest_open_pr: bool = False,
 ) -> CleanupResult:
     """Clean workflow-owned stale pull requests and branches.
 
@@ -165,8 +198,9 @@ def cleanup_update_branches(
         body_marker: Optional body text identifying workflow-created PRs.
         keep_pr_number: Optional PR number to preserve.
         close_stale_prs: Whether to close open stale update PRs.
-        delete_stale_branch: Whether to delete the current stale branch.
+        delete_stale_branches: Whether to delete stale branch-prefix refs.
         delete_merged_branches: Whether to delete branches from merged update PRs.
+        keep_latest_open_pr: Whether to preserve the newest open workflow PR.
 
     Returns:
         Summary of cleanup actions.
@@ -175,9 +209,10 @@ def cleanup_update_branches(
     protected_branches: set[str] = set()
     branches_to_delete: set[str] = set()
 
-    open_pulls = client.list_pulls(state="open")
-    for pull in open_pulls:
-        if not _is_workflow_pull(
+    open_pulls = [
+        pull
+        for pull in client.list_pulls(state="open")
+        if _is_workflow_pull(
             pull,
             repository=repository,
             branch=branch,
@@ -185,12 +220,17 @@ def cleanup_update_branches(
             label_name=label_name,
             author_login=author_login,
             body_marker=body_marker,
-        ):
-            continue
-
+        )
+    ]
+    latest_open_pr_number = (
+        max((_pull_number(pull) for pull in open_pulls), default=None)
+        if keep_latest_open_pr
+        else None
+    )
+    for pull in open_pulls:
         pull_number = _pull_number(pull)
         head_ref = _head_ref(pull)
-        if keep_pr_number is not None and pull_number == keep_pr_number:
+        if pull_number in {keep_pr_number, latest_open_pr_number}:
             protected_branches.add(head_ref)
             continue
 
@@ -199,8 +239,12 @@ def cleanup_update_branches(
             result.closed_prs.append(pull_number)
             branches_to_delete.add(head_ref)
 
-    if delete_stale_branch and branch not in protected_branches:
-        branches_to_delete.add(branch)
+    if delete_stale_branches:
+        branches_to_delete.update(
+            branch_name
+            for ref in client.list_refs(ref_prefix=f"heads/{branch_prefix}")
+            if (branch_name := _branch_from_ref(ref)).startswith(branch_prefix)
+        )
 
     if delete_merged_branches:
         closed_pulls = client.list_pulls(state="closed", max_pages=CLOSED_PULL_PAGE_LIMIT)
@@ -222,6 +266,24 @@ def cleanup_update_branches(
         result.deleted_branches.append(branch_name)
 
     return result
+
+
+def _branch_from_ref(ref: str) -> str:
+    """Return a branch name from a full heads ref.
+
+    Args:
+        ref: Full git ref such as ``refs/heads/branch-name``.
+
+    Returns:
+        Branch name.
+
+    Raises:
+        ValueError: If the ref is not a branch ref.
+    """
+    prefix = "refs/heads/"
+    if not ref.startswith(prefix):
+        raise ValueError(f"Expected a branch ref, got {ref}")
+    return ref.removeprefix(prefix)
 
 
 def _is_workflow_pull(
@@ -386,8 +448,9 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--author-login")
     parser.add_argument("--body-marker")
     parser.add_argument("--keep-pr-number", type=int)
+    parser.add_argument("--keep-latest-open-pr", action="store_true")
     parser.add_argument("--close-stale-prs", action="store_true")
-    parser.add_argument("--delete-stale-branch", action="store_true")
+    parser.add_argument("--delete-stale-branches", action="store_true")
     parser.add_argument("--delete-merged-branches", action="store_true")
     return parser.parse_args(argv)
 
@@ -418,8 +481,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         author_login=args.author_login,
         body_marker=args.body_marker,
         keep_pr_number=args.keep_pr_number,
+        keep_latest_open_pr=args.keep_latest_open_pr,
         close_stale_prs=args.close_stale_prs,
-        delete_stale_branch=args.delete_stale_branch,
+        delete_stale_branches=args.delete_stale_branches,
         delete_merged_branches=args.delete_merged_branches,
     )
     LOGGER.info("Closed stale PRs: %s", result.closed_prs or "none")

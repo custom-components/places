@@ -1,7 +1,7 @@
 name: prek Autoupdate
 on:
   schedule:
-    - cron: '0 2 * * 1'
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 permissions:
@@ -11,6 +11,7 @@ permissions:
 jobs:
   update-hooks:
     name: Update prek Hooks
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 * * 1'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -73,6 +74,7 @@ jobs:
             --body-marker "$BODY_MARKER" \
             --keep-pr-number "$KEEP_PR_NUMBER" \
             --close-stale-prs \
+            --delete-stale-branches \
             --delete-merged-branches
 
       - name: Close stale prek update PRs
@@ -92,5 +94,39 @@ jobs:
             --author-login 'github-actions[bot]' \
             --body-marker "$BODY_MARKER" \
             --close-stale-prs \
-            --delete-stale-branch \
+            --delete-stale-branches \
+            --delete-merged-branches
+
+  nightly-cleanup:
+    name: Nightly Cleanup
+    needs: update-hooks
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Close stale prek update PRs
+        env:
+          BODY_MARKER: Automated update of `prek` hooks.
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          python .github/scripts/cleanup_prek_update_branches.py \
+            --repository "$REPOSITORY" \
+            --branch chore/prek-updates \
+            --branch-prefix chore/prek-updates \
+            --label-name dependencies \
+            --author-login 'github-actions[bot]' \
+            --body-marker "$BODY_MARKER" \
+            --keep-latest-open-pr \
+            --close-stale-prs \
+            --delete-stale-branches \
             --delete-merged-branches
