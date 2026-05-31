@@ -202,32 +202,24 @@ async def test_load_migrates_valid_legacy_json(
 
 
 @pytest.mark.asyncio
-async def test_load_keeps_legacy_json_when_store_save_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Migration returns legacy data and preserves JSON when Store persistence fails."""
-    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.save_error = OSError("store save failed")
-    hass = _hass_for_legacy_path(tmp_path)
-    legacy_file = legacy_json_path(hass, "entry-4")
-    legacy_file.parent.mkdir(parents=True)
-    legacy_file.write_text(json.dumps({ATTR_CITY: "Legacy City", "unknown": "ignored"}))
-
-    storage = PlacesStorage(hass, "entry-4", "Test")
-    loaded = await storage.async_load()
-
-    assert loaded == {ATTR_CITY: "Legacy City"}
-    assert legacy_file.exists()
-    assert _FakeStore.last_saved is None
-
-
-@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("save_error", "save_without_write", "expected_last_saved"),
+    [
+        (OSError("store save failed"), False, None),
+        (None, True, {ATTR_CITY: "Legacy City"}),
+    ],
+)
 async def test_load_keeps_legacy_json_when_store_save_is_not_durable(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    save_error: OSError | None,
+    save_without_write: bool,
+    expected_last_saved: dict[str, object] | None,
 ) -> None:
-    """Migration preserves legacy JSON when Store save returns without a file write."""
+    """Migration preserves legacy JSON when Store data is not durably saved."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.save_without_write = True
+    _FakeStore.save_error = save_error
+    _FakeStore.save_without_write = save_without_write
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-4")
     legacy_file.parent.mkdir(parents=True)
@@ -238,7 +230,7 @@ async def test_load_keeps_legacy_json_when_store_save_is_not_durable(
 
     assert loaded == {ATTR_CITY: "Legacy City"}
     assert legacy_file.exists()
-    assert _FakeStore.last_saved == {ATTR_CITY: "Legacy City"}
+    assert _FakeStore.last_saved == expected_last_saved
 
 
 @pytest.mark.asyncio
@@ -371,34 +363,14 @@ async def test_load_degrades_when_legacy_read_raises_oserror(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("remove_error", [None, OSError("store remove failed")])
 async def test_load_ignores_non_mapping_store_data_and_migrates_legacy(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, remove_error: OSError | None
 ) -> None:
     """Invalid Store snapshots are removed and legacy JSON is migrated when available."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     _FakeStore.next_data = ["bad", "payload"]
-    hass = _hass_for_legacy_path(tmp_path)
-    legacy_file = legacy_json_path(hass, "entry-8")
-    legacy_file.parent.mkdir(parents=True)
-    legacy_file.write_text(json.dumps({ATTR_CITY: "Legacy City", "unknown": "ignored"}))
-
-    storage = PlacesStorage(hass, "entry-8", "Test")
-    loaded = await storage.async_load()
-
-    assert loaded == {ATTR_CITY: "Legacy City"}
-    assert _FakeStore.remove_calls == 1
-    assert _FakeStore.last_saved == {ATTR_CITY: "Legacy City"}
-    assert not legacy_file.exists()
-
-
-@pytest.mark.asyncio
-async def test_load_migrates_legacy_when_invalid_store_cleanup_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Invalid Store cleanup failures do not prevent legacy JSON migration."""
-    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.next_data = ["bad", "payload"]
-    _FakeStore.remove_error = OSError("store remove failed")
+    _FakeStore.remove_error = remove_error
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-8")
     legacy_file.parent.mkdir(parents=True)

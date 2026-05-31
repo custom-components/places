@@ -43,37 +43,21 @@ def test_reverse_url_matches_nominatim_query_contract() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("url", "cached_payload", "expect_copy"),
+    [
+        ("https://example.test/osm", {"place_id": 123}, False),
+        ("https://example.test/osm-list", [{"place_id": 123}], True),
+    ],
+)
 async def test_get_json_uses_existing_cache_without_network(
-    mock_hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+    mock_hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    url: str,
+    cached_payload: object,
+    expect_copy: bool,
 ) -> None:
     """Cached OSM payloads are returned without session calls."""
-    mock_hass.data = {
-        DOMAIN: {
-            OSM_CACHE: {"https://example.test/osm": {"place_id": 123}},
-            OSM_THROTTLE: {"lock": None, "last_query": 0.0},
-        }
-    }
-
-    client_session_getter = AsyncMock()
-    monkeypatch.setattr(
-        "custom_components.places.osm_client.async_get_clientsession",
-        client_session_getter,
-    )
-
-    client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
-    result = await client.get_json(url="https://example.test/osm", name="OpenStreetMaps")
-
-    assert result == {"place_id": 123}
-    client_session_getter.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_get_json_returns_list_cache_copy(
-    mock_hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Cached list payloads are copied before being returned."""
-    url = "https://example.test/osm-list"
-    cached_payload = [{"place_id": 123}]
     mock_hass.data = {
         DOMAIN: {
             OSM_CACHE: {url: cached_payload},
@@ -91,7 +75,8 @@ async def test_get_json_returns_list_cache_copy(
     result = await client.get_json(url=url, name="OpenStreetMaps")
 
     assert result == cached_payload
-    assert result is not cached_payload
+    if expect_copy:
+        assert result is not cached_payload
     client_session_getter.assert_not_called()
 
 

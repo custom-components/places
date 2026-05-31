@@ -259,14 +259,21 @@ def test_import_persisted_attributes(
     assert "d" not in places_instance._internal_attr
 
 
-def test_get_attr_returns_default(places_instance: Places) -> None:
-    """Test that get_attr returns the specified default value when the attribute is missing."""
-    assert places_instance.get_attr("missing", default="default") == "default"
-
-
-def test_get_attr_none_when_blank_and_no_default(places_instance: Places) -> None:
-    """Test that get_attr returns None when the attribute is missing and no default is provided."""
-    assert places_instance.get_attr("missing") is None
+@pytest.mark.parametrize(
+    ("default", "expected"),
+    [
+        ("default", "default"),
+        (None, None),
+    ],
+)
+def test_get_attr_returns_default_for_missing_attribute(
+    places_instance: Places, default: str | None, expected: str | None
+) -> None:
+    """Test that get_attr returns the expected value when the attribute is missing."""
+    if default is None:
+        assert places_instance.get_attr("missing") is expected
+    else:
+        assert places_instance.get_attr("missing", default=default) == expected
 
 
 def test_set_attr_overwrites_value(places_instance: Places) -> None:
