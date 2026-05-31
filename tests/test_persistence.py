@@ -85,6 +85,7 @@ class _FakeStore:
     last_saved: dict[str, object] | None = None
     remove_calls = 0
     save_error: BaseException | None = None
+    remove_error: BaseException | None = None
     init_calls: ClassVar[list[tuple[int, str, bool, bool]]] = []
 
     def __init__(
@@ -113,6 +114,9 @@ class _FakeStore:
     async def async_remove(self) -> None:
         """Record Store removal."""
         type(self).remove_calls += 1
+        remove_error = type(self).remove_error
+        if remove_error is not None:
+            raise remove_error
 
 
 @pytest.fixture(autouse=True)
@@ -122,6 +126,7 @@ def reset_fake_store_state() -> None:
     _FakeStore.last_saved = None
     _FakeStore.remove_calls = 0
     _FakeStore.save_error = None
+    _FakeStore.remove_error = None
     _FakeStore.init_calls = []
 
 
@@ -328,6 +333,28 @@ async def test_load_ignores_non_mapping_store_data_and_migrates_legacy(
     """Invalid Store snapshots are removed and legacy JSON is migrated when available."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     _FakeStore.next_data = ["bad", "payload"]
+    hass = _hass_for_legacy_path(tmp_path)
+    legacy_file = legacy_json_path(hass, "entry-8")
+    legacy_file.parent.mkdir(parents=True)
+    legacy_file.write_text(json.dumps({ATTR_CITY: "Legacy City", "unknown": "ignored"}))
+
+    storage = PlacesStorage(hass, "entry-8", "Test")
+    loaded = await storage.async_load()
+
+    assert loaded == {ATTR_CITY: "Legacy City"}
+    assert _FakeStore.remove_calls == 1
+    assert _FakeStore.last_saved == {ATTR_CITY: "Legacy City"}
+    assert not legacy_file.exists()
+
+
+@pytest.mark.asyncio
+async def test_load_migrates_legacy_when_invalid_store_cleanup_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Invalid Store cleanup failures do not prevent legacy JSON migration."""
+    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
+    _FakeStore.next_data = ["bad", "payload"]
+    _FakeStore.remove_error = OSError("store remove failed")
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-8")
     legacy_file.parent.mkdir(parents=True)

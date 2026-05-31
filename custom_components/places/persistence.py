@@ -19,6 +19,7 @@ from .const import ATTR_NATIVE_VALUE, DOMAIN, PERSISTED_ATTRIBUTE_LIST
 
 _LOGGER = logging.getLogger(__name__)
 STORE_VERSION = 1
+STORE_WRITE_ERRORS = (OSError, TypeError, ValueError, SerializationError, WriteError)
 
 type Snapshot = dict[str, Any]
 
@@ -118,7 +119,16 @@ class PlacesStorage:
                     type(store_data).__name__,
                     legacy_path,
                 )
-                await self._store.async_remove()
+                try:
+                    await self._store.async_remove()
+                except STORE_WRITE_ERRORS as error:
+                    _LOGGER.warning(
+                        "(%s) Could not remove invalid Store snapshot (%s): %s: %s",
+                        self._name,
+                        store_key(self._entry_id),
+                        type(error).__name__,
+                        error,
+                    )
             else:
                 await self._async_remove_legacy_json(legacy_path)
                 return dict(store_data)
@@ -144,7 +154,7 @@ class PlacesStorage:
         normalized = normalize_snapshot(legacy_data)
         try:
             await self._store.async_save(normalized)
-        except (OSError, TypeError, ValueError, SerializationError, WriteError) as error:
+        except STORE_WRITE_ERRORS as error:
             _LOGGER.warning(
                 "(%s) Could not migrate legacy Places JSON snapshot (%s) to Store: %s: %s",
                 self._name,
