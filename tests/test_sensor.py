@@ -6,6 +6,7 @@ from contextlib import AbstractContextManager
 from typing import ClassVar, cast
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.config_entries import ConfigEntryState
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -629,10 +630,12 @@ async def test_async_will_remove_from_hass_counts_other_extended_entries(
     current_entry = MockConfigEntry(
         domain="places",
         data={"name": "TestName", "extended_attr": current_extended},
+        state=ConfigEntryState.LOADED,
     )
     other_entry = MockConfigEntry(
         domain="places",
         data={"name": "OtherName", "extended_attr": other_extended},
+        state=ConfigEntryState.LOADED,
     )
     config_entries = [other_entry]
     if include_current_entry:
@@ -698,6 +701,41 @@ async def test_async_will_remove_from_hass_with_real_runtime_data_shape(
     await places_instance.async_will_remove_from_hass()
     places_instance._hass.config_entries.async_entries.assert_called_once_with(DOMAIN)
     recorder = places_instance._hass.data[RECORDER_INSTANCE]
+    assert EVENT_TYPE not in recorder.exclude_event_types
+
+
+@pytest.mark.asyncio
+async def test_async_will_remove_from_hass_ignores_unloaded_extended_entries(
+    monkeypatch: pytest.MonkeyPatch,
+    places_instance: Places,
+) -> None:
+    """Recorder exclusion cleanup should only count loaded extended entries."""
+    places_instance.get_attr = MagicMock(return_value=True)
+    recorder = MagicMock()
+    recorder.exclude_event_types = {EVENT_TYPE}
+    places_instance._hass.data = {RECORDER_INSTANCE: recorder}
+    current_entry = MockConfigEntry(
+        domain="places",
+        data={"extended_attr": True, "name": "TestName"},
+        state=ConfigEntryState.LOADED,
+    )
+    unloaded_entry = MockConfigEntry(
+        domain="places",
+        data={"extended_attr": True, "name": "DormantName"},
+        state=ConfigEntryState.NOT_LOADED,
+    )
+    places_instance._config_entry = current_entry
+    places_instance._hass.config_entries.async_entries = MagicMock(
+        return_value=[current_entry, unloaded_entry]
+    )
+    places_instance._attr_name = "TestName"
+    places_instance._entity_id = "sensor.test"
+    mock_logger = MagicMock()
+    monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
+
+    await places_instance.async_will_remove_from_hass()
+
+    places_instance._hass.config_entries.async_entries.assert_called_once_with(DOMAIN)
     assert EVENT_TYPE not in recorder.exclude_event_types
 
 
