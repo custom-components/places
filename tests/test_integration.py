@@ -122,22 +122,13 @@ async def test_async_unload_entry_logs_safe_identifier(
 
 
 @pytest.mark.asyncio
-async def test_runtime_data_set_on_entry(mock_hass: MagicMock, mock_entry: MockConfigEntry) -> None:
-    """async_setup_entry should set entry.runtime_data and forward entry setups once."""
-    result = await async_setup_entry(mock_hass, mock_entry)
-    assert result is True
-    assert mock_entry.runtime_data == mock_entry.data
-    # Ensure the coroutine was actually awaited once
-    mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once()
-
-
-@pytest.mark.asyncio
 async def test_async_setup_entry_calls_forward_setups(
     mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
-    """Ensure async_setup_entry forwards platform setups to Home Assistant for the given entry."""
+    """Ensure async_setup_entry sets runtime data and forwards platform setups."""
     result = await async_setup_entry(mock_hass, mock_entry)
     assert result is True
+    assert mock_entry.runtime_data == mock_entry.data
     # Verify the async_forward_entry_setups coroutine was awaited with the expected args
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS

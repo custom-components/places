@@ -50,34 +50,34 @@ class _TrackerAttributesWithoutDefault:
         return self._values.get(key)
 
 
-async def test_tracker_missing_skips_update(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Missing tracked entities skip update without coordinates."""
-    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.missing"
-    mock_hass.states.get.return_value = None
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-
-    result = await updater.is_devicetracker_set()
-
-    assert result is UpdateStatus.SKIP
-
-
-@pytest.mark.parametrize("missing_tracker_id", [None, ""])
-async def test_tracker_blank_id_skips_without_state_lookup(
+@pytest.mark.parametrize(
+    ("tracker_id", "state_lookup_result", "expect_state_lookup"),
+    [
+        ("device_tracker.missing", None, True),
+        (None, None, False),
+        ("", None, False),
+    ],
+)
+async def test_tracker_missing_or_blank_id_skips_update(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    missing_tracker_id: str | None,
+    tracker_id: str | None,
+    state_lookup_result: object | None,
+    expect_state_lookup: bool,
 ) -> None:
-    """Blank tracked entity IDs skip update before querying HA states."""
-    sensor.attrs[CONF_DEVICETRACKER_ID] = missing_tracker_id
+    """Missing entities and blank tracked entity IDs skip updates."""
+    sensor.attrs[CONF_DEVICETRACKER_ID] = tracker_id
+    mock_hass.states.get.return_value = state_lookup_result
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     result = await updater.is_devicetracker_set()
 
     assert result is UpdateStatus.SKIP
-    mock_hass.states.get.assert_not_called()
+    if expect_state_lookup:
+        mock_hass.states.get.assert_called_once_with(tracker_id)
+    else:
+        mock_hass.states.get.assert_not_called()
 
 
 async def test_tracker_invalid_coordinates_skip_update(
@@ -195,19 +195,14 @@ async def _assert_tracker_state_can_proceed_with_coordinates(
     assert result is UpdateStatus.PROCEED
 
 
-async def test_tracker_state_object_unknown_with_coordinates_can_proceed(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+@pytest.mark.parametrize("tracker_state", [STATE_UNKNOWN, STATE_UNAVAILABLE])
+async def test_tracker_state_object_with_coordinates_can_proceed(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    tracker_state: str,
 ) -> None:
     """HA state-like objects with unknown/unavailable state still use coordinates."""
     await _assert_tracker_state_can_proceed_with_coordinates(
-        mock_hass, mock_config_entry, sensor, STATE_UNKNOWN
-    )
-
-
-async def test_tracker_state_object_unavailable_with_coordinates_can_proceed(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """HA state-like objects with unavailable state still use coordinates."""
-    await _assert_tracker_state_can_proceed_with_coordinates(
-        mock_hass, mock_config_entry, sensor, STATE_UNAVAILABLE
+        mock_hass, mock_config_entry, sensor, tracker_state
     )

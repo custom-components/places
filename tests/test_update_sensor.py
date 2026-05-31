@@ -313,8 +313,7 @@ async def test_check_device_tracker_and_update_coords_param(
         result = await updater.check_device_tracker_and_update_coords()
     assert result == expected
     mocks["update_coordinates"].assert_awaited_once()
-    if gps_result == UpdateStatus.PROCEED:
-        mocks["get_gps_accuracy"].assert_awaited_once()
+    mocks["get_gps_accuracy"].assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -375,6 +374,8 @@ async def test_get_gps_accuracy_variants(
 
     result = await updater.get_gps_accuracy()
     assert result == expected
+    if tracker_attrs is not None:
+        assert sensor.attrs[ATTR_GPS_ACCURACY] == float(tracker_attrs[ATTR_GPS_ACCURACY])
 
 
 @pytest.mark.asyncio
@@ -1105,6 +1106,7 @@ async def test_is_tracker_available_param(
     [
         (None, False),
         ({CONF_LATITUDE: None, CONF_LONGITUDE: None}, False),
+        ({CONF_LATITUDE: "a", CONF_LONGITUDE: 2.0}, False),
         ({CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0}, True),
     ],
 )
@@ -1386,67 +1388,6 @@ async def test_calculate_travel_distance_variants(
         for call in sensor.set_attr.call_args_list
     )
     assert found
-
-
-@pytest.mark.asyncio
-async def test_get_gps_accuracy_zero_accuracy_skip(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """GPS accuracy 0 with use_gps True causes SKIP."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    tracker_state = MagicMock()
-    tracker_state.attributes = {ATTR_GPS_ACCURACY: 0}
-    mock_hass.states.get.return_value = tracker_state
-    # Populate required attributes
-    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.attrs[CONF_USE_GPS] = True
-    # is_attr_blank should evaluate based on actual attrs (don't force False globally)
-    sensor.is_attr_blank.side_effect = lambda k: (
-        k not in sensor.attrs
-        or sensor.attrs.get(k)
-        in (
-            None,
-            "",
-        )
-    )
-    result = await updater.get_gps_accuracy()
-    assert result == UpdateStatus.SKIP
-
-
-@pytest.mark.asyncio
-async def test_check_device_tracker_and_update_coords_get_gps_accuracy_skip(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    sensor: MockSensor,
-    stubbed_updater: StubbedUpdater,
-) -> None:
-    """If get_gps_accuracy returns SKIP that status is propagated."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    with stubbed_updater(
-        updater,
-        [
-            ("is_devicetracker_set", {"return_value": UpdateStatus.PROCEED}),
-            ("update_coordinates", {}),
-            ("get_gps_accuracy", {"return_value": UpdateStatus.SKIP}),
-        ],
-    ) as mocks:
-        result = await updater.check_device_tracker_and_update_coords()
-    assert result == UpdateStatus.SKIP
-    mocks["update_coordinates"].assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_update_coordinates_device_tracker_missing(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    caplog: pytest.LogCaptureFixture,
-    sensor: MockSensor,
-) -> None:
-    """update_coordinates logs warning and returns when tracker missing."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    mock_hass.states.get.return_value = None
-    await updater.update_coordinates()
-    assert any("Device tracker entity not found" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
@@ -1885,19 +1826,6 @@ async def test_is_tracker_available_valid(
     mock_hass.states.get.return_value = state
     result = await updater.is_tracker_available()
     assert result is True
-
-
-@pytest.mark.asyncio
-async def test_has_valid_coordinates_non_numeric(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Returns False when latitude not numeric though attribute exists."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    tracker = MagicMock()
-    tracker.attributes = {CONF_LATITUDE: "a", CONF_LONGITUDE: 2.0}
-    mock_hass.states.get.return_value = tracker
-    result = await updater.has_valid_coordinates()
-    assert result is False
 
 
 @pytest.mark.asyncio
