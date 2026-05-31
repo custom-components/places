@@ -108,17 +108,8 @@ class PlacesStorage:
         store_data = await self._store.async_load()
         legacy_path = legacy_json_path(self._hass, self._entry_id)
         if store_data is not None:
-            if not isinstance(store_data, Mapping):
-                _LOGGER.debug(
-                    "(%s) Invalid Store snapshot root is %s, expected mapping: %s",
-                    self._name,
-                    type(store_data).__name__,
-                    legacy_path,
-                )
-                await self._store.async_remove()
-            else:
-                await self._async_remove_legacy_json(legacy_path)
-                return dict(store_data)
+            await self._async_remove_legacy_json(legacy_path)
+            return dict(store_data)
 
         legacy_data = await self._hass.async_add_executor_job(
             _read_legacy_json,
@@ -128,6 +119,7 @@ class PlacesStorage:
         if legacy_data is None:
             await self._async_remove_legacy_json(legacy_path)
             return {}
+
         normalized = normalize_snapshot(legacy_data)
         await self._store.async_save(normalized)
         await self._async_remove_legacy_json(legacy_path)
@@ -162,15 +154,15 @@ def _read_legacy_json(path: Path, name: str) -> Snapshot | None:
         name: Sensor name used for logging.
 
     Returns:
-        Mapping from a valid legacy file, or ``None`` for missing/corrupt/non-mapping
-        files. Raises on unreadable-file I/O errors.
+        Mapping from a valid legacy file, or ``None`` for missing, corrupt, or
+        non-mapping files.
     """
     try:
         with path.open() as jsonfile:
             data: Any = json.load(jsonfile)
     except FileNotFoundError:
         return None
-    except json.JSONDecodeError as error:
+    except (OSError, json.JSONDecodeError) as error:
         _LOGGER.debug(
             "(%s) Legacy Places JSON snapshot is not importable (%s): %s: %s",
             name,
@@ -179,15 +171,6 @@ def _read_legacy_json(path: Path, name: str) -> Snapshot | None:
             error,
         )
         return None
-    except OSError as error:
-        _LOGGER.debug(
-            "(%s) Legacy Places JSON snapshot is not importable (%s): %s: %s",
-            name,
-            path,
-            type(error).__name__,
-            error,
-        )
-        raise
     if not isinstance(data, Mapping):
         _LOGGER.debug(
             "(%s) Legacy Places JSON snapshot root is %s, expected mapping: %s",
