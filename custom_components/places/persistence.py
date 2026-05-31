@@ -12,6 +12,8 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.util import slugify
+from homeassistant.util.file import WriteError
+from homeassistant.util.json import SerializationError
 
 from .const import ATTR_NATIVE_VALUE, DOMAIN, PERSISTED_ATTRIBUTE_LIST
 
@@ -69,11 +71,11 @@ def normalize_snapshot(attributes: Mapping[str, Any]) -> Snapshot:
         if key not in allowed or isinstance(value, datetime):
             continue
         try:
-            json.dumps(value)
+            serialized_value = json.dumps(value)
         except TypeError, ValueError:
             normalized[key] = str(value)
         else:
-            normalized[key] = value
+            normalized[key] = json.loads(serialized_value)
     return normalized
 
 
@@ -140,8 +142,18 @@ class PlacesStorage:
             await self._async_remove_legacy_json(legacy_path)
             return {}
         normalized = normalize_snapshot(legacy_data)
-        await self._store.async_save(normalized)
-        await self._async_remove_legacy_json(legacy_path)
+        try:
+            await self._store.async_save(normalized)
+        except (OSError, TypeError, ValueError, SerializationError, WriteError) as error:
+            _LOGGER.warning(
+                "(%s) Could not migrate legacy Places JSON snapshot (%s) to Store: %s: %s",
+                self._name,
+                legacy_path,
+                type(error).__name__,
+                error,
+            )
+        else:
+            await self._async_remove_legacy_json(legacy_path)
         return dict(normalized)
 
     async def async_save(self, attributes: Mapping[str, Any]) -> None:

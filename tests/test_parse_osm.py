@@ -430,6 +430,29 @@ async def test_set_city_details_preserves_overlapping_type_precedence(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("address", "expected_city", "expected_postal_town"),
+    [
+        ({"city": "City Value", "village": "Village Value"}, "City Value", "Village Value"),
+        ({"town": "Town Value", "hamlet": "Hamlet Value"}, "Town Value", "Hamlet Value"),
+    ],
+)
+async def test_set_city_details_preserves_lower_priority_postal_town(
+    osm_parser: OSMParserFactory,
+    address: Address,
+    expected_city: str,
+    expected_postal_town: str,
+) -> None:
+    """Lower-priority city-like fields remain candidates for postal town."""
+    parser, sensor = osm_parser()
+
+    await parser.set_city_details(address)
+
+    assert sensor.attrs[ATTR_CITY] == expected_city
+    assert sensor.attrs[ATTR_POSTAL_TOWN] == expected_postal_town
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     ("expected_attr", "expected_value"),
     [
         (ATTR_REGION, "CA"),

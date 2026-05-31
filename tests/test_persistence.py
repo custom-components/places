@@ -15,6 +15,7 @@ from custom_components.places.const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_LAST_UPDATED,
     ATTR_NATIVE_VALUE,
+    ATTR_OSM_DICT,
 )
 from custom_components.places.persistence import (
     PlacesStorage,
@@ -65,6 +66,16 @@ def test_normalize_snapshot_coerces_non_serializable_values() -> None:
     normalized = normalize_snapshot(snapshot)
 
     assert normalized == {ATTR_CITY: str(non_json)}
+
+
+def test_normalize_snapshot_copies_nested_values() -> None:
+    """Nested snapshot values are isolated before executor-thread serialization."""
+    osm_dict = {"address": {"city": "Original"}}
+    normalized = normalize_snapshot({ATTR_OSM_DICT: osm_dict})
+
+    osm_dict["address"]["city"] = "Mutated"
+
+    assert normalized == {ATTR_OSM_DICT: {"address": {"city": "Original"}}}
 
 
 class _FakeStore:
@@ -165,19 +176,18 @@ async def test_load_migrates_valid_legacy_json(
 async def test_load_keeps_legacy_json_when_store_save_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Migration preserves legacy JSON when Store persistence fails."""
+    """Migration returns legacy data and preserves JSON when Store persistence fails."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.save_error = RuntimeError("store save failed")
+    _FakeStore.save_error = OSError("store save failed")
     hass = _hass_for_legacy_path(tmp_path)
     legacy_file = legacy_json_path(hass, "entry-4")
     legacy_file.parent.mkdir(parents=True)
     legacy_file.write_text(json.dumps({ATTR_CITY: "Legacy City", "unknown": "ignored"}))
 
     storage = PlacesStorage(hass, "entry-4", "Test")
+    loaded = await storage.async_load()
 
-    with pytest.raises(RuntimeError, match="store save failed"):
-        await storage.async_load()
-
+    assert loaded == {ATTR_CITY: "Legacy City"}
     assert legacy_file.exists()
     assert _FakeStore.last_saved is None
 

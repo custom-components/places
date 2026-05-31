@@ -234,26 +234,33 @@ class OSMParser:
         Args:
             address: Nominatim ``address`` mapping from the current response.
         """
+        city_types_to_skip: list[str] = []
         for city_type in CITY_LIST:
             if city_type in address:
                 self.sensor.set_attr(
                     ATTR_CITY,
                     address.get(city_type),
                 )
+                city_types_to_skip = _prioritized_types_through_match(CITY_LIST, city_type)
                 break
 
-        postal_town_types = _without_prioritized_types(POSTAL_TOWN_LIST, CITY_LIST)
+        postal_town_types = _without_prioritized_types(POSTAL_TOWN_LIST, city_types_to_skip)
+        postal_town_types_to_skip: list[str] = []
         for postal_town_type in postal_town_types:
             if postal_town_type in address:
                 self.sensor.set_attr(
                     ATTR_POSTAL_TOWN,
                     address.get(postal_town_type),
                 )
+                postal_town_types_to_skip = _prioritized_types_through_match(
+                    postal_town_types,
+                    postal_town_type,
+                )
                 break
 
         neighbourhood_types = _without_prioritized_types(
             NEIGHBOURHOOD_LIST,
-            [*CITY_LIST, *postal_town_types],
+            [*city_types_to_skip, *postal_town_types_to_skip],
         )
         for neighbourhood_type in neighbourhood_types:
             if neighbourhood_type in address:
@@ -430,3 +437,16 @@ def _without_prioritized_types(types: list[str], prioritized_types: list[str]) -
     """
     prioritized = set(prioritized_types)
     return [address_type for address_type in types if address_type not in prioritized]
+
+
+def _prioritized_types_through_match(types: list[str], matched_type: str) -> list[str]:
+    """Return candidate types through the matched type, preserving precedence order.
+
+    Args:
+        types: Candidate address types in precedence order.
+        matched_type: Address type selected from the candidate list.
+
+    Returns:
+        Address types at or above the selected type in the precedence order.
+    """
+    return types[: types.index(matched_type) + 1]
