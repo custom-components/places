@@ -352,6 +352,7 @@ class OSMParser:
         ):
             raw_ref = namedetails.get("ref")
             if not isinstance(raw_ref, str) or not raw_ref.strip():
+                self.sensor.clear_attr(ATTR_STREET_REF)
                 _LOGGER.debug(
                     "(%s) Skipping street ref parsing due to invalid ref value: %r",
                     self.sensor.get_attr(CONF_NAME),
@@ -364,6 +365,8 @@ class OSMParser:
                     if bool(re.search(r"\d", ref)):
                         self.sensor.set_attr(ATTR_STREET_REF, ref)
                         break
+                else:
+                    self.sensor.clear_attr(ATTR_STREET_REF)
             if not self.sensor.is_attr_blank(ATTR_STREET_REF):
                 _LOGGER.debug(
                     "(%s) Street: %s / Street Ref: %s",

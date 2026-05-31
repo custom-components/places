@@ -538,6 +538,32 @@ async def test_parse_miscellaneous_ignores_invalid_street_ref(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("raw_ref", [None, 123, "", "   ", "County Road"])
+async def test_parse_miscellaneous_clears_stale_street_ref_without_usable_ref(
+    osm_parser: OSMParserFactory, raw_ref: object
+) -> None:
+    """Highway payloads without usable refs clear any previously stored street ref."""
+    osm_dict = {
+        "display_name": "123 Main St",
+        "osm_id": 123456,
+        "osm_type": "way",
+        "namedetails": {"ref": raw_ref},
+        "category": "highway",
+    }
+    parser, sensor = osm_parser(
+        attrs={
+            ATTR_PLACE_CATEGORY: "highway",
+            ATTR_OSM_DICT: {"osm_id": 123456},
+            ATTR_STREET_REF: "A1",
+        }
+    )
+
+    await parser.parse_miscellaneous(osm_dict)
+
+    assert ATTR_STREET_REF not in sensor.attrs
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("case", "current_name", "should_set"),
     [
