@@ -1,5 +1,6 @@
 """Integration tests for the custom_components.places module."""
 
+import logging
 from typing import ClassVar
 from unittest.mock import MagicMock
 
@@ -7,7 +8,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places import async_remove_entry, async_setup_entry, async_unload_entry
-from custom_components.places.const import CONF_NAME, PLATFORMS
+from custom_components.places.const import CONF_API_KEY, CONF_NAME, PLATFORMS
 from tests.conftest import assert_awaited_count
 
 
@@ -17,11 +18,21 @@ def mock_entry() -> MockConfigEntry:
     return MockConfigEntry(domain="places", data={"name": "test", "other": "value"})
 
 
+@pytest.fixture
+def sensitive_entry() -> MockConfigEntry:
+    """Return a config entry containing data that must not be logged."""
+    return MockConfigEntry(
+        domain="places",
+        data={CONF_NAME: "test", CONF_API_KEY: "secret@example.com"},
+    )
+
+
 class _FakePlacesStorage:
     """Test double for `PlacesStorage` used to assert removal calls."""
 
     remove_calls = 0
     remove_calls_args: ClassVar[list[tuple[str, str]]] = []
+    remove_error: OSError | None = None
 
     def __init__(self, hass: object, entry_id: str, name: str) -> None:
         """Record constructor arguments for assertions."""
@@ -31,6 +42,9 @@ class _FakePlacesStorage:
 
     async def async_remove(self) -> None:
         """Record a removal request from async_remove_entry."""
+        remove_error = type(self).remove_error
+        if remove_error is not None:
+            raise remove_error
         type(self).remove_calls += 1
         type(self).remove_calls_args.append((self.entry_id, self.name))
 
@@ -40,6 +54,7 @@ def reset_fake_storage() -> None:
     """Reset fake storage accounting for each integration test."""
     _FakePlacesStorage.remove_calls = 0
     _FakePlacesStorage.remove_calls_args = []
+    _FakePlacesStorage.remove_error = None
 
 
 @pytest.mark.asyncio
@@ -70,6 +85,40 @@ async def test_async_remove_entry_uses_entry_id_if_name_missing(
 
     assert _FakePlacesStorage.remove_calls == 1
     assert _FakePlacesStorage.remove_calls_args == [(entry.entry_id, entry.entry_id)]
+
+
+@pytest.mark.asyncio
+async def test_async_remove_entry_logs_storage_errors_without_blocking(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    sensitive_entry: MockConfigEntry,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Config-entry deletion should not be blocked by storage cleanup errors."""
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
+    _FakePlacesStorage.remove_error = OSError("storage unavailable")
+
+    with caplog.at_level(logging.WARNING, logger="custom_components.places"):
+        result = await async_remove_entry(mock_hass, sensitive_entry)
+
+    assert result is True
+    assert sensitive_entry.entry_id in caplog.text
+    assert "storage unavailable" in caplog.text
+    assert "secret@example.com" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_async_unload_entry_logs_safe_identifier(
+    mock_hass: MagicMock,
+    sensitive_entry: MockConfigEntry,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Config-entry unload should not log the full entry data mapping."""
+    with caplog.at_level(logging.INFO, logger="custom_components.places"):
+        await async_unload_entry(mock_hass, sensitive_entry)
+
+    assert sensitive_entry.entry_id in caplog.text
+    assert "secret@example.com" not in caplog.text
 
 
 @pytest.mark.asyncio

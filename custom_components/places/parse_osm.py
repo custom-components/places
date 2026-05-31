@@ -6,7 +6,7 @@ and setting them in the sensor's internal attributes.
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 import logging
 import re
 from typing import TYPE_CHECKING, Any
@@ -336,23 +336,27 @@ class OSMParser:
                 osm_dict.get("osm_type"),
             )
 
+        namedetails = osm_dict.get("namedetails")
         if (
             not self.sensor.is_attr_blank(ATTR_PLACE_CATEGORY)
             and self.sensor.get_attr_safe_str(ATTR_PLACE_CATEGORY).lower() == "highway"
-            and "namedetails" in osm_dict
-            and osm_dict.get("namedetails") is not None
-            and "ref" in osm_dict["namedetails"]
+            and isinstance(namedetails, Mapping)
+            and "ref" in namedetails
         ):
-            street_refs: list[str] = re.split(
-                r"[;\\/,.:]",
-                osm_dict["namedetails"].get("ref"),
-            )
-            street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
-            # _LOGGER.debug("(%s) Street Refs: %s", self.sensor.get_attr(CONF_NAME), street_refs)
-            for ref in street_refs:
-                if bool(re.search(r"\d", ref)):
-                    self.sensor.set_attr(ATTR_STREET_REF, ref)
-                    break
+            raw_ref = namedetails.get("ref")
+            if not isinstance(raw_ref, str) or not raw_ref.strip():
+                _LOGGER.debug(
+                    "(%s) Skipping street ref parsing due to invalid ref value: %r",
+                    self.sensor.get_attr(CONF_NAME),
+                    raw_ref,
+                )
+            else:
+                street_refs: list[str] = re.split(r"[;\\/,.:]", raw_ref)
+                street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
+                for ref in street_refs:
+                    if bool(re.search(r"\d", ref)):
+                        self.sensor.set_attr(ATTR_STREET_REF, ref)
+                        break
             if not self.sensor.is_attr_blank(ATTR_STREET_REF):
                 _LOGGER.debug(
                     "(%s) Street: %s / Street Ref: %s",

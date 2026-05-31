@@ -30,7 +30,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # This is called when an entry/configured device is to be removed. The class
     # needs to unload itself, and remove callbacks. See the classes for further
     # details
-    _LOGGER.info("Unloading: %s", entry.data)
+    _LOGGER.info("Unloading Places entry: %s", entry.entry_id)
     unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     return unload_ok
@@ -38,8 +38,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove config-entry specific persisted state."""
-    _LOGGER.info("Removing: %s", entry.data)
-    await PlacesStorage(
-        hass=hass, entry_id=entry.entry_id, name=entry.data.get(CONF_NAME, entry.entry_id)
-    ).async_remove()
+    _LOGGER.info("Removing Places entry: %s", entry.entry_id)
+    name = entry.data.get(CONF_NAME, entry.entry_id)
+    try:
+        await PlacesStorage(
+            hass=hass,
+            entry_id=entry.entry_id,
+            name=name,
+        ).async_remove()
+    except OSError as error:
+        _LOGGER.warning(
+            "Could not remove persisted Places data for entry %s: %s: %s",
+            entry.entry_id,
+            type(error).__name__,
+            error,
+        )
     return True

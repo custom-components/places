@@ -485,14 +485,33 @@ async def test_parse_miscellaneous_sets_attrs(
         }
     )
     await parser.parse_miscellaneous(osm_dict)
-    # verify attribute was set in internal attrs or recorded via internal mock
-    actual = sensor.attrs.get(expected_attr)
-    if actual == expected_value:
-        # attribute was written directly into the internal attrs
-        assert True
-    else:
-        # otherwise ensure the internal set_attr mock recorded the call
-        sensor._set_attr_mock.assert_any_call(expected_attr, expected_value)
+    assert sensor.attrs[expected_attr] == expected_value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_ref", [None, 123, "", "   "])
+async def test_parse_miscellaneous_ignores_invalid_street_ref(
+    osm_parser: OSMParserFactory, raw_ref: object
+) -> None:
+    """Invalid OSM street refs should not abort miscellaneous parsing."""
+    osm_dict = {
+        "display_name": "123 Main St",
+        "osm_id": 123456,
+        "osm_type": "way",
+        "namedetails": {"ref": raw_ref},
+        "category": "highway",
+    }
+    parser, sensor = osm_parser(
+        attrs={
+            ATTR_PLACE_CATEGORY: "highway",
+            ATTR_OSM_DICT: {"osm_id": 123456},
+        }
+    )
+
+    await parser.parse_miscellaneous(osm_dict)
+
+    assert sensor.attrs[ATTR_FORMATTED_ADDRESS] == "123 Main St"
+    assert ATTR_STREET_REF not in sensor.attrs
 
 
 @pytest.mark.asyncio
