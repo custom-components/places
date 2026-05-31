@@ -93,6 +93,8 @@ ATTR_HOME_LOCATION = "home_location"
 ATTR_HOME_LONGITUDE = "home_longitude"
 ATTR_HOME_ZONE = "home_zone"
 ATTR_INITIAL_UPDATE = "initial_update"
+ATTR_JSON_FILENAME = "json_filename"
+ATTR_JSON_FOLDER = "json_folder"
 ATTR_LAST_CHANGED = "last_changed"
 ATTR_LAST_PLACE_NAME = "last_place_name"
 ATTR_LAST_UPDATED = "last_updated"
@@ -241,6 +243,8 @@ JSON_IGNORE_ATTRIBUTE_LIST: list[str] = [
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
     ATTR_DRIVING,
+    ATTR_JSON_FILENAME,
+    ATTR_JSON_FOLDER,
     ATTR_LOCATION_CURRENT,
     ATTR_LOCATION_PREVIOUS,
     ATTR_PREVIOUS_STATE,

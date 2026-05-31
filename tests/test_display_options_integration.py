@@ -36,6 +36,8 @@ BASE_INTERNAL_ATTR = {
     "show_time": False,
     "date_format": "mm/dd",
     "use_gps_accuracy": True,
+    "json_filename": "places-5a00ead04bce9bbd7ab4a40c8ed70e3c.json",
+    "json_folder": "/config/custom_components/places/json_sensors",
     "display_options": "formatted_place",
     "home_latitude": 40.824763,
     "home_longitude": -73.973675,
