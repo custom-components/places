@@ -18,6 +18,7 @@ from custom_components.places.const import (
     ATTR_NATIVE_VALUE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_TYPE,
+    DOMAIN,
 )
 import custom_components.places.sensor as sensor_mod
 from custom_components.places.sensor import EVENT_TYPE, RECORDER_INSTANCE, Places, async_setup_entry
@@ -599,56 +600,105 @@ def test_exclude_event_types_param(recorder_present: bool, expected_in_set: bool
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("scenario", "extended_attr", "recorder_present"),
+    ("current_extended", "other_extended", "include_current_entry", "recorder_present"),
     [
-        ("normal_unload", False, False),
-        ("remove_event_exclusion", True, True),
+        (True, False, True, True),
+        (True, True, True, True),
+        (True, False, False, True),
+        (False, True, True, True),
+        (True, False, True, False),
+        (False, False, True, False),
     ],
 )
-async def test_async_will_remove_from_hass_param(
+async def test_async_will_remove_from_hass_counts_other_extended_entries(
     monkeypatch: pytest.MonkeyPatch,
     places_instance: Places,
-    scenario: str,
-    extended_attr: bool,
+    current_extended: bool,
+    other_extended: bool,
+    include_current_entry: bool,
     recorder_present: bool,
 ) -> None:
-    """Parametrized: async_will_remove_from_hass handles recorder exclusion only."""
+    """Recorder exclusion should be removed only for the last extended entry."""
 
     def get_attr(k: str) -> object:
         """Return attributes needed by async_will_remove_from_hass."""
-        mapping = {"name": "TestName", "extended_attr": extended_attr}
+        mapping = {"name": "TestName", "extended_attr": current_extended}
         return mapping.get(k)
 
     places_instance.get_attr = MagicMock(side_effect=get_attr)
-
-    # Prepare recorder if needed
-    recorder = MagicMock() if recorder_present else None
+    current_entry = MockConfigEntry(
+        domain="places",
+        data={"name": "TestName", "extended_attr": current_extended},
+    )
+    other_entry = MockConfigEntry(
+        domain="places",
+        data={"name": "OtherName", "extended_attr": other_extended},
+    )
+    config_entries = [other_entry]
+    if include_current_entry:
+        config_entries.insert(0, current_entry)
+    places_instance._config_entry.runtime_data = {
+        "name": "TestName",
+        "extended_attr": current_extended,
+    }
+    places_instance._config_entry = current_entry
+    places_instance._hass.config_entries.async_entries = MagicMock(return_value=config_entries)
+    places_instance._attr_name = "TestName"
+    places_instance._entity_id = "sensor.test"
+    recorder: MagicMock | None = None
     if recorder_present:
+        recorder = MagicMock()
         recorder.exclude_event_types = {EVENT_TYPE}
         places_instance._hass.data = {RECORDER_INSTANCE: recorder}
-        places_instance._config_entry.runtime_data = {
-            "entity1": {"extended_attr": True},
-            "entity2": {"extended_attr": False},
-        }
-        places_instance._attr_name = "TestName"
-        places_instance._entity_id = "sensor.test"
     else:
         places_instance._hass.data = {}
 
+    should_remove_recorder_exclusion = current_extended and not other_extended
     mock_logger = MagicMock()
     monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
     await places_instance.async_will_remove_from_hass()
     persistence_remove = cast("AsyncMock", places_instance._persistence.async_remove)
     persistence_remove.assert_not_awaited()
 
-    assert scenario in {"normal_unload", "remove_event_exclusion"}
-    if recorder_present:
-        assert EVENT_TYPE not in recorder.exclude_event_types
+    if current_extended and recorder is not None:
+        places_instance._hass.config_entries.async_entries.assert_called_once_with(DOMAIN)
         mock_logger.debug.assert_any_call(
             "(%s) Removing entity exclusion from recorder: %s", "TestName", "sensor.test"
         )
+        if should_remove_recorder_exclusion:
+            assert EVENT_TYPE not in recorder.exclude_event_types
+            mock_logger.debug.assert_any_call(
+                "(%s) Removing event exclusion from recorder: %s",
+                "TestName",
+                EVENT_TYPE,
+            )
+        else:
+            # Still enters recorder cleanup path, but we keep the exclusion active.
+            assert EVENT_TYPE in recorder.exclude_event_types
     else:
-        assert True
+        places_instance._hass.config_entries.async_entries.assert_not_called()
+        mock_logger.debug.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_will_remove_from_hass_with_real_runtime_data_shape(
+    places_instance: Places,
+) -> None:
+    """Runtime data values can remain plain scalars; recorder logic uses config entries instead."""
+    places_instance.get_attr = MagicMock(return_value=True)
+    places_instance._hass.data = {RECORDER_INSTANCE: MagicMock(exclude_event_types={EVENT_TYPE})}
+    places_instance._config_entry = MockConfigEntry(
+        domain="places", data={"extended_attr": True, "name": "TestName"}
+    )
+    places_instance._config_entry.runtime_data = {"extended_attr": "yes", "name": "TestName"}
+    places_instance._hass.config_entries.async_entries = MagicMock(return_value=[])
+    places_instance._attr_name = "TestName"
+    places_instance._entity_id = "sensor.test"
+
+    await places_instance.async_will_remove_from_hass()
+    places_instance._hass.config_entries.async_entries.assert_called_once_with(DOMAIN)
+    recorder = places_instance._hass.data[RECORDER_INSTANCE]
+    assert EVENT_TYPE not in recorder.exclude_event_types
 
 
 @pytest.mark.asyncio

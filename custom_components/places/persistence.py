@@ -120,11 +120,21 @@ class PlacesStorage:
                 await self._async_remove_legacy_json(legacy_path)
                 return dict(store_data)
 
-        legacy_data = await self._hass.async_add_executor_job(
-            _read_legacy_json,
-            legacy_path,
-            self._name,
-        )
+        try:
+            legacy_data = await self._hass.async_add_executor_job(
+                _read_legacy_json,
+                legacy_path,
+                self._name,
+            )
+        except OSError as error:
+            _LOGGER.debug(
+                "(%s) Unable to read legacy Places JSON snapshot (%s): %s: %s",
+                self._name,
+                legacy_path,
+                type(error).__name__,
+                error,
+            )
+            return {}
         if legacy_data is None:
             await self._async_remove_legacy_json(legacy_path)
             return {}

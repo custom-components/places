@@ -383,17 +383,24 @@ class Places(SensorEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up recorder exclusions before entity removal."""
-        if RECORDER_INSTANCE in self._hass.data and self.get_attr(CONF_EXTENDED_ATTR):
+        if (
+            RECORDER_INSTANCE in self._hass.data
+            and self.get_attr(CONF_EXTENDED_ATTR)
+            and self._hass.config_entries is not None
+        ):
             _LOGGER.debug(
                 "(%s) Removing entity exclusion from recorder: %s", self._attr_name, self._entity_id
             )
-            # Only do this if no places entities with extended_attr exist
-            ex_attr_count = 0
-            for ent in self._config_entry.runtime_data.values():
-                if ent.get(CONF_EXTENDED_ATTR):
-                    ex_attr_count += 1
+            # Only remove recorder exclusion when no other loaded Places entries
+            # still have extended_attr enabled.
+            extended_count = 0
+            for config_entry in self._hass.config_entries.async_entries(DOMAIN):
+                if config_entry is self._config_entry:
+                    continue
+                if config_entry.data.get(CONF_EXTENDED_ATTR):
+                    extended_count += 1
 
-            if (self.get_attr(CONF_EXTENDED_ATTR) and ex_attr_count == 1) or ex_attr_count == 0:
+            if extended_count == 0:
                 _LOGGER.debug(
                     "(%s) Removing event exclusion from recorder: %s",
                     self.get_attr(CONF_NAME),
