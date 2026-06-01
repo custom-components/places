@@ -177,7 +177,9 @@ def test_workflow_runs_updates_weekly_and_cleanup_daily() -> None:
     workflow_text = WORKFLOW_PATH.read_text()
 
     assert "cron: '0 2 * * *'" in workflow_text
-    assert "github.event.schedule == '0 2 * * 1'" in workflow_text
+    assert "date -u +%u" in workflow_text
+    assert "github.event.schedule == '0 2 * * 1'" not in workflow_text
+    assert "should_update=true" in workflow_text
     assert "name: Nightly Cleanup" in workflow_text
 
 
