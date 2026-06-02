@@ -109,7 +109,12 @@ class GithubClient:
             f"{GITHUB_API_URL}/repos/{self.repository}/git/matching-refs/{safe_ref_prefix}"
         )
         while url is not None:
-            payload, link_header = self._request("GET", url)
+            try:
+                payload, link_header = self._request("GET", url)
+            except HTTPError as err:
+                if err.code == 404:
+                    return refs
+                raise
             if not isinstance(payload, list):
                 raise TypeError(f"Expected ref list from {url}")
             refs.extend(
@@ -237,6 +242,10 @@ def cleanup_update_branches(
     for pull in workflow_open_pulls:
         pull_number = _pull_number(pull)
         head_ref = _head_ref(pull)
+        if head_ref == branch:
+            protected_branches.add(head_ref)
+            continue
+
         if pull_number in {keep_pr_number, latest_open_pr_number}:
             protected_branches.add(head_ref)
             continue

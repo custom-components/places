@@ -2,10 +2,12 @@
 
 from collections.abc import Generator
 from importlib import util
+from io import BytesIO
 from pathlib import Path
 import re
 import sys
 from types import ModuleType
+from urllib.error import HTTPError
 
 import pytest
 
@@ -214,20 +216,14 @@ def test_cleanup_script_closes_stale_prs_and_deletes_workflow_branches(
         delete_merged_branches=True,
     )
 
-    assert client.closed_prs == [10, 9]
-    assert client.deleted_refs == [
-        f"heads/{WORKFLOW_BRANCH}",
-        f"heads/{WORKFLOW_BRANCH}-old",
-    ]
+    assert client.closed_prs == [9]
+    assert client.deleted_refs == [f"heads/{WORKFLOW_BRANCH}-old"]
     assert client.max_pages_by_state == {
         "open": None,
         "closed": cleanup_script.CLOSED_PULL_PAGE_LIMIT,
     }
-    assert result.closed_prs == [10, 9]
-    assert result.deleted_branches == [
-        WORKFLOW_BRANCH,
-        f"{WORKFLOW_BRANCH}-old",
-    ]
+    assert result.closed_prs == [9]
+    assert result.deleted_branches == [f"{WORKFLOW_BRANCH}-old"]
 
 
 def test_cleanup_script_keeps_active_update_branch(cleanup_script: ModuleType) -> None:
@@ -377,6 +373,41 @@ def test_cleanup_script_protects_open_workflow_prs_when_not_closing_stale_prs(
     assert result.deleted_branches == [f"{WORKFLOW_BRANCH}-orphan"]
 
 
+def test_cleanup_script_preserves_active_workflow_branch(cleanup_script: ModuleType) -> None:
+    """Cleanup script should not close the reusable workflow update branch PR."""
+    client = FakeCleanupClient(
+        open_pulls=[
+            _workflow_pull(number=17),
+            _workflow_pull(number=18, ref=f"{WORKFLOW_BRANCH}-newer"),
+        ],
+        closed_pulls=[],
+        branch_refs=[
+            f"refs/heads/{WORKFLOW_BRANCH}",
+            f"refs/heads/{WORKFLOW_BRANCH}-newer",
+        ],
+    )
+
+    result = cleanup_script.cleanup_update_branches(
+        client=client,
+        repository=REPOSITORY,
+        branch=WORKFLOW_BRANCH,
+        branch_prefix=WORKFLOW_BRANCH,
+        label_name=WORKFLOW_LABEL,
+        author_login=WORKFLOW_AUTHOR,
+        body_marker=WORKFLOW_BODY_MARKER,
+        keep_pr_number=None,
+        keep_latest_open_pr=True,
+        close_stale_prs=True,
+        delete_stale_branches=True,
+        delete_merged_branches=False,
+    )
+
+    assert client.closed_prs == []
+    assert client.deleted_refs == []
+    assert result.closed_prs == []
+    assert result.deleted_branches == []
+
+
 def test_cleanup_script_preserves_open_non_workflow_pr_branches(
     cleanup_script: ModuleType,
 ) -> None:
@@ -512,3 +543,26 @@ def test_github_headers_include_json_content_type(cleanup_script: ModuleType) ->
     headers = cleanup_script._github_headers("token")
 
     assert headers["Content-Type"] == "application/json"
+
+
+def test_github_client_list_refs_treats_missing_prefix_as_empty(
+    cleanup_script: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GitHub client should treat a missing matching-ref prefix as no refs."""
+
+    def fake_urlopen(*_args: object, **_kwargs: object) -> object:
+        """Raise a GitHub-style 404 response for missing refs."""
+        raise HTTPError(
+            url="https://api.github.test/repos/o/r/git/matching-refs/heads/missing",
+            code=404,
+            msg="Not Found",
+            hdrs={},
+            fp=BytesIO(b'{"message": "Not Found"}'),
+        )
+
+    monkeypatch.setattr(cleanup_script, "urlopen", fake_urlopen)
+
+    client = cleanup_script.GithubClient(repository=REPOSITORY, token="token")  # noqa: S106
+
+    assert client.list_refs(ref_prefix="heads/missing") == []
