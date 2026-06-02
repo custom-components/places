@@ -1,7 +1,7 @@
 name: prek Autoupdate
 on:
   schedule:
-    - cron: '0 2 * * 1'
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 permissions:
@@ -13,21 +13,40 @@ jobs:
     name: Update prek Hooks
     runs-on: ubuntu-latest
     steps:
+      - name: Check weekly update window
+        id: weekly
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]] || [[ "$(date -u +%u)" == "1" ]]; then
+            echo "should_update=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_update=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout Repository
+        if: steps.weekly.outputs.should_update == 'true'
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Python
+        if: steps.weekly.outputs.should_update == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.14'
           cache: 'pip'
 
       - name: Install prek
+        if: steps.weekly.outputs.should_update == 'true'
         uses: taiki-e/install-action@v2
         with:
           tool: prek
 
       - name: Run prek auto-update
+        if: steps.weekly.outputs.should_update == 'true'
         id: prek
         run: |
           set -euo pipefail
@@ -41,6 +60,7 @@ jobs:
           } | tee "$body_file"
 
       - name: Create Pull Request
+        if: steps.weekly.outputs.should_update == 'true'
         uses: peter-evans/create-pull-request@v8
         id: cpr
         with:
@@ -55,7 +75,7 @@ jobs:
             prek.toml
 
       - name: Close extra auto-generated PRs
-        if: steps.cpr.outputs.pull-request-number != ''
+        if: steps.weekly.outputs.should_update == 'true' && steps.cpr.outputs.pull-request-number != ''
         env:
           BODY_MARKER: Automated update of `prek` hooks.
           GITHUB_TOKEN: ${{ github.token }}
@@ -73,10 +93,11 @@ jobs:
             --body-marker "$BODY_MARKER" \
             --keep-pr-number "$KEEP_PR_NUMBER" \
             --close-stale-prs \
+            --delete-stale-branches \
             --delete-merged-branches
 
       - name: Close stale prek update PRs
-        if: steps.cpr.outputs.pull-request-number == ''
+        if: steps.weekly.outputs.should_update == 'true' && steps.cpr.outputs.pull-request-number == ''
         env:
           BODY_MARKER: Automated update of `prek` hooks.
           GITHUB_TOKEN: ${{ github.token }}
@@ -92,5 +113,41 @@ jobs:
             --author-login 'github-actions[bot]' \
             --body-marker "$BODY_MARKER" \
             --close-stale-prs \
-            --delete-stale-branch \
+            --delete-stale-branches \
+            --delete-merged-branches
+
+  nightly-cleanup:
+    name: Nightly Cleanup
+    needs: update-hooks
+    if: always() && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Close stale prek update PRs
+        env:
+          BODY_MARKER: Automated update of `prek` hooks.
+          GITHUB_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          python .github/scripts/cleanup_prek_update_branches.py \
+            --repository "$REPOSITORY" \
+            --branch chore/prek-updates \
+            --branch-prefix chore/prek-updates \
+            --label-name dependencies \
+            --author-login 'github-actions[bot]' \
+            --body-marker "$BODY_MARKER" \
+            --keep-latest-open-pr \
+            --close-stale-prs \
+            --delete-stale-branches \
             --delete-merged-branches
