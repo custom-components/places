@@ -243,9 +243,7 @@ def cleanup_update_branches(
         pull_number = _pull_number(pull)
         head_ref = _head_ref(pull)
 
-        if pull_number in {keep_pr_number, latest_open_pr_number} or (
-            head_ref == branch and keep_latest_open_pr
-        ):
+        if pull_number in {keep_pr_number, latest_open_pr_number}:
             protected_branches.add(head_ref)
             continue
 

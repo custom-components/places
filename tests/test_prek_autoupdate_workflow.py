@@ -379,8 +379,10 @@ def test_cleanup_script_protects_open_workflow_prs_when_not_closing_stale_prs(
     assert result.deleted_branches == [f"{WORKFLOW_BRANCH}-orphan"]
 
 
-def test_cleanup_script_preserves_active_workflow_branch(cleanup_script: ModuleType) -> None:
-    """Cleanup script should not close the reusable workflow update branch PR."""
+def test_cleanup_script_closes_stale_canonical_branch_when_newer_pr_exists(
+    cleanup_script: ModuleType,
+) -> None:
+    """Cleanup script should keep only the latest generated workflow PR."""
     client = FakeCleanupClient(
         open_pulls=[
             _workflow_pull(number=17),
@@ -408,10 +410,10 @@ def test_cleanup_script_preserves_active_workflow_branch(cleanup_script: ModuleT
         delete_merged_branches=False,
     )
 
-    assert client.closed_prs == []
-    assert client.deleted_refs == []
-    assert result.closed_prs == []
-    assert result.deleted_branches == []
+    assert client.closed_prs == [17]
+    assert client.deleted_refs == [f"heads/{WORKFLOW_BRANCH}"]
+    assert result.closed_prs == [17]
+    assert result.deleted_branches == [WORKFLOW_BRANCH]
 
 
 def test_cleanup_script_preserves_open_non_workflow_pr_branches(
