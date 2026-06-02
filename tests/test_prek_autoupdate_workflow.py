@@ -216,14 +216,20 @@ def test_cleanup_script_closes_stale_prs_and_deletes_workflow_branches(
         delete_merged_branches=True,
     )
 
-    assert client.closed_prs == [9]
-    assert client.deleted_refs == [f"heads/{WORKFLOW_BRANCH}-old"]
+    assert client.closed_prs == [10, 9]
+    assert client.deleted_refs == [
+        f"heads/{WORKFLOW_BRANCH}",
+        f"heads/{WORKFLOW_BRANCH}-old",
+    ]
     assert client.max_pages_by_state == {
         "open": None,
         "closed": cleanup_script.CLOSED_PULL_PAGE_LIMIT,
     }
-    assert result.closed_prs == [9]
-    assert result.deleted_branches == [f"{WORKFLOW_BRANCH}-old"]
+    assert result.closed_prs == [10, 9]
+    assert result.deleted_branches == [
+        WORKFLOW_BRANCH,
+        f"{WORKFLOW_BRANCH}-old",
+    ]
 
 
 def test_cleanup_script_keeps_active_update_branch(cleanup_script: ModuleType) -> None:
