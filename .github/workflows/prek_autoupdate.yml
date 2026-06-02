@@ -29,6 +29,8 @@ jobs:
       - name: Checkout Repository
         if: steps.weekly.outputs.should_update == 'true'
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         if: steps.weekly.outputs.should_update == 'true'
@@ -122,6 +124,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6

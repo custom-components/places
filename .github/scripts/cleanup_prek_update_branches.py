@@ -241,10 +241,13 @@ def cleanup_update_branches(
             protected_branches.add(head_ref)
             continue
 
-        if close_stale_prs:
-            client.close_pull(pull_number)
-            result.closed_prs.append(pull_number)
-            branches_to_delete.add(head_ref)
+        if not close_stale_prs:
+            protected_branches.add(head_ref)
+            continue
+
+        client.close_pull(pull_number)
+        result.closed_prs.append(pull_number)
+        branches_to_delete.add(head_ref)
 
     if delete_stale_branches:
         branches_to_delete.update(

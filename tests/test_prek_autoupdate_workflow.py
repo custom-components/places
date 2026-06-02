@@ -3,6 +3,7 @@
 from collections.abc import Generator
 from importlib import util
 from pathlib import Path
+import re
 import sys
 from types import ModuleType
 
@@ -124,6 +125,7 @@ def cleanup_script() -> Generator[ModuleType]:
     [
         ("actions/setup-python@v6", "pins a Python runtime for cleanup"),
         ("python-version: '3.14'", "uses the same runtime as local tooling"),
+        ("persist-credentials: false", "disables persisted checkout credentials"),
         (WORKFLOW_SCRIPT_PATH, "runs the checked-in cleanup helper"),
         ("Close extra auto-generated PRs", "closes duplicate generated PRs"),
         ("Close stale prek update PRs", "closes stale PRs when no diff remains"),
@@ -169,7 +171,7 @@ def test_workflow_uses_plural_stale_branch_cleanup_only() -> None:
     workflow_text = WORKFLOW_PATH.read_text()
 
     assert "--delete-stale-branches" in workflow_text
-    assert "--delete-stale-branch \\" not in workflow_text
+    assert re.search(r"--delete-stale-branch(?!es)\b", workflow_text) is None
 
 
 def test_workflow_runs_updates_weekly_and_cleanup_daily() -> None:
@@ -336,6 +338,43 @@ def test_cleanup_script_deletes_orphaned_workflow_branches(cleanup_script: Modul
         f"{WORKFLOW_BRANCH}-manual",
         f"{WORKFLOW_BRANCH}-orphan",
     ]
+
+
+def test_cleanup_script_protects_open_workflow_prs_when_not_closing_stale_prs(
+    cleanup_script: ModuleType,
+) -> None:
+    """Cleanup script should not sweep open workflow branches when not closing PRs."""
+    client = FakeCleanupClient(
+        open_pulls=[
+            _workflow_pull(number=18),
+            _workflow_pull(number=17, ref=f"{WORKFLOW_BRANCH}-old"),
+        ],
+        closed_pulls=[],
+        branch_refs=[
+            f"refs/heads/{WORKFLOW_BRANCH}",
+            f"refs/heads/{WORKFLOW_BRANCH}-old",
+            f"refs/heads/{WORKFLOW_BRANCH}-orphan",
+        ],
+    )
+
+    result = cleanup_script.cleanup_update_branches(
+        client=client,
+        repository=REPOSITORY,
+        branch=WORKFLOW_BRANCH,
+        branch_prefix=WORKFLOW_BRANCH,
+        label_name=WORKFLOW_LABEL,
+        author_login=WORKFLOW_AUTHOR,
+        body_marker=WORKFLOW_BODY_MARKER,
+        keep_pr_number=None,
+        keep_latest_open_pr=False,
+        close_stale_prs=False,
+        delete_stale_branches=True,
+        delete_merged_branches=False,
+    )
+
+    assert client.closed_prs == []
+    assert client.deleted_refs == [f"heads/{WORKFLOW_BRANCH}-orphan"]
+    assert result.deleted_branches == [f"{WORKFLOW_BRANCH}-orphan"]
 
 
 def test_cleanup_script_preserves_open_non_workflow_pr_branches(
