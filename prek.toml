@@ -62,7 +62,7 @@ additional_dependencies = [
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.15.16"
+rev = "v0.15.20"
 
 [[repos.hooks]]
 id = "ruff-check"
