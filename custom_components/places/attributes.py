@@ -10,8 +10,6 @@ from collections.abc import MutableMapping
 from typing import Any, SupportsFloat, SupportsIndex, TypeVar
 
 from .const import (
-    ATTR_DISTANCE_FROM_HOME,
-    ATTR_DISTANCE_TRAVELED,
     CONFIG_ATTRIBUTES_LIST,
     PERSISTED_ATTRIBUTE_LIST,
     PERSISTENCE_IGNORE_ATTRIBUTE_LIST,
@@ -23,8 +21,7 @@ _AttrT = TypeVar("_AttrT", default=Any)
 class PlacesAttributes:
     """Mutable container for Places internal attributes and helper accessors.
 
-    The class centralizes value storage and conversion helpers while preserving
-    the historic behavior currently relied upon by ``Places``.
+    The class centralizes value storage and conversion helpers for ``Places``.
     """
 
     def __init__(self, initial: MutableMapping[str, Any] | None = None) -> None:
@@ -71,7 +68,7 @@ class PlacesAttributes:
 
         Returns:
             ``True`` for missing values, ``None`` and empty string values. Numeric
-            zero is treated as non-blank for compatibility with prior behavior.
+            zero is treated as non-blank.
         """
         val = self._internal_attr.get(attr)
         return not (val or val == 0)
@@ -175,15 +172,6 @@ class PlacesAttributes:
         Args:
             persisted_attr: Mutable mapping loaded from a persisted snapshot.
         """
-        if "distance_from_home_m" in persisted_attr:
-            legacy_value = persisted_attr.pop("distance_from_home_m")
-            if ATTR_DISTANCE_FROM_HOME not in persisted_attr:
-                persisted_attr[ATTR_DISTANCE_FROM_HOME] = legacy_value
-        if "distance_traveled_m" in persisted_attr:
-            legacy_value = persisted_attr.pop("distance_traveled_m")
-            if ATTR_DISTANCE_TRAVELED not in persisted_attr:
-                persisted_attr[ATTR_DISTANCE_TRAVELED] = legacy_value
-
         for attr in PERSISTED_ATTRIBUTE_LIST:
             if attr in persisted_attr:
                 self.set(attr, persisted_attr.pop(attr, None))

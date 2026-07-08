@@ -174,7 +174,7 @@ async def test_do_update_runs_phases_in_expected_order(
         AbstractContextManager[dict[str, AsyncMock]],
     ],
 ) -> None:
-    """Assert all major phases execute in the legacy ordered sequence."""
+    """Assert all major phases execute in the expected ordered sequence."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
 

@@ -25,7 +25,7 @@ from tests.conftest import MockSensor
 async def test_location_strings_are_current_format(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Location string formatting stays compatible."""
+    """Location string formatting uses the current format."""
     sensor.attrs.update(
         {
             ATTR_LATITUDE: 40.1,

@@ -11,8 +11,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.attributes import PlacesAttributes
 from custom_components.places.const import (
-    ATTR_DISTANCE_FROM_HOME,
-    ATTR_DISTANCE_TRAVELED,
     ATTR_INITIAL_UPDATE,
     ATTR_NATIVE_VALUE,
     ATTR_PLACE_NAME,
@@ -108,42 +106,6 @@ async def test_places_attribute_restore_previous_attr(mock_hass: MagicMock) -> N
 
     assert coordinator.get_internal_attr() is previous
     assert coordinator.get_internal_attr() == previous
-
-
-def test_places_attributes_import_migrates_legacy_distance_keys(mock_hass: MagicMock) -> None:
-    """Legacy distance keys are normalized when the new keys are absent."""
-    coordinator = _coordinator(mock_hass)
-    persisted = {
-        "distance_from_home_m": 12.5,
-        "distance_traveled_m": 3.25,
-    }
-
-    coordinator.import_persisted_attributes(persisted)
-
-    attrs = coordinator.get_internal_attr()
-    assert attrs[ATTR_DISTANCE_FROM_HOME] == 12.5
-    assert attrs[ATTR_DISTANCE_TRAVELED] == 3.25
-    assert "distance_from_home_m" not in attrs
-    assert "distance_traveled_m" not in attrs
-
-
-def test_places_attributes_import_prefers_existing_new_distance_keys(mock_hass: MagicMock) -> None:
-    """Existing normalized distance keys are preserved when legacy keys are also present."""
-    coordinator = _coordinator(mock_hass)
-    persisted = {
-        ATTR_DISTANCE_FROM_HOME: 99.9,
-        ATTR_DISTANCE_TRAVELED: 88.8,
-        "distance_from_home_m": 12.5,
-        "distance_traveled_m": 3.25,
-    }
-
-    coordinator.import_persisted_attributes(persisted)
-
-    attrs = coordinator.get_internal_attr()
-    assert attrs[ATTR_DISTANCE_FROM_HOME] == 99.9
-    assert attrs[ATTR_DISTANCE_TRAVELED] == 88.8
-    assert "distance_from_home_m" not in attrs
-    assert "distance_traveled_m" not in attrs
 
 
 @pytest.mark.parametrize(
