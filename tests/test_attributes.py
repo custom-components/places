@@ -6,6 +6,7 @@ from collections.abc import MutableMapping
 from unittest.mock import MagicMock
 
 from homeassistant.const import CONF_NAME
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.attributes import PlacesAttributes
@@ -144,28 +145,21 @@ def test_places_attributes_import_prefers_existing_new_distance_keys(mock_hass: 
     assert "distance_traveled_m" not in attrs
 
 
-def test_coordinator_import_empty_persisted_attrs_keeps_initial_update(
+@pytest.mark.parametrize(
+    ("persisted_attr", "expected_initial_update"),
+    [
+        ({}, True),
+        ({ATTR_NATIVE_VALUE: "Restored"}, False),
+    ],
+)
+def test_coordinator_import_persisted_attrs_updates_initial_update(
     mock_hass: MagicMock,
+    persisted_attr: MutableMapping[str, object],
+    expected_initial_update: bool,
 ) -> None:
-    """Empty persistence payload should not clear the initial-update guard."""
-    coordinator = PlacesUpdateCoordinator(
-        mock_hass,
-        MockConfigEntry(data={"name": "TestSensor", "devicetracker_id": "person.test"}),
-        {},
-        MagicMock(),
-    )
-    assert coordinator.get_attr(ATTR_INITIAL_UPDATE) is True
+    """Persisted attrs only clear the initial-update guard when data is imported."""
+    coordinator = _coordinator(mock_hass)
 
+    coordinator.import_persisted_attributes(persisted_attr)
 
-def test_coordinator_import_nonempty_persisted_attrs_clears_initial_update(
-    mock_hass: MagicMock,
-) -> None:
-    """Non-empty persistence payload should clear the initial-update guard."""
-    coordinator = PlacesUpdateCoordinator(
-        mock_hass,
-        MockConfigEntry(data={"name": "TestSensor", "devicetracker_id": "person.test"}),
-        {},
-        MagicMock(),
-    )
-    coordinator.import_persisted_attributes({ATTR_NATIVE_VALUE: "Restored"})
-    assert coordinator.get_attr(ATTR_INITIAL_UPDATE) is False
+    assert coordinator.get_attr(ATTR_INITIAL_UPDATE) is expected_initial_update
