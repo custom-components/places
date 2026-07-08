@@ -71,6 +71,8 @@ class Places(PlacesSensorEntity):
         """
         super().__init__(coordinator, unique_suffix=None)
         self._attr_icon = DEFAULT_ICON
+        if coordinator.config.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
+            self._unrecorded_attributes = frozenset({MATCH_ALL})
         self._attr_extra_state_attributes = coordinator.main_state_attributes
         self._update_from_coordinator()
 

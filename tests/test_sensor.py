@@ -657,6 +657,26 @@ def test_extended_data_sensor_exposes_raw_payload_and_is_unrecorded(
     write_state.assert_called_once_with()
 
 
+def test_places_sensor_marks_all_attributes_unrecorded_when_extended_attr_enabled(
+    mock_hass: MagicMock,
+) -> None:
+    """Main Places sensor should skip recorder storage of state attributes when extended mode is on."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    entity = Places(coordinator)
+
+    assert entity._unrecorded_attributes == frozenset({MATCH_ALL})
+
+
 def test_extended_data_sensor_is_empty_without_payloads(mock_hass: MagicMock) -> None:
     """Extended data sensor should be unavailable until raw payloads exist."""
     mock_hass.states.get.return_value = None

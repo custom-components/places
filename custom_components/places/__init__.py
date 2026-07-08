@@ -5,14 +5,18 @@ from collections.abc import Callable
 import logging
 
 import cachetools
+from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import (
+    CONF_EXTENDED_ATTR,
     CONF_NAME,
+    DEFAULT_EXTENDED_ATTR,
     DOMAIN,
+    EVENT_TYPE,
     OSM_CACHE,
     OSM_CACHE_MAX_AGE_HOURS,
     OSM_CACHE_MAX_SIZE,
@@ -23,6 +27,7 @@ from .coordinator import PlacesUpdateCoordinator
 from .persistence import PlacesStorage
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
+_EXTENDED_ENTRY_COUNT_KEY = "_extended_attr_entry_count"
 
 CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
 
@@ -74,6 +79,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         entry.runtime_data = None
         raise
+
+    if entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
+        _increment_extended_attr_ref(hass)
     hass.async_create_task(coordinator.async_request_refresh())
     return True
 
@@ -89,8 +97,50 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         coordinator = entry.runtime_data
         await coordinator.async_shutdown()
+        if entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
+            _decrement_extended_attr_ref(hass)
 
     return unload_ok
+
+
+def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
+    """Track active extended-attributes entries and enable event exclusion on first add."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    count = int(domain_data.get(_EXTENDED_ENTRY_COUNT_KEY, 0)) + 1
+    domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
+    if count == 1:
+        _set_recorder_event_exclusion(hass)
+
+
+def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
+    """Release one active extended-attributes entry and clean up exclusion when last unloads."""
+    domain_data = hass.data.get(DOMAIN)
+    if not isinstance(domain_data, dict):
+        return
+    count = int(domain_data.get(_EXTENDED_ENTRY_COUNT_KEY, 0)) - 1
+    if count > 0:
+        domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
+        return
+    domain_data.pop(_EXTENDED_ENTRY_COUNT_KEY, None)
+    _clear_recorder_event_exclusion(hass)
+
+
+def _set_recorder_event_exclusion(hass: HomeAssistant) -> None:
+    """Add places state update to recorder event exclusion when recorder is available."""
+    recorder = hass.data.get(DATA_INSTANCE)
+
+    if recorder is None:
+        return
+    recorder.exclude_event_types.add(EVENT_TYPE)
+
+
+def _clear_recorder_event_exclusion(hass: HomeAssistant) -> None:
+    """Remove places state update recorder exclusion only when no extended entries remain."""
+    recorder = hass.data.get(DATA_INSTANCE)
+
+    if recorder is None:
+        return
+    recorder.exclude_event_types.discard(EVENT_TYPE)
 
 
 async def async_remove_extended_entity(hass: HomeAssistant, entry: ConfigEntry) -> None:

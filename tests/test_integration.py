@@ -6,6 +6,7 @@ from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
 import cachetools
+from homeassistant.components.recorder import DATA_INSTANCE
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -18,8 +19,10 @@ from custom_components.places import (
 )
 from custom_components.places.const import (
     CONF_API_KEY,
+    CONF_EXTENDED_ATTR,
     CONF_NAME,
     DOMAIN,
+    EVENT_TYPE,
     OSM_CACHE,
     OSM_THROTTLE,
     PLATFORMS,
@@ -415,6 +418,68 @@ async def test_async_setup_entry_with_empty_data(
     assert result is True
     assert isinstance(entry.runtime_data, _FakeCoordinator)
     assert _FakeSetupPlacesStorage.instances[0].name == entry.entry_id
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_adds_event_exclusion_for_extended_attributes(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Setup should add `places_state_update` to recorder exclusions when extended mode is enabled."""
+    entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    await async_setup_entry(mock_hass, entry)
+
+    assert EVENT_TYPE in recorder.exclude_event_types
+
+
+@pytest.mark.asyncio
+async def test_async_unload_entry_keeps_and_clears_recorder_exclusion_by_active_extended_count(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Unloading one extended entry should keep exclusions until the last extended entry is unloaded."""
+    entry_one = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor One",
+            "devicetracker_id": "person.one",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    entry_two = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor Two",
+            "devicetracker_id": "person.two",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    await async_setup_entry(mock_hass, entry_one)
+    await async_setup_entry(mock_hass, entry_two)
+    await async_unload_entry(mock_hass, entry_one)
+    assert EVENT_TYPE in recorder.exclude_event_types
+    await async_unload_entry(mock_hass, entry_two)
+
+    assert EVENT_TYPE not in recorder.exclude_event_types
 
 
 @pytest.mark.asyncio
