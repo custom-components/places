@@ -664,6 +664,24 @@ async def test_async_unload_entry_resumes_coordinator_when_platform_unload_fails
 
 
 @pytest.mark.asyncio
+async def test_async_unload_entry_resumes_coordinator_when_prepare_unload_raises(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry
+) -> None:
+    """A prepare failure should leave the still-loaded coordinator active."""
+    coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
+    mock_entry.runtime_data = coordinator
+    coordinator.async_prepare_unload.side_effect = RuntimeError("prepare boom")
+
+    with pytest.raises(RuntimeError, match="prepare boom"):
+        await async_unload_entry(mock_hass, mock_entry)
+
+    coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
+    mock_hass.config_entries.async_unload_platforms.assert_not_awaited()
+    coordinator.async_shutdown.assert_not_awaited()
+    assert mock_entry.runtime_data is coordinator
+
+
+@pytest.mark.asyncio
 async def test_async_unload_entry_resumes_coordinator_when_platform_unload_raises(
     mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
