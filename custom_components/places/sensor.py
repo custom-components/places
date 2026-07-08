@@ -76,6 +76,8 @@ class Places(PlacesSensorEntity):
 
     def _update_from_coordinator(self) -> None:
         """Copy display state and narrow attributes from coordinator data."""
+        if self.entity_id is not None:
+            self.coordinator.entity_id = self.entity_id
         self._attr_native_value = (
             self.coordinator.data.native_value if self.coordinator.data else None
         )

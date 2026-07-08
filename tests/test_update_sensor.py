@@ -204,6 +204,36 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
 
 
 @pytest.mark.asyncio
+async def test_handle_state_update_publishes_before_firing_event(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """Event-based automations should observe updated child state before event dispatch."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs = {
+        CONF_EXTENDED_ATTR: False,
+        CONF_SHOW_TIME: False,
+        CONF_NAME: "TestSensor",
+        ATTR_NATIVE_VALUE: "TestState",
+    }
+    call_order: list[str] = []
+    updater.coordinator.publish_update = MagicMock(side_effect=lambda: call_order.append("publish"))
+
+    async def fire_event_data(*_args: object, **_kwargs: object) -> None:
+        call_order.append("event")
+
+    with stubbed_updater(updater, [("fire_event_data", {"side_effect": fire_event_data})]):
+        await updater.handle_state_update(
+            now=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+            prev_last_place_name="PrevPlace",
+        )
+
+    assert call_order == ["publish", "event"]
+
+
+@pytest.mark.asyncio
 async def test_handle_state_update_skips_extended_lookup_when_option_false(
     updater: PlacesUpdater,
     monkeypatch: pytest.MonkeyPatch,
@@ -272,6 +302,40 @@ async def test_check_for_updated_entity_name_with_real_coordinator_entity(
 
     mock_hass.config_entries.async_update_entry.assert_called_once()
     assert coordinator.device_info["name"] == "NewName"
+
+
+@pytest.mark.asyncio
+async def test_check_for_updated_entity_name_uses_latest_coordinator_entity_id(
+    mock_hass: MagicMock,
+) -> None:
+    """Changed Places entity IDs should refresh coordinator.entity_id before name lookup."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_NAME: "OldName", CONF_DEVICETRACKER_ID: "device_tracker.test"},
+    )
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(
+        hass=mock_hass,
+        config_entry=entry,
+        imported_attributes={},
+        persistence=persistence,
+    )
+    coordinator.entity_id = "sensor.old_name"
+    entity = Places(coordinator)
+    entity.entity_id = "sensor.new_name"
+    entity._update_from_coordinator()
+    assert coordinator.entity_id == "sensor.new_name"
+
+    state = MagicMock()
+    state.attributes = {ATTR_FRIENDLY_NAME: "NewName"}
+    mock_hass.states.get.return_value = state
+    updater = PlacesUpdater(mock_hass, entry, coordinator)
+
+    await updater.check_for_updated_entity_name()
+
+    assert mock_hass.states.get.call_args_list[-1][0][0] == "sensor.new_name"
+    assert coordinator.get_attr(CONF_NAME) == "NewName"
 
 
 @pytest.mark.asyncio

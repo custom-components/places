@@ -182,6 +182,7 @@ class PlacesUpdater:
             self.coordinator.set_native_value(value=None)
             _LOGGER.warning("(%s) New State is None", self.coordinator.get_attr(CONF_NAME))
 
+        self.coordinator.publish_update()
         await self.fire_event_data(prev_last_place_name=prev_last_place_name)
         self.coordinator.set_attr(ATTR_INITIAL_UPDATE, False)
         await self.coordinator.async_persist_attributes()
