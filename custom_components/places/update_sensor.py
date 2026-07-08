@@ -68,7 +68,6 @@ from .const import (
     DOMAIN,
     EVENT_ATTRIBUTE_LIST,
     EVENT_TYPE,
-    EXTENDED_ATTRIBUTE_LIST,
     OSM_CACHE,
     RESET_ATTRIBUTE_LIST,
     UpdateStatus,
@@ -213,11 +212,6 @@ class PlacesUpdater:
             event_data.update(
                 {ATTR_LAST_PLACE_NAME: self.coordinator.get_attr(ATTR_LAST_PLACE_NAME)}
             )
-
-        if self.coordinator.get_attr(CONF_EXTENDED_ATTR):
-            for attr in EXTENDED_ATTRIBUTE_LIST:
-                if not self.coordinator.is_attr_blank(attr):
-                    event_data.update({attr: self.coordinator.get_attr(attr)})
 
         self._hass.bus.fire(EVENT_TYPE, event_data)
         _LOGGER.debug(

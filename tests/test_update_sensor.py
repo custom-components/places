@@ -204,6 +204,24 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
 
 
 @pytest.mark.asyncio
+async def test_handle_state_update_skips_extended_lookup_when_option_false(
+    updater: PlacesUpdater,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Extended network lookups should run only when the entry option is enabled."""
+    updater.coordinator.set_attr(CONF_EXTENDED_ATTR, False)
+    get_extended_attr = AsyncMock()
+    monkeypatch.setattr(updater, "get_extended_attr", get_extended_attr)
+
+    await updater.handle_state_update(
+        now=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+        prev_last_place_name="",
+    )
+
+    get_extended_attr.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_check_for_updated_entity_name_entity_id_new_name(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
@@ -1885,10 +1903,10 @@ async def test_log_tracker_issue_initial_update(
 
 
 @pytest.mark.asyncio
-async def test_fire_event_data_includes_extended_and_attributes(
+async def test_fire_event_data_includes_core_attributes(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Builds and fires event with expected keys including extended attributes."""
+    """Build and fire an event with expected core keys."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     # Make sensor report values for several keys so event_data is populated
@@ -1905,7 +1923,6 @@ async def test_fire_event_data_includes_extended_and_attributes(
         else "ext"
     )
 
-    # Ensure extended attributes are included
     await updater.fire_event_data(prev_last_place_name="Other")
 
     # Ensure an event was fired with expected structure
@@ -1917,6 +1934,23 @@ async def test_fire_event_data_includes_extended_and_attributes(
     assert "entity" in called_event[1]
     assert "from_state" in called_event[1]
     assert "to_state" in called_event[1]
+
+
+@pytest.mark.asyncio
+async def test_fire_event_data_omits_raw_extended_payloads(updater: PlacesUpdater) -> None:
+    """Places state update events should not carry raw extended dict payloads."""
+    updater.coordinator.set_attr(CONF_EXTENDED_ATTR, True)
+    updater.coordinator.set_attr(ATTR_OSM_DICT, {"raw": "payload"})
+    updater.coordinator.set_attr(ATTR_OSM_DETAILS_DICT, {"details": "payload"})
+    updater.coordinator.set_attr(ATTR_WIKIDATA_DICT, {"wikidata": "payload"})
+    updater._hass.bus.fire = MagicMock()
+
+    await updater.fire_event_data(prev_last_place_name="")
+
+    event_data = updater._hass.bus.fire.call_args.args[1]
+    assert ATTR_OSM_DICT not in event_data
+    assert ATTR_OSM_DETAILS_DICT not in event_data
+    assert ATTR_WIKIDATA_DICT not in event_data
 
 
 @pytest.mark.asyncio
