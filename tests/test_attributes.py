@@ -16,6 +16,7 @@ from custom_components.places.const import (
     ATTR_INITIAL_UPDATE,
     ATTR_NATIVE_VALUE,
     ATTR_PLACE_NAME,
+    CONF_DEVICETRACKER_ID,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 
@@ -25,7 +26,7 @@ def _coordinator(mock_hass: MagicMock) -> PlacesUpdateCoordinator:
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain="places",
-        data={"name": "TestSensor", "devicetracker_id": "device_tracker.test"},
+        data={CONF_NAME: "TestSensor", CONF_DEVICETRACKER_ID: "device_tracker.test"},
     )
     return PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
 
