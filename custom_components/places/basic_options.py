@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from .const import PLACE_NAME_DUPLICATE_LIST
 
 if TYPE_CHECKING:
-    from .sensor import Places
+    from .coordinator import PlacesUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,12 +18,15 @@ class BasicOptionsParser:
     """Build display strings that do not require advanced option parsing."""
 
     def __init__(
-        self, sensor: Places, internal_attr: MutableMapping[str, Any], display_options: list[str]
+        self,
+        sensor: PlacesUpdateCoordinator,
+        internal_attr: MutableMapping[str, Any],
+        display_options: list[str],
     ) -> None:
         """Initialize the parser with sensor state and selected display options.
 
         Args:
-            sensor: Places sensor that provides attribute access helpers.
+            sensor: Places coordinator that provides attribute access helpers.
             internal_attr: Current sensor attribute mapping used for duplicate
                 checks.
             display_options: Ordered user-selected display option names.
@@ -184,13 +187,15 @@ class BasicOptionsParser:
         return formatted_place.replace("\n", " ").replace("  ", " ").strip()
 
     def should_use_place_name(
-        self, internal_attr: MutableMapping[str, Any], sensor: Places
+        self,
+        internal_attr: MutableMapping[str, Any],
+        sensor: PlacesUpdateCoordinator,
     ) -> bool:
         """Decide whether the OSM place name adds distinct information.
 
         Args:
             internal_attr: Current sensor attribute mapping.
-            sensor: Places sensor used for blank checks and safe value access.
+            sensor: Places coordinator used for blank checks and safe value access.
 
         Returns:
             ``True`` when ``place_name`` exists and does not duplicate address
@@ -214,14 +219,14 @@ class BasicOptionsParser:
         self,
         formatted_place_array: list[str],
         internal_attr: MutableMapping[str, Any],
-        sensor: Places,
+        sensor: PlacesUpdateCoordinator,
     ) -> None:
         """Append a useful place type or category to a formatted-place list.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
             internal_attr: Current sensor attribute mapping.
-            sensor: Places sensor used for blank checks and safe value access.
+            sensor: Places coordinator used for blank checks and safe value access.
         """
         if (
             not sensor.is_attr_blank("place_type")
@@ -245,14 +250,14 @@ class BasicOptionsParser:
         self,
         formatted_place_array: list[str],
         internal_attr: MutableMapping[str, Any],
-        sensor: Places,
+        sensor: PlacesUpdateCoordinator,
     ) -> None:
         """Append street reference or house-number/street details.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
             internal_attr: Current sensor attribute mapping.
-            sensor: Places sensor used for blank checks and safe value access.
+            sensor: Places coordinator used for blank checks and safe value access.
         """
         street = None
         if sensor.is_attr_blank("street") and not sensor.is_attr_blank("street_ref"):
@@ -282,14 +287,14 @@ class BasicOptionsParser:
         self,
         formatted_place_array: list[str],
         internal_attr: MutableMapping[str, Any],
-        sensor: Places,
+        sensor: PlacesUpdateCoordinator,
     ) -> None:
         """Append neighbourhood context for house-level places.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
             internal_attr: Current sensor attribute mapping.
-            sensor: Places sensor used for blank checks and safe value access.
+            sensor: Places coordinator used for blank checks and safe value access.
         """
         if (
             not sensor.is_attr_blank("place_type")
@@ -302,14 +307,14 @@ class BasicOptionsParser:
         self,
         formatted_place_array: list[str],
         internal_attr: MutableMapping[str, Any],
-        sensor: Places,
+        sensor: PlacesUpdateCoordinator,
     ) -> None:
         """Append the best locality and state abbreviation available.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
             internal_attr: Current sensor attribute mapping.
-            sensor: Places sensor used for blank checks and safe value access.
+            sensor: Places coordinator used for blank checks and safe value access.
         """
         if not sensor.is_attr_blank("city_clean"):
             formatted_place_array.append(sensor.get_attr_safe_str("city_clean").strip())

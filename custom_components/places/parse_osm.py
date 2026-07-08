@@ -46,7 +46,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from .sensor import Places
+    from .coordinator import PlacesUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,11 +54,11 @@ _LOGGER = logging.getLogger(__name__)
 class OSMParser:
     """Translate Nominatim/OpenStreetMap response fields into sensor attributes."""
 
-    def __init__(self, sensor: Places) -> None:
-        """Initialize the parser for a Places sensor.
+    def __init__(self, sensor: PlacesUpdateCoordinator) -> None:
+        """Initialize the parser for a Places coordinator.
 
         Args:
-            sensor: Places sensor whose internal attributes receive parsed OSM
+            sensor: Places coordinator whose internal attributes receive parsed OSM
                 values.
         """
         self.sensor = sensor

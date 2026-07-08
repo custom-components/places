@@ -25,7 +25,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from .sensor import Places
+    from .coordinator import PlacesUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,11 +33,11 @@ _LOGGER = logging.getLogger(__name__)
 class AdvancedOptionsParser:
     """Parse bracketed and filtered display options into a sensor state."""
 
-    def __init__(self, sensor: Places, curr_options: str) -> None:
+    def __init__(self, sensor: PlacesUpdateCoordinator, curr_options: str) -> None:
         """Initialize the advanced-options parser.
 
         Args:
-            sensor: Places sensor that provides attribute access helpers.
+            sensor: Places coordinator that provides attribute access helpers.
             curr_options: Raw advanced display option expression.
         """
         self.sensor = sensor

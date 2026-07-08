@@ -17,7 +17,7 @@ from custom_components.places.const import (
     CONF_DISPLAY_OPTIONS,
     CONF_NAME,
 )
-from custom_components.places.sensor import Places
+from custom_components.places.coordinator import PlacesUpdateCoordinator
 
 # Snapshot of internal attributes after parse_osm_dict
 BASE_INTERNAL_ATTR = {
@@ -131,31 +131,39 @@ README_FORMATTED_PLACE_ADVANCED = (
 async def render_display_option(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch, display_option: str
 ) -> str | None:
-    """Render one display option using the integration test attribute snapshot."""
-
-    def _persistence() -> MagicMock:
-        persistence = MagicMock()
-        persistence.async_save = AsyncMock()
-        persistence.async_remove = AsyncMock()
-        return persistence
-
-    config_entry = MockConfigEntry(domain="places", data={CONF_NAME: "Test Place"})
-    config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
-    sensor = Places(
-        mock_hass, config, config_entry, "Test Place", "unique-id-123", {}, _persistence()
+    """Render one display option using the coordinator attribute snapshot."""
+    mock_hass.states.get.return_value = None
+    config_entry = MockConfigEntry(
+        domain="places",
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test_iphone",
+        },
     )
-    sensor._internal_attr = copy.deepcopy(BASE_INTERNAL_ATTR)
-    sensor.clear_attr(ATTR_NATIVE_VALUE)
-    sensor._attr_native_value = None
-    sensor.set_attr(CONF_DISPLAY_OPTIONS, display_option)
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
-    monkeypatch.setattr(sensor, "in_zone", AsyncMock(return_value=False), raising=False)
-    monkeypatch.setattr(sensor, "get_driving_status", AsyncMock(return_value=None), raising=False)
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    persistence.async_remove = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(
+        mock_hass,
+        config_entry,
+        copy.deepcopy(BASE_INTERNAL_ATTR),
+        persistence,
+    )
+    coordinator.clear_attr(ATTR_NATIVE_VALUE)
+    coordinator.set_attr(CONF_DISPLAY_OPTIONS, display_option)
+    coordinator.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
+    coordinator.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
+    monkeypatch.setattr(coordinator, "in_zone", AsyncMock(return_value=False), raising=False)
+    monkeypatch.setattr(
+        coordinator,
+        "get_driving_status",
+        AsyncMock(return_value=None),
+        raising=False,
+    )
 
-    await sensor.process_display_options()
+    await coordinator.process_display_options()
 
-    return sensor.get_attr(ATTR_NATIVE_VALUE)
+    return coordinator.get_attr(ATTR_NATIVE_VALUE)
 
 
 @pytest.mark.asyncio
@@ -184,41 +192,38 @@ async def test_display_options_state_render(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
-    # Minimal config / objects required for Places init
-    # Use shared mock_hass fixture for consistency
-    config_entry = MockConfigEntry(domain="places", data={CONF_NAME: "Test Place"})
-    config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
-
-    hass = mock_hass
+    mock_hass.states.get.return_value = None
+    config_entry = MockConfigEntry(
+        domain="places",
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test_iphone",
+        },
+    )
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
     persistence.async_remove = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(
+        mock_hass,
+        config_entry,
+        copy.deepcopy(BASE_INTERNAL_ATTR),
+        persistence,
+    )
+    coordinator.clear_attr(ATTR_NATIVE_VALUE)
+    coordinator.set_attr(CONF_DISPLAY_OPTIONS, display_option)
+    coordinator.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
+    coordinator.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
+    monkeypatch.setattr(coordinator, "in_zone", AsyncMock(return_value=False), raising=False)
+    monkeypatch.setattr(
+        coordinator,
+        "get_driving_status",
+        AsyncMock(return_value=None),
+        raising=False,
+    )
+    await coordinator.process_display_options()
 
-    sensor = Places(hass, config, config_entry, "Test Place", "unique-id-123", {}, persistence)
-
-    # Inject snapshot of attributes (simulate post-parse_osm_dict state)
-    sensor._internal_attr = copy.deepcopy(BASE_INTERNAL_ATTR)
-
-    # Ensure we start fresh wrt previously computed native value
-    sensor.clear_attr(ATTR_NATIVE_VALUE)
-    sensor._attr_native_value = None
-
-    # Apply parameterized display option
-    sensor.set_attr(CONF_DISPLAY_OPTIONS, display_option)
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
-    # Clear any stale list so process_display_options rebuilds it
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
-
-    # Force out-of-zone behavior (devicetracker_zone_name is 'not_home')
-    # Temporarily patch the instance methods so they are restored after the block.
-    # Also patch get_driving_status to avoid I/O or time-dependent work during the test.
-    # Use monkeypatch to temporarily replace instance methods
-    monkeypatch.setattr(sensor, "in_zone", AsyncMock(return_value=False), raising=False)
-    monkeypatch.setattr(sensor, "get_driving_status", AsyncMock(return_value=None), raising=False)
-    await sensor.process_display_options()
-
-    assert sensor.get_attr(ATTR_NATIVE_VALUE) == expected_state, (
-        f"Display option '{display_option}' produced '{sensor.get_attr(ATTR_NATIVE_VALUE)}', "
+    assert coordinator.get_attr(ATTR_NATIVE_VALUE) == expected_state, (
+        f"Display option '{display_option}' produced '{coordinator.get_attr(ATTR_NATIVE_VALUE)}', "
         f"expected '{expected_state}'."
     )
 
