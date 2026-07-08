@@ -100,12 +100,63 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception:
         # Keep entry teardown behavior deterministic before re-raising setup failures.
         _LOGGER.exception("Entry setup failed for %s", name)
-        try:
-            await async_unload_entry(hass, entry)
-        except Exception:
-            _LOGGER.exception("Cleanup failed after entry setup failure for %s", name)
+        await _async_cleanup_failed_setup(hass, entry, coordinator)
         raise
     return True
+
+
+async def _async_cleanup_failed_setup(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: PlacesUpdateCoordinator,
+) -> None:
+    """Best-effort cleanup for setup that did not reach the loaded state.
+
+    Args:
+        hass: Home Assistant instance.
+        entry: Config entry whose setup failed.
+        coordinator: Coordinator created for the failed setup attempt.
+    """
+    try:
+        await coordinator.async_prepare_unload()
+    except Exception:
+        # HA cleanup hooks can raise arbitrary integration errors; setup still failed.
+        _LOGGER.exception(
+            "Places setup cleanup step prepare_unload failed for entry %s coordinator %r",
+            entry.entry_id,
+            coordinator,
+        )
+
+    try:
+        unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    except Exception:
+        # Platform cleanup can raise arbitrary integration errors; setup still failed.
+        _LOGGER.exception(
+            "Places setup cleanup step unload_platforms failed for entry %s coordinator %r",
+            entry.entry_id,
+            coordinator,
+        )
+    else:
+        if not unload_ok:
+            _LOGGER.warning(
+                "Places setup cleanup step unload_platforms returned false for entry %s "
+                "coordinator %r",
+                entry.entry_id,
+                coordinator,
+            )
+
+    try:
+        await coordinator.async_shutdown()
+    except Exception:
+        # Shutdown is best-effort here; do not mask the original setup failure.
+        _LOGGER.exception(
+            "Places setup cleanup step shutdown failed for entry %s coordinator %r",
+            entry.entry_id,
+            coordinator,
+        )
+    finally:
+        entry.runtime_data = None
+        _release_extended_attr_ref(hass, entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

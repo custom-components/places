@@ -345,26 +345,31 @@ async def test_async_setup_entry_does_not_subscribe_when_platform_setup_fails(
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_resumes_coordinator_when_platform_cleanup_fails(
+@pytest.mark.parametrize("cleanup_raises", [False, True])
+async def test_async_setup_entry_clears_runtime_when_platform_cleanup_fails(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
     mock_entry: MockConfigEntry,
+    cleanup_raises: bool,
 ) -> None:
-    """Forwarding failure cleanup should keep a failed-unload coordinator active."""
+    """Forwarding failure cleanup should not resume a never-loaded coordinator."""
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
     mock_hass.config_entries.async_forward_entry_setups.side_effect = RuntimeError("setup failed")
-    mock_hass.config_entries.async_unload_platforms.side_effect = RuntimeError("cleanup failed")
+    if cleanup_raises:
+        mock_hass.config_entries.async_unload_platforms.side_effect = RuntimeError("cleanup failed")
+    else:
+        mock_hass.config_entries.async_unload_platforms.return_value = False
 
     with pytest.raises(RuntimeError, match="setup failed"):
         await async_setup_entry(mock_hass, mock_entry)
 
     coordinator = _FakeCoordinator.instances[0]
     coordinator.async_prepare_unload.assert_awaited_once_with()
-    coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
-    coordinator.async_shutdown.assert_not_awaited()
+    coordinator.async_resume_after_failed_unload.assert_not_awaited()
+    coordinator.async_shutdown.assert_awaited_once_with()
     mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(mock_entry, PLATFORMS)
-    assert mock_entry.runtime_data is coordinator
+    assert mock_entry.runtime_data is None
 
 
 @pytest.mark.asyncio
