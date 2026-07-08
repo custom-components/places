@@ -16,9 +16,6 @@ from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
 
-# Sentinel value that callers may use to indicate a previous attribute should be removed
-RESTORE_PREVIOUS_ATTR_REMOVE = object()
-
 type Attrs = dict[str, object]
 type StubMock = AsyncMock | MagicMock
 type MethodSpec = tuple[str, dict[str, object]]
@@ -291,57 +288,14 @@ class MockSensor:
         if key is not None and key in self.attrs:
             self.attrs.pop(key)
 
-    async def _restore_previous_attr(self, *args: object, **kwargs: object) -> None:
+    async def _restore_previous_attr(self, previous_attr: Mapping[str, object]) -> None:
         """Restore previous attribute values on this mock sensor.
 
-        This helper is used by tests to simulate restoring attribute state after an
-        update/rollback. It accepts either:
-
-        - A single mapping (e.g., a dict) as the first positional argument, and/or
-          keyword arguments: all key/value pairs from the mapping and kwargs will
-          be applied to ``self.attrs`` via ``update()``.
-
-        - A (key, previous_value) pair as two positional arguments: the sensor's
-          ``self.attrs[key]`` will be set to ``previous_value``. If
-          ``previous_value`` is the module-level sentinel
-          ``RESTORE_PREVIOUS_ATTR_REMOVE``, the key will instead be removed from
-          ``self.attrs``.
-
-        The method is async to match callers that ``await`` the mocked
-        ``restore_previous_attr`` (the public attribute is an ``AsyncMock`` whose
-        side_effect points here).
+        Args:
+            previous_attr: Attribute snapshot to merge into ``self.attrs``.
         """
-        # If a mapping-like first arg is provided, merge it into attrs.
-        if args:
-            first = args[0]
-            # Mapping case: update attrs with provided mapping
-            if isinstance(first, Mapping):
-                # Best-effort: try to convert and update; ignore expected bad mapping data.
-                with suppress(TypeError, ValueError, AttributeError):
-                    self.attrs.update(first)
-                # Also apply any kwargs
-                if kwargs:
-                    self.attrs.update(kwargs)
-                return
-
-            # Pair case: (key, previous_value)
-            if len(args) >= 2:
-                key, previous_value = args[0], args[1]
-                if not isinstance(key, str):
-                    return
-                if previous_value is RESTORE_PREVIOUS_ATTR_REMOVE:
-                    self.attrs.pop(key, None)
-                else:
-                    self.attrs[key] = previous_value
-                return
-
-        # If no positional args but kwargs provided, update attrs with kwargs
-        if kwargs:
-            self.attrs.update(kwargs)
-            return
-
-        # Nothing to do for other call shapes; keep as no-op.
-        return
+        with suppress(TypeError, ValueError, AttributeError):
+            self.attrs.update(previous_attr)
 
     async def in_zone(self) -> bool:
         """Return True if the sensor is in the configured zone, else False."""

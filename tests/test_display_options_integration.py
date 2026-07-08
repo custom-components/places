@@ -192,40 +192,9 @@ async def test_display_options_state_render(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
-    mock_hass.states.get.return_value = None
-    config_entry = MockConfigEntry(
-        domain="places",
-        data={
-            CONF_NAME: "Test Place",
-            CONF_DEVICETRACKER_ID: "device_tracker.test_iphone",
-        },
-    )
-    persistence = MagicMock()
-    persistence.async_save = AsyncMock()
-    persistence.async_remove = AsyncMock()
-    coordinator = PlacesUpdateCoordinator(
-        mock_hass,
-        config_entry,
-        copy.deepcopy(BASE_INTERNAL_ATTR),
-        persistence,
-    )
-    coordinator.clear_attr(ATTR_NATIVE_VALUE)
-    coordinator.set_attr(CONF_DISPLAY_OPTIONS, display_option)
-    coordinator.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
-    coordinator.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
-    monkeypatch.setattr(coordinator, "in_zone", AsyncMock(return_value=False), raising=False)
-    monkeypatch.setattr(
-        coordinator,
-        "get_driving_status",
-        AsyncMock(return_value=None),
-        raising=False,
-    )
-    await coordinator.process_display_options()
+    state = await render_display_option(mock_hass, monkeypatch, display_option)
 
-    assert coordinator.get_attr(ATTR_NATIVE_VALUE) == expected_state, (
-        f"Display option '{display_option}' produced '{coordinator.get_attr(ATTR_NATIVE_VALUE)}', "
-        f"expected '{expected_state}'."
-    )
+    assert state == expected_state
 
 
 @pytest.mark.asyncio

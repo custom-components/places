@@ -72,8 +72,6 @@ from .const import (
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
     DOMAIN,
-    EXTENDED_ATTRIBUTE_LIST,
-    EXTRA_STATE_ATTRIBUTE_LIST,
     MAIN_STATE_ATTRIBUTE_LIST,
 )
 from .helpers import is_float
@@ -169,25 +167,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             for attr in MAIN_STATE_ATTRIBUTE_LIST
             if not self.is_attr_blank(attr)
         }
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return non-blank Places entity attributes."""
-        self._attributes.cleanup()
-        attributes = {
-            attr: self.get_attr(attr)
-            for attr in EXTRA_STATE_ATTRIBUTE_LIST
-            if not self.is_attr_blank(attr)
-        }
-        if self.get_attr(CONF_EXTENDED_ATTR):
-            attributes.update(
-                {
-                    attr: self.get_attr(attr)
-                    for attr in EXTENDED_ATTRIBUTE_LIST
-                    if not self.is_attr_blank(attr)
-                }
-            )
-        return attributes
 
     def _initialize_config_attributes(self) -> None:
         """Seed runtime attributes from static config entry data."""

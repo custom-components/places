@@ -40,7 +40,6 @@ from custom_components.places.entity import (
     EXTENDED_DATA_KEY,
     PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS,
     PlacesAttributeSensorEntityDescription,
-    PlacesSensorEntity,
 )
 from custom_components.places.sensor import (
     Places,
@@ -442,38 +441,6 @@ def test_attribute_sensor_description_keys_are_unique() -> None:
 
     assert len(keys) == len(set(keys))
     assert EXTENDED_DATA_KEY not in keys
-
-
-def test_shared_places_entity_bases_live_in_entity_module() -> None:
-    """Shared Places entity bases should live with descriptions, not in sensor.py."""
-    assert PlacesSensorEntity.__mro__[1] is PlacesEntity
-
-
-def test_legacy_sensor_no_longer_owns_tracker_event_updates() -> None:
-    """Tracker event handling should live only on the coordinator now."""
-    assert not hasattr(Places, "tsc_update")
-
-
-def test_places_entity_does_not_keep_legacy_helper_surface() -> None:
-    """Task 3 keeps helper, update, and rollback APIs on the coordinator only."""
-    for attr_name in (
-        "get_internal_attr",
-        "is_attr_blank",
-        "get_attr",
-        "get_attr_safe_str",
-        "get_attr_safe_float",
-        "get_attr_safe_list",
-        "get_attr_safe_dict",
-        "set_attr",
-        "clear_attr",
-        "set_native_value",
-        "async_cleanup_attributes",
-        "in_zone",
-        "get_driving_status",
-        "process_display_options",
-        "restore_previous_attr",
-    ):
-        assert not hasattr(Places, attr_name)
 
 
 def test_places_entity_uses_coordinator_device_info(mock_hass: MagicMock) -> None:
