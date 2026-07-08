@@ -30,6 +30,7 @@ from custom_components.places.const import (
     ATTR_WIKIDATA_DICT,
     CONF_DEVICETRACKER_ID,
     CONF_EXTENDED_ATTR,
+    CONF_NAME,
     DOMAIN,
 )
 from custom_components.places.coordinator import SCAN_INTERVAL, PlacesData, PlacesUpdateCoordinator
@@ -209,6 +210,46 @@ async def test_coordinator_scan_update_runs_updater_with_snapshot(
     assert isinstance(previous_attr, dict)
     assert previous_attr["place_name"] == "Library"
     assert previous_attr is not coordinator.get_internal_attr()
+
+
+async def test_coordinator_scan_update_failure_still_sets_throttle_marker(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scan failures should still set the throttle marker and suppress immediate retries."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    call_tracker: dict[str, int] = {"constructors": 0}
+
+    class _FailingUpdater:
+        """Updater that always fails for scan attempts."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Track updater instantiation for throttle assertions."""
+            call_tracker["constructors"] += 1
+            _ = kwargs
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Raise a deterministic failure."""
+            raise RuntimeError("scan failed")
+
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FailingUpdater)
+
+    with pytest.raises(RuntimeError, match="scan failed"):
+        await coordinator.async_scan_update()
+
+    assert coordinator._last_scan_update == 1000.0
+
+    data = await coordinator.async_scan_update()
+
+    assert data is not None
+    assert call_tracker["constructors"] == 1
 
 
 async def test_coordinator_scan_update_throttles_repeated_refreshes(
@@ -447,6 +488,31 @@ def test_places_entity_uses_coordinator_device_info(mock_hass: MagicMock) -> Non
     entity = Places(coordinator)
 
     assert entity.device_info == coordinator.device_info
+
+
+def test_places_entity_refreshes_device_info_after_coordinator_name_change(
+    mock_hass: MagicMock,
+) -> None:
+    """Existing entities should reflect renamed coordinator device_info on updates."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={CONF_NAME: "OldName", CONF_DEVICETRACKER_ID: "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    entity = Places(coordinator)
+    write_state = MagicMock()
+    object.__setattr__(entity, "async_write_ha_state", write_state)
+
+    assert entity.device_info["name"] == "OldName"
+
+    coordinator.set_attr(CONF_NAME, "NewName")
+    coordinator.publish_update()
+    entity._handle_coordinator_update()
+
+    assert entity.device_info["name"] == "NewName"
+    write_state.assert_called_once_with()
 
 
 def test_attribute_sensor_reads_coordinator_attribute(mock_hass: MagicMock) -> None:
