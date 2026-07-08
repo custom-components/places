@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.components.zone import ATTR_PASSIVE
@@ -115,6 +116,54 @@ def test_coordinator_main_attributes_are_location_context_only(
         ATTR_PICTURE: "/local/person.png",
         ATTR_ATTRIBUTION: "OpenStreetMap",
     }
+
+
+@pytest.mark.parametrize(("shutting_down", "expected_value"), [(False, "Library"), (True, None)])
+def test_coordinator_publish_update_respects_shutdown_state(
+    mock_hass: MagicMock,
+    shutting_down: bool,
+    expected_value: str | None,
+) -> None:
+    """Coordinator publishing should notify listeners only while the entry is active."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_native_value("Library")
+    coordinator._is_shutting_down = shutting_down
+
+    coordinator.publish_update()
+
+    assert coordinator.data.native_value == expected_value
+
+
+@pytest.mark.parametrize(("shutting_down", "expect_save"), [(False, True), (True, False)])
+async def test_coordinator_persist_attributes_respects_shutdown_state(
+    mock_hass: MagicMock,
+    shutting_down: bool,
+    expect_save: bool,
+) -> None:
+    """Coordinator persistence should write only while the entry is active."""
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_attr(ATTR_CITY, "Richmond")
+    coordinator._is_shutting_down = shutting_down
+
+    await coordinator.async_persist_attributes()
+
+    if expect_save:
+        persistence.async_save.assert_awaited_once_with(coordinator.get_internal_attr())
+    else:
+        persistence.async_save.assert_not_awaited()
 
 
 async def test_coordinator_tsc_update_schedules_updater_with_snapshot(
@@ -261,6 +310,34 @@ async def test_coordinator_resume_after_failed_unload_resubscribes(
     coordinator.async_request_refresh.assert_awaited_once_with()
 
 
+async def test_coordinator_resume_after_failed_unload_continues_when_resubscribe_raises(
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+) -> None:
+    """Failed unload recovery should force refresh even if tracker resubscribe fails."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator._is_shutting_down = True
+    coordinator._last_scan_update = 1000.0
+    coordinator.async_added_to_hass = AsyncMock(side_effect=RuntimeError("subscribe boom"))
+    coordinator.async_request_refresh = AsyncMock()
+
+    with caplog.at_level(logging.ERROR, logger="custom_components.places.coordinator"):
+        await coordinator.async_resume_after_failed_unload()
+
+    assert coordinator.is_shutting_down is False
+    assert coordinator._last_scan_update is None
+    coordinator.async_added_to_hass.assert_awaited_once_with()
+    coordinator.async_request_refresh.assert_awaited_once_with()
+    assert "resubscribe" in caplog.text
+    assert "subscribe boom" in caplog.text
+
+
 async def test_coordinator_resume_after_failed_unload_forces_refresh(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
@@ -338,6 +415,69 @@ async def test_coordinator_prepare_unload_waits_for_active_update(
     release_update.set()
     await asyncio.wait_for(prepare_task, timeout=1.0)
     await update_task
+
+
+async def test_coordinator_prepare_unload_continues_cleanup_when_unsubscribe_raises(
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unload preparation should drain owned work even if unsubscribe raises."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    update_started = asyncio.Event()
+    release_update = asyncio.Event()
+    tracker_cancelled = asyncio.Event()
+    tracker_wait = asyncio.Event()
+
+    class SlowUpdater:
+        """Updater that keeps the coordinator update lock occupied."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Accept production updater constructor kwargs."""
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Block until the test releases the active update."""
+            update_started.set()
+            await release_update.wait()
+
+    async def tracked_update() -> None:
+        """Wait until unload cancellation reaches tracker-owned update tasks."""
+        try:
+            await tracker_wait.wait()
+        except asyncio.CancelledError:
+            tracker_cancelled.set()
+            raise
+
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", SlowUpdater)
+    coordinator._tracker_unsubscribe = MagicMock(side_effect=RuntimeError("unsubscribe boom"))
+    tracker_task = asyncio.create_task(tracked_update())
+    coordinator._tracker_update_tasks.add(tracker_task)
+    tracker_task.add_done_callback(coordinator._tracker_update_tasks.discard)
+
+    update_task = asyncio.create_task(coordinator._run_update("Scan Interval"))
+    await update_started.wait()
+    with caplog.at_level(logging.ERROR, logger="custom_components.places.coordinator"):
+        prepare_task = asyncio.create_task(coordinator.async_prepare_unload())
+        await asyncio.sleep(0)
+
+        assert prepare_task.done() is False
+
+        release_update.set()
+        await asyncio.wait_for(prepare_task, timeout=1.0)
+
+    await update_task
+    assert await asyncio.wait_for(tracker_cancelled.wait(), timeout=1.0)
+    assert coordinator._tracker_unsubscribe is None
+    assert coordinator._tracker_update_tasks == set()
+    assert coordinator.is_shutting_down is True
+    assert "unsubscribe" in caplog.text
+    assert "unsubscribe boom" in caplog.text
 
 
 async def test_coordinator_scan_update_runs_updater_with_snapshot(

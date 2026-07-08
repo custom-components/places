@@ -159,6 +159,27 @@ async def _async_cleanup_failed_setup(
         _release_extended_attr_ref(hass, entry.entry_id)
 
 
+async def _async_resume_failed_unload(
+    entry: ConfigEntry,
+    coordinator: PlacesUpdateCoordinator,
+) -> None:
+    """Best-effort resume for entries that remain loaded after unload failure.
+
+    Args:
+        entry: Config entry whose unload failed.
+        coordinator: Coordinator that still owns runtime state.
+    """
+    try:
+        await coordinator.async_resume_after_failed_unload()
+    except Exception:
+        # Resume is recovery from an unload failure; do not mask the unload result.
+        _LOGGER.exception(
+            "Places unload step resume_after_failed_unload failed for entry %s coordinator %r",
+            entry.entry_id,
+            coordinator,
+        )
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a Places config entry.
 
@@ -184,7 +205,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry.entry_id,
                 coordinator,
             )
-            await coordinator.async_resume_after_failed_unload()
+            await _async_resume_failed_unload(entry, coordinator)
             raise
     try:
         unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
@@ -196,12 +217,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry.entry_id,
                 coordinator,
             )
-            await coordinator.async_resume_after_failed_unload()
+            await _async_resume_failed_unload(entry, coordinator)
         raise
 
     if not unload_ok:
         if coordinator is not None:
-            await coordinator.async_resume_after_failed_unload()
+            await _async_resume_failed_unload(entry, coordinator)
         return False
 
     try:
@@ -221,14 +242,21 @@ def _release_extended_attr_ref(hass: HomeAssistant, entry_id: str) -> None:
         hass: Home Assistant instance that owns recorder runtime data.
         entry_id: Config-entry ID whose setup-owned extended state should be released.
     """
-    domain_data = hass.data.get(DOMAIN)
-    if not isinstance(domain_data, dict):
-        return
-    extended_entry_state = domain_data.get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
-    if not isinstance(extended_entry_state, dict):
-        return
-    if extended_entry_state.pop(entry_id, False):
-        _decrement_extended_attr_ref(hass)
+    try:
+        domain_data = hass.data.get(DOMAIN)
+        if not isinstance(domain_data, dict):
+            return
+        extended_entry_state = domain_data.get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
+        if not isinstance(extended_entry_state, dict):
+            return
+        if extended_entry_state.pop(entry_id, False):
+            _decrement_extended_attr_ref(hass)
+    except Exception:
+        # Recorder cleanup must not mask the setup or unload terminal state.
+        _LOGGER.exception(
+            "Places cleanup step release_extended_attr_ref failed for entry %s",
+            entry_id,
+        )
 
 
 def _increment_extended_attr_ref(hass: HomeAssistant) -> None:

@@ -260,6 +260,8 @@ class PlacesUpdater:
         Args:
             prev_last_place_name: Last-place value captured before this update.
         """
+        if self._is_shutting_down():
+            return
         _LOGGER.debug("(%s) Building Event Data", self.coordinator.get_attr(CONF_NAME))
         event_data: MutableMapping[str, Any] = {}
         if not self.coordinator.is_attr_blank(CONF_NAME):
@@ -726,7 +728,11 @@ class PlacesUpdater:
             "(%s) Reverting attributes back to before the update started",
             self.coordinator.get_attr(CONF_NAME),
         )
+        if self._is_shutting_down():
+            return
         changed_diff_sec = await self.get_seconds_from_last_change(now=now)
+        if self._is_shutting_down():
+            return
         if (
             proceed_with_update == UpdateStatus.SKIP_SET_STATIONARY
             and self.coordinator.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"

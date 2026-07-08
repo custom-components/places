@@ -244,6 +244,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     def publish_update(self) -> None:
         """Publish the latest runtime snapshot to coordinator listeners."""
+        if self._is_shutting_down:
+            return
         self.async_set_updated_data(self.snapshot())
 
     def get_internal_attr(self) -> MutableMapping[str, Any]:
@@ -379,6 +381,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     async def async_persist_attributes(self) -> None:
         """Persist the current runtime attributes."""
+        if self._is_shutting_down:
+            return
         try:
             await self._persistence.async_save(self.get_internal_attr())
         except (OSError, TypeError, ValueError, SerializationError, WriteError) as error:
@@ -410,8 +414,17 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Stop update work before Home Assistant unloads platform entities."""
         self._is_shutting_down = True
         if self._tracker_unsubscribe is not None:
-            self._tracker_unsubscribe()
+            unsubscribe = self._tracker_unsubscribe
             self._tracker_unsubscribe = None
+            try:
+                unsubscribe()
+            except Exception:
+                # Cleanup callbacks can fail independently; continue draining
+                # coordinator-owned work so teardown reaches a stable state.
+                _LOGGER.exception(
+                    "(%s) Failed to unsubscribe tracker listener during unload",
+                    self.get_attr(CONF_NAME),
+                )
         if self._tracker_update_tasks:
             for task in list(self._tracker_update_tasks):
                 if not task.done():
@@ -428,7 +441,15 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             return
         self._is_shutting_down = False
         if self._tracker_unsubscribe is None:
-            await self.async_added_to_hass()
+            try:
+                await self.async_added_to_hass()
+            except Exception:
+                # Recovery from a failed unload is best-effort; still refresh
+                # so the loaded coordinator can publish current in-memory state.
+                _LOGGER.exception(
+                    "(%s) Failed to resubscribe tracker listener after failed unload",
+                    self.get_attr(CONF_NAME),
+                )
         self._last_scan_update = None
         await self.async_request_refresh()
 

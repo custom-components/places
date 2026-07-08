@@ -1341,6 +1341,50 @@ async def test_rollback_update_calls_restore_and_helpers(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("previous_attr", "status", "now"),
+    [
+        (
+            {
+                CONF_NAME: "TestSensor",
+                ATTR_DIRECTION_OF_TRAVEL: "towards home",
+            },
+            UpdateStatus.SKIP_SET_STATIONARY,
+            datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+        ),
+        (
+            {
+                CONF_NAME: "TestSensor",
+                CONF_SHOW_TIME: True,
+                CONF_DATE_FORMAT: "mm/dd",
+                ATTR_NATIVE_VALUE: "TestState (since 12:00)",
+                ATTR_LAST_CHANGED: "2024-01-01 12:00:00+00:00",
+            },
+            UpdateStatus.PROCEED,
+            datetime(2024, 1, 2, 13, 0, tzinfo=UTC),
+        ),
+    ],
+)
+async def test_rollback_update_skips_persistent_side_effects_during_shutdown(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    previous_attr: dict[str, object],
+    status: UpdateStatus,
+    now: datetime,
+) -> None:
+    """Shutdown rollback should restore memory without persisting maintenance state."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    object.__setattr__(sensor, "is_shutting_down", True)
+
+    await updater.rollback_update(dict(previous_attr), now, status)
+
+    sensor.restore_previous_attr.assert_awaited_once_with(previous_attr)
+    assert sensor.attrs == previous_attr
+    sensor.async_persist_attributes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_build_osm_url_returns_url(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
@@ -2422,6 +2466,33 @@ async def test_fire_event_data_includes_core_attributes(
     assert "entity" in called_event[1]
     assert "from_state" in called_event[1]
     assert "to_state" in called_event[1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("shutting_down", "expect_event"), [(False, True), (True, False)])
+async def test_fire_event_data_respects_shutdown_state(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    shutting_down: bool,
+    expect_event: bool,
+) -> None:
+    """Places events should fire only while the entry is active."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    object.__setattr__(sensor, "is_shutting_down", shutting_down)
+    sensor.attrs = {
+        CONF_NAME: "TestName",
+        ATTR_PREVIOUS_STATE: "Prev",
+        ATTR_NATIVE_VALUE: "Now",
+    }
+    mock_hass.bus.fire = MagicMock()
+
+    await updater.fire_event_data(prev_last_place_name="")
+
+    if expect_event:
+        mock_hass.bus.fire.assert_called_once()
+    else:
+        mock_hass.bus.fire.assert_not_called()
 
 
 @pytest.mark.asyncio
