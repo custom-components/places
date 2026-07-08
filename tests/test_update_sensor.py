@@ -571,7 +571,7 @@ async def test_check_for_updated_entity_name_with_real_coordinator_entity(
     await updater.check_for_updated_entity_name()
 
     mock_hass.config_entries.async_update_entry.assert_called_once()
-    assert coordinator.device_info["name"] == "NewName"
+    assert entity.device_info["name"] == "NewName"
 
 
 @pytest.mark.asyncio

@@ -25,7 +25,6 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import Throttle
@@ -71,7 +70,6 @@ from .const import (
     DEFAULT_MAP_ZOOM,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
-    DOMAIN,
     MAIN_STATE_ATTRIBUTE_LIST,
 )
 from .helpers import is_float
@@ -142,19 +140,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         self._initialize_config_attributes()
         self.import_persisted_attributes(imported_attributes)
         self.async_set_updated_data(self.snapshot())
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return the shared HA Device metadata for this config entry."""
-        current_name = self.get_attr_safe_str(CONF_NAME)
-        if not current_name:
-            current_name = str(self.config_entry.data.get(CONF_NAME, self.config_entry.entry_id))
-        return DeviceInfo(
-            identifiers={(DOMAIN, self.config_entry.entry_id)},
-            name=current_name,
-            manufacturer="Places",
-            model="OpenStreetMap reverse geocode",
-        )
 
     @property
     def main_state_attributes(self) -> dict[str, Any]:

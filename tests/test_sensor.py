@@ -65,7 +65,7 @@ def test_places_data_copies_attributes() -> None:
     assert data.attributes == {ATTR_LATITUDE: 1.25}
 
 
-def test_coordinator_device_info_uses_config_entry(mock_hass: MagicMock) -> None:
+def test_places_entity_device_info_uses_config_entry(mock_hass: MagicMock) -> None:
     """All Places entities for one entry should group under one HA Device."""
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
@@ -74,8 +74,9 @@ def test_coordinator_device_info_uses_config_entry(mock_hass: MagicMock) -> None
         data={"name": "TestSensor", "devicetracker_id": "person.test"},
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    entity = Places(coordinator)
 
-    assert coordinator.device_info == {
+    assert entity.device_info == {
         "identifiers": {("places", "entry123")},
         "name": "TestSensor",
         "manufacturer": "Places",
@@ -452,7 +453,7 @@ def test_attribute_sensor_description_keys_are_unique() -> None:
 
 
 def test_places_entity_uses_coordinator_device_info(mock_hass: MagicMock) -> None:
-    """PlacesEntity should expose the shared coordinator device metadata."""
+    """PlacesEntity should expose shared device metadata."""
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -462,7 +463,12 @@ def test_places_entity_uses_coordinator_device_info(mock_hass: MagicMock) -> Non
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
     entity = Places(coordinator)
 
-    assert entity.device_info == coordinator.device_info
+    assert entity.device_info == {
+        "identifiers": {("places", "entry123")},
+        "name": "TestSensor",
+        "manufacturer": "Places",
+        "model": "OpenStreetMap reverse geocode",
+    }
 
 
 def test_places_entity_refreshes_device_info_after_coordinator_name_change(
@@ -505,7 +511,7 @@ def test_attribute_sensor_reads_coordinator_attribute(mock_hass: MagicMock) -> N
 
     assert entity.unique_id == "entry123_place_name"
     assert entity.native_value == "Library"
-    assert entity.device_info == coordinator.device_info
+    assert entity.device_info == Places(coordinator).device_info
     assert isinstance(entity, PlacesEntity)
 
 
