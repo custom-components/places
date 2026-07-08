@@ -23,7 +23,6 @@ from .const import (
     ATTR_DISTANCE_FROM_HOME_M,
     ATTR_DISTANCE_TRAVELED,
     ATTR_DISTANCE_TRAVELED_M,
-    ATTR_EXTENDED_DATA,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
     ATTR_LAST_UPDATED,
@@ -51,8 +50,6 @@ if TYPE_CHECKING:
 
 
 type PlacesValueFn = Callable[["PlacesUpdateCoordinator"], StateType]
-
-EXTENDED_DATA_KEY = ATTR_EXTENDED_DATA
 
 
 class PlacesEntity(CoordinatorEntity["PlacesUpdateCoordinator"]):
@@ -259,14 +256,3 @@ PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescripti
         entity_registry_enabled_default=False,
     ),
 )
-
-DEFAULT_ATTRIBUTE_SENSOR_KEYS = {
-    description.key
-    for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS
-    if description.entity_registry_enabled_default
-}
-DISABLED_ATTRIBUTE_SENSOR_KEYS = {
-    description.key
-    for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS
-    if not description.entity_registry_enabled_default
-}

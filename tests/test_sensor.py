@@ -35,9 +35,6 @@ from custom_components.places.const import (
 )
 from custom_components.places.coordinator import SCAN_INTERVAL, PlacesData, PlacesUpdateCoordinator
 from custom_components.places.entity import (
-    DEFAULT_ATTRIBUTE_SENSOR_KEYS,
-    DISABLED_ATTRIBUTE_SENSOR_KEYS,
-    EXTENDED_DATA_KEY,
     PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS,
     PlacesAttributeSensorEntityDescription,
 )
@@ -421,6 +418,17 @@ async def test_coordinator_get_driving_status_variants(
 
 def test_attribute_sensor_descriptions_have_expected_default_policy() -> None:
     """The default child sensor set should stay curated and omit formatted address."""
+    default_keys = {
+        description.key
+        for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS
+        if description.entity_registry_enabled_default
+    }
+    disabled_keys = {
+        description.key
+        for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS
+        if not description.entity_registry_enabled_default
+    }
+
     assert {
         "place_name",
         "devicetracker_zone_name",
@@ -430,9 +438,9 @@ def test_attribute_sensor_descriptions_have_expected_default_policy() -> None:
         "map_link",
         "distance_from_home",
         "distance_traveled",
-    } == DEFAULT_ATTRIBUTE_SENSOR_KEYS
-    assert "formatted_address" not in DEFAULT_ATTRIBUTE_SENSOR_KEYS
-    assert "country" in DISABLED_ATTRIBUTE_SENSOR_KEYS
+    } == default_keys
+    assert "formatted_address" not in default_keys
+    assert "country" in disabled_keys
 
 
 def test_attribute_sensor_description_keys_are_unique() -> None:
@@ -440,7 +448,7 @@ def test_attribute_sensor_description_keys_are_unique() -> None:
     keys = [description.key for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS]
 
     assert len(keys) == len(set(keys))
-    assert EXTENDED_DATA_KEY not in keys
+    assert "extended_data" not in keys
 
 
 def test_places_entity_uses_coordinator_device_info(mock_hass: MagicMock) -> None:
@@ -695,7 +703,7 @@ async def test_async_setup_entry_adds_main_and_child_sensors(
         entity
         for entity in entities[1:]
         if isinstance(entity, PlacesAttributeSensor)
-        and entity.entity_description.key in DISABLED_ATTRIBUTE_SENSOR_KEYS
+        and not entity.entity_description.entity_registry_enabled_default
     ]
     assert disabled_entities
     assert all(
