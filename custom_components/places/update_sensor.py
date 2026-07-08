@@ -76,7 +76,6 @@ from .helpers import clear_since_from_state, is_float, safe_truncate
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .osm_client import OSMClient
 from .parse_osm import OSMParser
-from .pipeline import PlacesUpdatePipeline
 from .tracker import TrackerSnapshot, TrackerStatus
 
 if TYPE_CHECKING:
@@ -118,8 +117,49 @@ class PlacesUpdater:
                 for rollback when criteria fail or the rendered state is
                 unchanged.
         """
-        pipeline = PlacesUpdatePipeline(self)
-        await pipeline.run(reason=reason, previous_attr=previous_attr)
+        await self.log_update_start(reason)
+        now: datetime = await self.get_current_time()
+        coordinator = self.coordinator
+        proceed_with_update = UpdateStatus.SKIP
+
+        try:
+            await self.update_entity_name_and_cleanup()
+            await self.update_client_sensor_name()
+            await self.update_previous_state()
+            await self.update_old_coordinates()
+            prev_last_place_name = coordinator.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
+
+            proceed_with_update = await self.check_device_tracker_and_update_coords()
+            if proceed_with_update == UpdateStatus.PROCEED:
+                proceed_with_update = await self.determine_update_criteria()
+
+            if proceed_with_update == UpdateStatus.PROCEED:
+                await self.process_osm_update(now=now)
+
+                if await self.should_update_state(now=now):
+                    await self.handle_state_update(
+                        now=now, prev_last_place_name=prev_last_place_name
+                    )
+                else:
+                    _LOGGER.info(
+                        "(%s) No entity update needed, Previous State = New State",
+                        coordinator.get_attr(CONF_NAME),
+                    )
+                    await self.rollback_update(previous_attr, now, proceed_with_update)
+            else:
+                await self.rollback_update(previous_attr, now, proceed_with_update)
+        except Exception:
+            # This orchestration boundary must rollback partial state for any
+            # phase failure, then re-raise so Home Assistant can report it.
+            _LOGGER.exception(
+                "(%s) Error during Places update",
+                coordinator.get_attr(CONF_NAME),
+            )
+            await self.rollback_update(previous_attr, now, proceed_with_update)
+            raise
+        finally:
+            await self.finish_update(now=now)
+            coordinator.publish_update()
 
     async def log_update_start(self, reason: str) -> None:
         """Log a consistent update-start message.

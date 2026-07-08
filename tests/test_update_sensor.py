@@ -168,6 +168,279 @@ async def test_do_update_flow_variants(
 
 
 @pytest.mark.asyncio
+async def test_do_update_runs_phases_in_expected_order(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: Callable[
+        [PlacesUpdater, list[tuple[str, dict[str, object]]]],
+        AbstractContextManager[dict[str, AsyncMock]],
+    ],
+) -> None:
+    """Assert all major phases execute in the legacy ordered sequence."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    call_order: list[str] = []
+
+    updater.coordinator.set_attr(ATTR_LAST_PLACE_NAME, "Last Place")
+
+    def publish_update() -> None:
+        call_order.append("publish")
+        assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
+
+    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
+
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+
+    def record_prev_last_place_name(key: str, _default: object = None) -> str:
+        if key == ATTR_LAST_PLACE_NAME:
+            call_order.append("capture_prev_last_place_name")
+        return "Last Place"
+
+    sensor.get_attr_safe_str = MagicMock(side_effect=record_prev_last_place_name)
+
+    async def log_update_start(_: str) -> None:
+        call_order.append("log_update_start")
+
+    async def get_current_time() -> datetime:
+        call_order.append("get_current_time")
+        return now
+
+    async def check_device_tracker() -> UpdateStatus:
+        call_order.append("check_device_tracker_and_update_coords")
+        return UpdateStatus.PROCEED
+
+    async def determine_update_criteria() -> UpdateStatus:
+        call_order.append("determine_update_criteria")
+        return UpdateStatus.PROCEED
+
+    async def should_update_state(*_args: object, **_kwargs: object) -> bool:
+        call_order.append("should_update_state")
+        return True
+
+    async def finish_update(*_args: object, **_kwargs: object) -> None:
+        updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
+        call_order.append("finish_update")
+
+    async def update_entity_name_and_cleanup() -> None:
+        call_order.append("update_entity_name_and_cleanup")
+
+    async def update_previous_state() -> None:
+        call_order.append("update_previous_state")
+
+    async def update_old_coordinates() -> None:
+        call_order.append("update_old_coordinates")
+
+    async def process_osm_update(*_args: object, **_kwargs: object) -> None:
+        call_order.append("process_osm_update")
+
+    async def handle_state_update(*_args: object, **_kwargs: object) -> None:
+        call_order.append("handle_state_update")
+
+    with stubbed_updater(
+        updater,
+        [
+            ("log_update_start", {"side_effect": log_update_start}),
+            ("get_current_time", {"side_effect": get_current_time}),
+            ("update_entity_name_and_cleanup", {"side_effect": update_entity_name_and_cleanup}),
+            ("update_previous_state", {"side_effect": update_previous_state}),
+            ("update_old_coordinates", {"side_effect": update_old_coordinates}),
+            (
+                "check_device_tracker_and_update_coords",
+                {"side_effect": check_device_tracker},
+            ),
+            (
+                "determine_update_criteria",
+                {"side_effect": determine_update_criteria},
+            ),
+            (
+                "process_osm_update",
+                {"side_effect": process_osm_update},
+            ),
+            (
+                "should_update_state",
+                {"side_effect": should_update_state},
+            ),
+            (
+                "handle_state_update",
+                {"side_effect": handle_state_update},
+            ),
+            ("rollback_update", {}),
+            ("finish_update", {"side_effect": finish_update}),
+        ],
+    ) as mocks:
+        updater._osm_client.update_sensor_name = MagicMock(
+            side_effect=lambda _sensor_name: call_order.append("update_sensor_name")
+        )
+
+        await updater.do_update("manual", {"snapshot": "value"})
+
+        assert mocks["log_update_start"].await_count == 1
+
+    expected_order = [
+        "log_update_start",
+        "get_current_time",
+        "update_entity_name_and_cleanup",
+        "update_sensor_name",
+        "update_previous_state",
+        "update_old_coordinates",
+        "capture_prev_last_place_name",
+        "check_device_tracker_and_update_coords",
+        "determine_update_criteria",
+        "process_osm_update",
+        "should_update_state",
+        "handle_state_update",
+        "finish_update",
+        "publish",
+    ]
+    assert call_order == expected_order
+
+
+@pytest.mark.asyncio
+async def test_do_update_rolls_back_and_finishes_on_phase_error(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: Callable[
+        [PlacesUpdater, list[tuple[str, dict[str, object]]]],
+        AbstractContextManager[dict[str, AsyncMock]],
+    ],
+) -> None:
+    """Phase errors should rollback, finish bookkeeping, then publish the rollback snapshot."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    call_order: list[str] = []
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+
+    def publish_update() -> None:
+        call_order.append("publish")
+
+    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
+
+    async def log_update_start(_: str) -> None:
+        call_order.append("log_update_start")
+
+    async def get_current_time() -> datetime:
+        call_order.append("get_current_time")
+        return now
+
+    async def check_device_tracker() -> UpdateStatus:
+        call_order.append("check_device_tracker_and_update_coords")
+        return UpdateStatus.PROCEED
+
+    async def determine_update_criteria() -> UpdateStatus:
+        call_order.append("determine_update_criteria")
+        return UpdateStatus.PROCEED
+
+    async def process_osm_update(*_args: object, **_kwargs: object) -> None:
+        call_order.append("process_osm_update")
+        msg = "OSM failed"
+        raise RuntimeError(msg)
+
+    async def rollback_update(*_args: object, **_kwargs: object) -> None:
+        call_order.append("rollback_update")
+
+    async def finish_update(*_args: object, **_kwargs: object) -> None:
+        call_order.append("finish_update")
+
+    with stubbed_updater(
+        updater,
+        [
+            ("log_update_start", {"side_effect": log_update_start}),
+            ("get_current_time", {"side_effect": get_current_time}),
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("update_old_coordinates", {}),
+            (
+                "check_device_tracker_and_update_coords",
+                {"side_effect": check_device_tracker},
+            ),
+            (
+                "determine_update_criteria",
+                {"side_effect": determine_update_criteria},
+            ),
+            (
+                "process_osm_update",
+                {"side_effect": process_osm_update},
+            ),
+            ("rollback_update", {"side_effect": rollback_update}),
+            ("finish_update", {"side_effect": finish_update}),
+        ],
+    ) as mocks:
+        updater._osm_client.update_sensor_name = MagicMock()
+
+        with pytest.raises(RuntimeError, match="OSM failed"):
+            await updater.do_update("manual", {"snapshot": "value"})
+
+        mocks["rollback_update"].assert_awaited_once_with(
+            {"snapshot": "value"}, now, UpdateStatus.PROCEED
+        )
+        mocks["finish_update"].assert_awaited_once_with(now=now)
+        updater.coordinator.publish_update.assert_called_once_with()
+
+    assert call_order == [
+        "log_update_start",
+        "get_current_time",
+        "check_device_tracker_and_update_coords",
+        "determine_update_criteria",
+        "process_osm_update",
+        "rollback_update",
+        "finish_update",
+        "publish",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_do_update_publishes_after_successful_rollback_path(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: Callable[
+        [PlacesUpdater, list[tuple[str, dict[str, object]]]],
+        AbstractContextManager[dict[str, AsyncMock]],
+    ],
+) -> None:
+    """Rollback-based successful exits should publish the latest coordinator snapshot."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    call_order: list[str] = []
+
+    def publish_update() -> None:
+        call_order.append("publish")
+        assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
+
+    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+
+    async def finish_update(*_args: object, **_kwargs: object) -> None:
+        updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
+        call_order.append("finish_update")
+
+    with stubbed_updater(
+        updater,
+        [
+            ("log_update_start", {}),
+            ("get_current_time", {"return_value": now}),
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("update_old_coordinates", {}),
+            ("check_device_tracker_and_update_coords", {"return_value": UpdateStatus.PROCEED}),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
+            ("process_osm_update", {}),
+            ("should_update_state", {"return_value": False}),
+            ("rollback_update", {}),
+            ("finish_update", {"side_effect": finish_update}),
+        ],
+    ) as mocks:
+        updater._osm_client.update_sensor_name = MagicMock()
+
+        await updater.do_update("manual", {"snapshot": "value"})
+
+        mocks["rollback_update"].assert_awaited_once_with(
+            {"snapshot": "value"}, now, UpdateStatus.PROCEED
+        )
+        updater.coordinator.publish_update.assert_called_once_with()
+        assert call_order == ["finish_update", "publish"]
+
+
+@pytest.mark.asyncio
 async def test_handle_state_update_sets_native_value_and_calls_helpers(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
