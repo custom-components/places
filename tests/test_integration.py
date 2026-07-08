@@ -104,6 +104,8 @@ class _FakeCoordinator:
         self.persistence = persistence
         self.async_added_to_hass = AsyncMock()
         self.async_request_refresh = AsyncMock()
+        self.async_prepare_unload = AsyncMock()
+        self.async_resume_after_failed_unload = AsyncMock()
         self.async_shutdown = AsyncMock()
         self.instances.append(self)
 
@@ -561,7 +563,7 @@ async def test_async_unload_entry_keeps_and_clears_recorder_exclusion_by_active_
 async def test_async_unload_entry_result(
     mock_hass: MagicMock, mock_entry: MockConfigEntry, unload_return: bool, expected: bool
 ) -> None:
-    """Unload should proxy the platform result and stop the coordinator on success."""
+    """Unload should proxy the platform result and only finalize shutdown on success."""
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     mock_hass.config_entries.async_unload_platforms.return_value = unload_return
@@ -570,32 +572,72 @@ async def test_async_unload_entry_result(
 
     assert result is expected
     mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(mock_entry, PLATFORMS)
-    coordinator.async_shutdown.assert_awaited_once_with()
+    coordinator.async_prepare_unload.assert_awaited_once_with()
+    if unload_return:
+        coordinator.async_shutdown.assert_awaited_once_with()
+        coordinator.async_resume_after_failed_unload.assert_not_awaited()
+    else:
+        coordinator.async_shutdown.assert_not_awaited()
+        coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
 async def test_async_unload_entry_shuts_down_before_platform_unload(
     mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
-    """Teardown should cancel coordinator work before unloading platform entries."""
+    """Teardown should stop update work before unloading and finalize after success."""
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     call_order: list[str] = []
 
-    async def mark_shutdown() -> None:
-        call_order.append("shutdown")
+    async def mark_prepare_unload() -> None:
+        call_order.append("prepare_unload")
 
     async def mark_unload(_entry: MockConfigEntry, _platforms: list[str]) -> bool:
         call_order.append("unload_platforms")
         return True
 
+    async def mark_shutdown() -> None:
+        call_order.append("shutdown")
+
+    coordinator.async_prepare_unload.side_effect = mark_prepare_unload
     coordinator.async_shutdown.side_effect = mark_shutdown
     mock_hass.config_entries.async_unload_platforms.side_effect = mark_unload
 
     result = await async_unload_entry(mock_hass, mock_entry)
 
     assert result is True
-    assert call_order == ["shutdown", "unload_platforms"]
+    assert call_order == ["prepare_unload", "unload_platforms", "shutdown"]
+
+
+@pytest.mark.asyncio
+async def test_async_unload_entry_resumes_coordinator_when_platform_unload_fails(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry
+) -> None:
+    """A failed platform unload should leave the still-loaded coordinator active."""
+    coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
+    mock_entry.runtime_data = coordinator
+    call_order: list[str] = []
+
+    async def mark_prepare_unload() -> None:
+        call_order.append("prepare_unload")
+
+    async def mark_unload(_entry: MockConfigEntry, _platforms: list[str]) -> bool:
+        call_order.append("unload_platforms")
+        return False
+
+    async def mark_resume() -> None:
+        call_order.append("resume")
+
+    coordinator.async_prepare_unload.side_effect = mark_prepare_unload
+    coordinator.async_resume_after_failed_unload.side_effect = mark_resume
+    mock_hass.config_entries.async_unload_platforms.side_effect = mark_unload
+
+    result = await async_unload_entry(mock_hass, mock_entry)
+
+    assert result is False
+    assert call_order == ["prepare_unload", "unload_platforms", "resume"]
+    coordinator.async_shutdown.assert_not_awaited()
 
 
 @pytest.mark.asyncio

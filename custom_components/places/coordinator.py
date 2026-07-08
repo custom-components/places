@@ -403,6 +403,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     async def async_shutdown(self) -> None:
         """Unsubscribe coordinator callbacks during entry unload."""
+        await self.async_prepare_unload()
+        await super().async_shutdown()
+
+    async def async_prepare_unload(self) -> None:
+        """Stop update work before Home Assistant unloads platform entities."""
         self._is_shutting_down = True
         if self._tracker_unsubscribe is not None:
             self._tracker_unsubscribe()
@@ -414,7 +419,15 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             if self._tracker_update_tasks:
                 await asyncio.gather(*self._tracker_update_tasks, return_exceptions=True)
             self._tracker_update_tasks.clear()
-        await super().async_shutdown()
+
+    async def async_resume_after_failed_unload(self) -> None:
+        """Restart coordinator work after Home Assistant rejects platform unload."""
+        if not self._is_shutting_down:
+            return
+        self._is_shutting_down = False
+        if self._tracker_unsubscribe is None:
+            await self.async_added_to_hass()
+        await self.async_request_refresh()
 
     async def _async_update_data(self) -> PlacesData:
         """Run the periodic Places refresh path and return the latest snapshot."""

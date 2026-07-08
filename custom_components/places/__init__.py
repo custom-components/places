@@ -120,10 +120,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Unloading Places entry: %s", entry.entry_id)
     coordinator = entry.runtime_data
     if coordinator is not None:
-        await coordinator.async_shutdown()
+        await coordinator.async_prepare_unload()
     unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
+        if coordinator is not None:
+            await coordinator.async_shutdown()
         extended_entry_state = (
             hass.data.get(DOMAIN, {}).get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
             if isinstance(hass.data.get(DOMAIN, {}), dict)
@@ -133,6 +135,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _decrement_extended_attr_ref(hass)
         if isinstance(extended_entry_state, dict):
             extended_entry_state.pop(entry.entry_id, None)
+    elif coordinator is not None:
+        await coordinator.async_resume_after_failed_unload()
 
     return unload_ok
 

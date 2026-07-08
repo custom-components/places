@@ -217,6 +217,50 @@ async def test_coordinator_tsc_update_cancelled_on_shutdown(
     assert coordinator._tracker_update_tasks == set()
 
 
+async def test_coordinator_resume_after_failed_unload_resubscribes(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failed unload recovery should restart tracker listening and refresh state."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    old_unsubscribe = MagicMock()
+    new_unsubscribe = MagicMock()
+    coordinator._tracker_unsubscribe = old_unsubscribe
+    coordinator.async_request_refresh = AsyncMock()
+    captured: dict[str, object] = {}
+
+    def track_state_change(hass: object, entity_ids: list[str], callback: object) -> MagicMock:
+        """Record tracker subscription arguments."""
+        captured["hass"] = hass
+        captured["entity_ids"] = entity_ids
+        captured["callback"] = callback
+        return new_unsubscribe
+
+    monkeypatch.setattr(
+        "custom_components.places.coordinator.async_track_state_change_event",
+        track_state_change,
+    )
+
+    await coordinator.async_prepare_unload()
+    await coordinator.async_resume_after_failed_unload()
+
+    old_unsubscribe.assert_called_once_with()
+    assert coordinator.is_shutting_down is False
+    assert coordinator._tracker_unsubscribe is new_unsubscribe
+    assert captured == {
+        "hass": mock_hass,
+        "entity_ids": ["person.test"],
+        "callback": coordinator.tsc_update,
+    }
+    coordinator.async_request_refresh.assert_awaited_once_with()
+
+
 async def test_coordinator_scan_update_runs_updater_with_snapshot(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
