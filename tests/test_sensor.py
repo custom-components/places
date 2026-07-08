@@ -261,6 +261,85 @@ async def test_coordinator_resume_after_failed_unload_resubscribes(
     coordinator.async_request_refresh.assert_awaited_once_with()
 
 
+async def test_coordinator_resume_after_failed_unload_forces_refresh(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failed unload recovery should refresh even inside the scan throttle window."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator._is_shutting_down = True
+    coordinator._last_scan_update = 1000.0
+    coordinator.async_request_refresh = AsyncMock(side_effect=coordinator.async_scan_update)
+    update_calls: list[str] = []
+
+    class RecordingUpdater:
+        """Updater that records recovery refresh execution."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Accept production updater constructor kwargs."""
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Record the refresh reason."""
+            update_calls.append(reason)
+
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1001.0)
+    monkeypatch.setattr(
+        "custom_components.places.coordinator.async_track_state_change_event",
+        MagicMock(return_value=MagicMock()),
+    )
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", RecordingUpdater)
+
+    await coordinator.async_resume_after_failed_unload()
+
+    assert update_calls == ["Scan Interval"]
+
+
+async def test_coordinator_prepare_unload_waits_for_active_update(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unload preparation should wait for any active coordinator update."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    update_started = asyncio.Event()
+    release_update = asyncio.Event()
+
+    class SlowUpdater:
+        """Updater that keeps the coordinator update lock occupied."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Accept production updater constructor kwargs."""
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Block until the test releases the active update."""
+            update_started.set()
+            await release_update.wait()
+
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", SlowUpdater)
+
+    update_task = asyncio.create_task(coordinator._run_update("Scan Interval"))
+    await update_started.wait()
+    prepare_task = asyncio.create_task(coordinator.async_prepare_unload())
+    await asyncio.sleep(0)
+
+    assert prepare_task.done() is False
+
+    release_update.set()
+    await asyncio.wait_for(prepare_task, timeout=1.0)
+    await update_task
+
+
 async def test_coordinator_scan_update_runs_updater_with_snapshot(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
@@ -408,10 +487,11 @@ async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
     await first_started.wait()
     second_task = asyncio.create_task(coordinator._run_update("second"))
     await asyncio.sleep(0)
-    await coordinator.async_shutdown()
+    shutdown_task = asyncio.create_task(coordinator.async_shutdown())
+    await asyncio.sleep(0)
     release_first.set()
 
-    await asyncio.gather(first_task, second_task)
+    await asyncio.gather(first_task, second_task, shutdown_task)
 
     assert len(construct_calls) == 1
     assert not second_ran.is_set()

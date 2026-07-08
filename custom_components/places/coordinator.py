@@ -419,6 +419,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             if self._tracker_update_tasks:
                 await asyncio.gather(*self._tracker_update_tasks, return_exceptions=True)
             self._tracker_update_tasks.clear()
+        async with self._update_lock:
+            pass
 
     async def async_resume_after_failed_unload(self) -> None:
         """Restart coordinator work after Home Assistant rejects platform unload."""
@@ -427,6 +429,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         self._is_shutting_down = False
         if self._tracker_unsubscribe is None:
             await self.async_added_to_hass()
+        self._last_scan_update = None
         await self.async_request_refresh()
 
     async def _async_update_data(self) -> PlacesData:
