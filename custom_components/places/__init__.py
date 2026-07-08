@@ -59,6 +59,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await coordinator.async_added_to_hass()
     except Exception:
+        # Keep setup failure paths observable while ensuring listener cleanup always runs.
+        _LOGGER.exception("Unable to subscribe to tracker updates for %s", name)
         await coordinator.async_shutdown()
         entry.runtime_data = None
         raise
@@ -66,6 +68,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
+        # Keep entry teardown behavior deterministic before re-raising setup failures.
+        _LOGGER.exception("Platform setup failed for %s", name)
         await coordinator.async_shutdown()
         await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         entry.runtime_data = None

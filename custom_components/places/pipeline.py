@@ -37,7 +37,6 @@ class PlacesUpdatePipeline:
         now: datetime = await self.updater.get_current_time()
         coordinator = self.updater.coordinator
         proceed_with_update = UpdateStatus.SKIP
-        should_publish = False
 
         try:
             await self.updater.update_entity_name_and_cleanup()
@@ -57,17 +56,14 @@ class PlacesUpdatePipeline:
                     await self.updater.handle_state_update(
                         now=now, prev_last_place_name=prev_last_place_name
                     )
-                    should_publish = True
                 else:
                     _LOGGER.info(
                         "(%s) No entity update needed, Previous State = New State",
                         coordinator.get_attr(CONF_NAME),
                     )
                     await self.updater.rollback_update(previous_attr, now, proceed_with_update)
-                    should_publish = True
             else:
                 await self.updater.rollback_update(previous_attr, now, proceed_with_update)
-                should_publish = True
         except Exception:
             # This orchestration boundary must rollback partial state for any
             # phase failure, then re-raise so Home Assistant can report it.
@@ -76,9 +72,7 @@ class PlacesUpdatePipeline:
                 coordinator.get_attr(CONF_NAME),
             )
             await self.updater.rollback_update(previous_attr, now, proceed_with_update)
-            should_publish = True
             raise
         finally:
             await self.updater.finish_update(now=now)
-            if should_publish:
-                coordinator.publish_update()
+            coordinator.publish_update()

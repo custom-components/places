@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
 from homeassistant.const import UnitOfLength
@@ -47,19 +47,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-
-    class PlacesUpdateCoordinator(DataUpdateCoordinator[Any]):
-        """Typing stub for the future Places coordinator used by shared entities."""
-
-        config_entry: Any
-        device_info: Any
-
-        def get_attr(self, attr_name: str) -> Any:
-            """Return a stored Places attribute."""
-
-        def get_attr_safe_float(self, attr_name: str, default: float | None = 0.0) -> float | None:
-            """Return a stored Places attribute coerced to float."""
+    from .coordinator import PlacesUpdateCoordinator
 
 
 type PlacesValueFn = Callable[["PlacesUpdateCoordinator"], StateType]

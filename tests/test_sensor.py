@@ -152,7 +152,6 @@ async def test_coordinator_tsc_update_schedules_updater_with_snapshot(
     monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FakeUpdater)
 
     coordinator.tsc_update(MagicMock(data={"new_state": MagicMock(state="home")}))
-    coordinator.set_attr("place_name", "Changed")
     await asyncio.gather(*tasks)
 
     assert captured["hass"] is mock_hass
@@ -234,6 +233,56 @@ async def test_coordinator_scan_update_throttles_repeated_refreshes(
 
     assert data.native_value == "Restored"
     updater_ctor.assert_not_called()
+
+
+async def test_coordinator_updates_are_serialized_between_scan_and_tracker_events(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Serialized update path should prevent concurrent mutation races."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    created_tasks: list[asyncio.Task[None]] = []
+
+    class FakeUpdater:
+        """Concurrent execution counter for update calls."""
+
+        active_count = 0
+        max_active_count = 0
+
+        def __init__(self, **kwargs: object) -> None:
+            """Capture constructor kwargs for parity with the production path."""
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Record concurrent overlap while the update is in-flight."""
+            FakeUpdater.active_count += 1
+            FakeUpdater.max_active_count = max(
+                FakeUpdater.max_active_count, FakeUpdater.active_count
+            )
+            await asyncio.sleep(0.05)
+            FakeUpdater.active_count -= 1
+
+    def _create_task(coro: Coroutine[object, object, None]) -> asyncio.Task[None]:
+        """Capture scheduler-created update tasks."""
+        task = asyncio.create_task(coro)
+        created_tasks.append(task)
+        return task
+
+    mock_hass.async_create_task.side_effect = _create_task
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", FakeUpdater)
+    scan_task = asyncio.create_task(coordinator.async_scan_update())
+
+    event = MagicMock(data={"new_state": MagicMock(state="home")})
+    coordinator.tsc_update(event)
+    coordinator.tsc_update(event)
+
+    await asyncio.gather(scan_task, *created_tasks)
+    assert FakeUpdater.max_active_count == 1
 
 
 async def test_coordinator_tsc_update_ignores_blankish_tracker_states(

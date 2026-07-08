@@ -75,7 +75,7 @@ Key | Required | Default | Description |
 `Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20>
 `Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes)
 `Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updating when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.**
-`Extended Attributes` | `No` | `False` | Create an enabled diagnostic `Extended data` sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped. The extended sensor's raw attributes are excluded from recorder.
+`Extended Attributes` | `No` | `False` | Create an enabled diagnostic `Extended data` sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped. The extended sensor's raw attributes are excluded from recorder. |
 `Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)`
 
 <details>
@@ -194,7 +194,6 @@ When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extende
 * `state_attr('sensor.alice_extended_data', 'osm_dict')`
 * `state_attr('sensor.alice_extended_data', 'osm_details_dict')`
 * `state_attr('sensor.alice_extended_data', 'wikidata_dict')`
-* `state_attr('sensor.alice_extended_data', 'wikidata_id')`
 </details>
 
 <details>

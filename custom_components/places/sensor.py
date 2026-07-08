@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import MATCH_ALL
@@ -71,7 +69,7 @@ class Places(PlacesSensorEntity):
         Args:
             coordinator: Places coordinator that owns parsed state.
         """
-        super().__init__(cast("Any", coordinator), unique_suffix=None)
+        super().__init__(coordinator, unique_suffix=None)
         self._attr_icon = DEFAULT_ICON
         self._attr_extra_state_attributes = coordinator.main_state_attributes
         self._update_from_coordinator()
@@ -105,7 +103,7 @@ class PlacesAttributeSensor(PlacesSensorEntity):
             coordinator: Places coordinator that owns parsed state.
             entity_description: Child sensor description.
         """
-        super().__init__(cast("Any", coordinator), unique_suffix=entity_description.key)
+        super().__init__(coordinator, unique_suffix=entity_description.key)
         self.entity_description = entity_description
         self._attr_name = _child_sensor_name(entity_description.key)
         self._attr_entity_registry_enabled_default = (
@@ -135,7 +133,7 @@ class PlacesExtendedDataSensor(PlacesSensorEntity):
 
     def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
         """Initialize the optional extended-data sensor."""
-        super().__init__(cast("Any", coordinator), unique_suffix="extended_data")
+        super().__init__(coordinator, unique_suffix="extended_data")
         self._attr_extra_state_attributes = {}
         self._update_from_coordinator()
 

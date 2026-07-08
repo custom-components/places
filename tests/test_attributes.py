@@ -82,7 +82,7 @@ async def test_places_attribute_cleanup_and_restore(mock_hass: MagicMock) -> Non
     attrs = coordinator.get_internal_attr()
     assert attrs[CONF_NAME] == "TestSensor"
     assert attrs["keep_zero"] == 0
-    assert attrs[ATTR_INITIAL_UPDATE] is False
+    assert attrs[ATTR_INITIAL_UPDATE] is True
     assert attrs[ATTR_PLACE_NAME] == "Library"
     assert "remove_empty" not in attrs
     assert "remove_none" not in attrs
@@ -100,3 +100,30 @@ async def test_places_attribute_restore_previous_attr(mock_hass: MagicMock) -> N
 
     assert coordinator.get_internal_attr() is previous
     assert coordinator.get_internal_attr() == previous
+
+
+def test_coordinator_import_empty_persisted_attrs_keeps_initial_update(
+    mock_hass: MagicMock,
+) -> None:
+    """Empty persistence payload should not clear the initial-update guard."""
+    coordinator = PlacesUpdateCoordinator(
+        mock_hass,
+        MockConfigEntry(data={"name": "TestSensor", "devicetracker_id": "person.test"}),
+        {},
+        MagicMock(),
+    )
+    assert coordinator.get_attr(ATTR_INITIAL_UPDATE) is True
+
+
+def test_coordinator_import_nonempty_persisted_attrs_clears_initial_update(
+    mock_hass: MagicMock,
+) -> None:
+    """Non-empty persistence payload should clear the initial-update guard."""
+    coordinator = PlacesUpdateCoordinator(
+        mock_hass,
+        MockConfigEntry(data={"name": "TestSensor", "devicetracker_id": "person.test"}),
+        {},
+        MagicMock(),
+    )
+    coordinator.import_persisted_attributes({ATTR_NATIVE_VALUE: "Restored"})
+    assert coordinator.get_attr(ATTR_INITIAL_UPDATE) is False

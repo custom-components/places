@@ -28,7 +28,7 @@
                 "description": "Crea un nuovo sensore\nGuarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
                 "data_description": {
                     "options": "Guarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
-                    "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
+                    "extended_attr": "Crea un sensore diagnostico Extended data e recupera i dettagli OSM grezzi e il payload Wikidata. Quando disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono saltate.",
                     "use_gps_accuracy": "Imposta su False se il tuo Device Tracker ha un attributo Precisione GPS (gps_accuracy), ma mostra sempre 0 anche se latitudine e longitudine sono corrette."
                   }
             }
@@ -61,7 +61,7 @@
                 "description": "**Aggiornamento sensore:&nbsp;{sensor_name}**\nGuarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
                 "data_description": {
                     "options": "Guarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
-                    "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
+                    "extended_attr": "Crea un sensore diagnostico Extended data e recupera i dettagli OSM grezzi e il payload Wikidata. Quando disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono saltate.",
                     "use_gps_accuracy": "Imposta su False se il tuo Device Tracker ha un attributo Precisione GPS (gps_accuracy), ma mostra sempre 0 anche se latitudine e longitudine sono corrette."
                   }
             }

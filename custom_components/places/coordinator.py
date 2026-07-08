@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, MutableMapping
 import copy
 from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
 from time import monotonic
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from homeassistant.components.zone import ATTR_PASSIVE
 from homeassistant.config_entries import ConfigEntry
@@ -126,6 +127,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         self._persistence = persistence
         self._native_value: str | None = None
         self._tracker_unsubscribe: Callable[[], None] | None = None
+        self._update_lock = asyncio.Lock()
         self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
         self.entity_id: str | None = None
@@ -308,7 +310,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         if attr == ATTR_NATIVE_VALUE:
             self._native_value = None
 
-    def set_native_value(self, value: Any) -> None:
+    def set_native_value(self, value: object) -> None:
         """Update the display state and mirror it into runtime attributes."""
         if value is None:
             self._native_value = None
@@ -319,7 +321,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     def import_persisted_attributes(self, persisted_attr: MutableMapping[str, Any]) -> None:
         """Restore runtime attributes from persisted storage."""
-        self.set_attr(ATTR_INITIAL_UPDATE, False)
+        if persisted_attr:
+            self.set_attr(ATTR_INITIAL_UPDATE, False)
         self._attributes.import_persisted_attributes(persisted_attr)
         if not self.is_attr_blank(ATTR_NATIVE_VALUE):
             self._native_value = self.get_attr_safe_str(ATTR_NATIVE_VALUE)
@@ -374,16 +377,22 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         ):
             return self.snapshot()
 
-        await PlacesUpdater(
-            hass=self.hass,
-            config_entry=self.config_entry,
-            coordinator=self,
-        ).do_update(
-            reason="Scan Interval",
-            previous_attr=copy.deepcopy(self.get_internal_attr()),
-        )
+        await self._run_update("Scan Interval")
         self._last_scan_update = now
         return self.snapshot()
+
+    async def _run_update(self, reason: str) -> None:
+        """Run one update cycle while serializing concurrent invocations."""
+        async with self._update_lock:
+            previous_attr = copy.deepcopy(self.get_internal_attr())
+            await PlacesUpdater(
+                hass=self.hass,
+                config_entry=self.config_entry,
+                coordinator=self,
+            ).do_update(
+                reason=reason,
+                previous_attr=previous_attr,
+            )
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     @callback
@@ -401,13 +410,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             return
 
         self.hass.async_create_task(
-            PlacesUpdater(
-                hass=self.hass,
-                config_entry=self.config_entry,
-                coordinator=self,
-            ).do_update(
+            self._run_update(
                 reason="Track State Change",
-                previous_attr=copy.deepcopy(self.get_internal_attr()),
             )
         )
 
@@ -461,7 +465,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         if "formatted_place" in display_options:
             basic_parser = BasicOptionsParser(
-                sensor=cast("Any", self),
+                sensor=self,
                 internal_attr=self.get_internal_attr(),
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
             )
@@ -473,7 +477,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         if any(ext in self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS) for ext in ["(", ")", "[", "]"]):
             advanced_parser = AdvancedOptionsParser(
-                sensor=cast("Any", self),
+                sensor=self,
                 curr_options=self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS),
             )
             await advanced_parser.build_from_advanced_options()
@@ -483,7 +487,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         if not await self.in_zone():
             basic_parser = BasicOptionsParser(
-                sensor=cast("Any", self),
+                sensor=self,
                 internal_attr=self.get_internal_attr(),
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
             )
