@@ -131,6 +131,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         if coordinator is not None:
             await coordinator.async_shutdown()
+            entry.runtime_data = None
         extended_entry_state = (
             hass.data.get(DOMAIN, {}).get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
             if isinstance(hass.data.get(DOMAIN, {}), dict)

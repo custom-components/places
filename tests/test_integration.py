@@ -576,9 +576,11 @@ async def test_async_unload_entry_result(
     if unload_return:
         coordinator.async_shutdown.assert_awaited_once_with()
         coordinator.async_resume_after_failed_unload.assert_not_awaited()
+        assert mock_entry.runtime_data is None
     else:
         coordinator.async_shutdown.assert_not_awaited()
         coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
+        assert mock_entry.runtime_data is coordinator
 
 
 @pytest.mark.asyncio
