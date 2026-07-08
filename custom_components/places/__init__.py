@@ -109,7 +109,10 @@ def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
     count = int(domain_data.get(_EXTENDED_ENTRY_COUNT_KEY, 0)) + 1
     domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
     if count == 1:
-        _set_recorder_event_exclusion(hass)
+        recorder = hass.data.get(DATA_INSTANCE)
+        if recorder is None:
+            return
+        recorder.exclude_event_types.add(EVENT_TYPE)
 
 
 def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
@@ -122,22 +125,7 @@ def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
         domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
         return
     domain_data.pop(_EXTENDED_ENTRY_COUNT_KEY, None)
-    _clear_recorder_event_exclusion(hass)
-
-
-def _set_recorder_event_exclusion(hass: HomeAssistant) -> None:
-    """Add places state update to recorder event exclusion when recorder is available."""
     recorder = hass.data.get(DATA_INSTANCE)
-
-    if recorder is None:
-        return
-    recorder.exclude_event_types.add(EVENT_TYPE)
-
-
-def _clear_recorder_event_exclusion(hass: HomeAssistant) -> None:
-    """Remove places state update recorder exclusion only when no extended entries remain."""
-    recorder = hass.data.get(DATA_INSTANCE)
-
     if recorder is None:
         return
     recorder.exclude_event_types.discard(EVENT_TYPE)
