@@ -72,7 +72,6 @@ class PlacesEntity(CoordinatorEntity["PlacesUpdateCoordinator"]):
             if unique_suffix is None
             else f"{coordinator.config_entry.entry_id}_{unique_suffix}"
         )
-        self._attr_device_info = self.device_info
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -113,7 +112,6 @@ class PlacesSensorEntity(PlacesEntity, SensorEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Refresh cached entity attributes from coordinator data and write state."""
-        self._attr_device_info = self.device_info
         self._update_from_coordinator()
         self.async_write_ha_state()
 

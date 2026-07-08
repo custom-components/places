@@ -927,18 +927,18 @@ class PlacesUpdater:
             self.coordinator.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
             self.coordinator.set_attr(ATTR_DISTANCE_TRAVELED, 0)
 
-    async def determine_direction_of_travel(self, last_distance_traveled: float) -> None:
+    async def determine_direction_of_travel(self, last_distance_from_home: float) -> None:
         """Classify movement relative to home as towards, away, or stationary.
 
         Args:
-            last_distance_traveled: Prior distance-from-home value captured
+            last_distance_from_home: Prior distance-from-home value captured
                 before recalculating distances.
         """
         if not self.coordinator.is_attr_blank(ATTR_DISTANCE_TRAVELED):
             self.coordinator.set_attr(
                 ATTR_DIRECTION_OF_TRAVEL,
                 direction_of_travel(
-                    previous_distance_from_home=last_distance_traveled,
+                    previous_distance_from_home=last_distance_from_home,
                     distance_from_home=self.coordinator.get_attr_safe_float(
                         ATTR_DISTANCE_FROM_HOME
                     ),
@@ -954,7 +954,7 @@ class PlacesUpdater:
             ``PROCEED`` when current and home coordinates are all usable,
             otherwise ``SKIP``.
         """
-        last_distance_traveled: float = self.coordinator.get_attr_safe_float(
+        last_distance_from_home: float = self.coordinator.get_attr_safe_float(
             ATTR_DISTANCE_FROM_HOME
         )
         proceed_with_update = UpdateStatus.PROCEED
@@ -962,7 +962,7 @@ class PlacesUpdater:
         await self.update_location_attributes()
         await self.calculate_distances()
         await self.calculate_travel_distance()
-        await self.determine_direction_of_travel(last_distance_traveled)
+        await self.determine_direction_of_travel(last_distance_from_home)
 
         _LOGGER.debug(
             "(%s) Previous Location: %s",

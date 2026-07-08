@@ -10,6 +10,8 @@ from collections.abc import MutableMapping
 from typing import Any, SupportsFloat, SupportsIndex, TypeVar
 
 from .const import (
+    ATTR_DISTANCE_FROM_HOME,
+    ATTR_DISTANCE_TRAVELED,
     CONFIG_ATTRIBUTES_LIST,
     PERSISTED_ATTRIBUTE_LIST,
     PERSISTENCE_IGNORE_ATTRIBUTE_LIST,
@@ -173,6 +175,15 @@ class PlacesAttributes:
         Args:
             persisted_attr: Mutable mapping loaded from a persisted snapshot.
         """
+        if "distance_from_home_m" in persisted_attr:
+            legacy_value = persisted_attr.pop("distance_from_home_m")
+            if ATTR_DISTANCE_FROM_HOME not in persisted_attr:
+                persisted_attr[ATTR_DISTANCE_FROM_HOME] = legacy_value
+        if "distance_traveled_m" in persisted_attr:
+            legacy_value = persisted_attr.pop("distance_traveled_m")
+            if ATTR_DISTANCE_TRAVELED not in persisted_attr:
+                persisted_attr[ATTR_DISTANCE_TRAVELED] = legacy_value
+
         for attr in PERSISTED_ATTRIBUTE_LIST:
             if attr in persisted_attr:
                 self.set(attr, persisted_attr.pop(attr, None))

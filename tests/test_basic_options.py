@@ -219,7 +219,7 @@ def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserF
     """Test that `add_street_info` appends the correct street info to the list."""
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
-    parser.add_street_info(arr, attrs, sensor)
+    parser.add_street_info(arr, sensor)
     assert expected in arr
 
 
@@ -252,7 +252,7 @@ def test_add_street_info_highway(
     """Verify that add_street_info prefers street_ref for highway/motorway when street is empty."""
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
-    parser.add_street_info(arr, attrs, sensor)
+    parser.add_street_info(arr, sensor)
     assert expected in arr
 
 
@@ -270,7 +270,7 @@ def test_add_city_county_state(
     """Test that `add_city_county_state` appends the correct city/county and state abbreviation to the list."""
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
-    parser.add_city_county_state(arr, attrs, sensor)
+    parser.add_city_county_state(arr, sensor)
     assert expected_city in arr
     assert expected_state in arr
 

@@ -100,7 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     if extended_attr_enabled:
         _increment_extended_attr_ref(hass)
-    hass.async_create_task(coordinator.async_request_refresh())
+    await coordinator.async_request_refresh()
     return True
 
 
@@ -137,7 +137,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
-    """Track active extended-attributes entries and enable event exclusion on first add.
+    """Track active extended-attributes entries and enable event exclusion.
 
     Args:
         hass: Home Assistant instance that owns recorder runtime data.
@@ -145,11 +145,10 @@ def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
     domain_data = hass.data.setdefault(DOMAIN, {})
     count = int(domain_data.get(_EXTENDED_ENTRY_COUNT_KEY, 0)) + 1
     domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
-    if count == 1:
-        recorder = hass.data.get(DATA_INSTANCE)
-        if recorder is None:
-            return
-        recorder.exclude_event_types.add(EVENT_TYPE)
+    recorder = hass.data.get(DATA_INSTANCE)
+    if recorder is None:
+        return
+    recorder.exclude_event_types.add(EVENT_TYPE)
 
 
 def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:

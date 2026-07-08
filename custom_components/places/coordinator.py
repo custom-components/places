@@ -126,6 +126,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         self._native_value: str | None = None
         self._tracker_unsubscribe: Callable[[], None] | None = None
         self._update_lock = asyncio.Lock()
+        self._is_shutting_down = False
+        self._tracker_update_tasks: set[asyncio.Task[None]] = set()
         self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
         self.entity_id: str | None = None
@@ -396,9 +398,17 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     async def async_shutdown(self) -> None:
         """Unsubscribe coordinator callbacks during entry unload."""
+        self._is_shutting_down = True
         if self._tracker_unsubscribe is not None:
             self._tracker_unsubscribe()
             self._tracker_unsubscribe = None
+        if self._tracker_update_tasks:
+            for task in list(self._tracker_update_tasks):
+                if not task.done():
+                    task.cancel()
+            if self._tracker_update_tasks:
+                await asyncio.gather(*self._tracker_update_tasks, return_exceptions=True)
+            self._tracker_update_tasks.clear()
         await super().async_shutdown()
 
     async def _async_update_data(self) -> PlacesData:
@@ -428,6 +438,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         Args:
             reason: Human-readable reason for the update cycle.
         """
+        if self._is_shutting_down:
+            return
         async with self._update_lock:
             previous_attr = copy.deepcopy(self.get_internal_attr())
             await PlacesUpdater(
@@ -447,6 +459,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         Args:
             event: Tracked entity state change event.
         """
+        if self._is_shutting_down:
+            return
         new_state = event.data["new_state"]
         if new_state is None or (
             isinstance(new_state.state, str)
@@ -454,11 +468,13 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         ):
             return
 
-        self.hass.async_create_task(
+        task = self.hass.async_create_task(
             self._run_update(
                 reason="Track State Change",
             )
         )
+        self._tracker_update_tasks.add(task)
+        task.add_done_callback(self._tracker_update_tasks.discard)
 
     async def in_zone(self) -> bool:
         """Return whether the tracked entity is in a real non-passive zone.

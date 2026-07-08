@@ -174,15 +174,13 @@ class BasicOptionsParser:
                 self.add_type_or_category(
                     formatted_place_array, self._internal_attr, self.coordinator
                 )
-                self.add_street_info(formatted_place_array, self._internal_attr, self.coordinator)
-                self.add_neighbourhood_if_house(
-                    formatted_place_array, self._internal_attr, self.coordinator
-                )
+                self.add_street_info(formatted_place_array, self.coordinator)
+                self.add_neighbourhood_if_house(formatted_place_array, self.coordinator)
             else:
                 formatted_place_array.append(
                     self.coordinator.get_attr_safe_str("place_name").strip()
                 )
-            self.add_city_county_state(formatted_place_array, self._internal_attr, self.coordinator)
+            self.add_city_county_state(formatted_place_array, self.coordinator)
         else:
             formatted_place_array.append(
                 self.coordinator.get_attr_safe_str("devicetracker_zone_name").strip()
@@ -255,14 +253,12 @@ class BasicOptionsParser:
     def add_street_info(
         self,
         formatted_place_array: list[str],
-        internal_attr: MutableMapping[str, Any],
         coordinator: PlacesUpdateCoordinator,
     ) -> None:
         """Append street reference or house-number/street details.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
-            internal_attr: Current coordinator attribute mapping.
             coordinator: Places coordinator used for blank checks and safe value access.
         """
         street = None
@@ -292,14 +288,12 @@ class BasicOptionsParser:
     def add_neighbourhood_if_house(
         self,
         formatted_place_array: list[str],
-        internal_attr: MutableMapping[str, Any],
         coordinator: PlacesUpdateCoordinator,
     ) -> None:
         """Append neighbourhood context for house-level places.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
-            internal_attr: Current coordinator attribute mapping.
             coordinator: Places coordinator used for blank checks and safe value access.
         """
         if (
@@ -314,14 +308,12 @@ class BasicOptionsParser:
     def add_city_county_state(
         self,
         formatted_place_array: list[str],
-        internal_attr: MutableMapping[str, Any],
         coordinator: PlacesUpdateCoordinator,
     ) -> None:
         """Append the best locality and state abbreviation available.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
-            internal_attr: Current coordinator attribute mapping.
             coordinator: Places coordinator used for blank checks and safe value access.
         """
         if not coordinator.is_attr_blank("city_clean"):

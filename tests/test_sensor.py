@@ -7,7 +7,13 @@ from collections.abc import Coroutine
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.components.zone import ATTR_PASSIVE
-from homeassistant.const import CONF_ZONE, MATCH_ALL, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import (
+    CONF_ZONE,
+    MATCH_ALL,
+    MAX_LENGTH_STATE_STATE,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from homeassistant.helpers.entity import EntityCategory
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -162,6 +168,53 @@ async def test_coordinator_tsc_update_schedules_updater_with_snapshot(
     assert previous_attr[ATTR_DEVICETRACKER_ID] == "person.test"
     assert previous_attr["name"] == "TestSensor"
     assert previous_attr is not coordinator.get_internal_attr()
+
+
+async def test_coordinator_tsc_update_cancelled_on_shutdown(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tracker updates should be cancelled and awaited when the coordinator shuts down."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    updater_state: dict[str, bool | asyncio.Event] = {
+        "constructed": False,
+        "entered": False,
+        "cancelled": asyncio.Event(),
+    }
+
+    class SlowUpdater:
+        """Tracker updater that verifies construction and cancellation."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Record updater construction."""
+            updater_state["constructed"] = True
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Wait long enough for coordinator shutdown to cancel the running task."""
+            updater_state["entered"] = True
+            try:
+                await asyncio.sleep(0.2)
+            except asyncio.CancelledError:
+                updater_state["cancelled"].set()
+                raise
+
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", SlowUpdater)
+
+    coordinator.tsc_update(MagicMock(data={"new_state": MagicMock(state="home")}))
+    await asyncio.sleep(0)
+    assert coordinator._tracker_update_tasks
+    assert updater_state["constructed"] is True
+    assert updater_state["entered"] is True
+
+    await coordinator.async_shutdown()
+    assert await asyncio.wait_for(updater_state["cancelled"].wait(), timeout=1.0)
+    assert coordinator._tracker_update_tasks == set()
 
 
 async def test_coordinator_scan_update_runs_updater_with_snapshot(
@@ -544,6 +597,22 @@ def test_distance_attribute_sensor_reads_meter_value(mock_hass: MagicMock) -> No
 
     assert entity.native_value == 123.4
     assert entity.native_unit_of_measurement == "m"
+
+
+def test_attribute_sensor_clamps_long_state_to_ha_limit(mock_hass: MagicMock) -> None:
+    """Very long child sensor states should be clamped to Home Assistant limits."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_attr("place_name", "x" * (MAX_LENGTH_STATE_STATE + 10))
+    coordinator.publish_update()
+    entity = PlacesAttributeSensor(coordinator, _description("place_name"))
+
+    assert entity.native_value == "x" * MAX_LENGTH_STATE_STATE
 
 
 def test_main_places_sensor_uses_coordinator_state(mock_hass: MagicMock) -> None:

@@ -82,6 +82,6 @@ async def test_direction_of_travel_stationary_when_distance_unchanged(
     sensor.attrs[ATTR_DISTANCE_FROM_HOME] = 100.0
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
-    await updater.determine_direction_of_travel(last_distance_traveled=100.0)
+    await updater.determine_direction_of_travel(last_distance_from_home=100.0)
 
     assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == "stationary"

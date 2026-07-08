@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MATCH_ALL
+from homeassistant.const import MATCH_ALL, MAX_LENGTH_STATE_STATE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -111,9 +111,17 @@ class PlacesAttributeSensor(PlacesSensorEntity):
     def _update_from_coordinator(self) -> None:
         """Copy this child sensor's value from coordinator data."""
         if self.entity_description.value_fn is not None:
-            self._attr_native_value = self.entity_description.value_fn(self.coordinator)
+            value = self.entity_description.value_fn(self.coordinator)
+            if isinstance(value, str):
+                self._attr_native_value = value[:MAX_LENGTH_STATE_STATE]
+            else:
+                self._attr_native_value = value
             return
-        self._attr_native_value = self.coordinator.data.attributes.get(self.entity_description.key)
+        value = self.coordinator.data.attributes.get(self.entity_description.key)
+        if isinstance(value, str):
+            self._attr_native_value = value[:MAX_LENGTH_STATE_STATE]
+        else:
+            self._attr_native_value = value
 
 
 class PlacesExtendedDataSensor(PlacesSensorEntity):
