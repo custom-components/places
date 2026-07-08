@@ -57,7 +57,7 @@ async def async_setup_entry(
         entities.append(PlacesExtendedDataSensor(coordinator))
     else:
         await async_remove_extended_entity(hass, config_entry)
-    async_add_entities(entities, update_before_add=True)
+    async_add_entities(entities)
 
 
 class Places(PlacesSensorEntity):

@@ -587,7 +587,7 @@ async def test_async_setup_entry_adds_main_and_child_sensors(
     assert len(entities) == 1 + len(PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS)
     assert isinstance(entities[0], Places)
     assert all(isinstance(entity, PlacesAttributeSensor) for entity in entities[1:])
-    assert kwargs == {"update_before_add": True}
+    assert kwargs == {}
 
     disabled_entities = [
         entity
