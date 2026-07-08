@@ -365,6 +365,55 @@ async def test_async_setup_entry_clears_runtime_data_when_platform_cleanup_fails
 
 
 @pytest.mark.asyncio
+async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Initial refresh failure should clean up forwarded platforms and runtime state."""
+    entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    async def raise_refresh_error() -> None:
+        """Raise after platforms have been forwarded."""
+        raise RuntimeError("refresh boom")
+
+    original_init = _FakeCoordinator.__init__
+
+    def init_with_failing_refresh(
+        self: _FakeCoordinator,
+        hass: object,
+        config_entry: MockConfigEntry,
+        imported_attributes: dict[str, object],
+        persistence: _FakeSetupPlacesStorage | MagicMock,
+    ) -> None:
+        """Install a failing initial refresh hook on the fake coordinator."""
+        original_init(self, hass, config_entry, imported_attributes, persistence)
+        self.async_request_refresh.side_effect = raise_refresh_error
+
+    monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_failing_refresh)
+
+    with pytest.raises(RuntimeError, match="refresh boom"):
+        await async_setup_entry(mock_hass, entry)
+
+    coordinator = _FakeCoordinator.instances[0]
+    coordinator.async_shutdown.assert_awaited_once_with()
+    mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(entry, PLATFORMS)
+    assert entry.runtime_data is None
+    assert EVENT_TYPE not in recorder.exclude_event_types
+
+
+@pytest.mark.asyncio
 async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
