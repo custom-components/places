@@ -124,7 +124,7 @@ class PlacesUpdater:
 
         try:
             await self.update_entity_name_and_cleanup()
-            await self.update_client_sensor_name()
+            self._osm_client.update_sensor_name(str(coordinator.get_attr(CONF_NAME)))
             await self.update_previous_state()
             await self.update_old_coordinates()
             prev_last_place_name = coordinator.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
@@ -182,10 +182,6 @@ class PlacesUpdater:
         """
         self.coordinator.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
         _LOGGER.info("(%s) End of Update", self.coordinator.get_attr(CONF_NAME))
-
-    async def update_client_sensor_name(self) -> None:
-        """Sync the OSM client cache with the current sensor name."""
-        self._osm_client.update_sensor_name(str(self.coordinator.get_attr(CONF_NAME)))
 
     async def handle_state_update(self, now: datetime, prev_last_place_name: str) -> None:
         """Finalize a successful update and persist the new sensor state.

@@ -15,14 +15,12 @@ from .coordinator import PlacesUpdateCoordinator
 from .entity import (
     PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS,
     PlacesAttributeSensorEntityDescription,
-    PlacesEntity,
     PlacesSensorEntity,
 )
 
 __all__ = [
     "Places",
     "PlacesAttributeSensor",
-    "PlacesEntity",
     "PlacesExtendedDataSensor",
     "async_setup_entry",
 ]

@@ -37,11 +37,11 @@ from custom_components.places.coordinator import SCAN_INTERVAL, PlacesData, Plac
 from custom_components.places.entity import (
     PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS,
     PlacesAttributeSensorEntityDescription,
+    PlacesEntity,
 )
 from custom_components.places.sensor import (
     Places,
     PlacesAttributeSensor,
-    PlacesEntity,
     PlacesExtendedDataSensor,
     async_setup_entry,
 )

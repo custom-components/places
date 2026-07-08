@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
 from time import monotonic
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from homeassistant.components.zone import ATTR_PASSIVE
 from homeassistant.config_entries import ConfigEntry
@@ -75,8 +75,10 @@ from .const import (
     MAIN_STATE_ATTRIBUTE_LIST,
 )
 from .helpers import is_float
-from .persistence import PlacesStorage
 from .update_sensor import PlacesUpdater
+
+if TYPE_CHECKING:
+    from .persistence import PlacesStorage
 
 _LOGGER = logging.getLogger(__name__)
 _AttrT = TypeVar("_AttrT", default=Any)
@@ -153,11 +155,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             manufacturer="Places",
             model="OpenStreetMap reverse geocode",
         )
-
-    @property
-    def persistence(self) -> PlacesStorage:
-        """Return the Store-backed snapshot helper for this config entry."""
-        return self._persistence
 
     @property
     def main_state_attributes(self) -> dict[str, Any]:
