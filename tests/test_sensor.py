@@ -22,6 +22,14 @@ from custom_components.places.const import (
     ATTR_PLACE_TYPE,
     DOMAIN,
 )
+from custom_components.places.entity import (
+    DEFAULT_ATTRIBUTE_SENSOR_KEYS,
+    DISABLED_ATTRIBUTE_SENSOR_KEYS,
+    EXTENDED_DATA_KEY,
+    PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS,
+    PlacesEntity,
+    PlacesSensorEntity,
+)
 import custom_components.places.sensor as sensor_mod
 from custom_components.places.sensor import EVENT_TYPE, RECORDER_INSTANCE, Places, async_setup_entry
 from tests.conftest import stub_in_zone, stub_method, stubbed_parser
@@ -33,6 +41,43 @@ type ParserPatch = (
 )
 type ExpectedSetAttrCall = tuple[str, tuple[object, ...]]
 type SetupCallable = Callable[[MagicMock], None]
+
+
+def test_attribute_sensor_descriptions_have_expected_default_policy() -> None:
+    """The default child sensor set should stay curated and omit formatted address."""
+    assert {
+        "place_name",
+        "devicetracker_zone_name",
+        "city",
+        "state_province",
+        "direction_of_travel",
+        "map_link",
+        "distance_from_home",
+        "distance_traveled",
+    } == DEFAULT_ATTRIBUTE_SENSOR_KEYS
+    assert "formatted_address" not in DEFAULT_ATTRIBUTE_SENSOR_KEYS
+    assert "country" in DISABLED_ATTRIBUTE_SENSOR_KEYS
+
+
+def test_attribute_sensor_description_keys_are_unique() -> None:
+    """Each child sensor description should produce one stable unique-id suffix."""
+    keys = [description.key for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS]
+
+    assert len(keys) == len(set(keys))
+    assert EXTENDED_DATA_KEY not in keys
+
+
+def test_shared_places_entity_bases_live_in_entity_module() -> None:
+    """Shared Places entity bases should live with descriptions, not in sensor.py."""
+    assert PlacesSensorEntity.__mro__[1] is PlacesEntity
+
+
+def test_places_entity_uses_typed_coordinator_base() -> None:
+    """PlacesEntity should retain the future coordinator generic contract."""
+    orig_bases = getattr(PlacesEntity, "__orig_bases__", ())
+
+    assert orig_bases
+    assert repr(orig_bases[0].__args__[0]) == "ForwardRef('PlacesUpdateCoordinator')"
 
 
 @pytest.fixture

@@ -79,13 +79,16 @@ ATTR_DEVICETRACKER_ID = "devicetracker_entityid"
 ATTR_DEVICETRACKER_ZONE = "devicetracker_zone"
 ATTR_DEVICETRACKER_ZONE_NAME = "devicetracker_zone_name"
 ATTR_DIRECTION_OF_TRAVEL = "direction_of_travel"
+ATTR_DISTANCE_FROM_HOME = "distance_from_home"
 ATTR_DISPLAY_OPTIONS_LIST = "display_options_list"
 ATTR_DISTANCE_FROM_HOME_KM = "distance_from_home_km"
 ATTR_DISTANCE_FROM_HOME_M = "distance_from_home_m"
 ATTR_DISTANCE_FROM_HOME_MI = "distance_from_home_mi"
+ATTR_DISTANCE_TRAVELED = "distance_traveled"
 ATTR_DISTANCE_TRAVELED_M = "distance_traveled_m"
 ATTR_DISTANCE_TRAVELED_MI = "distance_traveled_mi"
 ATTR_DRIVING = "driving"
+ATTR_EXTENDED_DATA = "extended_data"
 ATTR_FORMATTED_ADDRESS = "formatted_address"
 ATTR_FORMATTED_PLACE = "formatted_place"
 ATTR_HOME_LATITUDE = "home_latitude"
@@ -229,6 +232,13 @@ EXTRA_STATE_ATTRIBUTE_LIST: list[str] = [
     ATTR_DISPLAY_OPTIONS,
     ATTR_LAST_CHANGED,
     ATTR_LAST_UPDATED,
+    ATTR_ATTRIBUTION,
+]
+MAIN_STATE_ATTRIBUTE_LIST: list[str] = [
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
+    ATTR_GPS_ACCURACY,
+    ATTR_PICTURE,
     ATTR_ATTRIBUTION,
 ]
 PERSISTENCE_IGNORE_ATTRIBUTE_LIST: list[str] = [
