@@ -7,6 +7,7 @@ import copy
 from dataclasses import dataclass, field
 from datetime import timedelta
 import logging
+from time import monotonic
 from typing import Any, TypeVar, cast
 
 from homeassistant.components.zone import ATTR_PASSIVE
@@ -81,6 +82,8 @@ from .update_sensor import PlacesUpdater
 _LOGGER = logging.getLogger(__name__)
 _AttrT = TypeVar("_AttrT", default=Any)
 MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
+THROTTLE_INTERVAL = timedelta(seconds=600)
+SCAN_INTERVAL = timedelta(seconds=30)
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +126,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         self._persistence = persistence
         self._native_value: str | None = None
         self._tracker_unsubscribe: Callable[[], None] | None = None
+        self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
         self.entity_id: str | None = None
         super().__init__(
@@ -130,6 +134,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             _LOGGER,
             name=f"Places {self._places_name}",
             config_entry=config_entry,
+            update_interval=SCAN_INTERVAL,
             always_update=False,
         )
         self._initialize_config_attributes()
@@ -354,6 +359,31 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         if self._tracker_unsubscribe is not None:
             self._tracker_unsubscribe()
             self._tracker_unsubscribe = None
+        await super().async_shutdown()
+
+    async def _async_update_data(self) -> PlacesData:
+        """Run the periodic Places refresh path and return the latest snapshot."""
+        return await self.async_scan_update()
+
+    async def async_scan_update(self) -> PlacesData:
+        """Run a throttled scan-interval update and return the latest snapshot."""
+        now = monotonic()
+        if (
+            self._last_scan_update is not None
+            and now - self._last_scan_update < THROTTLE_INTERVAL.total_seconds()
+        ):
+            return self.snapshot()
+
+        await PlacesUpdater(
+            hass=self.hass,
+            config_entry=self.config_entry,
+            coordinator=self,
+        ).do_update(
+            reason="Scan Interval",
+            previous_attr=copy.deepcopy(self.get_internal_attr()),
+        )
+        self._last_scan_update = now
+        return self.snapshot()
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     @callback

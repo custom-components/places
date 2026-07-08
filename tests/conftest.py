@@ -1,5 +1,6 @@
 """Pytest fixtures and mock classes for testing Home Assistant integrations."""
 
+import asyncio
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, suppress
 from unittest.mock import AsyncMock, MagicMock, Mock
@@ -377,6 +378,7 @@ def mock_hass() -> MagicMock:
     hass_instance.bus = MagicMock()
     hass_instance.states = MagicMock()
     hass_instance.data = {}
+    hass_instance.async_create_task = MagicMock(side_effect=asyncio.create_task)
     hass_instance.async_add_executor_job = AsyncMock()
     # Prevent entity registry lookups from expecting a full HA runtime in unit tests.
     # Tests should use the `patch_entity_registry` fixture or monkeypatch to scope

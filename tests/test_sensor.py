@@ -32,7 +32,7 @@ from custom_components.places.const import (
     CONF_EXTENDED_ATTR,
     DOMAIN,
 )
-from custom_components.places.coordinator import PlacesData, PlacesUpdateCoordinator
+from custom_components.places.coordinator import SCAN_INTERVAL, PlacesData, PlacesUpdateCoordinator
 from custom_components.places.entity import (
     DEFAULT_ATTRIBUTE_SENSOR_KEYS,
     DISABLED_ATTRIBUTE_SENSOR_KEYS,
@@ -165,6 +165,75 @@ async def test_coordinator_tsc_update_schedules_updater_with_snapshot(
     assert previous_attr[ATTR_DEVICETRACKER_ID] == "person.test"
     assert previous_attr["name"] == "TestSensor"
     assert previous_attr is not coordinator.get_internal_attr()
+
+
+async def test_coordinator_scan_update_runs_updater_with_snapshot(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scan interval refreshes should run the updater with copied attrs."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_attr("place_name", "Library")
+    captured: dict[str, object] = {}
+
+    class _FakeUpdater:
+        """Capture scan update arguments and mutate coordinator state."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Store constructor arguments for assertions."""
+            captured.update(kwargs)
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Capture scheduled update arguments and publish a new value."""
+            captured["reason"] = reason
+            captured["previous_attr"] = previous_attr
+            coordinator.set_native_value("Updated")
+
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FakeUpdater)
+
+    data = await coordinator.async_scan_update()
+
+    assert coordinator.update_interval == SCAN_INTERVAL
+    assert data.native_value == "Updated"
+    assert captured["hass"] is mock_hass
+    assert captured["config_entry"] is entry
+    assert captured["coordinator"] is coordinator
+    assert captured["reason"] == "Scan Interval"
+    previous_attr = captured["previous_attr"]
+    assert isinstance(previous_attr, dict)
+    assert previous_attr["place_name"] == "Library"
+    assert previous_attr is not coordinator.get_internal_attr()
+
+
+async def test_coordinator_scan_update_throttles_repeated_refreshes(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Scan interval refreshes inside the throttle window should reuse data."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_native_value("Restored")
+    coordinator._last_scan_update = 1000.0
+    updater_ctor = MagicMock()
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1200.0)
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", updater_ctor)
+
+    data = await coordinator.async_scan_update()
+
+    assert data.native_value == "Restored"
+    updater_ctor.assert_not_called()
 
 
 async def test_coordinator_tsc_update_ignores_blankish_tracker_states(

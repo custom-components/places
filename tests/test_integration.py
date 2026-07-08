@@ -1,5 +1,6 @@
 """Integration tests for the custom_components.places module."""
 
+import asyncio
 import logging
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
@@ -90,6 +91,7 @@ class _FakeCoordinator:
         self.imported_attributes = imported_attributes
         self.persistence = persistence
         self.async_added_to_hass = AsyncMock()
+        self.async_request_refresh = AsyncMock()
         self.async_shutdown = AsyncMock()
         self.instances.append(self)
 
@@ -270,6 +272,7 @@ async def test_async_setup_entry_calls_forward_setups(
     mock_hass.config_entries.async_forward_entry_setups.side_effect = record_forward
 
     result = await async_setup_entry(mock_hass, mock_entry)
+    await asyncio.sleep(0)
 
     assert result is True
     assert isinstance(mock_entry.runtime_data, _FakeCoordinator)
@@ -278,6 +281,7 @@ async def test_async_setup_entry_calls_forward_setups(
     assert mock_entry.runtime_data.imported_attributes == {"native_value": "Restored"}
     assert mock_entry.runtime_data.persistence is _FakeSetupPlacesStorage.instances[0]
     mock_entry.runtime_data.async_added_to_hass.assert_awaited_once_with()
+    mock_entry.runtime_data.async_request_refresh.assert_awaited_once_with()
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )
@@ -356,10 +360,12 @@ async def test_async_setup_entry_forward_setups_returns_false(
     mock_hass.config_entries.async_forward_entry_setups.return_value = False
 
     result = await async_setup_entry(mock_hass, mock_entry)
+    await asyncio.sleep(0)
 
     assert result is True
     assert isinstance(mock_entry.runtime_data, _FakeCoordinator)
     mock_entry.runtime_data.async_added_to_hass.assert_awaited_once_with()
+    mock_entry.runtime_data.async_request_refresh.assert_awaited_once_with()
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )

@@ -43,6 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         entry.runtime_data = None
         raise
+    hass.async_create_task(coordinator.async_request_refresh())
     return True
 
 
