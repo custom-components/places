@@ -852,7 +852,10 @@ class PlacesUpdater:
                 latitude=self.coordinator.get_attr_safe_float(ATTR_LATITUDE),
                 longitude=self.coordinator.get_attr_safe_float(ATTR_LONGITUDE),
             )
-            self.coordinator.set_attr(ATTR_LOCATION_CURRENT, current.as_location())
+            self.coordinator.set_attr(
+                ATTR_LOCATION_CURRENT,
+                f"{current.latitude},{current.longitude}",
+            )
         if not self.coordinator.is_attr_blank(
             ATTR_LATITUDE_OLD
         ) and not self.coordinator.is_attr_blank(ATTR_LONGITUDE_OLD):
@@ -860,7 +863,10 @@ class PlacesUpdater:
                 latitude=self.coordinator.get_attr_safe_float(ATTR_LATITUDE_OLD),
                 longitude=self.coordinator.get_attr_safe_float(ATTR_LONGITUDE_OLD),
             )
-            self.coordinator.set_attr(ATTR_LOCATION_PREVIOUS, previous.as_location())
+            self.coordinator.set_attr(
+                ATTR_LOCATION_PREVIOUS,
+                f"{previous.latitude},{previous.longitude}",
+            )
         if not self.coordinator.is_attr_blank(
             ATTR_HOME_LATITUDE
         ) and not self.coordinator.is_attr_blank(ATTR_HOME_LONGITUDE):
@@ -868,10 +874,13 @@ class PlacesUpdater:
                 latitude=self.coordinator.get_attr_safe_float(ATTR_HOME_LATITUDE),
                 longitude=self.coordinator.get_attr_safe_float(ATTR_HOME_LONGITUDE),
             )
-            self.coordinator.set_attr(ATTR_HOME_LOCATION, home.as_location())
+            self.coordinator.set_attr(
+                ATTR_HOME_LOCATION,
+                f"{home.latitude},{home.longitude}",
+            )
 
     async def calculate_distances(self) -> None:
-        """Calculate distance from home in meters, kilometers, and miles."""
+        """Calculate distance from home in meters."""
         if (
             not self.coordinator.is_attr_blank(ATTR_LATITUDE)
             and not self.coordinator.is_attr_blank(ATTR_LONGITUDE)

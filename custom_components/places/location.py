@@ -14,10 +14,6 @@ class CoordinatePair:
     latitude: float
     longitude: float
 
-    def as_location(self) -> str:
-        """Render location as ``lat,lon``."""
-        return f"{self.latitude},{self.longitude}"
-
 
 @dataclass(slots=True)
 class LocationSnapshot:

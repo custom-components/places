@@ -26,11 +26,6 @@ __all__ = [
 ]
 
 
-def _child_sensor_name(key: str) -> str:
-    """Return a simple human-readable child sensor name."""
-    return key.replace("_", " ").title()
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -107,7 +102,7 @@ class PlacesAttributeSensor(PlacesSensorEntity):
         """
         super().__init__(coordinator, unique_suffix=entity_description.key)
         self.entity_description = entity_description
-        self._attr_name = _child_sensor_name(entity_description.key)
+        self._attr_name = entity_description.key.replace("_", " ").title()
         self._attr_entity_registry_enabled_default = (
             entity_description.entity_registry_enabled_default
         )
