@@ -244,7 +244,11 @@ class PlacesUpdater:
             self.coordinator.set_native_value(value=None)
             _LOGGER.warning("(%s) New State is None", self.coordinator.get_attr(CONF_NAME))
 
+        if self._is_shutting_down():
+            return
         self.coordinator.publish_update()
+        if self._is_shutting_down():
+            return
         await self.fire_event_data(prev_last_place_name=prev_last_place_name)
         self.coordinator.set_attr(ATTR_INITIAL_UPDATE, False)
         if not self._is_shutting_down():
