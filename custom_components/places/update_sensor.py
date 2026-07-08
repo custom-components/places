@@ -122,10 +122,6 @@ class PlacesUpdater:
         was_cancelled = False
         had_error = False
 
-        def is_shutting_down() -> bool:
-            """Return whether final update publication should be suppressed."""
-            return bool(getattr(coordinator, "is_shutting_down", False))
-
         try:
             await self.update_entity_name_and_cleanup()
             self._osm_client.update_sensor_name(str(coordinator.get_attr(CONF_NAME)))
@@ -140,10 +136,10 @@ class PlacesUpdater:
             if proceed_with_update == UpdateStatus.PROCEED:
                 await self.process_osm_update(now=now)
 
-                if is_shutting_down():
+                if self._is_shutting_down():
                     await self.rollback_update(previous_attr, now, proceed_with_update)
                 elif await self.should_update_state(now=now):
-                    if is_shutting_down():
+                    if self._is_shutting_down():
                         await self.rollback_update(previous_attr, now, proceed_with_update)
                     else:
                         await self.handle_state_update(
@@ -159,7 +155,7 @@ class PlacesUpdater:
                 await self.rollback_update(previous_attr, now, proceed_with_update)
         except asyncio.CancelledError:
             was_cancelled = True
-            if is_shutting_down():
+            if self._is_shutting_down():
                 _LOGGER.debug(
                     "(%s) Update task cancelled during coordinator shutdown",
                     coordinator.get_attr(CONF_NAME),
@@ -176,9 +172,18 @@ class PlacesUpdater:
             await self.rollback_update(previous_attr, now, proceed_with_update)
             raise
         finally:
-            if not is_shutting_down() and not was_cancelled and not had_error:
+            if not self._is_shutting_down() and not was_cancelled and not had_error:
                 await self.finish_update(now=now)
-                coordinator.publish_update()
+                if not self._is_shutting_down():
+                    coordinator.publish_update()
+
+    def _is_shutting_down(self) -> bool:
+        """Return whether final update side effects should be suppressed.
+
+        Returns:
+            ``True`` when the owning coordinator has started unload cleanup.
+        """
+        return bool(getattr(self.coordinator, "is_shutting_down", False))
 
     async def log_update_start(self, reason: str) -> None:
         """Log a consistent update-start message.
@@ -214,6 +219,8 @@ class PlacesUpdater:
             await self.get_extended_attr()
         self.coordinator.set_attr(ATTR_SHOW_DATE, False)
         await self.coordinator.async_cleanup_attributes()
+        if self._is_shutting_down():
+            return
 
         if not self.coordinator.is_attr_blank(ATTR_NATIVE_VALUE):
             current_time: str = f"{now.hour:02}:{now.minute:02}"
@@ -240,7 +247,8 @@ class PlacesUpdater:
         self.coordinator.publish_update()
         await self.fire_event_data(prev_last_place_name=prev_last_place_name)
         self.coordinator.set_attr(ATTR_INITIAL_UPDATE, False)
-        await self.coordinator.async_persist_attributes()
+        if not self._is_shutting_down():
+            await self.coordinator.async_persist_attributes()
 
     async def fire_event_data(self, prev_last_place_name: str) -> None:
         """Fire the Places state-update event with changed display attributes.

@@ -645,6 +645,41 @@ async def test_handle_state_update_publishes_before_firing_event(
 
 
 @pytest.mark.asyncio
+async def test_handle_state_update_skips_final_publish_and_persist_after_shutdown_starts(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+) -> None:
+    """State update finalization should stop if unload starts during cleanup awaits."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs = {
+        CONF_EXTENDED_ATTR: True,
+        CONF_SHOW_TIME: False,
+        CONF_NAME: "TestSensor",
+        ATTR_NATIVE_VALUE: "TestState",
+        ATTR_INITIAL_UPDATE: True,
+    }
+    object.__setattr__(sensor, "is_shutting_down", False)
+
+    async def mark_shutdown_started() -> None:
+        object.__setattr__(sensor, "is_shutting_down", True)
+
+    updater.get_extended_attr = AsyncMock(side_effect=mark_shutdown_started)
+    mock_hass.bus.fire = MagicMock()
+
+    await updater.handle_state_update(
+        now=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+        prev_last_place_name="PrevPlace",
+    )
+
+    updater.get_extended_attr.assert_awaited_once()
+    sensor.publish_update.assert_not_called()
+    mock_hass.bus.fire.assert_not_called()
+    sensor.async_persist_attributes.assert_not_awaited()
+    assert sensor.attrs[ATTR_INITIAL_UPDATE] is True
+
+
+@pytest.mark.asyncio
 async def test_handle_state_update_skips_extended_lookup_when_option_false(
     updater: PlacesUpdater,
     monkeypatch: pytest.MonkeyPatch,
