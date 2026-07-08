@@ -1,8 +1,8 @@
-"""Parser for advanced options in a sensor configuration.
+"""Parser for advanced options in a coordinator configuration.
 
-This module provides functionality to parse complex sensor options
+This module provides functionality to parse complex coordinator options
 that may include brackets, parentheses, and commas, allowing for
-flexible configuration of sensor states.
+flexible configuration of coordinator states.
 """
 
 from __future__ import annotations
@@ -31,16 +31,16 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AdvancedOptionsParser:
-    """Parse bracketed and filtered display options into a sensor state."""
+    """Parse bracketed and filtered display options into a coordinator state."""
 
-    def __init__(self, sensor: PlacesUpdateCoordinator, curr_options: str) -> None:
+    def __init__(self, coordinator: PlacesUpdateCoordinator, curr_options: str) -> None:
         """Initialize the advanced-options parser.
 
         Args:
-            sensor: Places coordinator that provides attribute access helpers.
+            coordinator: Places coordinator that provides attribute access helpers.
             curr_options: Raw advanced display option expression.
         """
-        self.sensor = sensor
+        self.coordinator = coordinator
         self.curr_options = curr_options
         self.state_list: list = []
         self._street_num_i = -1
@@ -128,25 +128,33 @@ class AdvancedOptionsParser:
         excl_attr = {} if excl_attr is None else excl_attr
         if opt:
             opt = str(opt).lower().strip()
-        _LOGGER.debug("(%s) [get_option_state] Option: %s", self.sensor.get_attr(CONF_NAME), opt)
-        out: str | None = self.sensor.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
+        _LOGGER.debug(
+            "(%s) [get_option_state] Option: %s", self.coordinator.get_attr(CONF_NAME), opt
+        )
+        out: str | None = self.coordinator.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
         if (
             DISPLAY_OPTIONS_MAP.get(opt) in {ATTR_DEVICETRACKER_ZONE, ATTR_DEVICETRACKER_ZONE_NAME}
-            and not await self.sensor.in_zone()
+            and not await self.coordinator.in_zone()
         ):
             out = None
-        _LOGGER.debug("(%s) [get_option_state] State: %s", self.sensor.get_attr(CONF_NAME), out)
         _LOGGER.debug(
-            "(%s) [get_option_state] incl list: %s", self.sensor.get_attr(CONF_NAME), incl
+            "(%s) [get_option_state] State: %s", self.coordinator.get_attr(CONF_NAME), out
         )
         _LOGGER.debug(
-            "(%s) [get_option_state] excl list: %s", self.sensor.get_attr(CONF_NAME), excl
+            "(%s) [get_option_state] incl list: %s", self.coordinator.get_attr(CONF_NAME), incl
         )
         _LOGGER.debug(
-            "(%s) [get_option_state] incl_attr dict: %s", self.sensor.get_attr(CONF_NAME), incl_attr
+            "(%s) [get_option_state] excl list: %s", self.coordinator.get_attr(CONF_NAME), excl
         )
         _LOGGER.debug(
-            "(%s) [get_option_state] excl_attr dict: %s", self.sensor.get_attr(CONF_NAME), excl_attr
+            "(%s) [get_option_state] incl_attr dict: %s",
+            self.coordinator.get_attr(CONF_NAME),
+            incl_attr,
+        )
+        _LOGGER.debug(
+            "(%s) [get_option_state] excl_attr dict: %s",
+            self.coordinator.get_attr(CONF_NAME),
+            excl_attr,
         )
         if out:
             if (incl and str(out).strip().lower() not in incl) or (
@@ -157,40 +165,40 @@ class AdvancedOptionsParser:
                 for attr, states in incl_attr.items():
                     _LOGGER.debug(
                         "(%s) [get_option_state] incl_attr: %s / State: %s",
-                        self.sensor.get_attr(CONF_NAME),
+                        self.coordinator.get_attr(CONF_NAME),
                         attr,
-                        self.sensor.get_attr(DISPLAY_OPTIONS_MAP.get(attr)),
+                        self.coordinator.get_attr(DISPLAY_OPTIONS_MAP.get(attr)),
                     )
                     _LOGGER.debug(
                         "(%s) [get_option_state] incl_states: %s",
-                        self.sensor.get_attr(CONF_NAME),
+                        self.coordinator.get_attr(CONF_NAME),
                         states,
                     )
                     map_attr: str | None = DISPLAY_OPTIONS_MAP.get(attr)
                     if (
                         not map_attr
-                        or self.sensor.is_attr_blank(map_attr)
-                        or self.sensor.get_attr(map_attr) not in states
+                        or self.coordinator.is_attr_blank(map_attr)
+                        or self.coordinator.get_attr(map_attr) not in states
                     ):
                         out = None
             if excl_attr:
                 for attr, states in excl_attr.items():
                     _LOGGER.debug(
                         "(%s) [get_option_state] excl_attr: %s / State: %s",
-                        self.sensor.get_attr(CONF_NAME),
+                        self.coordinator.get_attr(CONF_NAME),
                         attr,
-                        self.sensor.get_attr(DISPLAY_OPTIONS_MAP.get(attr)),
+                        self.coordinator.get_attr(DISPLAY_OPTIONS_MAP.get(attr)),
                     )
                     _LOGGER.debug(
                         "(%s) [get_option_state] excl_states: %s",
-                        self.sensor.get_attr(CONF_NAME),
+                        self.coordinator.get_attr(CONF_NAME),
                         states,
                     )
-                    if self.sensor.get_attr(DISPLAY_OPTIONS_MAP.get(attr)) in states:
+                    if self.coordinator.get_attr(DISPLAY_OPTIONS_MAP.get(attr)) in states:
                         out = None
             _LOGGER.debug(
                 "(%s) [get_option_state] State after incl/excl: %s",
-                self.sensor.get_attr(CONF_NAME),
+                self.coordinator.get_attr(CONF_NAME),
                 out,
             )
         if out:
@@ -208,14 +216,14 @@ class AdvancedOptionsParser:
                 self._street_i = self._temp_i
                 # _LOGGER.debug(
                 #     "(%s) [get_option_state] street_i: %s",
-                #     self.sensor.get_attr(CONF_NAME),
+                #     self.coordinator.get_attr(CONF_NAME),
                 #     self._street_i,
                 # )
             if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
                 self._street_num_i = self._temp_i
                 # _LOGGER.debug(
                 #     "(%s) [get_option_state] street_num_i: %s",
-                #     self.sensor.get_attr(CONF_NAME),
+                #     self.coordinator.get_attr(CONF_NAME),
                 #     self._street_num_i,
                 # )
             self._temp_i += 1
@@ -458,7 +466,7 @@ class AdvancedOptionsParser:
         return none_opt, next_opt
 
     async def compile_state(self) -> str:
-        """Join resolved option values into the final sensor state.
+        """Join resolved option values into the final coordinator state.
 
         Returns:
             Comma-separated state string, with street number and street joined

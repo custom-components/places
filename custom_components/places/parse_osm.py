@@ -1,7 +1,7 @@
 """Parse OpenStreetMap (OSM) data for Places in Home Assistant.
 
 This module handles parsing OSM data, extracting relevant attributes,
-and setting them in the sensor's internal attributes.
+and setting them in the coordinator's internal attributes.
 """
 
 from __future__ import annotations
@@ -52,36 +52,36 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class OSMParser:
-    """Translate Nominatim/OpenStreetMap response fields into sensor attributes."""
+    """Translate Nominatim/OpenStreetMap response fields into coordinator attributes."""
 
-    def __init__(self, sensor: PlacesUpdateCoordinator) -> None:
+    def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
         """Initialize the parser for a Places coordinator.
 
         Args:
-            sensor: Places coordinator whose internal attributes receive parsed OSM
+            coordinator: Places coordinator whose internal attributes receive parsed OSM
                 values.
         """
-        self.sensor = sensor
+        self.coordinator = coordinator
 
     def current_osm_dict(self) -> MutableMapping[str, Any]:
-        """Return the current OSM response mapping from sensor attributes."""
-        return self.sensor.get_attr_safe_dict(ATTR_OSM_DICT)
+        """Return the current OSM response mapping from coordinator attributes."""
+        return self.coordinator.get_attr_safe_dict(ATTR_OSM_DICT)
 
     def current_address(self) -> MutableMapping[str, Any]:
-        """Return the current OSM address mapping from sensor attributes."""
+        """Return the current OSM address mapping from coordinator attributes."""
         address = self.current_osm_dict().get("address", {})
         if isinstance(address, MutableMapping):
             return address
         return {}
 
     async def parse_osm_dict(self) -> None:
-        """Parse the current OSM response stored on the sensor.
+        """Parse the current OSM response stored on the coordinator.
 
-        Reads ``ATTR_OSM_DICT`` from the sensor, extracts attribution, place
+        Reads ``ATTR_OSM_DICT`` from the coordinator, extracts attribution, place
         classification, address, display, OSM identity, and de-duplicated place
-        name fields, then leaves the parsed values on the sensor attributes.
+        name fields, then leaves the parsed values on the coordinator attributes.
         """
-        osm_dict: MutableMapping[str, Any] | None = self.sensor.get_attr(ATTR_OSM_DICT)
+        osm_dict: MutableMapping[str, Any] | None = self.coordinator.get_attr(ATTR_OSM_DICT)
         if not osm_dict:
             return
         await self.set_attribution(osm_dict)
@@ -93,8 +93,8 @@ class OSMParser:
         await self.set_place_name_no_dupe()
         _LOGGER.debug(
             "(%s) Entity attributes after parsing OSM Dict: %s",
-            self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_internal_attr(),
+            self.coordinator.get_attr(CONF_NAME),
+            self.coordinator.get_internal_attr(),
         )
 
     async def set_attribution(self, osm_dict: MutableMapping[str, Any]) -> None:
@@ -107,7 +107,7 @@ class OSMParser:
             return
         attribution: str | None = osm_dict.get("licence")
         if attribution:
-            self.sensor.set_attr(ATTR_ATTRIBUTION, attribution)
+            self.coordinator.set_attr(ATTR_ATTRIBUTION, attribution)
 
     async def parse_type(self, osm_dict: MutableMapping[str, Any]) -> None:
         """Resolve the most specific OSM place type for display decisions.
@@ -121,12 +121,12 @@ class OSMParser:
         if place_type == "yes":
             place_type = osm_dict.get("addresstype")
             if not place_type:
-                self.sensor.clear_attr(ATTR_PLACE_TYPE)
+                self.coordinator.clear_attr(ATTR_PLACE_TYPE)
                 return
-        self.sensor.set_attr(ATTR_PLACE_TYPE, place_type)
+        self.coordinator.set_attr(ATTR_PLACE_TYPE, place_type)
         address = osm_dict.get("address")
         if isinstance(address, MutableMapping) and place_type in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_PLACE_NAME,
                 address.get(place_type),
             )
@@ -140,17 +140,17 @@ class OSMParser:
         if "category" not in osm_dict:
             return
 
-        self.sensor.set_attr(
+        self.coordinator.set_attr(
             ATTR_PLACE_CATEGORY,
             osm_dict.get("category"),
         )
         if (
             "address" in osm_dict
-            and self.sensor.get_attr(ATTR_PLACE_CATEGORY) in osm_dict["address"]
+            and self.coordinator.get_attr(ATTR_PLACE_CATEGORY) in osm_dict["address"]
         ):
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_PLACE_NAME,
-                osm_dict["address"].get(self.sensor.get_attr(ATTR_PLACE_CATEGORY)),
+                osm_dict["address"].get(self.coordinator.get_attr(ATTR_PLACE_CATEGORY)),
             )
 
     async def parse_namedetails(self, osm_dict: MutableMapping[str, Any]) -> None:
@@ -166,14 +166,14 @@ class OSMParser:
         if not namedetails:
             return
         if "name" in namedetails:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_PLACE_NAME,
                 namedetails.get("name"),
             )
-        if not self.sensor.is_attr_blank(CONF_LANGUAGE):
-            for language in self.sensor.get_attr_safe_str(CONF_LANGUAGE).split(","):
+        if not self.coordinator.is_attr_blank(CONF_LANGUAGE):
+            for language in self.coordinator.get_attr_safe_str(CONF_LANGUAGE).split(","):
                 if f"name:{language}" in namedetails:
-                    self.sensor.set_attr(
+                    self.coordinator.set_attr(
                         ATTR_PLACE_NAME,
                         namedetails.get(f"name:{language}"),
                     )
@@ -200,32 +200,33 @@ class OSMParser:
             address: Nominatim ``address`` mapping from the current response.
         """
         if "house_number" in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_STREET_NUMBER,
                 address.get("house_number"),
             )
         if "road" in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_STREET,
                 address.get("road"),
             )
         if "retail" in address and (
-            self.sensor.is_attr_blank(ATTR_PLACE_NAME)
+            self.coordinator.is_attr_blank(ATTR_PLACE_NAME)
             or (
-                not self.sensor.is_attr_blank(ATTR_PLACE_CATEGORY)
-                and not self.sensor.is_attr_blank(ATTR_STREET)
-                and self.sensor.get_attr(ATTR_PLACE_CATEGORY) == "highway"
-                and self.sensor.get_attr(ATTR_STREET) == self.sensor.get_attr(ATTR_PLACE_NAME)
+                not self.coordinator.is_attr_blank(ATTR_PLACE_CATEGORY)
+                and not self.coordinator.is_attr_blank(ATTR_STREET)
+                and self.coordinator.get_attr(ATTR_PLACE_CATEGORY) == "highway"
+                and self.coordinator.get_attr(ATTR_STREET)
+                == self.coordinator.get_attr(ATTR_PLACE_NAME)
             )
         ):
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_PLACE_NAME,
                 address.get("retail"),
             )
         _LOGGER.debug(
             "(%s) Place Name: %s",
-            self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_attr(ATTR_PLACE_NAME),
+            self.coordinator.get_attr(CONF_NAME),
+            self.coordinator.get_attr(ATTR_PLACE_NAME),
         )
 
     async def set_city_details(self, address: MutableMapping[str, Any]) -> None:
@@ -237,7 +238,7 @@ class OSMParser:
         city_types_to_skip: list[str] = []
         for city_type in CITY_LIST:
             if city_type in address:
-                self.sensor.set_attr(
+                self.coordinator.set_attr(
                     ATTR_CITY,
                     address.get(city_type),
                 )
@@ -248,7 +249,7 @@ class OSMParser:
         postal_town_types_to_skip: list[str] = []
         for postal_town_type in postal_town_types:
             if postal_town_type in address:
-                self.sensor.set_attr(
+                self.coordinator.set_attr(
                     ATTR_POSTAL_TOWN,
                     address.get(postal_town_type),
                 )
@@ -264,21 +265,21 @@ class OSMParser:
         )
         for neighbourhood_type in neighbourhood_types:
             if neighbourhood_type in address:
-                self.sensor.set_attr(
+                self.coordinator.set_attr(
                     ATTR_PLACE_NEIGHBOURHOOD,
                     address.get(neighbourhood_type),
                 )
                 break
 
-        if not self.sensor.is_attr_blank(ATTR_CITY):
-            self.sensor.set_attr(
+        if not self.coordinator.is_attr_blank(ATTR_CITY):
+            self.coordinator.set_attr(
                 ATTR_CITY_CLEAN,
-                self.sensor.get_attr_safe_str(ATTR_CITY).replace(" Township", "").strip(),
+                self.coordinator.get_attr_safe_str(ATTR_CITY).replace(" Township", "").strip(),
             )
-            if self.sensor.get_attr_safe_str(ATTR_CITY_CLEAN).startswith("City of"):
-                self.sensor.set_attr(
+            if self.coordinator.get_attr_safe_str(ATTR_CITY_CLEAN).startswith("City of"):
+                self.coordinator.set_attr(
                     ATTR_CITY_CLEAN,
-                    f"{self.sensor.get_attr_safe_str(ATTR_CITY_CLEAN)[8:]} City",
+                    f"{self.coordinator.get_attr_safe_str(ATTR_CITY_CLEAN)[8:]} City",
                 )
 
     async def set_region_details(self, address: MutableMapping[str, Any]) -> None:
@@ -288,34 +289,34 @@ class OSMParser:
             address: Nominatim ``address`` mapping from the current response.
         """
         if "state" in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_REGION,
                 address.get("state"),
             )
         if "ISO3166-2-lvl4" in address:
             iso_parts = address["ISO3166-2-lvl4"].split("-")
             if len(iso_parts) >= 2:
-                self.sensor.set_attr(
+                self.coordinator.set_attr(
                     ATTR_STATE_ABBR,
                     iso_parts[1].upper(),
                 )
         if "county" in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_COUNTY,
                 address.get("county"),
             )
         if "country" in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_COUNTRY,
                 address.get("country"),
             )
         if "country_code" in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_COUNTRY_CODE,
                 address["country_code"].upper(),
             )
         if "postcode" in address:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_POSTAL_CODE,
                 address.get("postcode"),
             )
@@ -327,35 +328,35 @@ class OSMParser:
             osm_dict: Parsed Nominatim response payload.
         """
         if "display_name" in osm_dict:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_FORMATTED_ADDRESS,
                 osm_dict.get("display_name"),
             )
 
         if "osm_id" in osm_dict:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_OSM_ID,
                 str(osm_dict.get("osm_id", "")),
             )
         if "osm_type" in osm_dict:
-            self.sensor.set_attr(
+            self.coordinator.set_attr(
                 ATTR_OSM_TYPE,
                 osm_dict.get("osm_type"),
             )
 
         namedetails = osm_dict.get("namedetails")
         if (
-            not self.sensor.is_attr_blank(ATTR_PLACE_CATEGORY)
-            and self.sensor.get_attr_safe_str(ATTR_PLACE_CATEGORY).lower() == "highway"
+            not self.coordinator.is_attr_blank(ATTR_PLACE_CATEGORY)
+            and self.coordinator.get_attr_safe_str(ATTR_PLACE_CATEGORY).lower() == "highway"
             and isinstance(namedetails, Mapping)
             and "ref" in namedetails
         ):
             raw_ref = namedetails.get("ref")
             if not isinstance(raw_ref, str) or not raw_ref.strip():
-                self.sensor.clear_attr(ATTR_STREET_REF)
+                self.coordinator.clear_attr(ATTR_STREET_REF)
                 _LOGGER.debug(
                     "(%s) Skipping street ref parsing due to invalid ref value: %r",
-                    self.sensor.get_attr(CONF_NAME),
+                    self.coordinator.get_attr(CONF_NAME),
                     raw_ref,
                 )
             else:
@@ -363,16 +364,16 @@ class OSMParser:
                 street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
                 for ref in street_refs:
                     if bool(re.search(r"\d", ref)):
-                        self.sensor.set_attr(ATTR_STREET_REF, ref)
+                        self.coordinator.set_attr(ATTR_STREET_REF, ref)
                         break
                 else:
-                    self.sensor.clear_attr(ATTR_STREET_REF)
-            if not self.sensor.is_attr_blank(ATTR_STREET_REF):
+                    self.coordinator.clear_attr(ATTR_STREET_REF)
+            if not self.coordinator.is_attr_blank(ATTR_STREET_REF):
                 _LOGGER.debug(
                     "(%s) Street: %s / Street Ref: %s",
-                    self.sensor.get_attr(CONF_NAME),
-                    self.sensor.get_attr(ATTR_STREET),
-                    self.sensor.get_attr(ATTR_STREET_REF),
+                    self.coordinator.get_attr(CONF_NAME),
+                    self.coordinator.get_attr(ATTR_STREET),
+                    self.coordinator.get_attr(ATTR_STREET_REF),
                 )
 
     async def set_place_name_no_dupe(self) -> None:
@@ -380,16 +381,19 @@ class OSMParser:
         dupe_attributes_check: list[str] = []
         dupe_attributes_check.extend(
             [
-                self.sensor.get_attr_safe_str(attr)
+                self.coordinator.get_attr_safe_str(attr)
                 for attr in PLACE_NAME_DUPLICATE_LIST
-                if not self.sensor.is_attr_blank(attr)
+                if not self.coordinator.is_attr_blank(attr)
             ]
         )
         if (
-            not self.sensor.is_attr_blank(ATTR_PLACE_NAME)
-            and self.sensor.get_attr(ATTR_PLACE_NAME) not in dupe_attributes_check
+            not self.coordinator.is_attr_blank(ATTR_PLACE_NAME)
+            and self.coordinator.get_attr(ATTR_PLACE_NAME) not in dupe_attributes_check
         ):
-            self.sensor.set_attr(ATTR_PLACE_NAME_NO_DUPE, self.sensor.get_attr(ATTR_PLACE_NAME))
+            self.coordinator.set_attr(
+                ATTR_PLACE_NAME_NO_DUPE,
+                self.coordinator.get_attr(ATTR_PLACE_NAME),
+            )
 
     async def finalize_last_place_name(self, prev_last_place_name: str) -> None:
         """Preserve the useful previous place name after a successful parse.
@@ -398,33 +402,35 @@ class OSMParser:
             prev_last_place_name: Last known place name captured before this
                 update began.
         """
-        if self.sensor.get_attr(ATTR_INITIAL_UPDATE):
-            self.sensor.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
+        if self.coordinator.get_attr(ATTR_INITIAL_UPDATE):
+            self.coordinator.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
                 "(%s) Running initial update after load, using prior last_place_name",
-                self.sensor.get_attr(CONF_NAME),
+                self.coordinator.get_attr(CONF_NAME),
             )
-        elif self.sensor.get_attr(ATTR_LAST_PLACE_NAME) == self.sensor.get_attr(
+        elif self.coordinator.get_attr(ATTR_LAST_PLACE_NAME) == self.coordinator.get_attr(
             ATTR_PLACE_NAME
-        ) or self.sensor.get_attr(ATTR_LAST_PLACE_NAME) == self.sensor.get_attr(
+        ) or self.coordinator.get_attr(ATTR_LAST_PLACE_NAME) == self.coordinator.get_attr(
             ATTR_DEVICETRACKER_ZONE_NAME
         ):
             # If current place name/zone are the same as previous, keep older last_place_name
-            self.sensor.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
+            self.coordinator.set_attr(ATTR_LAST_PLACE_NAME, prev_last_place_name)
             _LOGGER.debug(
                 "(%s) Initial last_place_name is same as new: place_name=%s or "
                 "devicetracker_zone_name=%s, "
                 "keeping previous last_place_name",
-                self.sensor.get_attr(CONF_NAME),
-                self.sensor.get_attr(ATTR_PLACE_NAME),
-                self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME),
+                self.coordinator.get_attr(CONF_NAME),
+                self.coordinator.get_attr(ATTR_PLACE_NAME),
+                self.coordinator.get_attr(ATTR_DEVICETRACKER_ZONE_NAME),
             )
         else:
-            _LOGGER.debug("(%s) Keeping initial last_place_name", self.sensor.get_attr(CONF_NAME))
+            _LOGGER.debug(
+                "(%s) Keeping initial last_place_name", self.coordinator.get_attr(CONF_NAME)
+            )
         _LOGGER.info(
             "(%s) last_place_name: %s",
-            self.sensor.get_attr(CONF_NAME),
-            self.sensor.get_attr(ATTR_LAST_PLACE_NAME),
+            self.coordinator.get_attr(CONF_NAME),
+            self.coordinator.get_attr(ATTR_LAST_PLACE_NAME),
         )
 
 

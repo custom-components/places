@@ -441,7 +441,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         if "formatted_place" in display_options:
             basic_parser = BasicOptionsParser(
-                sensor=self,
+                coordinator=self,
                 internal_attr=self.get_internal_attr(),
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
             )
@@ -453,7 +453,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         if any(ext in self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS) for ext in ["(", ")", "[", "]"]):
             advanced_parser = AdvancedOptionsParser(
-                sensor=self,
+                coordinator=self,
                 curr_options=self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS),
             )
             await advanced_parser.build_from_advanced_options()
@@ -463,7 +463,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         if not await self.in_zone():
             basic_parser = BasicOptionsParser(
-                sensor=self,
+                coordinator=self,
                 internal_attr=self.get_internal_attr(),
                 display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
             )

@@ -640,7 +640,7 @@ class PlacesUpdater:
         osm_url: str = await self.build_osm_url()
         await self.get_dict_from_url(url=osm_url, name="OpenStreetMaps", dict_name=ATTR_OSM_DICT)
         if not self.coordinator.is_attr_blank(ATTR_OSM_DICT):
-            parser = OSMParser(sensor=self.coordinator)
+            parser = OSMParser(coordinator=self.coordinator)
             await parser.parse_osm_dict()
             await parser.finalize_last_place_name(
                 self.coordinator.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
