@@ -156,6 +156,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             if not self.is_attr_blank(attr)
         }
 
+    @property
+    def is_shutting_down(self) -> bool:
+        """Return whether the coordinator is in shutdown mode."""
+        return self._is_shutting_down
+
     def _initialize_config_attributes(self) -> None:
         """Seed runtime attributes from static config entry data."""
         self.set_attr(ATTR_INITIAL_UPDATE, True)

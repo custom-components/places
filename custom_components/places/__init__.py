@@ -118,6 +118,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # needs to unload itself, and remove callbacks. See the classes for further
     # details
     _LOGGER.info("Unloading Places entry: %s", entry.entry_id)
+    coordinator = entry.runtime_data
+    if coordinator is not None:
+        await coordinator.async_shutdown()
     unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
@@ -126,8 +129,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if isinstance(hass.data.get(DOMAIN, {}), dict)
             else {}
         )
-        coordinator = entry.runtime_data
-        await coordinator.async_shutdown()
         if extended_entry_state.get(entry.entry_id, False):
             _decrement_extended_attr_ref(hass)
         if isinstance(extended_entry_state, dict):

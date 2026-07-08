@@ -386,6 +386,50 @@ async def test_do_update_rolls_back_and_finishes_on_phase_error(
 
 
 @pytest.mark.asyncio
+async def test_do_update_skips_finish_and_publish_on_cancelled_task(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """Cancelled updates should skip final publish bookkeeping entirely."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+
+    def publish_update() -> None:
+        pytest.fail("publish_update should not be called when update is cancelled")
+
+    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
+
+    async def check_device_tracker_and_update_coords() -> UpdateStatus:
+        raise asyncio.CancelledError("coordinator shutdown")
+
+    with stubbed_updater(
+        updater,
+        [
+            ("log_update_start", {}),
+            ("get_current_time", {"return_value": now}),
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("update_old_coordinates", {}),
+            (
+                "check_device_tracker_and_update_coords",
+                {"side_effect": check_device_tracker_and_update_coords},
+            ),
+            ("finish_update", {}),
+        ],
+    ) as mocks:
+        updater._osm_client.update_sensor_name = MagicMock()
+
+        with pytest.raises(asyncio.CancelledError):
+            await updater.do_update("manual", {"snapshot": "value"})
+
+        mocks["finish_update"].assert_not_awaited()
+
+    updater.coordinator.publish_update.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_do_update_publishes_after_successful_rollback_path(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,

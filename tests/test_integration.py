@@ -570,10 +570,32 @@ async def test_async_unload_entry_result(
 
     assert result is expected
     mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(mock_entry, PLATFORMS)
-    if unload_return:
-        coordinator.async_shutdown.assert_awaited_once_with()
-    else:
-        coordinator.async_shutdown.assert_not_awaited()
+    coordinator.async_shutdown.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_async_unload_entry_shuts_down_before_platform_unload(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry
+) -> None:
+    """Teardown should cancel coordinator work before unloading platform entries."""
+    coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
+    mock_entry.runtime_data = coordinator
+    call_order: list[str] = []
+
+    async def mark_shutdown() -> None:
+        call_order.append("shutdown")
+
+    async def mark_unload(_entry: MockConfigEntry, _platforms: list[str]) -> bool:
+        call_order.append("unload_platforms")
+        return True
+
+    coordinator.async_shutdown.side_effect = mark_shutdown
+    mock_hass.config_entries.async_unload_platforms.side_effect = mark_unload
+
+    result = await async_unload_entry(mock_hass, mock_entry)
+
+    assert result is True
+    assert call_order == ["shutdown", "unload_platforms"]
 
 
 @pytest.mark.asyncio

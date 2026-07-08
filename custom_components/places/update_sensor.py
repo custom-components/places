@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import MutableMapping
 from datetime import UTC, datetime
 import logging
@@ -118,6 +119,11 @@ class PlacesUpdater:
         now: datetime = await self.get_current_time()
         coordinator = self.coordinator
         proceed_with_update = UpdateStatus.SKIP
+        was_cancelled = False
+
+        def is_shutting_down() -> bool:
+            """Return whether final update publication should be suppressed."""
+            return bool(getattr(coordinator, "is_shutting_down", False))
 
         try:
             await self.update_entity_name_and_cleanup()
@@ -145,6 +151,14 @@ class PlacesUpdater:
                     await self.rollback_update(previous_attr, now, proceed_with_update)
             else:
                 await self.rollback_update(previous_attr, now, proceed_with_update)
+        except asyncio.CancelledError:
+            was_cancelled = True
+            if is_shutting_down():
+                _LOGGER.debug(
+                    "(%s) Update task cancelled during coordinator shutdown",
+                    coordinator.get_attr(CONF_NAME),
+                )
+            raise
         except Exception:
             # This orchestration boundary must rollback partial state for any
             # phase failure, then re-raise so Home Assistant can report it.
@@ -155,8 +169,9 @@ class PlacesUpdater:
             await self.rollback_update(previous_attr, now, proceed_with_update)
             raise
         finally:
-            await self.finish_update(now=now)
-            coordinator.publish_update()
+            if not is_shutting_down() and not was_cancelled:
+                await self.finish_update(now=now)
+                coordinator.publish_update()
 
     async def log_update_start(self, reason: str) -> None:
         """Log a consistent update-start message.
