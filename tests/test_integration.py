@@ -264,10 +264,9 @@ async def test_async_setup_entry_calls_forward_setups(
         """Record coordinator subscription before platform forwarding."""
         call_order.append("subscribe")
 
-    async def record_forward(*_args: object, **_kwargs: object) -> bool:
+    async def record_forward(*_args: object, **_kwargs: object) -> None:
         """Record platform forwarding after subscription."""
         call_order.append("forward")
-        return True
 
     original_init = _FakeCoordinator.__init__
 
@@ -473,29 +472,6 @@ async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
     coordinator.async_shutdown.assert_awaited_once_with()
     mock_hass.config_entries.async_unload_platforms.assert_not_awaited()
     assert mock_entry.runtime_data is None
-
-
-@pytest.mark.asyncio
-async def test_async_setup_entry_forward_setups_returns_false(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
-    mock_entry: MockConfigEntry,
-) -> None:
-    """Setup should still keep coordinator runtime data even if forward returns False."""
-    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
-    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
-    mock_hass.config_entries.async_forward_entry_setups.return_value = False
-
-    result = await async_setup_entry(mock_hass, mock_entry)
-    await asyncio.sleep(0)
-
-    assert result is True
-    assert isinstance(mock_entry.runtime_data, _FakeCoordinator)
-    mock_entry.runtime_data.async_added_to_hass.assert_awaited_once_with()
-    mock_entry.runtime_data.async_request_refresh.assert_awaited_once_with()
-    mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
-        mock_entry, PLATFORMS
-    )
 
 
 @pytest.mark.asyncio
@@ -816,6 +792,123 @@ async def test_async_unload_entry_resumes_coordinator_when_platform_unload_raise
     assert "unload_platforms" in caplog.text
     assert mock_entry.entry_id in caplog.text
     assert repr(coordinator) in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failure_path", "expected_error", "expected_result"),
+    [
+        ("prepare_exception", "prepare boom", None),
+        ("unload_exception", "unload boom", None),
+        ("unload_false", None, False),
+    ],
+)
+async def test_async_unload_entry_resume_failure_preserves_unload_result(
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
+    failure_path: str,
+    expected_error: str | None,
+    expected_result: bool | None,
+) -> None:
+    """Resume cleanup failures should not mask the unload terminal state."""
+    coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
+    mock_entry.runtime_data = coordinator
+    coordinator.async_resume_after_failed_unload.side_effect = RuntimeError("resume boom")
+    if failure_path == "prepare_exception":
+        coordinator.async_prepare_unload.side_effect = RuntimeError("prepare boom")
+    elif failure_path == "unload_exception":
+        mock_hass.config_entries.async_unload_platforms.side_effect = RuntimeError("unload boom")
+    else:
+        mock_hass.config_entries.async_unload_platforms.return_value = False
+
+    with caplog.at_level(logging.ERROR, logger="custom_components.places"):
+        if expected_error is not None:
+            with pytest.raises(RuntimeError, match=expected_error):
+                await async_unload_entry(mock_hass, mock_entry)
+        else:
+            assert await async_unload_entry(mock_hass, mock_entry) is expected_result
+
+    coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
+    coordinator.async_shutdown.assert_not_awaited()
+    assert mock_entry.runtime_data is coordinator
+    assert "resume_after_failed_unload" in caplog.text
+    assert "resume boom" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("terminal_path", "expected_error", "expected_result"),
+    [
+        ("setup_refresh_exception", "refresh boom", None),
+        ("unload_shutdown_exception", "shutdown boom", None),
+        ("unload_success", None, True),
+    ],
+)
+async def test_recorder_release_failure_preserves_terminal_state(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    terminal_path: str,
+    expected_error: str | None,
+    expected_result: bool | None,
+) -> None:
+    """Recorder release failures should not mask setup or unload terminal state."""
+    entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    def fail_release(_hass: MagicMock) -> None:
+        raise RuntimeError("release boom")
+
+    if terminal_path == "setup_refresh_exception":
+        original_init = _FakeCoordinator.__init__
+
+        def init_with_failing_refresh(
+            self: _FakeCoordinator,
+            hass: object,
+            config_entry: MockConfigEntry,
+            imported_attributes: dict[str, object],
+            persistence: _FakeSetupPlacesStorage | MagicMock,
+        ) -> None:
+            """Install a failing initial refresh hook on the fake coordinator."""
+            original_init(self, hass, config_entry, imported_attributes, persistence)
+            self.async_request_refresh.side_effect = RuntimeError("refresh boom")
+
+        monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_failing_refresh)
+    else:
+        await async_setup_entry(mock_hass, entry)
+        if terminal_path == "unload_shutdown_exception":
+            entry.runtime_data.async_shutdown.side_effect = RuntimeError("shutdown boom")
+
+    monkeypatch.setattr("custom_components.places._decrement_extended_attr_ref", fail_release)
+
+    async def run_terminal_path() -> bool:
+        """Run the configured setup or unload terminal path."""
+        if terminal_path == "setup_refresh_exception":
+            return await async_setup_entry(mock_hass, entry)
+        return await async_unload_entry(mock_hass, entry)
+
+    with caplog.at_level(logging.ERROR, logger="custom_components.places"):
+        if expected_error is not None:
+            with pytest.raises(RuntimeError, match=expected_error):
+                await run_terminal_path()
+        else:
+            assert await run_terminal_path() is expected_result
+
+    assert entry.runtime_data is None
+    assert "release_extended_attr_ref" in caplog.text
+    assert "release boom" in caplog.text
 
 
 @pytest.mark.asyncio
