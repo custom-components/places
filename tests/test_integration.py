@@ -764,37 +764,53 @@ async def test_async_unload_entry_resumes_coordinator_when_platform_unload_fails
 
 @pytest.mark.asyncio
 async def test_async_unload_entry_resumes_coordinator_when_prepare_unload_raises(
-    mock_hass: MagicMock, mock_entry: MockConfigEntry
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
 ) -> None:
     """A prepare failure should leave the still-loaded coordinator active."""
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     coordinator.async_prepare_unload.side_effect = RuntimeError("prepare boom")
 
-    with pytest.raises(RuntimeError, match="prepare boom"):
+    with (
+        caplog.at_level(logging.ERROR, logger="custom_components.places"),
+        pytest.raises(RuntimeError, match="prepare boom"),
+    ):
         await async_unload_entry(mock_hass, mock_entry)
 
     coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
     mock_hass.config_entries.async_unload_platforms.assert_not_awaited()
     coordinator.async_shutdown.assert_not_awaited()
     assert mock_entry.runtime_data is coordinator
+    assert "prepare_unload" in caplog.text
+    assert mock_entry.entry_id in caplog.text
+    assert repr(coordinator) in caplog.text
 
 
 @pytest.mark.asyncio
 async def test_async_unload_entry_resumes_coordinator_when_platform_unload_raises(
-    mock_hass: MagicMock, mock_entry: MockConfigEntry
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
 ) -> None:
     """An unload exception should leave the still-loaded coordinator active."""
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     mock_hass.config_entries.async_unload_platforms.side_effect = RuntimeError("unload boom")
 
-    with pytest.raises(RuntimeError, match="unload boom"):
+    with (
+        caplog.at_level(logging.ERROR, logger="custom_components.places"),
+        pytest.raises(RuntimeError, match="unload boom"),
+    ):
         await async_unload_entry(mock_hass, mock_entry)
 
     coordinator.async_prepare_unload.assert_awaited_once_with()
     coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
     coordinator.async_shutdown.assert_not_awaited()
+    assert "unload_platforms" in caplog.text
+    assert mock_entry.entry_id in caplog.text
+    assert repr(coordinator) in caplog.text
 
 
 @pytest.mark.asyncio

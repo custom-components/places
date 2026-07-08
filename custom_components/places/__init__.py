@@ -127,12 +127,24 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await coordinator.async_prepare_unload()
         except Exception:
+            # Unload hooks can surface arbitrary failures; resume before re-raising.
+            _LOGGER.exception(
+                "Places unload step prepare_unload failed for entry %s coordinator %r",
+                entry.entry_id,
+                coordinator,
+            )
             await coordinator.async_resume_after_failed_unload()
             raise
     try:
         unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     except Exception:
         if coordinator is not None:
+            # Platform unload can raise arbitrary integration errors; resume before re-raising.
+            _LOGGER.exception(
+                "Places unload step unload_platforms failed for entry %s coordinator %r",
+                entry.entry_id,
+                coordinator,
+            )
             await coordinator.async_resume_after_failed_unload()
         raise
 
