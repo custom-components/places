@@ -7,7 +7,12 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.places import async_remove_entry, async_setup_entry, async_unload_entry
+from custom_components.places import (
+    async_remove_entry,
+    async_remove_extended_entity,
+    async_setup_entry,
+    async_unload_entry,
+)
 from custom_components.places.const import CONF_API_KEY, CONF_NAME, PLATFORMS
 from tests.conftest import assert_awaited_count
 
@@ -105,11 +110,17 @@ async def test_async_remove_entry_removes_store_data(
     monkeypatch: pytest.MonkeyPatch, mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
     """Config-entry deletion should remove the per-entry Store snapshot."""
+    registry = MagicMock()
+    registry.async_get_entity_id.return_value = None
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
+    monkeypatch.setattr("custom_components.places.er.async_get", lambda hass: registry)
 
     result = await async_remove_entry(mock_hass, mock_entry)
 
     assert result is True
+    registry.async_get_entity_id.assert_called_once_with(
+        "sensor", "places", f"{mock_entry.entry_id}_extended_data"
+    )
     assert _FakePlacesStorage.remove_calls == 1
     assert _FakePlacesStorage.remove_calls_args == [
         (mock_entry.entry_id, mock_entry.data[CONF_NAME])
@@ -122,12 +133,56 @@ async def test_async_remove_entry_uses_entry_id_if_name_missing(
 ) -> None:
     """async_remove_entry should use entry_id when no config entry name exists."""
     entry = MockConfigEntry(domain="places", data={})
+    registry = MagicMock()
+    registry.async_get_entity_id.return_value = None
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
+    monkeypatch.setattr("custom_components.places.er.async_get", lambda hass: registry)
 
     await async_remove_entry(mock_hass, entry)
 
+    registry.async_get_entity_id.assert_called_once_with(
+        "sensor", "places", f"{entry.entry_id}_extended_data"
+    )
     assert _FakePlacesStorage.remove_calls == 1
     assert _FakePlacesStorage.remove_calls_args == [(entry.entry_id, entry.entry_id)]
+
+
+@pytest.mark.asyncio
+async def test_async_remove_extended_entity_removes_registry_entry(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Extended-data entity cleanup should remove the registry entry when present."""
+    registry = MagicMock()
+    registry.async_get_entity_id.return_value = "sensor.test_extended_data"
+    monkeypatch.setattr("custom_components.places.er.async_get", lambda hass: registry)
+    entry = MockConfigEntry(domain="places", entry_id="entry123", data={"name": "Test"})
+
+    await async_remove_extended_entity(mock_hass, entry)
+
+    registry.async_get_entity_id.assert_called_once_with(
+        "sensor", "places", "entry123_extended_data"
+    )
+    registry.async_remove.assert_called_once_with("sensor.test_extended_data")
+
+
+@pytest.mark.asyncio
+async def test_async_remove_extended_entity_ignores_missing_registry_entry(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Extended-data cleanup should no-op when no registry entry exists."""
+    registry = MagicMock()
+    registry.async_get_entity_id.return_value = None
+    monkeypatch.setattr("custom_components.places.er.async_get", lambda hass: registry)
+    entry = MockConfigEntry(domain="places", entry_id="entry123", data={"name": "Test"})
+
+    await async_remove_extended_entity(mock_hass, entry)
+
+    registry.async_get_entity_id.assert_called_once_with(
+        "sensor", "places", "entry123_extended_data"
+    )
+    registry.async_remove.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -138,13 +193,19 @@ async def test_async_remove_entry_logs_storage_errors_without_blocking(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Config-entry deletion should not be blocked by storage cleanup errors."""
+    registry = MagicMock()
+    registry.async_get_entity_id.return_value = None
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
+    monkeypatch.setattr("custom_components.places.er.async_get", lambda hass: registry)
     _FakePlacesStorage.remove_error = OSError("storage unavailable")
 
     with caplog.at_level(logging.WARNING, logger="custom_components.places"):
         result = await async_remove_entry(mock_hass, sensitive_entry)
 
     assert result is True
+    registry.async_get_entity_id.assert_called_once_with(
+        "sensor", "places", f"{sensitive_entry.entry_id}_extended_data"
+    )
     assert sensitive_entry.entry_id in caplog.text
     assert "storage unavailable" in caplog.text
     assert "secret@example.com" not in caplog.text

@@ -10,6 +10,8 @@ import homeassistant.helpers.entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.places.const import CONF_DEVICETRACKER_ID, CONF_NAME
+from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
 
@@ -386,7 +388,10 @@ def mock_hass() -> MagicMock:
 @pytest.fixture
 def mock_config_entry() -> MockConfigEntry:
     """Provide a default Places config entry for unit tests."""
-    return MockConfigEntry(domain="places", data={"name": "Test Place"})
+    return MockConfigEntry(
+        domain="places",
+        data={CONF_NAME: "Test Place", CONF_DEVICETRACKER_ID: "person.test"},
+    )
 
 
 @pytest.fixture
@@ -397,20 +402,17 @@ def places_instance(
 ) -> Places:
     """Provide a real Places sensor instance with minimal configuration."""
     _ = patch_entity_registry
-    config = {"devicetracker_id": "device_tracker.test"}
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
     persistence.async_remove = AsyncMock()
-    mock_config_entry.runtime_data = MagicMock(entity_id=None)
-    return Places(
+    coordinator = PlacesUpdateCoordinator(
         mock_hass,
-        config,
         mock_config_entry,
-        "TestSensor",
-        "unique123",
         {},
         persistence,
     )
+    mock_config_entry.runtime_data = coordinator
+    return Places(coordinator)
 
 
 class _DummyRegistry(er.EntityRegistry):

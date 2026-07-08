@@ -4,8 +4,9 @@ from collections.abc import Callable
 import logging
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import CONF_NAME, DOMAIN, PLATFORMS
 from .coordinator import PlacesUpdateCoordinator
@@ -60,10 +61,23 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
+async def async_remove_extended_entity(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove the optional extended-data sensor registry entry if it exists."""
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        Platform.SENSOR,
+        DOMAIN,
+        f"{entry.entry_id}_extended_data",
+    )
+    if entity_id is not None:
+        registry.async_remove(entity_id)
+
+
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove config-entry specific persisted state."""
     _LOGGER.info("Removing Places entry: %s", entry.entry_id)
     name = entry.data.get(CONF_NAME, entry.entry_id)
+    await async_remove_extended_entity(hass, entry)
     try:
         await PlacesStorage(
             hass=hass,

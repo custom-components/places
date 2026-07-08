@@ -6,10 +6,13 @@ from typing import Any, cast
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DEFAULT_ICON
+from . import async_remove_extended_entity
+from .const import CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR, DEFAULT_ICON, EXTENDED_ATTRIBUTE_LIST
 from .coordinator import PlacesUpdateCoordinator
 from .entity import (
     PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS,
@@ -18,7 +21,13 @@ from .entity import (
     PlacesSensorEntity,
 )
 
-__all__ = ["Places", "PlacesAttributeSensor", "PlacesEntity", "async_setup_entry"]
+__all__ = [
+    "Places",
+    "PlacesAttributeSensor",
+    "PlacesEntity",
+    "PlacesExtendedDataSensor",
+    "async_setup_entry",
+]
 
 
 def _child_sensor_name(key: str) -> str:
@@ -38,13 +47,16 @@ async def async_setup_entry(
         config_entry: Config entry being set up.
         async_add_entities: Callback used to register created entities.
     """
-    del hass
     coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
     entities: list[SensorEntity] = [Places(coordinator)]
     entities.extend(
         PlacesAttributeSensor(coordinator, description)
         for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS
     )
+    if coordinator.config.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
+        entities.append(PlacesExtendedDataSensor(coordinator))
+    else:
+        await async_remove_extended_entity(hass, config_entry)
     async_add_entities(entities, update_before_add=True)
 
 
@@ -70,6 +82,11 @@ class Places(PlacesSensorEntity):
             self.coordinator.data.native_value if self.coordinator.data else None
         )
         self._attr_extra_state_attributes = self.coordinator.main_state_attributes
+
+    async def async_added_to_hass(self) -> None:
+        """Record the HA-assigned entity ID on the coordinator."""
+        await super().async_added_to_hass()
+        self.coordinator.entity_id = self.entity_id
 
 
 class PlacesAttributeSensor(PlacesSensorEntity):
@@ -107,3 +124,27 @@ class PlacesAttributeSensor(PlacesSensorEntity):
         self._attr_native_value = self.coordinator.data.attributes.get(
             self.entity_description.attr_key
         )
+
+
+class PlacesExtendedDataSensor(PlacesSensorEntity):
+    """Diagnostic sensor that exposes raw extended Places payloads."""
+
+    _attr_name = "Extended data"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _unrecorded_attributes = frozenset({MATCH_ALL})
+
+    def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
+        """Initialize the optional extended-data sensor."""
+        super().__init__(cast("Any", coordinator), unique_suffix="extended_data")
+        self._attr_extra_state_attributes = {}
+        self._update_from_coordinator()
+
+    def _update_from_coordinator(self) -> None:
+        """Copy raw extended dictionaries from the coordinator when present."""
+        attrs = {
+            attr: self.coordinator.get_attr(attr)
+            for attr in EXTENDED_ATTRIBUTE_LIST
+            if not self.coordinator.is_attr_blank(attr)
+        }
+        self._attr_extra_state_attributes = attrs
+        self._attr_native_value = "available" if attrs else None

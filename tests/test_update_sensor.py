@@ -239,15 +239,9 @@ async def test_check_for_updated_entity_name_with_real_coordinator_entity(
         persistence=persistence,
     )
     entry.runtime_data = coordinator
-    Places(
-        hass=mock_hass,
-        config=dict(entry.data),
-        config_entry=entry,
-        name="OldName",
-        unique_id=entry.entry_id,
-        imported_attributes={},
-        persistence=persistence,
-    )
+    entity = Places(coordinator)
+    entity.entity_id = "sensor.oldname"
+    await entity.async_added_to_hass()
 
     assert coordinator.entity_id == "sensor.oldname"
 

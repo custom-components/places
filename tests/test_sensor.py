@@ -7,7 +7,8 @@ from collections.abc import Coroutine
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.components.zone import ATTR_PASSIVE
-from homeassistant.const import CONF_ZONE, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import CONF_ZONE, MATCH_ALL, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.helpers.entity import EntityCategory
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -21,10 +22,14 @@ from custom_components.places.const import (
     ATTR_GPS_ACCURACY,
     ATTR_LATITUDE,
     ATTR_LONGITUDE,
+    ATTR_OSM_DETAILS_DICT,
+    ATTR_OSM_DICT,
     ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_TYPE,
+    ATTR_WIKIDATA_DICT,
     CONF_DEVICETRACKER_ID,
+    CONF_EXTENDED_ATTR,
     DOMAIN,
 )
 from custom_components.places.coordinator import PlacesData, PlacesUpdateCoordinator
@@ -40,6 +45,7 @@ from custom_components.places.sensor import (
     Places,
     PlacesAttributeSensor,
     PlacesEntity,
+    PlacesExtendedDataSensor,
     async_setup_entry,
 )
 
@@ -425,8 +431,70 @@ def test_attribute_sensor_handle_coordinator_update_writes_state(
     write_state.assert_called_once_with()
 
 
-async def test_async_setup_entry_adds_main_and_child_sensors(mock_hass: MagicMock) -> None:
+def test_extended_data_sensor_exposes_raw_payload_and_is_unrecorded(
+    mock_hass: MagicMock,
+) -> None:
+    """Extended data sensor should expose raw payload dictionaries unchanged."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    osm_dict = {"place_id": 1}
+    osm_details_dict = {"extratags": {"wikidata": "Q1"}}
+    wikidata_dict = {"entities": {"Q1": {"labels": {"en": {"value": "Test"}}}}}
+    coordinator.set_attr(ATTR_OSM_DICT, osm_dict)
+    coordinator.set_attr(ATTR_OSM_DETAILS_DICT, osm_details_dict)
+    coordinator.set_attr(ATTR_WIKIDATA_DICT, wikidata_dict)
+    coordinator.publish_update()
+    entity = PlacesExtendedDataSensor(coordinator)
+    write_state = MagicMock()
+    object.__setattr__(entity, "async_write_ha_state", write_state)
+
+    entity._handle_coordinator_update()
+
+    assert entity.unique_id == "entry123_extended_data"
+    assert entity.native_value == "available"
+    assert entity.entity_category is EntityCategory.DIAGNOSTIC
+    assert entity.extra_state_attributes == {
+        ATTR_OSM_DICT: osm_dict,
+        ATTR_OSM_DETAILS_DICT: osm_details_dict,
+        ATTR_WIKIDATA_DICT: wikidata_dict,
+    }
+    assert entity._attr_extra_state_attributes == {
+        ATTR_OSM_DICT: osm_dict,
+        ATTR_OSM_DETAILS_DICT: osm_details_dict,
+        ATTR_WIKIDATA_DICT: wikidata_dict,
+    }
+    assert entity._attr_native_value == "available"
+    assert entity._unrecorded_attributes == frozenset({MATCH_ALL})
+    write_state.assert_called_once_with()
+
+
+def test_extended_data_sensor_is_empty_without_payloads(mock_hass: MagicMock) -> None:
+    """Extended data sensor should be unavailable until raw payloads exist."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+
+    entity = PlacesExtendedDataSensor(coordinator)
+
+    assert entity.native_value is None
+    assert entity.extra_state_attributes == {}
+
+
+async def test_async_setup_entry_adds_main_and_child_sensors(
+    mock_hass: MagicMock,
+    patch_entity_registry: object,
+) -> None:
     """Setup should add one main entity and one child entity per description."""
+    _ = patch_entity_registry
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -462,3 +530,62 @@ async def test_async_setup_entry_adds_main_and_child_sensors(mock_hass: MagicMoc
     assert all(
         entity._attr_entity_registry_enabled_default is False for entity in disabled_entities
     )
+
+
+async def test_async_setup_entry_removes_extended_sensor_when_disabled(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Setup should remove stale extended-data registry entry when option is disabled."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: False,
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    entry.runtime_data = coordinator
+    remove_extended_entity = AsyncMock()
+    monkeypatch.setattr(
+        "custom_components.places.sensor.async_remove_extended_entity",
+        remove_extended_entity,
+    )
+
+    await async_setup_entry(mock_hass, entry, lambda entities, **kwargs: None)
+
+    remove_extended_entity.assert_awaited_once_with(mock_hass, entry)
+
+
+async def test_async_setup_entry_adds_extended_sensor_when_enabled(
+    mock_hass: MagicMock,
+) -> None:
+    """Setup should append the extended-data sensor when the option is enabled."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    entry.runtime_data = coordinator
+    added: dict[str, object] = {}
+
+    def _add_entities(entities: list[object], **kwargs: object) -> None:
+        """Capture entities added during setup."""
+        added["entities"] = entities
+        added["kwargs"] = kwargs
+
+    await async_setup_entry(mock_hass, entry, _add_entities)
+
+    entities = added["entities"]
+    assert isinstance(entities, list)
+    assert len(entities) == 2 + len(PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS)
+    assert isinstance(entities[-1], PlacesExtendedDataSensor)
