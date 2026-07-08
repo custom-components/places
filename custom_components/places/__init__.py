@@ -121,7 +121,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = entry.runtime_data
     if coordinator is not None:
         await coordinator.async_prepare_unload()
-    unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    try:
+        unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    except Exception:
+        if coordinator is not None:
+            await coordinator.async_resume_after_failed_unload()
+        raise
 
     if unload_ok:
         if coordinator is not None:

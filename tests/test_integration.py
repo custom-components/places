@@ -641,6 +641,23 @@ async def test_async_unload_entry_resumes_coordinator_when_platform_unload_fails
 
 
 @pytest.mark.asyncio
+async def test_async_unload_entry_resumes_coordinator_when_platform_unload_raises(
+    mock_hass: MagicMock, mock_entry: MockConfigEntry
+) -> None:
+    """An unload exception should leave the still-loaded coordinator active."""
+    coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
+    mock_entry.runtime_data = coordinator
+    mock_hass.config_entries.async_unload_platforms.side_effect = RuntimeError("unload boom")
+
+    with pytest.raises(RuntimeError, match="unload boom"):
+        await async_unload_entry(mock_hass, mock_entry)
+
+    coordinator.async_prepare_unload.assert_awaited_once_with()
+    coordinator.async_resume_after_failed_unload.assert_awaited_once_with()
+    coordinator.async_shutdown.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_mock_sensor_restore_previous_attr_replaces_internal_mapping() -> None:
     """MockSensor should replace attrs entirely instead of merging during restore."""
     sensor = MockSensor(attrs={"keep": "old", "remove": "old"})
