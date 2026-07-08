@@ -441,6 +441,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         if self._is_shutting_down:
             return
         async with self._update_lock:
+            if self._is_shutting_down:
+                return
             previous_attr = copy.deepcopy(self.get_internal_attr())
             await PlacesUpdater(
                 hass=self.hass,

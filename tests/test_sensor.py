@@ -326,6 +326,53 @@ async def test_coordinator_scan_update_throttles_repeated_refreshes(
     updater_ctor.assert_not_called()
 
 
+async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
+    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Shutting down should block queued _run_update executions behind the lock."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    second_ran = asyncio.Event()
+    construct_calls: list[int] = []
+
+    class _FakeUpdater:
+        """Update stub that blocks the first call to create a lock queue."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Track constructor calls by sequence number."""
+            construct_calls.append(len(construct_calls) + 1)
+            self._index = len(construct_calls)
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Block first run and let any later run flag itself."""
+            if self._index == 1:
+                first_started.set()
+                await release_first.wait()
+            else:
+                second_ran.set()
+
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FakeUpdater)
+
+    first_task = asyncio.create_task(coordinator._run_update("first"))
+    await first_started.wait()
+    second_task = asyncio.create_task(coordinator._run_update("second"))
+    await asyncio.sleep(0)
+    await coordinator.async_shutdown()
+    release_first.set()
+
+    await asyncio.gather(first_task, second_task)
+
+    assert len(construct_calls) == 1
+    assert not second_ran.is_set()
+
+
 async def test_coordinator_updates_are_serialized_between_scan_and_tracker_events(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
