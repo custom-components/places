@@ -213,7 +213,7 @@ When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extende
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:
@@ -235,7 +235,7 @@ When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extende
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:

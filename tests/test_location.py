@@ -6,10 +6,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_DIRECTION_OF_TRAVEL,
-    ATTR_DISTANCE_FROM_HOME_KM,
-    ATTR_DISTANCE_FROM_HOME_M,
-    ATTR_DISTANCE_FROM_HOME_MI,
-    ATTR_DISTANCE_TRAVELED_M,
+    ATTR_DISTANCE_FROM_HOME,
+    ATTR_DISTANCE_TRAVELED,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
@@ -19,7 +17,6 @@ from custom_components.places.const import (
     ATTR_LOCATION_PREVIOUS,
     ATTR_LONGITUDE,
     ATTR_LONGITUDE_OLD,
-    METERS_PER_MILE,
 )
 from custom_components.places.update_sensor import PlacesUpdater
 from tests.conftest import MockSensor
@@ -74,22 +71,17 @@ async def test_distance_fields_are_populated(
 
     await updater.calculate_distances()
 
-    distance_m = sensor.attrs[ATTR_DISTANCE_FROM_HOME_M]
-    distance_km = sensor.attrs[ATTR_DISTANCE_FROM_HOME_KM]
-    distance_mi = sensor.attrs[ATTR_DISTANCE_FROM_HOME_MI]
-    assert distance_m > 0
-    assert distance_km == round(distance_m / 1000, 3)
-    assert distance_mi == round(distance_m / METERS_PER_MILE, 3)
+    assert sensor.attrs[ATTR_DISTANCE_FROM_HOME] > 0
 
 
 async def test_direction_of_travel_stationary_when_distance_unchanged(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
     """Direction remains stationary when distance from home is unchanged."""
-    sensor.attrs[ATTR_DISTANCE_TRAVELED_M] = 1.0
-    sensor.attrs[ATTR_DISTANCE_FROM_HOME_M] = 100.0
+    sensor.attrs[ATTR_DISTANCE_TRAVELED] = 1.0
+    sensor.attrs[ATTR_DISTANCE_FROM_HOME] = 100.0
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
-    await updater.determine_direction_of_travel(last_distance_traveled_m=100.0)
+    await updater.determine_direction_of_travel(last_distance_traveled=100.0)
 
     assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == "stationary"

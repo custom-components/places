@@ -27,11 +27,8 @@ from custom_components.places.const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
-    ATTR_DISTANCE_FROM_HOME_KM,
-    ATTR_DISTANCE_FROM_HOME_M,
-    ATTR_DISTANCE_FROM_HOME_MI,
-    ATTR_DISTANCE_TRAVELED_M,
-    ATTR_DISTANCE_TRAVELED_MI,
+    ATTR_DISTANCE_FROM_HOME,
+    ATTR_DISTANCE_TRAVELED,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
@@ -1277,10 +1274,10 @@ async def test_update_location_attributes_sets_locations(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("method_name", "expected_m_attr", "expected_mi_attr"),
+    ("method_name", "expected_distance_attr"),
     [
-        ("calculate_distances", ATTR_DISTANCE_FROM_HOME_M, ATTR_DISTANCE_FROM_HOME_MI),
-        ("calculate_travel_distance", ATTR_DISTANCE_TRAVELED_M, ATTR_DISTANCE_TRAVELED_MI),
+        ("calculate_distances", ATTR_DISTANCE_FROM_HOME),
+        ("calculate_travel_distance", ATTR_DISTANCE_TRAVELED),
     ],
 )
 async def test_calculate_distance_methods(
@@ -1288,20 +1285,15 @@ async def test_calculate_distance_methods(
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
     method_name: str,
-    expected_m_attr: str,
-    expected_mi_attr: str,
+    expected_distance_attr: str,
 ) -> None:
-    """Parametrized test for distance calculation methods to validate m and mi attributes are set appropriately."""
+    """Distance calculation methods should set their native meter attribute."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_float.side_effect = lambda k: 1000.0
     method = getattr(updater, method_name)
     await method()
-    # Verify metric attribute set to 0 in these test scenarios
-    assert sensor.attrs.get(expected_m_attr) == 0
-    # Verify some MI attribute was set via set_attr calls
-    calls = [call for call in sensor.set_attr.call_args_list if call[0][0] == expected_mi_attr]
-    assert any(isinstance(c[0][1], float | int) for c in calls)
+    assert sensor.attrs.get(expected_distance_attr) == 0
 
 
 @pytest.mark.asyncio
@@ -1638,53 +1630,7 @@ async def test_calculate_distances_not_all_attrs_set(
     sensor.set_attr = MagicMock(side_effect=set_attr)
     await updater.calculate_distances()
     # None of the distance attributes should be set
-    assert ATTR_DISTANCE_FROM_HOME_M not in sensor.attrs
-    assert ATTR_DISTANCE_FROM_HOME_KM not in sensor.attrs
-    assert ATTR_DISTANCE_FROM_HOME_MI not in sensor.attrs
-
-
-@pytest.mark.asyncio
-async def test_calculate_distances_distance_from_home_m_blank(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Test calculate_distances does NOT set KM/MI if ATTR_DISTANCE_FROM_HOME_M is blank after calculation."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-
-    # Patch is_attr_blank so ATTR_DISTANCE_FROM_HOME_M is blank after calculation
-    def is_attr_blank(key: str) -> bool:
-        """Report the meter distance as blank after the calculation step.
-
-        Args:
-            key: Attribute name checked by the updater.
-
-        Returns:
-            ``True`` only for ``ATTR_DISTANCE_FROM_HOME_M``.
-        """
-        # Only ATTR_DISTANCE_FROM_HOME_M is blank
-        return key == ATTR_DISTANCE_FROM_HOME_M
-
-    def set_attr(key: str, value: object) -> None:
-        """Store calculated distance attributes on the mock sensor.
-
-        Args:
-            key: Attribute name set by the updater.
-            value: Calculated value to store.
-        """
-        sensor.attrs[key] = value
-
-    sensor.is_attr_blank = MagicMock(side_effect=is_attr_blank)
-    # Patch set_attr to update attrs
-    sensor.set_attr = MagicMock(side_effect=set_attr)
-    # Patch get_attr_safe_float to return valid floats
-    sensor.get_attr_safe_float = MagicMock(return_value=1.0)
-    # Patch all required attributes to not blank except ATTR_DISTANCE_FROM_HOME_M
-    for attr in [ATTR_LATITUDE, ATTR_LONGITUDE, ATTR_HOME_LATITUDE, ATTR_HOME_LONGITUDE]:
-        sensor.attrs[attr] = 1.0
-    await updater.calculate_distances()
-    # Only ATTR_DISTANCE_FROM_HOME_M should be set
-    assert ATTR_DISTANCE_FROM_HOME_M in sensor.attrs
-    assert ATTR_DISTANCE_FROM_HOME_KM not in sensor.attrs
-    assert ATTR_DISTANCE_FROM_HOME_MI not in sensor.attrs
+    assert ATTR_DISTANCE_FROM_HOME not in sensor.attrs
 
 
 @pytest.mark.asyncio
@@ -1693,7 +1639,7 @@ async def test_calculate_distances_distance_from_home_m_blank(
     [
         ("normal", None, None),
         ("missing_old_coord", ATTR_LATITUDE_OLD, "stationary"),
-        ("blank_traveled_m", ATTR_DISTANCE_TRAVELED_M, None),
+        ("blank_traveled_m", ATTR_DISTANCE_TRAVELED, None),
     ],
 )
 async def test_calculate_travel_distance_variants(
@@ -1737,8 +1683,7 @@ async def test_calculate_travel_distance_variants(
         sensor.set_attr = MagicMock(side_effect=set_attr)
         await updater.calculate_travel_distance()
         assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == expected_direction
-        assert sensor.attrs[ATTR_DISTANCE_TRAVELED_M] == 0
-        assert sensor.attrs[ATTR_DISTANCE_TRAVELED_MI] == 0
+        assert sensor.attrs[ATTR_DISTANCE_TRAVELED] == 0
         return
 
     if mode == "blank_traveled_m":
@@ -1770,20 +1715,14 @@ async def test_calculate_travel_distance_variants(
         # Ensure set_attr updates attrs for this branch
         sensor.set_attr = MagicMock(side_effect=set_attr)
         await updater.calculate_travel_distance()
-        assert ATTR_DISTANCE_TRAVELED_M in sensor.attrs
-        assert ATTR_DISTANCE_TRAVELED_MI not in sensor.attrs
+        assert ATTR_DISTANCE_TRAVELED in sensor.attrs
         return
 
     # normal
     sensor.is_attr_blank.side_effect = lambda k: False
     sensor.get_attr_safe_float.side_effect = lambda k: 1000.0
     await updater.calculate_travel_distance()
-    assert sensor.attrs[ATTR_DISTANCE_TRAVELED_M] == 0
-    found = any(
-        call[0][0] == ATTR_DISTANCE_TRAVELED_MI and isinstance(call[0][1], float)
-        for call in sensor.set_attr.call_args_list
-    )
-    assert found
+    assert sensor.attrs[ATTR_DISTANCE_TRAVELED] == 0
 
 
 @pytest.mark.asyncio
@@ -2119,7 +2058,7 @@ async def test_determine_if_update_needed_variants(
         sensor.attrs[ATTR_PREVIOUS_STATE] = prev
     sensor.attrs[ATTR_LOCATION_CURRENT] = cur
     sensor.attrs[ATTR_LOCATION_PREVIOUS] = prev_loc
-    sensor.attrs[ATTR_DISTANCE_TRAVELED_M] = distance
+    sensor.attrs[ATTR_DISTANCE_TRAVELED] = distance
     if expected == UpdateStatus.PROCEED:
         sensor.get_attr.side_effect = lambda k: False
         sensor.is_attr_blank.return_value = False
@@ -2127,7 +2066,7 @@ async def test_determine_if_update_needed_variants(
             cur if k == ATTR_LOCATION_CURRENT else prev_loc if k == ATTR_LOCATION_PREVIOUS else ""
         )
         sensor.get_attr_safe_float.side_effect = lambda k: (
-            distance if k == ATTR_DISTANCE_TRAVELED_M else 0
+            distance if k == ATTR_DISTANCE_TRAVELED else 0
         )
     result = await updater.determine_if_update_needed()
     assert result == expected
@@ -2157,16 +2096,16 @@ async def test_determine_direction_of_travel_param(
     """Parametrized variants for determine_direction_of_travel covering towards/away/stationary cases."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if has_last_distance is not None:
-        sensor.attrs[ATTR_DISTANCE_TRAVELED_M] = has_last_distance
+        sensor.attrs[ATTR_DISTANCE_TRAVELED] = has_last_distance
     sensor.get_attr_safe_float.side_effect = lambda k: (
-        reported_distance if k == ATTR_DISTANCE_FROM_HOME_M else 0
+        reported_distance if k == ATTR_DISTANCE_FROM_HOME else 0
     )
     # If a previous travel distance exists, emulate is_attr_blank behavior accordingly
     if expected == "towards home":
         # Match original single-case test: explicit side effects
         sensor.is_attr_blank.side_effect = lambda k: False
         sensor.get_attr_safe_float.side_effect = lambda k: (
-            500.0 if k == ATTR_DISTANCE_FROM_HOME_M else 1000.0
+            500.0 if k == ATTR_DISTANCE_FROM_HOME else 1000.0
         )
     elif has_last_distance is not None:
         sensor.is_attr_blank.side_effect = lambda k: k not in sensor.attrs

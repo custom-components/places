@@ -532,7 +532,7 @@ def test_distance_attribute_sensor_reads_meter_value(mock_hass: MagicMock) -> No
         data={"name": "TestSensor", "devicetracker_id": "person.test"},
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    coordinator.set_attr("distance_from_home_m", 123.4)
+    coordinator.set_attr("distance_from_home", 123.4)
     coordinator.publish_update()
     entity = PlacesAttributeSensor(coordinator, _description("distance_from_home"))
 

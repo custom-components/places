@@ -27,11 +27,8 @@ from .const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
-    ATTR_DISTANCE_FROM_HOME_KM,
-    ATTR_DISTANCE_FROM_HOME_M,
-    ATTR_DISTANCE_FROM_HOME_MI,
-    ATTR_DISTANCE_TRAVELED_M,
-    ATTR_DISTANCE_TRAVELED_MI,
+    ATTR_DISTANCE_FROM_HOME,
+    ATTR_DISTANCE_TRAVELED,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
@@ -835,12 +832,12 @@ class PlacesUpdater:
             )
             return UpdateStatus.SKIP_SET_STATIONARY
 
-        if int(self.coordinator.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M)) < 10:
+        if int(self.coordinator.get_attr_safe_float(ATTR_DISTANCE_TRAVELED)) < 10:
             _LOGGER.info(
                 "(%s) Not performing update, distance traveled from last update is "
                 "less than 10 m (%s m)",
                 self.coordinator.get_attr(CONF_NAME),
-                round(self.coordinator.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M), 1),
+                round(self.coordinator.get_attr_safe_float(ATTR_DISTANCE_TRAVELED), 1),
             )
             return UpdateStatus.SKIP_SET_STATIONARY
 
@@ -893,18 +890,9 @@ class PlacesUpdater:
             )
             location_snapshot.calculate()
             self.coordinator.set_attr(
-                ATTR_DISTANCE_FROM_HOME_M,
-                location_snapshot.distance_from_home_m,
+                ATTR_DISTANCE_FROM_HOME,
+                location_snapshot.distance_from_home,
             )
-            if not self.coordinator.is_attr_blank(ATTR_DISTANCE_FROM_HOME_M):
-                self.coordinator.set_attr(
-                    ATTR_DISTANCE_FROM_HOME_KM,
-                    location_snapshot.distance_from_home_km,
-                )
-                self.coordinator.set_attr(
-                    ATTR_DISTANCE_FROM_HOME_MI,
-                    location_snapshot.distance_from_home_mi,
-                )
 
     async def calculate_travel_distance(self) -> None:
         """Calculate distance traveled since the previous coordinates."""
@@ -923,33 +911,27 @@ class PlacesUpdater:
             )
             location_snapshot.calculate()
             self.coordinator.set_attr(
-                ATTR_DISTANCE_TRAVELED_M,
-                location_snapshot.distance_traveled_m,
+                ATTR_DISTANCE_TRAVELED,
+                location_snapshot.distance_traveled,
             )
-            if not self.coordinator.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
-                self.coordinator.set_attr(
-                    ATTR_DISTANCE_TRAVELED_MI,
-                    location_snapshot.distance_traveled_mi,
-                )
         else:
             self.coordinator.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
-            self.coordinator.set_attr(ATTR_DISTANCE_TRAVELED_M, 0)
-            self.coordinator.set_attr(ATTR_DISTANCE_TRAVELED_MI, 0)
+            self.coordinator.set_attr(ATTR_DISTANCE_TRAVELED, 0)
 
-    async def determine_direction_of_travel(self, last_distance_traveled_m: float) -> None:
+    async def determine_direction_of_travel(self, last_distance_traveled: float) -> None:
         """Classify movement relative to home as towards, away, or stationary.
 
         Args:
-            last_distance_traveled_m: Prior distance-from-home value captured
+            last_distance_traveled: Prior distance-from-home value captured
                 before recalculating distances.
         """
-        if not self.coordinator.is_attr_blank(ATTR_DISTANCE_TRAVELED_M):
+        if not self.coordinator.is_attr_blank(ATTR_DISTANCE_TRAVELED):
             self.coordinator.set_attr(
                 ATTR_DIRECTION_OF_TRAVEL,
                 direction_of_travel(
-                    previous_distance_from_home_m=last_distance_traveled_m,
-                    distance_from_home_m=self.coordinator.get_attr_safe_float(
-                        ATTR_DISTANCE_FROM_HOME_M
+                    previous_distance_from_home=last_distance_traveled,
+                    distance_from_home=self.coordinator.get_attr_safe_float(
+                        ATTR_DISTANCE_FROM_HOME
                     ),
                 ),
             )
@@ -963,15 +945,15 @@ class PlacesUpdater:
             ``PROCEED`` when current and home coordinates are all usable,
             otherwise ``SKIP``.
         """
-        last_distance_traveled_m: float = self.coordinator.get_attr_safe_float(
-            ATTR_DISTANCE_FROM_HOME_M
+        last_distance_traveled: float = self.coordinator.get_attr_safe_float(
+            ATTR_DISTANCE_FROM_HOME
         )
         proceed_with_update = UpdateStatus.PROCEED
 
         await self.update_location_attributes()
         await self.calculate_distances()
         await self.calculate_travel_distance()
-        await self.determine_direction_of_travel(last_distance_traveled_m)
+        await self.determine_direction_of_travel(last_distance_traveled)
 
         _LOGGER.debug(
             "(%s) Previous Location: %s",
@@ -989,10 +971,10 @@ class PlacesUpdater:
             self.coordinator.get_attr(ATTR_HOME_LOCATION),
         )
         _LOGGER.info(
-            "(%s) Distance from home [%s]: %s km",
+            "(%s) Distance from home [%s]: %s m",
             self.coordinator.get_attr(CONF_NAME),
             self.coordinator.get_attr_safe_str(CONF_HOME_ZONE).split(".")[1],
-            self.coordinator.get_attr(ATTR_DISTANCE_FROM_HOME_KM),
+            self.coordinator.get_attr(ATTR_DISTANCE_FROM_HOME),
         )
         _LOGGER.info(
             "(%s) Travel Direction: %s",
@@ -1002,7 +984,7 @@ class PlacesUpdater:
         _LOGGER.info(
             "(%s) Meters traveled since last update: %s",
             self.coordinator.get_attr(CONF_NAME),
-            round(self.coordinator.get_attr_safe_float(ATTR_DISTANCE_TRAVELED_M), 1),
+            round(self.coordinator.get_attr_safe_float(ATTR_DISTANCE_TRAVELED), 1),
         )
 
         if (

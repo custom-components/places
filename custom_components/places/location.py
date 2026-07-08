@@ -6,8 +6,6 @@ from dataclasses import dataclass
 
 from homeassistant.util.location import distance
 
-from .const import METERS_PER_MILE
-
 
 @dataclass(slots=True)
 class CoordinatePair:
@@ -28,65 +26,44 @@ class LocationSnapshot:
     current: CoordinatePair | None = None
     previous: CoordinatePair | None = None
     home: CoordinatePair | None = None
-    distance_from_home_m: float | None = None
-    distance_traveled_m: float | None = None
+    distance_from_home: float | None = None
+    distance_traveled: float | None = None
 
     def calculate(self) -> None:
         """Calculate supported distance values for this snapshot."""
         if self.current is not None and self.home is not None:
-            self.distance_from_home_m = distance(
+            self.distance_from_home = distance(
                 self.current.latitude,
                 self.current.longitude,
                 self.home.latitude,
                 self.home.longitude,
             )
         if self.current is not None and self.previous is not None:
-            self.distance_traveled_m = distance(
+            self.distance_traveled = distance(
                 self.current.latitude,
                 self.current.longitude,
                 self.previous.latitude,
                 self.previous.longitude,
             )
 
-    @property
-    def distance_from_home_km(self) -> float | None:
-        """Distance from home in kilometers."""
-        if self.distance_from_home_m is None:
-            return None
-        return round(self.distance_from_home_m / 1000, 3)
-
-    @property
-    def distance_from_home_mi(self) -> float | None:
-        """Distance from home in miles."""
-        if self.distance_from_home_m is None:
-            return None
-        return round(self.distance_from_home_m / METERS_PER_MILE, 3)
-
-    @property
-    def distance_traveled_mi(self) -> float | None:
-        """Distance traveled from previous sample in miles."""
-        if self.distance_traveled_m is None:
-            return None
-        return round(self.distance_traveled_m / METERS_PER_MILE, 3)
-
 
 def direction_of_travel(
-    previous_distance_from_home_m: float | None, distance_from_home_m: float | None
+    previous_distance_from_home: float | None, distance_from_home: float | None
 ) -> str:
     """Compare home-distance snapshots and return a user-facing direction string.
 
     Args:
-        previous_distance_from_home_m: Prior distance from home.
-        distance_from_home_m: New distance from home.
+        previous_distance_from_home: Prior distance from home.
+        distance_from_home: New distance from home.
 
     Returns:
         ``towards home``, ``away from home``, or ``stationary``.
     """
-    if previous_distance_from_home_m is None or distance_from_home_m is None:
+    if previous_distance_from_home is None or distance_from_home is None:
         return "stationary"
 
-    if previous_distance_from_home_m > distance_from_home_m:
+    if previous_distance_from_home > distance_from_home:
         return "towards home"
-    if previous_distance_from_home_m < distance_from_home_m:
+    if previous_distance_from_home < distance_from_home:
         return "away from home"
     return "stationary"
