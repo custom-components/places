@@ -70,6 +70,8 @@ from custom_components.places.const import (
     OSM_THROTTLE_INTERVAL_SECONDS,
     UpdateStatus,
 )
+from custom_components.places.coordinator import PlacesUpdateCoordinator
+from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
 from tests.conftest import (
     MockSensor,
@@ -162,6 +164,7 @@ async def test_do_update_flow_variants(
         mocks["rollback_update"].assert_not_called()
 
     assert sensor.attrs[ATTR_LAST_UPDATED] == "2024-01-01 12:00:00"
+    sensor.publish_update.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -213,6 +216,50 @@ async def test_check_for_updated_entity_name_entity_id_new_name(
     sensor.get_attr.return_value = "OldName"
     await updater.check_for_updated_entity_name()
     mock_hass.config_entries.async_update_entry.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_check_for_updated_entity_name_with_real_coordinator_entity(
+    mock_hass: MagicMock,
+    patch_entity_registry: object,
+) -> None:
+    """A real Places entity should sync its resolved entity ID into the coordinator."""
+    _ = patch_entity_registry
+    mock_hass.states.get.return_value = MagicMock(attributes={})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_NAME: "OldName", CONF_DEVICETRACKER_ID: "device_tracker.test"},
+    )
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(
+        hass=mock_hass,
+        config_entry=entry,
+        imported_attributes={},
+        persistence=persistence,
+    )
+    entry.runtime_data = coordinator
+    Places(
+        hass=mock_hass,
+        config=dict(entry.data),
+        config_entry=entry,
+        name="OldName",
+        unique_id=entry.entry_id,
+        imported_attributes={},
+        persistence=persistence,
+    )
+
+    assert coordinator.entity_id == "sensor.oldname"
+
+    state = MagicMock()
+    state.attributes = {ATTR_FRIENDLY_NAME: "NewName"}
+    mock_hass.states.get.return_value = state
+    updater = PlacesUpdater(mock_hass, entry, coordinator)
+
+    await updater.check_for_updated_entity_name()
+
+    mock_hass.config_entries.async_update_entry.assert_called_once()
+    assert coordinator.device_info["name"] == "NewName"
 
 
 @pytest.mark.asyncio
@@ -1170,7 +1217,7 @@ async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
     updater = PlacesUpdater(
         hass=mock_hass,
         config_entry=mock_config_entry,
-        sensor=sensor,
+        coordinator=sensor,
     )
     mock_parser_cls = MagicMock(return_value=mock_parser)
     monkeypatch.setattr("custom_components.places.update_sensor.OSMParser", mock_parser_cls)

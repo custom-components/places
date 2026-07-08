@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.places.const import ATTR_LAST_PLACE_NAME, UpdateStatus
+from custom_components.places.const import ATTR_LAST_PLACE_NAME, ATTR_LAST_UPDATED, UpdateStatus
 from custom_components.places.pipeline import PlacesUpdatePipeline
 from custom_components.places.update_sensor import PlacesUpdater
 from tests.conftest import MockSensor, StubMapping
@@ -30,7 +30,13 @@ async def test_update_pipeline_runs_phases_in_expected_order(
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
 
-    updater.sensor.set_attr(ATTR_LAST_PLACE_NAME, "Last Place")
+    updater.coordinator.set_attr(ATTR_LAST_PLACE_NAME, "Last Place")
+
+    def publish_update() -> None:
+        call_order.append("publish")
+        assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
+
+    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
 
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
@@ -61,6 +67,7 @@ async def test_update_pipeline_runs_phases_in_expected_order(
         return True
 
     async def finish_update(*_args: object, **_kwargs: object) -> None:
+        updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
         call_order.append("finish_update")
 
     async def update_entity_name_and_cleanup() -> None:
@@ -132,6 +139,7 @@ async def test_update_pipeline_runs_phases_in_expected_order(
         "should_update_state",
         "handle_state_update",
         "finish_update",
+        "publish",
     ]
     assert call_order == expected_order
 
@@ -146,10 +154,15 @@ async def test_update_pipeline_rolls_back_and_finishes_on_phase_error(
         AbstractContextManager[StubMapping],
     ],
 ) -> None:
-    """Rollback partial state and finalize bookkeeping when a phase fails."""
+    """Phase errors should rollback, finish bookkeeping, then publish the rollback snapshot."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+
+    def publish_update() -> None:
+        call_order.append("publish")
+
+    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
 
     async def log_update_start(_: str) -> None:
         call_order.append("log_update_start")
@@ -210,6 +223,7 @@ async def test_update_pipeline_rolls_back_and_finishes_on_phase_error(
             {"snapshot": "value"}, now, UpdateStatus.PROCEED
         )
         mocks["finish_update"].assert_awaited_once_with(now=now)
+        updater.coordinator.publish_update.assert_called_once_with()
 
     assert call_order == [
         "log_update_start",
@@ -219,4 +233,57 @@ async def test_update_pipeline_rolls_back_and_finishes_on_phase_error(
         "process_osm_update",
         "rollback_update",
         "finish_update",
+        "publish",
     ]
+
+
+@pytest.mark.asyncio
+async def test_update_pipeline_publishes_after_successful_rollback_path(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: Callable[
+        [PlacesUpdater, list[tuple[str, dict[str, object]]]],
+        AbstractContextManager[StubMapping],
+    ],
+) -> None:
+    """Rollback-based successful exits should publish the latest coordinator snapshot."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    call_order: list[str] = []
+
+    def publish_update() -> None:
+        call_order.append("publish")
+        assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
+
+    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
+    now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+
+    async def finish_update(*_args: object, **_kwargs: object) -> None:
+        updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
+        call_order.append("finish_update")
+
+    with stubbed_updater(
+        updater,
+        [
+            ("log_update_start", {}),
+            ("get_current_time", {"return_value": now}),
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("update_old_coordinates", {}),
+            ("check_device_tracker_and_update_coords", {"return_value": UpdateStatus.PROCEED}),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
+            ("process_osm_update", {}),
+            ("should_update_state", {"return_value": False}),
+            ("rollback_update", {}),
+            ("finish_update", {"side_effect": finish_update}),
+        ],
+    ) as mocks:
+        updater._osm_client.update_sensor_name = MagicMock()
+
+        await PlacesUpdatePipeline(updater).run("manual", {"snapshot": "value"})
+
+        mocks["rollback_update"].assert_awaited_once_with(
+            {"snapshot": "value"}, now, UpdateStatus.PROCEED
+        )
+        updater.coordinator.publish_update.assert_called_once_with()
+        assert call_order == ["finish_update", "publish"]

@@ -263,6 +263,7 @@ class MockSensor:
         self.async_cleanup_attributes = AsyncMock()
         self.restore_previous_attr = AsyncMock(side_effect=self._restore_previous_attr)
         self.async_persist_attributes = AsyncMock()
+        self.publish_update = MagicMock()
         self.get_internal_attr = lambda: self.attrs
 
     def _set_attr(self, key: str, value: object) -> None:
@@ -400,6 +401,7 @@ def places_instance(
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
     persistence.async_remove = AsyncMock()
+    mock_config_entry.runtime_data = MagicMock(entity_id=None)
     return Places(
         mock_hass,
         config,

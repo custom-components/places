@@ -35,15 +35,16 @@ class PlacesUpdatePipeline:
         """
         await self.updater.log_update_start(reason)
         now: datetime = await self.updater.get_current_time()
-        sensor = self.updater.sensor
+        coordinator = self.updater.coordinator
         proceed_with_update = UpdateStatus.SKIP
+        should_publish = False
 
         try:
             await self.updater.update_entity_name_and_cleanup()
             await self.updater.update_client_sensor_name()
             await self.updater.update_previous_state()
             await self.updater.update_old_coordinates()
-            prev_last_place_name = sensor.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
+            prev_last_place_name = coordinator.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
 
             proceed_with_update = await self.updater.check_device_tracker_and_update_coords()
             if proceed_with_update == UpdateStatus.PROCEED:
@@ -56,19 +57,28 @@ class PlacesUpdatePipeline:
                     await self.updater.handle_state_update(
                         now=now, prev_last_place_name=prev_last_place_name
                     )
+                    should_publish = True
                 else:
                     _LOGGER.info(
                         "(%s) No entity update needed, Previous State = New State",
-                        sensor.get_attr(CONF_NAME),
+                        coordinator.get_attr(CONF_NAME),
                     )
                     await self.updater.rollback_update(previous_attr, now, proceed_with_update)
+                    should_publish = True
             else:
                 await self.updater.rollback_update(previous_attr, now, proceed_with_update)
+                should_publish = True
         except Exception:
             # This orchestration boundary must rollback partial state for any
             # phase failure, then re-raise so Home Assistant can report it.
-            _LOGGER.exception("(%s) Error during Places update", sensor.get_attr(CONF_NAME))
+            _LOGGER.exception(
+                "(%s) Error during Places update",
+                coordinator.get_attr(CONF_NAME),
+            )
             await self.updater.rollback_update(previous_attr, now, proceed_with_update)
+            should_publish = True
             raise
         finally:
             await self.updater.finish_update(now=now)
+            if should_publish:
+                coordinator.publish_update()

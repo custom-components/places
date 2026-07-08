@@ -1,7 +1,6 @@
 """Test suite for the Places sensor integration."""
 
-import asyncio
-from collections.abc import Callable, Coroutine, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
 import logging
 from typing import ClassVar, cast
@@ -12,16 +11,24 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
+    ATTR_ATTRIBUTION,
+    ATTR_CITY,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DRIVING,
     ATTR_FORMATTED_PLACE,
+    ATTR_GPS_ACCURACY,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
     ATTR_NATIVE_VALUE,
+    ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_TYPE,
+    CONF_ICON,
     DOMAIN,
 )
+from custom_components.places.coordinator import PlacesData, PlacesUpdateCoordinator
 from custom_components.places.entity import (
     DEFAULT_ATTRIBUTE_SENSOR_KEYS,
     DISABLED_ATTRIBUTE_SENSOR_KEYS,
@@ -41,6 +48,68 @@ type ParserPatch = (
 )
 type ExpectedSetAttrCall = tuple[str, tuple[object, ...]]
 type SetupCallable = Callable[[MagicMock], None]
+
+
+def test_places_data_copies_attributes() -> None:
+    """Coordinator data snapshots should not expose mutable internal state."""
+    source = {ATTR_LATITUDE: 1.25}
+    data = PlacesData(native_value="Library", attributes=source)
+    source[ATTR_LATITUDE] = 9.5
+
+    assert data.attributes == {ATTR_LATITUDE: 1.25}
+
+
+def test_coordinator_device_info_uses_config_entry(mock_hass: MagicMock) -> None:
+    """All Places entities for one entry should group under one HA Device."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(
+        hass=mock_hass,
+        config_entry=entry,
+        imported_attributes={},
+        persistence=MagicMock(),
+    )
+
+    assert coordinator.device_info == {
+        "identifiers": {("places", "entry123")},
+        "name": "TestSensor",
+        "manufacturer": "Places",
+        "model": "OpenStreetMap reverse geocode",
+    }
+
+
+def test_coordinator_main_attributes_are_location_context_only(
+    mock_hass: MagicMock,
+) -> None:
+    """The display sensor should expose only location-context attributes."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(
+        hass=mock_hass,
+        config_entry=entry,
+        imported_attributes={},
+        persistence=MagicMock(),
+    )
+    coordinator.set_attr(ATTR_LATITUDE, 1.25)
+    coordinator.set_attr(ATTR_LONGITUDE, -2.5)
+    coordinator.set_attr(ATTR_GPS_ACCURACY, 8.0)
+    coordinator.set_attr(ATTR_PICTURE, "/local/person.png")
+    coordinator.set_attr(ATTR_ATTRIBUTION, "OpenStreetMap")
+    coordinator.set_attr(ATTR_CITY, "Richmond")
+
+    assert coordinator.main_state_attributes == {
+        ATTR_LATITUDE: 1.25,
+        ATTR_LONGITUDE: -2.5,
+        ATTR_GPS_ACCURACY: 8.0,
+        ATTR_PICTURE: "/local/person.png",
+        ATTR_ATTRIBUTION: "OpenStreetMap",
+    }
 
 
 def test_attribute_sensor_descriptions_have_expected_default_policy() -> None:
@@ -72,6 +141,11 @@ def test_shared_places_entity_bases_live_in_entity_module() -> None:
     assert PlacesSensorEntity.__mro__[1] is PlacesEntity
 
 
+def test_legacy_sensor_no_longer_owns_tracker_event_updates() -> None:
+    """Tracker event handling should live only on the coordinator now."""
+    assert not hasattr(Places, "tsc_update")
+
+
 def test_places_entity_uses_typed_coordinator_base() -> None:
     """PlacesEntity should retain the future coordinator generic contract."""
     orig_bases = getattr(PlacesEntity, "__orig_bases__", ())
@@ -86,13 +160,17 @@ def places_instance(mock_hass: MagicMock, patch_entity_registry: object) -> Plac
     _ = patch_entity_registry
     hass = mock_hass
     config = {"devicetracker_id": "test_id"}
-    config_entry = MockConfigEntry(domain="places", data={})
+    config_entry = MockConfigEntry(
+        domain="places",
+        data={"name": "TestSensor", "devicetracker_id": "test_id"},
+    )
     name = "TestSensor"
     unique_id = "unique123"
     imported_attributes: dict[str, object] = {}
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
     persistence.async_remove = AsyncMock()
+    config_entry.runtime_data = MagicMock(entity_id=None)
     return Places(
         hass,
         config,
@@ -243,31 +321,33 @@ def test_extra_state_attributes_basic(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("tracker_id", ["device.tracker_1", "device.tracker_2"])
-async def test_async_added_to_hass_param(
-    monkeypatch: pytest.MonkeyPatch, places_instance: Places, tracker_id: str
+async def test_async_added_to_hass_registers_coordinator_listener(
+    monkeypatch: pytest.MonkeyPatch, places_instance: Places
 ) -> None:
-    """Parametrized: async_added_to_hass subscribes to the configured tracker id and registers the removal callback."""
-    mock_track_event = MagicMock(return_value="remove_handle")
-    monkeypatch.setattr(
-        "custom_components.places.sensor.async_track_state_change_event",
-        mock_track_event,
+    """Legacy sensor entity should mirror coordinator snapshots instead of tracker events."""
+    coordinator = MagicMock()
+    coordinator.async_add_listener = MagicMock(return_value="remove_handle")
+    coordinator.data = PlacesData(
+        native_value="Library",
+        attributes={CONF_ICON: "mdi:map", ATTR_PICTURE: "/local/person.png"},
     )
+    places_instance._config_entry.runtime_data = coordinator
+    places_instance.async_on_remove = MagicMock()
+    async_write_ha_state = MagicMock()
+    monkeypatch.setattr(places_instance, "async_write_ha_state", async_write_ha_state)
     mock_logger = MagicMock()
     monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
 
-    places_instance.get_attr = MagicMock(return_value=tracker_id)
-    places_instance.tsc_update = MagicMock()
-    places_instance.async_on_remove = MagicMock()
-
     await places_instance.async_added_to_hass()
 
-    mock_track_event.assert_called_once_with(
-        places_instance._hass,
-        [tracker_id],
-        places_instance.tsc_update,
+    coordinator.async_add_listener.assert_called_once_with(
+        places_instance._handle_coordinator_update,
     )
     places_instance.async_on_remove.assert_called_once_with("remove_handle")
+    async_write_ha_state.assert_called_once_with()
+    assert places_instance.native_value == "Library"
+    assert places_instance._attr_icon == "mdi:map"
+    assert places_instance._attr_entity_picture == "/local/person.png"
     mock_logger.debug.assert_called()
 
 
@@ -481,53 +561,27 @@ async def test_async_cleanup_attributes_various(
 async def test_async_update_triggers_do_update(
     monkeypatch: pytest.MonkeyPatch, places_instance: Places
 ) -> None:
-    """Test that async_update triggers the creation of an asynchronous update task."""
-    called = {}
+    """Polling updates should await the coordinator refresh inline."""
+    do_update = AsyncMock(return_value=None)
+    monkeypatch.setattr(places_instance, "do_update", do_update)
 
-    # Stub do_update to avoid executing real logic
-    monkeypatch.setattr(places_instance, "do_update", AsyncMock(return_value=None))
-
-    background_tasks = set()
-
-    def fake_create_task(coro: Coroutine[object, object, object]) -> None:
-        """Schedule the coroutine, retain a reference, and mark task creation."""
-        task = asyncio.create_task(coro)
-        background_tasks.add(task)
-        task.add_done_callback(background_tasks.discard)
-        called["task"] = True
-
-    monkeypatch.setattr(places_instance._hass, "async_create_task", fake_create_task)
     await places_instance.async_update()
-    assert called.get("task") is True
+
+    do_update.assert_awaited_once_with("Scan Interval")
 
 
 @pytest.mark.asyncio
 async def test_async_update_throttle(
     monkeypatch: pytest.MonkeyPatch, places_instance: Places
 ) -> None:
-    """Test that async_update is throttled and does not trigger multiple tasks within the throttle interval."""
-    called = {}
+    """Polling throttling should suppress a second inline refresh."""
+    do_update = AsyncMock(return_value=None)
+    monkeypatch.setattr(places_instance, "do_update", do_update)
 
-    # Stub do_update to avoid executing real logic
-    monkeypatch.setattr(places_instance, "do_update", AsyncMock(return_value=None))
-
-    background_tasks = set()
-
-    def fake_create_task(coro: Coroutine[object, object, object]) -> None:
-        """Schedule the coroutine, retain a reference, and mark task creation."""
-        task = asyncio.create_task(coro)
-        background_tasks.add(task)
-        task.add_done_callback(background_tasks.discard)
-        called["task"] = True
-
-    monkeypatch.setattr(places_instance._hass, "async_create_task", fake_create_task)
-    # First call triggers
     await places_instance.async_update()
-    assert called.get("task") is True
-    called.clear()
-    # Second call should be throttled (MIN_THROTTLE_INTERVAL/THROTTLE_INTERVAL)
     await places_instance.async_update()
-    assert called.get("task") is None
+
+    do_update.assert_awaited_once_with("Scan Interval")
 
 
 @pytest.mark.asyncio
@@ -544,7 +598,7 @@ async def test_async_setup_entry_places_param(
     patched_class: str,
     mock_hass: MagicMock,
 ) -> None:
-    """Parametrized: async_setup_entry adds the expected entity class and calls async_add_entities."""
+    """Parametrized: sensor setup should build entities from coordinator runtime data."""
     # use shared mock_hass fixture to provide common mocked hass behavior
     hass = mock_hass
     hass.data = {}
@@ -556,6 +610,15 @@ async def test_async_setup_entry_places_param(
             "extended_attr": extended_attr,
         },
     )
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(
+        hass=hass,
+        config_entry=config_entry,
+        imported_attributes={"native_value": "Restored"},
+        persistence=persistence,
+    )
+    config_entry.runtime_data = coordinator
 
     class _Adder:
         """Callable entity-adder test double that records invocation details."""
@@ -578,9 +641,11 @@ async def test_async_setup_entry_places_param(
 
     async_add_entities = _Adder()
 
-    # Patch persistence and the appropriate Places class
-    _FakePlacesStorage.instances = []
-    monkeypatch.setattr("custom_components.places.sensor.PlacesStorage", _FakePlacesStorage)
+    # Patch the appropriate Places class and fail closed if sensor setup touches storage.
+    monkeypatch.setattr(
+        "custom_components.places.sensor.PlacesStorage",
+        MagicMock(side_effect=AssertionError("sensor setup should use coordinator runtime data")),
+    )
     entity_class = MagicMock()
     monkeypatch.setattr(f"custom_components.places.sensor.{patched_class}", entity_class)
 
@@ -589,11 +654,9 @@ async def test_async_setup_entry_places_param(
     ):
         await async_setup_entry(hass, config_entry, async_add_entities)
 
-    assert _FakePlacesStorage.instances
-    assert _FakePlacesStorage.instances[0].entry_id == config_entry.entry_id
     assert entity_class.call_args is not None
-    assert entity_class.call_args.kwargs["persistence"] is _FakePlacesStorage.instances[0]
-    assert entity_class.call_args.kwargs["imported_attributes"] == {"native_value": "Restored"}
+    assert entity_class.call_args.kwargs["persistence"] is persistence
+    assert entity_class.call_args.kwargs["imported_attributes"]["native_value"] == "Restored"
 
     # Should call async_add_entities once and pass update_before_add=True
     assert async_add_entities.call_count == 1
@@ -674,10 +737,6 @@ async def test_async_will_remove_from_hass_counts_other_extended_entries(
     config_entries = [other_entry]
     if include_current_entry:
         config_entries.insert(0, current_entry)
-    places_instance._config_entry.runtime_data = {
-        "name": "TestName",
-        "extended_attr": current_extended,
-    }
     places_instance._config_entry = current_entry
     places_instance._hass.config_entries.async_entries = MagicMock(return_value=config_entries)
     places_instance._attr_name = "TestName"
@@ -721,13 +780,21 @@ async def test_async_will_remove_from_hass_counts_other_extended_entries(
 async def test_async_will_remove_from_hass_with_real_runtime_data_shape(
     places_instance: Places,
 ) -> None:
-    """Runtime data values can remain plain scalars; recorder logic uses config entries instead."""
+    """Recorder cleanup should tolerate coordinator-backed runtime data."""
     places_instance.get_attr = MagicMock(return_value=True)
     places_instance._hass.data = {RECORDER_INSTANCE: MagicMock(exclude_event_types={EVENT_TYPE})}
-    places_instance._config_entry = MockConfigEntry(
-        domain="places", data={"extended_attr": True, "name": "TestName"}
+    config_entry = MockConfigEntry(
+        domain="places",
+        data={"extended_attr": True, "name": "TestName", "devicetracker_id": "device.test"},
     )
-    places_instance._config_entry.runtime_data = {"extended_attr": "yes", "name": "TestName"}
+    coordinator = PlacesUpdateCoordinator(
+        hass=places_instance._hass,
+        config_entry=config_entry,
+        imported_attributes={},
+        persistence=MagicMock(),
+    )
+    places_instance._config_entry = config_entry
+    places_instance._config_entry.runtime_data = coordinator
     places_instance._hass.config_entries.async_entries = MagicMock(return_value=[])
     places_instance._attr_name = "TestName"
     places_instance._entity_id = "sensor.test"
@@ -827,7 +894,9 @@ async def test_do_update_calls_updater(
     sensor = MagicMock(spec=Places)
     sensor._hass = mock_hass
     sensor._config_entry = MockConfigEntry(domain="places", data={})
-    sensor._internal_attr = {"a": 1}
+    coordinator = MagicMock()
+    coordinator.get_internal_attr.return_value = {"a": 1}
+    sensor._config_entry.runtime_data = coordinator
     # prepared_updater patches PlacesUpdater to return a MagicMock and records init calls
     mock_updater = prepared_updater
     with stubbed_updater(mock_updater, [("do_update", {})]):
@@ -837,7 +906,7 @@ async def test_do_update_calls_updater(
         _args, kwargs = mock_updater._init_calls[-1]
         assert kwargs.get("hass") is sensor._hass
         assert kwargs.get("config_entry") is sensor._config_entry
-        assert kwargs.get("sensor") is sensor
+        assert kwargs.get("coordinator") is coordinator
         mock_updater.do_update.assert_awaited_once_with(
             reason="test-reason", previous_attr={"a": 1}
         )
@@ -853,7 +922,9 @@ async def test_do_update_handles_empty_internal_attr(
     sensor = MagicMock(spec=Places)
     sensor._hass = mock_hass
     sensor._config_entry = MockConfigEntry(domain="places", data={})
-    sensor._internal_attr = {}
+    coordinator = MagicMock()
+    coordinator.get_internal_attr.return_value = {}
+    sensor._config_entry.runtime_data = coordinator
     mock_updater = prepared_updater
     with stubbed_updater(mock_updater, [("do_update", {})]):
         await Places.do_update(sensor, reason="another-reason")

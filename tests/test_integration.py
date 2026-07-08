@@ -2,7 +2,7 @@
 
 import logging
 from typing import ClassVar
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -49,12 +49,55 @@ class _FakePlacesStorage:
         type(self).remove_calls_args.append((self.entry_id, self.name))
 
 
+class _FakeSetupPlacesStorage:
+    """Test double for setup-time PlacesStorage interactions."""
+
+    instances: ClassVar[list[_FakeSetupPlacesStorage]] = []
+    load_result: ClassVar[dict[str, object]] = {}
+
+    def __init__(self, hass: object, entry_id: str, name: str) -> None:
+        """Record constructor arguments for assertions."""
+        self.hass = hass
+        self.entry_id = entry_id
+        self.name = name
+        self.instances.append(self)
+
+    async def async_load(self) -> dict[str, object]:
+        """Return the configured persisted snapshot for setup tests."""
+        return dict(type(self).load_result)
+
+
+class _FakeCoordinator:
+    """Test double for setup and unload coordinator ownership."""
+
+    instances: ClassVar[list[_FakeCoordinator]] = []
+
+    def __init__(
+        self,
+        hass: object,
+        config_entry: MockConfigEntry,
+        imported_attributes: dict[str, object],
+        persistence: _FakeSetupPlacesStorage | MagicMock,
+    ) -> None:
+        """Record construction arguments and expose async hooks for assertions."""
+        self.hass = hass
+        self.config_entry = config_entry
+        self.imported_attributes = imported_attributes
+        self.persistence = persistence
+        self.async_added_to_hass = AsyncMock()
+        self.async_shutdown = AsyncMock()
+        self.instances.append(self)
+
+
 @pytest.fixture(autouse=True)
 def reset_fake_storage() -> None:
     """Reset fake storage accounting for each integration test."""
     _FakePlacesStorage.remove_calls = 0
     _FakePlacesStorage.remove_calls_args = []
     _FakePlacesStorage.remove_error = None
+    _FakeSetupPlacesStorage.instances = []
+    _FakeSetupPlacesStorage.load_result = {}
+    _FakeCoordinator.instances = []
 
 
 @pytest.mark.asyncio
@@ -114,6 +157,13 @@ async def test_async_unload_entry_logs_safe_identifier(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Config-entry unload should not log the full entry data mapping."""
+    sensitive_entry.runtime_data = _FakeCoordinator(
+        mock_hass,
+        sensitive_entry,
+        {},
+        MagicMock(),
+    )
+
     with caplog.at_level(logging.INFO, logger="custom_components.places"):
         await async_unload_entry(mock_hass, sensitive_entry)
 
@@ -123,46 +173,152 @@ async def test_async_unload_entry_logs_safe_identifier(
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_calls_forward_setups(
-    mock_hass: MagicMock, mock_entry: MockConfigEntry
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
 ) -> None:
-    """Ensure async_setup_entry sets runtime data and forwards platform setups."""
+    """Ensure setup creates the coordinator runtime owner and forwards platforms."""
+    _FakeSetupPlacesStorage.load_result = {"native_value": "Restored"}
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+    call_order: list[str] = []
+
+    async def record_subscription() -> None:
+        """Record coordinator subscription before platform forwarding."""
+        call_order.append("subscribe")
+
+    async def record_forward(*_args: object, **_kwargs: object) -> bool:
+        """Record platform forwarding after subscription."""
+        call_order.append("forward")
+        return True
+
+    original_init = _FakeCoordinator.__init__
+
+    def init_with_recorded_subscription(
+        self: _FakeCoordinator,
+        hass: object,
+        config_entry: MockConfigEntry,
+        imported_attributes: dict[str, object],
+        persistence: _FakeSetupPlacesStorage | MagicMock,
+    ) -> None:
+        """Install a recorded async_added_to_hass hook on the fake coordinator."""
+        original_init(self, hass, config_entry, imported_attributes, persistence)
+        self.async_added_to_hass.side_effect = record_subscription
+
+    monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_recorded_subscription)
+    mock_hass.config_entries.async_forward_entry_setups.side_effect = record_forward
+
     result = await async_setup_entry(mock_hass, mock_entry)
+
     assert result is True
-    assert mock_entry.runtime_data == mock_entry.data
-    # Verify the async_forward_entry_setups coroutine was awaited with the expected args
+    assert isinstance(mock_entry.runtime_data, _FakeCoordinator)
+    assert _FakeSetupPlacesStorage.instances[0].entry_id == mock_entry.entry_id
+    assert _FakeSetupPlacesStorage.instances[0].name == mock_entry.data[CONF_NAME]
+    assert mock_entry.runtime_data.imported_attributes == {"native_value": "Restored"}
+    assert mock_entry.runtime_data.persistence is _FakeSetupPlacesStorage.instances[0]
+    mock_entry.runtime_data.async_added_to_hass.assert_awaited_once_with()
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )
+    assert call_order == ["subscribe", "forward"]
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_does_not_subscribe_when_platform_setup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
+) -> None:
+    """Forwarding failure should unsubscribe the coordinator and clear runtime data."""
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+    mock_hass.config_entries.async_forward_entry_setups.side_effect = RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await async_setup_entry(mock_hass, mock_entry)
+
+    coordinator = _FakeCoordinator.instances[0]
+    coordinator.async_added_to_hass.assert_awaited_once_with()
+    coordinator.async_shutdown.assert_awaited_once_with()
+    mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(mock_entry, PLATFORMS)
+    assert mock_entry.runtime_data is None
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
+) -> None:
+    """Subscription failure should shutdown the coordinator before any platform unload."""
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    async def raise_subscription_error() -> None:
+        """Raise a subscription error after platform forwarding succeeds."""
+        raise RuntimeError("subscribe boom")
+
+    original_init = _FakeCoordinator.__init__
+
+    def init_with_failing_subscription(
+        self: _FakeCoordinator,
+        hass: object,
+        config_entry: MockConfigEntry,
+        imported_attributes: dict[str, object],
+        persistence: _FakeSetupPlacesStorage | MagicMock,
+    ) -> None:
+        """Install a failing async_added_to_hass hook on the fake coordinator."""
+        original_init(self, hass, config_entry, imported_attributes, persistence)
+        self.async_added_to_hass.side_effect = raise_subscription_error
+
+    monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_failing_subscription)
+
+    with pytest.raises(RuntimeError, match="subscribe boom"):
+        await async_setup_entry(mock_hass, mock_entry)
+
+    coordinator = _FakeCoordinator.instances[0]
+    coordinator.async_added_to_hass.assert_awaited_once_with()
+    coordinator.async_shutdown.assert_awaited_once_with()
+    mock_hass.config_entries.async_unload_platforms.assert_not_awaited()
+    assert mock_entry.runtime_data is None
 
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_forward_setups_returns_false(
-    mock_hass: MagicMock, mock_entry: MockConfigEntry
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
 ) -> None:
-    """When the forwarded platform setups returns False, current implementation still returns True but should still await forwarding once.
-
-    Note: the integration does not propagate the return value from
-    `async_forward_entry_setups`, so we assert that `async_setup_entry` still
-    returns True while ensuring the forward call was awaited with expected args.
-    """
-    # Make the forwarded setup coroutine return False when awaited
+    """Setup should still keep coordinator runtime data even if forward returns False."""
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
     mock_hass.config_entries.async_forward_entry_setups.return_value = False
+
     result = await async_setup_entry(mock_hass, mock_entry)
-    # Integration does not propagate the forwarded setup result, so it returns True
+
     assert result is True
-    # Ensure the coroutine was awaited with the expected args
+    assert isinstance(mock_entry.runtime_data, _FakeCoordinator)
+    mock_entry.runtime_data.async_added_to_hass.assert_awaited_once_with()
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_with_empty_data(mock_hass: MagicMock) -> None:
-    """When config entry data is empty, async_setup_entry should still return True and set runtime_data to {}."""
+async def test_async_setup_entry_with_empty_data(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Setup should fall back to entry_id when no config-entry name exists."""
     entry = MockConfigEntry(domain="places", data={})
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
     result = await async_setup_entry(mock_hass, entry)
+
     assert result is True
-    assert entry.runtime_data == {}
+    assert isinstance(entry.runtime_data, _FakeCoordinator)
+    assert _FakeSetupPlacesStorage.instances[0].name == entry.entry_id
 
 
 @pytest.mark.asyncio
@@ -170,35 +326,53 @@ async def test_async_setup_entry_with_empty_data(mock_hass: MagicMock) -> None:
 async def test_async_unload_entry_result(
     mock_hass: MagicMock, mock_entry: MockConfigEntry, unload_return: bool, expected: bool
 ) -> None:
-    """async_unload_entry should return the result of async_unload_platforms for the provided entry."""
+    """Unload should proxy the platform result and stop the coordinator on success."""
+    coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
+    mock_entry.runtime_data = coordinator
     mock_hass.config_entries.async_unload_platforms.return_value = unload_return
+
     result = await async_unload_entry(mock_hass, mock_entry)
+
     assert result is expected
-    # Ensure async_unload_platforms coroutine was awaited with the expected args
     mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(mock_entry, PLATFORMS)
+    if unload_return:
+        coordinator.async_shutdown.assert_awaited_once_with()
+    else:
+        coordinator.async_shutdown.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_runtime_data_isolation(mock_hass: MagicMock) -> None:
-    """Test that each config entry maintains isolated runtime data after setup.
-
-    Ensures that calling `async_setup_entry` on multiple entries results in distinct `runtime_data` attributes, confirming no data leakage or sharing between entries.
-    """
+async def test_runtime_data_isolation(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Each config entry should receive its own coordinator instance."""
     entry1 = MockConfigEntry(domain="places", data={"name": "entry1"})
     entry2 = MockConfigEntry(domain="places", data={"name": "entry2"})
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
     await async_setup_entry(mock_hass, entry1)
     await async_setup_entry(mock_hass, entry2)
-    assert entry1.runtime_data != entry2.runtime_data
+
+    assert isinstance(entry1.runtime_data, _FakeCoordinator)
+    assert isinstance(entry2.runtime_data, _FakeCoordinator)
+    assert entry1.runtime_data is not entry2.runtime_data
 
 
 @pytest.mark.asyncio
 async def test_setup_entry_multiple_calls(
-    mock_hass: MagicMock, mock_entry: MockConfigEntry
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
 ) -> None:
-    """Test that calling async_setup_entry multiple times results in multiple calls to async_forward_entry_setups."""
+    """Repeated setup calls should still forward platforms each time."""
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
     await async_setup_entry(mock_hass, mock_entry)
     await async_setup_entry(mock_hass, mock_entry)
-    # Check the coroutine was awaited twice
+
     assert_awaited_count(mock_hass.config_entries.async_forward_entry_setups, 2)
 
 
@@ -208,6 +382,7 @@ async def test_async_unload_entry_does_not_remove_store_data(
 ) -> None:
     """Unloading/reloading an entry should not remove Store state."""
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
+    mock_entry.runtime_data = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
 
     await async_unload_entry(mock_hass, mock_entry)
 

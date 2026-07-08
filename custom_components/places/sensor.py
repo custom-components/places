@@ -19,7 +19,7 @@ import copy
 from datetime import timedelta
 import locale
 import logging
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE as RECORDER_INSTANCE
@@ -35,14 +35,11 @@ from homeassistant.const import (
     CONF_UNIQUE_ID,
     CONF_ZONE,
     MATCH_ALL,
-    STATE_UNAVAILABLE,
-    STATE_UNKNOWN,
 )
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 import homeassistant.helpers.entity_registry as er
-from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 from homeassistant.util import Throttle, slugify
 from homeassistant.util.file import WriteError
 from homeassistant.util.json import SerializationError
@@ -101,10 +98,12 @@ from .helpers import is_float
 from .persistence import PlacesStorage
 from .update_sensor import PlacesUpdater
 
+if TYPE_CHECKING:
+    from .coordinator import PlacesUpdateCoordinator
+
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 _AttrT = TypeVar("_AttrT", default=Any)
 THROTTLE_INTERVAL = timedelta(seconds=600)
-MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
 SCAN_INTERVAL = timedelta(seconds=30)
 
 
@@ -126,8 +125,9 @@ async def async_setup_entry(
     config: MutableMapping[str, Any] = dict(config_entry.data)
     unique_id: str = config_entry.entry_id
     name: str = config[CONF_NAME]
-    persistence = PlacesStorage(hass=hass, entry_id=unique_id, name=name)
-    imported_attributes: MutableMapping[str, Any] = await persistence.async_load()
+    coordinator = cast("PlacesUpdateCoordinator", config_entry.runtime_data)
+    persistence = coordinator.persistence
+    imported_attributes: MutableMapping[str, Any] = copy.deepcopy(coordinator.get_internal_attr())
     # _LOGGER.debug("[async_setup_entry] name: %s", name)
     # _LOGGER.debug("[async_setup_entry] unique_id: %s", unique_id)
     # _LOGGER.debug("[async_setup_entry] config: %s", config)
@@ -231,6 +231,7 @@ class Places(SensorEntity):
             self._entity_id = generate_entity_id(
                 ENTITY_ID_FORMAT, slugify(name.lower()), hass=self._hass
             )
+        self._sync_coordinator_entity_id()
         _LOGGER.debug("(%s) [Init] entity_id: %s", self._attr_name, self._entity_id)
         self._adv_options_state_list: list = []
         self.set_attr(CONF_ICON, DEFAULT_ICON)
@@ -357,6 +358,16 @@ class Places(SensorEntity):
         if self._internal_attr is not self._attributes.data:
             self._attributes.data = self._internal_attr
 
+    def _sync_coordinator_entity_id(self) -> None:
+        """Write the resolved entity ID back to the runtime coordinator.
+
+        Returns:
+            None.
+        """
+        coordinator = cast("PlacesUpdateCoordinator | None", self._config_entry.runtime_data)
+        if coordinator is not None:
+            coordinator.entity_id = self.entity_id or getattr(self, "_entity_id", None)
+
     def exclude_event_types(self) -> None:
         """Exclude high-cardinality Places update events from HA recorder."""
         if RECORDER_INSTANCE in self._hass.data:
@@ -369,19 +380,31 @@ class Places(SensorEntity):
             )
 
     async def async_added_to_hass(self) -> None:
-        """Subscribe to tracked-entity state changes after HA adds the entity."""
+        """Mirror coordinator snapshots after HA adds the entity."""
         await super().async_added_to_hass()
-        self.async_on_remove(
-            async_track_state_change_event(
-                self._hass,
-                [str(self.get_attr(CONF_DEVICETRACKER_ID))],
-                self.tsc_update,
-            )
-        )
+        coordinator = cast("PlacesUpdateCoordinator", self._config_entry.runtime_data)
+        self._sync_coordinator_entity_id()
+        self.async_on_remove(coordinator.async_add_listener(self._handle_coordinator_update))
+        self._handle_coordinator_update()
         _LOGGER.debug(
-            "(%s) [Init] Subscribed to Tracked Entity state change events",
+            "(%s) [Init] Subscribed to coordinator updates",
             self.get_attr(CONF_NAME),
         )
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Copy the latest coordinator snapshot into the legacy sensor entity."""
+        coordinator = cast("PlacesUpdateCoordinator", self._config_entry.runtime_data)
+        snapshot = coordinator.data
+        self._attributes.data = dict(snapshot.attributes)
+        self._internal_attr = self._attributes.data
+        self._attr_native_value = snapshot.native_value
+        if not self.is_attr_blank(CONF_NAME):
+            self._attr_name = self.get_attr_safe_str(CONF_NAME)
+        if not self.is_attr_blank(CONF_ICON):
+            self._attr_icon = self.get_attr_safe_str(CONF_ICON)
+        self._attr_entity_picture = self.get_attr(ATTR_PICTURE)
+        self.async_write_ha_state()
 
     async def async_will_remove_from_hass(self) -> None:
         """Clean up recorder exclusions before entity removal."""
@@ -572,32 +595,10 @@ class Places(SensorEntity):
         self._attributes.clear(attr)
         self._internal_attr = self._attributes.data
 
-    @Throttle(MIN_THROTTLE_INTERVAL)
-    @callback
-    def tsc_update(self, event: Event[EventStateChangedData]) -> None:
-        """Schedule an update from a tracked-entity state-change event.
-
-        Args:
-            event: Home Assistant state-change event for the configured tracked
-                entity.
-        """
-        # _LOGGER.debug(f"({self.get_attr(CONF_NAME)}) [TSC Update] event: {event}")
-        new_state = event.data["new_state"]
-        if new_state is None or (
-            isinstance(new_state.state, str)
-            and new_state.state.lower() in {"none", STATE_UNKNOWN, STATE_UNAVAILABLE}
-        ):
-            return
-        # _LOGGER.debug("(%s) [TSC Update] new_state: %s", self.get_attr(CONF_NAME), new_state)
-
-        update_type: str = "Track State Change"
-        self._hass.async_create_task(self.do_update(update_type))
-
     @Throttle(THROTTLE_INTERVAL)
     async def async_update(self) -> None:
-        """Schedule a throttled update from Home Assistant polling."""
-        update_type = "Scan Interval"
-        self._hass.async_create_task(self.do_update(update_type))
+        """Run a throttled update from Home Assistant polling inline."""
+        await self.do_update("Scan Interval")
 
     async def in_zone(self) -> bool:
         """Return whether the tracked entity is in a real non-passive zone.
@@ -654,9 +655,16 @@ class Places(SensorEntity):
         Args:
             reason: Human-readable trigger reason used in logs.
         """
-        self._sync_internal_attr()
-        updater = PlacesUpdater(hass=self._hass, config_entry=self._config_entry, sensor=self)
-        await updater.do_update(reason=reason, previous_attr=copy.deepcopy(self._internal_attr))
+        coordinator = cast("PlacesUpdateCoordinator", self._config_entry.runtime_data)
+        updater = PlacesUpdater(
+            hass=self._hass,
+            config_entry=self._config_entry,
+            coordinator=coordinator,
+        )
+        await updater.do_update(
+            reason=reason,
+            previous_attr=copy.deepcopy(coordinator.get_internal_attr()),
+        )
 
     async def process_display_options(self) -> None:
         """Render the configured display options into ``ATTR_NATIVE_VALUE``."""
