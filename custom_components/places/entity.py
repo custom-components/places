@@ -102,7 +102,6 @@ class PlacesSensorEntity(PlacesEntity, SensorEntity):
 class PlacesAttributeSensorEntityDescription(SensorEntityDescription, frozen_or_thawed=True):
     """Description for a Places child sensor backed by the parent attribute store."""
 
-    attr_key: str
     value_fn: PlacesValueFn | None = None
 
 
@@ -124,135 +123,110 @@ def _meters_attr(attr_key: str) -> PlacesValueFn:
 
 
 PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescription, ...] = (
-    PlacesAttributeSensorEntityDescription(key=ATTR_PLACE_NAME, attr_key=ATTR_PLACE_NAME),
+    PlacesAttributeSensorEntityDescription(key=ATTR_PLACE_NAME),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DEVICETRACKER_ZONE_NAME,
-        attr_key=ATTR_DEVICETRACKER_ZONE_NAME,
     ),
-    PlacesAttributeSensorEntityDescription(key=ATTR_CITY, attr_key=ATTR_CITY),
-    PlacesAttributeSensorEntityDescription(key=ATTR_REGION, attr_key=ATTR_REGION),
+    PlacesAttributeSensorEntityDescription(key=ATTR_CITY),
+    PlacesAttributeSensorEntityDescription(key=ATTR_REGION),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DIRECTION_OF_TRAVEL,
-        attr_key=ATTR_DIRECTION_OF_TRAVEL,
     ),
-    PlacesAttributeSensorEntityDescription(key=ATTR_MAP_LINK, attr_key=ATTR_MAP_LINK),
+    PlacesAttributeSensorEntityDescription(key=ATTR_MAP_LINK),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DISTANCE_FROM_HOME,
-        attr_key=ATTR_DISTANCE_FROM_HOME_M,
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.METERS,
         value_fn=_meters_attr(ATTR_DISTANCE_FROM_HOME_M),
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DISTANCE_TRAVELED,
-        attr_key=ATTR_DISTANCE_TRAVELED_M,
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.METERS,
         value_fn=_meters_attr(ATTR_DISTANCE_TRAVELED_M),
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_COUNTRY,
-        attr_key=ATTR_COUNTRY,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_COUNTRY_CODE,
-        attr_key=ATTR_COUNTRY_CODE,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_STREET_NUMBER,
-        attr_key=ATTR_STREET_NUMBER,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_STREET,
-        attr_key=ATTR_STREET,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_STREET_REF,
-        attr_key=ATTR_STREET_REF,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_PLACE_NEIGHBOURHOOD,
-        attr_key=ATTR_PLACE_NEIGHBOURHOOD,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_POSTAL_TOWN,
-        attr_key=ATTR_POSTAL_TOWN,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_POSTAL_CODE,
-        attr_key=ATTR_POSTAL_CODE,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_COUNTY,
-        attr_key=ATTR_COUNTY,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_STATE_ABBR,
-        attr_key=ATTR_STATE_ABBR,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_PLACE_TYPE,
-        attr_key=ATTR_PLACE_TYPE,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_PLACE_CATEGORY,
-        attr_key=ATTR_PLACE_CATEGORY,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_PLACE_NAME_NO_DUPE,
-        attr_key=ATTR_PLACE_NAME_NO_DUPE,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DEVICETRACKER_ZONE,
-        attr_key=ATTR_DEVICETRACKER_ZONE,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LATITUDE_OLD,
-        attr_key=ATTR_LATITUDE_OLD,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LONGITUDE_OLD,
-        attr_key=ATTR_LONGITUDE_OLD,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LAST_PLACE_NAME,
-        attr_key=ATTR_LAST_PLACE_NAME,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LAST_CHANGED,
-        attr_key=ATTR_LAST_CHANGED,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LAST_UPDATED,
-        attr_key=ATTR_LAST_UPDATED,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_OSM_ID,
-        attr_key=ATTR_OSM_ID,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_OSM_TYPE,
-        attr_key=ATTR_OSM_TYPE,
         entity_registry_enabled_default=False,
     ),
 )

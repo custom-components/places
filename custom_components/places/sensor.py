@@ -118,9 +118,7 @@ class PlacesAttributeSensor(PlacesSensorEntity):
         if self.entity_description.value_fn is not None:
             self._attr_native_value = self.entity_description.value_fn(self.coordinator)
             return
-        self._attr_native_value = self.coordinator.data.attributes.get(
-            self.entity_description.attr_key
-        )
+        self._attr_native_value = self.coordinator.data.attributes.get(self.entity_description.key)
 
 
 class PlacesExtendedDataSensor(PlacesSensorEntity):
