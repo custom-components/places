@@ -244,7 +244,7 @@ class PlacesUpdater:
 
     async def check_for_updated_entity_name(self) -> None:
         """Copy a changed friendly name back into the config entry."""
-        if not hasattr(self.coordinator, "entity_id") or self.coordinator.entity_id is None:
+        if self.coordinator.entity_id is None:
             return
 
         entity_state = self._hass.states.get(str(self.coordinator.entity_id))
