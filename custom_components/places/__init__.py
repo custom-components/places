@@ -1,14 +1,24 @@
 """Initialize Home Assistant places integration."""
 
+import asyncio
 from collections.abc import Callable
 import logging
 
+import cachetools
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
-from .const import CONF_NAME, DOMAIN, PLATFORMS
+from .const import (
+    CONF_NAME,
+    DOMAIN,
+    OSM_CACHE,
+    OSM_CACHE_MAX_AGE_HOURS,
+    OSM_CACHE_MAX_SIZE,
+    OSM_THROTTLE,
+    PLATFORMS,
+)
 from .coordinator import PlacesUpdateCoordinator
 from .persistence import PlacesStorage
 
@@ -17,8 +27,25 @@ _LOGGER: logging.Logger = logging.getLogger(__name__)
 CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
 
 
+def _ensure_osm_runtime_state(hass: HomeAssistant) -> None:
+    """Initialize shared OSM cache and throttle state."""
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    domain_data.setdefault(
+        OSM_CACHE,
+        cachetools.TTLCache(maxsize=OSM_CACHE_MAX_SIZE, ttl=OSM_CACHE_MAX_AGE_HOURS * 3600),
+    )
+    domain_data.setdefault(
+        OSM_THROTTLE,
+        {
+            "lock": asyncio.Lock(),
+            "last_query": 0.0,
+        },
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
+    _ensure_osm_runtime_state(hass)
     name = entry.data.get(CONF_NAME, entry.entry_id)
     persistence = PlacesStorage(hass=hass, entry_id=entry.entry_id, name=name)
     coordinator = PlacesUpdateCoordinator(

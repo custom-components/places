@@ -5,16 +5,25 @@ import logging
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
+import cachetools
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places import (
+    _ensure_osm_runtime_state,
     async_remove_entry,
     async_remove_extended_entity,
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.places.const import CONF_API_KEY, CONF_NAME, PLATFORMS
+from custom_components.places.const import (
+    CONF_API_KEY,
+    CONF_NAME,
+    DOMAIN,
+    OSM_CACHE,
+    OSM_THROTTLE,
+    PLATFORMS,
+)
 from tests.conftest import assert_awaited_count
 
 
@@ -276,6 +285,9 @@ async def test_async_setup_entry_calls_forward_setups(
 
     assert result is True
     assert isinstance(mock_entry.runtime_data, _FakeCoordinator)
+    assert isinstance(mock_hass.data[DOMAIN][OSM_CACHE], cachetools.TTLCache)
+    assert isinstance(mock_hass.data[DOMAIN][OSM_THROTTLE]["lock"], asyncio.Lock)
+    assert mock_hass.data[DOMAIN][OSM_THROTTLE]["last_query"] == 0.0
     assert _FakeSetupPlacesStorage.instances[0].entry_id == mock_entry.entry_id
     assert _FakeSetupPlacesStorage.instances[0].name == mock_entry.data[CONF_NAME]
     assert mock_entry.runtime_data.imported_attributes == {"native_value": "Restored"}
@@ -286,6 +298,23 @@ async def test_async_setup_entry_calls_forward_setups(
         mock_entry, PLATFORMS
     )
     assert call_order == ["subscribe", "forward"]
+
+
+def test_ensure_osm_runtime_state_preserves_existing_state(mock_hass: MagicMock) -> None:
+    """OSM runtime setup should not replace existing shared cache or throttle."""
+    cache: dict[str, object] = {"cached": {"ok": True}}
+    throttle = {"lock": asyncio.Lock(), "last_query": 42.0}
+    mock_hass.data = {
+        DOMAIN: {
+            OSM_CACHE: cache,
+            OSM_THROTTLE: throttle,
+        }
+    }
+
+    _ensure_osm_runtime_state(mock_hass)
+
+    assert mock_hass.data[DOMAIN][OSM_CACHE] is cache
+    assert mock_hass.data[DOMAIN][OSM_THROTTLE] is throttle
 
 
 @pytest.mark.asyncio
