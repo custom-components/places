@@ -672,7 +672,7 @@ async def test_async_unload_entry_result(
 
 
 @pytest.mark.asyncio
-async def test_async_unload_entry_shuts_down_before_platform_unload(
+async def test_async_unload_entry_prepares_unload_before_platform_unload_and_shutdowns_after_success(
     mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
     """Teardown should stop update work before unloading and finalize after success."""

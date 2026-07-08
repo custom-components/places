@@ -468,12 +468,17 @@ async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
     class _FakeUpdater:
         """Update stub that blocks the first call to create a lock queue."""
 
-        def __init__(self, **kwargs: object) -> None:
+        def __init__(self, **_kwargs: object) -> None:
             """Track constructor calls by sequence number."""
             construct_calls.append(len(construct_calls) + 1)
             self._index = len(construct_calls)
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(
+            self,
+            _reason: str = "",
+            _previous_attr: dict[str, object] | None = None,
+            **_kwargs: object,
+        ) -> None:
             """Block first run and let any later run flag itself."""
             if self._index == 1:
                 first_started.set()

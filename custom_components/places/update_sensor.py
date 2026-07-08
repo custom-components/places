@@ -120,6 +120,7 @@ class PlacesUpdater:
         coordinator = self.coordinator
         proceed_with_update = UpdateStatus.SKIP
         was_cancelled = False
+        had_error = False
 
         def is_shutting_down() -> bool:
             """Return whether final update publication should be suppressed."""
@@ -139,10 +140,15 @@ class PlacesUpdater:
             if proceed_with_update == UpdateStatus.PROCEED:
                 await self.process_osm_update(now=now)
 
-                if await self.should_update_state(now=now):
-                    await self.handle_state_update(
-                        now=now, prev_last_place_name=prev_last_place_name
-                    )
+                if is_shutting_down():
+                    await self.rollback_update(previous_attr, now, proceed_with_update)
+                elif await self.should_update_state(now=now):
+                    if is_shutting_down():
+                        await self.rollback_update(previous_attr, now, proceed_with_update)
+                    else:
+                        await self.handle_state_update(
+                            now=now, prev_last_place_name=prev_last_place_name
+                        )
                 else:
                     _LOGGER.info(
                         "(%s) No entity update needed, Previous State = New State",
@@ -166,10 +172,11 @@ class PlacesUpdater:
                 "(%s) Error during Places update",
                 coordinator.get_attr(CONF_NAME),
             )
+            had_error = True
             await self.rollback_update(previous_attr, now, proceed_with_update)
             raise
         finally:
-            if not is_shutting_down() and not was_cancelled:
+            if not is_shutting_down() and not was_cancelled and not had_error:
                 await self.finish_update(now=now)
                 coordinator.publish_update()
 
