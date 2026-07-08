@@ -28,7 +28,7 @@
                 "description": "Vytvorte nový senzor\nPodrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
                 "data_description": {
                     "options": "Podrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
-                    "extended_attr": "Vytvára diagnostický senzor Extended data a načítava surové údaje OSM a Wikidata. Keď je vypnutý, senzor sa odstráni a doplnkové dopyty sa preskočia.",
+                    "extended_attr": "Vytvára diagnostický senzor Rozšírené údaje a načítava surové údaje OSM a Wikidata. Keď je vypnutý, senzor sa odstráni a doplnkové dopyty sa preskočia.",
                     "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
                   }
             }
@@ -61,7 +61,7 @@
                 "description": "**Aktualizuje sa senzor:&nbsp;{sensor_name}**\nPodrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                 "data_description": {
                     "options": "Podrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
-                    "extended_attr": "Vytvára diagnostický senzor Extended data a načítava surové údaje OSM a Wikidata. Keď je vypnutý, senzor sa odstráni a doplnkové dopyty sa preskočia.",
+                    "extended_attr": "Vytvára diagnostický senzor Rozšírené údaje a načítava surové údaje OSM a Wikidata. Keď je vypnutý, senzor sa odstráni a doplnkové dopyty sa preskočia.",
                     "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
                   }
             }

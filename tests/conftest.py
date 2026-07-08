@@ -289,13 +289,13 @@ class MockSensor:
             self.attrs.pop(key)
 
     async def _restore_previous_attr(self, previous_attr: Mapping[str, object]) -> None:
-        """Restore previous attribute values on this mock sensor.
+        """Restore previous attributes on this mock sensor with full replacement.
 
         Args:
-            previous_attr: Attribute snapshot to merge into ``self.attrs``.
+            previous_attr: Attribute snapshot to restore as the complete replacement.
         """
         with suppress(TypeError, ValueError, AttributeError):
-            self.attrs.update(previous_attr)
+            self.attrs = dict(previous_attr)
 
     async def in_zone(self) -> bool:
         """Return True if the sensor is in the configured zone, else False."""

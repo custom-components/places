@@ -28,6 +28,7 @@ from .persistence import PlacesStorage
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 _EXTENDED_ENTRY_COUNT_KEY = "_extended_attr_entry_count"
+_EXTENDED_ENTRY_SETUP_STATE_KEY = "_extended_attr_entry_setup_state"
 
 CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
 
@@ -80,7 +81,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.runtime_data = None
         raise
 
-    if entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
+    extended_attr_enabled = bool(entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR))
+    hass_data = hass.data.setdefault(DOMAIN, {})
+    hass_data.setdefault(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})[entry.entry_id] = (
+        extended_attr_enabled
+    )
+    if extended_attr_enabled:
         _increment_extended_attr_ref(hass)
     hass.async_create_task(coordinator.async_request_refresh())
     return True
@@ -95,10 +101,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
+        extended_entry_state = (
+            hass.data.get(DOMAIN, {}).get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
+            if isinstance(hass.data.get(DOMAIN, {}), dict)
+            else {}
+        )
         coordinator = entry.runtime_data
         await coordinator.async_shutdown()
-        if entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
+        if extended_entry_state.get(entry.entry_id, False):
             _decrement_extended_attr_ref(hass)
+        if isinstance(extended_entry_state, dict):
+            extended_entry_state.pop(entry.entry_id, None)
 
     return unload_ok
 

@@ -27,7 +27,7 @@ from custom_components.places.const import (
     OSM_THROTTLE,
     PLATFORMS,
 )
-from tests.conftest import assert_awaited_count
+from tests.conftest import MockSensor, assert_awaited_count
 
 
 @pytest.fixture
@@ -446,6 +446,80 @@ async def test_async_setup_entry_adds_event_exclusion_for_extended_attributes(
 
 
 @pytest.mark.asyncio
+async def test_async_unload_entry_uses_setup_state_when_extended_attr_turns_off(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Unload should remove exclusion even if entry data was changed to false."""
+    entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    await async_setup_entry(mock_hass, entry)
+    unload_entry = MockConfigEntry(
+        domain="places",
+        entry_id=entry.entry_id,
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: False,
+        },
+    )
+    unload_entry.runtime_data = entry.runtime_data
+    result = await async_unload_entry(mock_hass, unload_entry)
+
+    assert result is True
+    assert EVENT_TYPE not in recorder.exclude_event_types
+
+
+@pytest.mark.asyncio
+async def test_async_unload_entry_uses_setup_state_when_extended_attr_turns_on(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Unload should keep exclusion untouched when a previously off entry is turned on."""
+    entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: False,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    await async_setup_entry(mock_hass, entry)
+    unload_entry = MockConfigEntry(
+        domain="places",
+        entry_id=entry.entry_id,
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    unload_entry.runtime_data = entry.runtime_data
+    result = await async_unload_entry(mock_hass, unload_entry)
+
+    assert result is True
+    assert EVENT_TYPE not in recorder.exclude_event_types
+
+
+@pytest.mark.asyncio
 async def test_async_unload_entry_keeps_and_clears_recorder_exclusion_by_active_extended_count(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
@@ -500,6 +574,19 @@ async def test_async_unload_entry_result(
         coordinator.async_shutdown.assert_awaited_once_with()
     else:
         coordinator.async_shutdown.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_mock_sensor_restore_previous_attr_replaces_internal_mapping() -> None:
+    """MockSensor should replace attrs entirely instead of merging during restore."""
+    sensor = MockSensor(attrs={"keep": "old", "remove": "old"})
+    original_attrs = sensor.get_internal_attr()
+    previous = {"restored": "state"}
+
+    await sensor.restore_previous_attr(previous)
+
+    assert sensor.get_internal_attr() == previous
+    assert sensor.get_internal_attr() is not original_attrs
 
 
 @pytest.mark.asyncio
