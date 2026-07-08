@@ -344,6 +344,27 @@ async def test_async_setup_entry_does_not_subscribe_when_platform_setup_fails(
 
 
 @pytest.mark.asyncio
+async def test_async_setup_entry_clears_runtime_data_when_platform_cleanup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
+) -> None:
+    """Forwarding failure cleanup should not leave a dead coordinator in runtime data."""
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+    mock_hass.config_entries.async_forward_entry_setups.side_effect = RuntimeError("setup failed")
+    mock_hass.config_entries.async_unload_platforms.side_effect = RuntimeError("cleanup failed")
+
+    with pytest.raises(RuntimeError, match="setup failed"):
+        await async_setup_entry(mock_hass, mock_entry)
+
+    coordinator = _FakeCoordinator.instances[0]
+    coordinator.async_shutdown.assert_awaited_once_with()
+    mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(mock_entry, PLATFORMS)
+    assert mock_entry.runtime_data is None
+
+
+@pytest.mark.asyncio
 async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,

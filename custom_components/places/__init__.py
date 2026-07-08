@@ -79,8 +79,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception:
         # Keep setup failure paths observable while ensuring listener cleanup always runs.
         _LOGGER.exception("Unable to subscribe to tracker updates for %s", name)
-        await coordinator.async_shutdown()
-        entry.runtime_data = None
+        try:
+            await coordinator.async_shutdown()
+        except Exception:
+            _LOGGER.exception("Cleanup failed after subscription setup failure for %s", name)
+        finally:
+            entry.runtime_data = None
         raise
 
     try:
@@ -88,9 +92,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception:
         # Keep entry teardown behavior deterministic before re-raising setup failures.
         _LOGGER.exception("Platform setup failed for %s", name)
-        await coordinator.async_shutdown()
-        await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-        entry.runtime_data = None
+        try:
+            await coordinator.async_shutdown()
+            await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        except Exception:
+            _LOGGER.exception("Cleanup failed after platform setup failure for %s", name)
+        finally:
+            entry.runtime_data = None
         raise
 
     extended_attr_enabled = bool(entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR))
