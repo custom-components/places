@@ -76,7 +76,11 @@ class PlacesEntity(CoordinatorEntity["PlacesUpdateCoordinator"]):
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return the shared HA Device metadata for this config entry."""
+        """Return the shared HA Device metadata for this config entry.
+
+        Returns:
+            Device metadata used to group Places entities in Home Assistant.
+        """
         current_name = self.coordinator.get_attr_safe_str(CONF_NAME)
         if not current_name:
             current_name = str(
@@ -135,6 +139,14 @@ def _meters_attr(attr_key: str) -> PlacesValueFn:
     """
 
     def _value(coordinator: PlacesUpdateCoordinator) -> StateType:
+        """Read the configured meter-valued attribute from the coordinator.
+
+        Args:
+            coordinator: Places coordinator that owns runtime attributes.
+
+        Returns:
+            Float meter value, or ``None`` when the source attribute is unset.
+        """
         value = coordinator.get_attr(attr_key)
         return coordinator.get_attr_safe_float(attr_key) if value is not None else None
 

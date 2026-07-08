@@ -124,7 +124,11 @@ class PlacesExtendedDataSensor(PlacesSensorEntity):
     _unrecorded_attributes = frozenset({MATCH_ALL})
 
     def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
-        """Initialize the optional extended-data sensor."""
+        """Initialize the optional extended-data sensor.
+
+        Args:
+            coordinator: Places coordinator that owns extended attributes.
+        """
         super().__init__(coordinator, unique_suffix="extended_data")
         self._attr_extra_state_attributes = {}
         self._update_from_coordinator()

@@ -64,11 +64,19 @@ class OSMParser:
         self.coordinator = coordinator
 
     def current_osm_dict(self) -> MutableMapping[str, Any]:
-        """Return the current OSM response mapping from coordinator attributes."""
+        """Return the current OSM response mapping from coordinator attributes.
+
+        Returns:
+            Current parsed OSM response mapping.
+        """
         return self.coordinator.get_attr_safe_dict(ATTR_OSM_DICT)
 
     def current_address(self) -> MutableMapping[str, Any]:
-        """Return the current OSM address mapping from coordinator attributes."""
+        """Return the current OSM address mapping from coordinator attributes.
+
+        Returns:
+            Address mapping from the current OSM payload, or an empty mapping.
+        """
         address = self.current_osm_dict().get("address", {})
         if isinstance(address, MutableMapping):
             return address

@@ -34,7 +34,11 @@ CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
 
 
 def _ensure_osm_runtime_state(hass: HomeAssistant) -> None:
-    """Initialize shared OSM cache and throttle state."""
+    """Initialize shared OSM cache and throttle state.
+
+    Args:
+        hass: Home Assistant instance that owns integration runtime data.
+    """
     domain_data = hass.data.setdefault(DOMAIN, {})
     domain_data.setdefault(
         OSM_CACHE,
@@ -50,7 +54,15 @@ def _ensure_osm_runtime_state(hass: HomeAssistant) -> None:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up from a config entry."""
+    """Set up Places from a config entry.
+
+    Args:
+        hass: Home Assistant instance.
+        entry: Config entry to set up.
+
+    Returns:
+        ``True`` when setup completes successfully.
+    """
     _ensure_osm_runtime_state(hass)
     name = entry.data.get(CONF_NAME, entry.entry_id)
     persistence = PlacesStorage(hass=hass, entry_id=entry.entry_id, name=name)
@@ -93,7 +105,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
+    """Unload a Places config entry.
+
+    Args:
+        hass: Home Assistant instance.
+        entry: Config entry to unload.
+
+    Returns:
+        ``True`` when all Places platforms unload successfully.
+    """
     # This is called when an entry/configured device is to be removed. The class
     # needs to unload itself, and remove callbacks. See the classes for further
     # details
@@ -117,7 +137,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
-    """Track active extended-attributes entries and enable event exclusion on first add."""
+    """Track active extended-attributes entries and enable event exclusion on first add.
+
+    Args:
+        hass: Home Assistant instance that owns recorder runtime data.
+    """
     domain_data = hass.data.setdefault(DOMAIN, {})
     count = int(domain_data.get(_EXTENDED_ENTRY_COUNT_KEY, 0)) + 1
     domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
@@ -129,7 +153,11 @@ def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
 
 
 def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
-    """Release one active extended-attributes entry and clean up exclusion when last unloads."""
+    """Release one active extended-attributes entry and clean up exclusion when last unloads.
+
+    Args:
+        hass: Home Assistant instance that owns recorder runtime data.
+    """
     domain_data = hass.data.get(DOMAIN)
     if not isinstance(domain_data, dict):
         return
@@ -145,7 +173,12 @@ def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
 
 
 async def async_remove_extended_entity(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove the optional extended-data sensor registry entry if it exists."""
+    """Remove the optional extended-data sensor registry entry if it exists.
+
+    Args:
+        hass: Home Assistant instance.
+        entry: Config entry whose extended-data entity should be removed.
+    """
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id(
         Platform.SENSOR,
@@ -157,7 +190,15 @@ async def async_remove_extended_entity(hass: HomeAssistant, entry: ConfigEntry) 
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Remove config-entry specific persisted state."""
+    """Remove config-entry specific persisted state.
+
+    Args:
+        hass: Home Assistant instance.
+        entry: Config entry being removed.
+
+    Returns:
+        ``True`` after best-effort persisted-state cleanup completes.
+    """
     _LOGGER.info("Removing Places entry: %s", entry.entry_id)
     name = entry.data.get(CONF_NAME, entry.entry_id)
     await async_remove_extended_entity(hass, entry)

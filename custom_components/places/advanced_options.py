@@ -76,7 +76,11 @@ class AdvancedOptionsParser:
         await self.process_single_term(curr_options)
 
     async def build_next_option(self, next_opt: str | None) -> None:
-        """Continue parsing after a comma-prefixed next expression."""
+        """Continue parsing after a comma-prefixed next expression.
+
+        Args:
+            next_opt: Remaining option expression, including the leading comma.
+        """
         if not next_opt or len(next_opt) <= 1 or next_opt[0] != ",":
             return
         next_opt = next_opt[1:].strip()

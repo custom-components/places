@@ -143,7 +143,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     @property
     def main_state_attributes(self) -> dict[str, Any]:
-        """Return location-context attributes for the display entity."""
+        """Return location-context attributes for the display entity.
+
+        Returns:
+            Non-blank parent sensor attributes shown on the main entity.
+        """
         return {
             attr: self.get_attr(attr)
             for attr in MAIN_STATE_ATTRIBUTE_LIST
@@ -221,7 +225,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         )
 
     def snapshot(self) -> PlacesData:
-        """Return an immutable snapshot of current runtime state."""
+        """Return an immutable snapshot of current runtime state.
+
+        Returns:
+            Coordinator data snapshot for entity listeners.
+        """
         return PlacesData(
             native_value=self._native_value,
             attributes=dict(self.get_internal_attr()),
@@ -232,47 +240,111 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         self.async_set_updated_data(self.snapshot())
 
     def get_internal_attr(self) -> MutableMapping[str, Any]:
-        """Return the mutable runtime attribute mapping."""
+        """Return the mutable runtime attribute mapping.
+
+        Returns:
+            Live mutable mapping that stores all runtime attributes.
+        """
         return self._attributes.data
 
     def is_attr_blank(self, attr: str) -> bool:
-        """Return whether a stored attribute is blank."""
+        """Return whether a stored attribute is blank.
+
+        Args:
+            attr: Attribute name to inspect.
+
+        Returns:
+            ``True`` when the attribute is missing or contains a blank value.
+        """
         return self._attributes.is_blank(attr)
 
     def get_attr(self, attr: str | None, default: _AttrT | None = None) -> _AttrT | None:
-        """Read a stored runtime attribute."""
+        """Read a stored runtime attribute.
+
+        Args:
+            attr: Attribute name to read.
+            default: Value returned when the attribute is unset.
+
+        Returns:
+            Stored attribute value, or ``default`` when unset.
+        """
         return self._attributes.get(attr, default)
 
     def get_attr_safe_str(self, attr: str | None, default: object | None = None) -> str:
-        """Read a stored runtime attribute as a safe string."""
+        """Read a stored runtime attribute as a safe string.
+
+        Args:
+            attr: Attribute name to read.
+            default: Value converted when the attribute is unset.
+
+        Returns:
+            String value, or an empty string when no value is available.
+        """
         return self._attributes.safe_str(attr, default)
 
     def get_attr_safe_float(self, attr: str | None, default: object | None = None) -> float:
-        """Read a stored runtime attribute as a safe float."""
+        """Read a stored runtime attribute as a safe float.
+
+        Args:
+            attr: Attribute name to read.
+            default: Value converted when the attribute is unset.
+
+        Returns:
+            Float value, or ``0.0`` when conversion is not possible.
+        """
         return self._attributes.safe_float(attr, default)
 
     def get_attr_safe_list(self, attr: str | None, default: object | None = None) -> list[Any]:
-        """Read a stored runtime attribute as a safe list."""
+        """Read a stored runtime attribute as a safe list.
+
+        Args:
+            attr: Attribute name to read.
+            default: Value used when the attribute is unset.
+
+        Returns:
+            Stored list, or an empty list when no list is available.
+        """
         return self._attributes.safe_list(attr, default)
 
     def get_attr_safe_dict(
         self, attr: str | None, default: MutableMapping[str, _AttrT] | None = None
     ) -> MutableMapping[str, _AttrT]:
-        """Read a stored runtime attribute as a safe mapping."""
+        """Read a stored runtime attribute as a safe mapping.
+
+        Args:
+            attr: Attribute name to read.
+            default: Mapping used when the attribute is unset.
+
+        Returns:
+            Stored mapping, or an empty mapping when no mapping is available.
+        """
         return self._attributes.safe_dict(attr, default)
 
     def set_attr(self, attr: str, value: object | None = None) -> None:
-        """Store a runtime attribute."""
+        """Store a runtime attribute.
+
+        Args:
+            attr: Attribute name to update.
+            value: Value to store.
+        """
         self._attributes.set(attr, value)
 
     def clear_attr(self, attr: str) -> None:
-        """Remove a runtime attribute."""
+        """Remove a runtime attribute.
+
+        Args:
+            attr: Attribute name to remove.
+        """
         self._attributes.clear(attr)
         if attr == ATTR_NATIVE_VALUE:
             self._native_value = None
 
     def set_native_value(self, value: object) -> None:
-        """Update the display state and mirror it into runtime attributes."""
+        """Update the display state and mirror it into runtime attributes.
+
+        Args:
+            value: New state value for the main Places sensor.
+        """
         if value is None:
             self._native_value = None
             self.clear_attr(ATTR_NATIVE_VALUE)
@@ -281,7 +353,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         self.set_attr(ATTR_NATIVE_VALUE, self._native_value)
 
     def import_persisted_attributes(self, persisted_attr: MutableMapping[str, Any]) -> None:
-        """Restore runtime attributes from persisted storage."""
+        """Restore runtime attributes from persisted storage.
+
+        Args:
+            persisted_attr: Previously saved runtime attribute mapping.
+        """
         if persisted_attr:
             self.set_attr(ATTR_INITIAL_UPDATE, False)
         self._attributes.import_persisted_attributes(persisted_attr)
@@ -330,7 +406,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         return await self.async_scan_update()
 
     async def async_scan_update(self) -> PlacesData:
-        """Run a throttled scan-interval update and return the latest snapshot."""
+        """Run a throttled scan-interval update and return the latest snapshot.
+
+        Returns:
+            Current coordinator data after the scan update path completes.
+        """
         now = monotonic()
         if (
             self._last_scan_update is not None
@@ -343,7 +423,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         return self.snapshot()
 
     async def _run_update(self, reason: str) -> None:
-        """Run one update cycle while serializing concurrent invocations."""
+        """Run one update cycle while serializing concurrent invocations.
+
+        Args:
+            reason: Human-readable reason for the update cycle.
+        """
         async with self._update_lock:
             previous_attr = copy.deepcopy(self.get_internal_attr())
             await PlacesUpdater(
@@ -377,7 +461,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         )
 
     async def in_zone(self) -> bool:
-        """Return whether the tracked entity is in a real non-passive zone."""
+        """Return whether the tracked entity is in a real non-passive zone.
+
+        Returns:
+            ``True`` when the tracker is currently in an active HA zone.
+        """
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
             zone = self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower()
             zone_state = self.hass.states.get(f"{CONF_ZONE}.{zone}")
@@ -470,7 +558,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             self._native_value = self.get_attr_safe_str(ATTR_NATIVE_VALUE) or None
 
     async def restore_previous_attr(self, previous_attr: MutableMapping[str, Any]) -> None:
-        """Restore a prior runtime attribute snapshot after rollback."""
+        """Restore a prior runtime attribute snapshot after rollback.
+
+        Args:
+            previous_attr: Attribute mapping captured before the failed update.
+        """
         self._attributes.data = previous_attr
         native_value = self.get_attr(ATTR_NATIVE_VALUE)
         self._native_value = str(native_value) if native_value is not None else None
