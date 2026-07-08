@@ -136,23 +136,36 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await coordinator.async_resume_after_failed_unload()
         raise
 
-    if unload_ok:
+    if not unload_ok:
+        if coordinator is not None:
+            await coordinator.async_resume_after_failed_unload()
+        return False
+
+    try:
         if coordinator is not None:
             await coordinator.async_shutdown()
-            entry.runtime_data = None
-        extended_entry_state = (
-            hass.data.get(DOMAIN, {}).get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
-            if isinstance(hass.data.get(DOMAIN, {}), dict)
-            else {}
-        )
-        if extended_entry_state.get(entry.entry_id, False):
-            _decrement_extended_attr_ref(hass)
-        if isinstance(extended_entry_state, dict):
-            extended_entry_state.pop(entry.entry_id, None)
-    elif coordinator is not None:
-        await coordinator.async_resume_after_failed_unload()
+    finally:
+        entry.runtime_data = None
+        _release_extended_attr_ref(hass, entry.entry_id)
 
-    return unload_ok
+    return True
+
+
+def _release_extended_attr_ref(hass: HomeAssistant, entry_id: str) -> None:
+    """Release recorder exclusion state owned by one loaded entry.
+
+    Args:
+        hass: Home Assistant instance that owns recorder runtime data.
+        entry_id: Config-entry ID whose setup-owned extended state should be released.
+    """
+    domain_data = hass.data.get(DOMAIN)
+    if not isinstance(domain_data, dict):
+        return
+    extended_entry_state = domain_data.get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
+    if not isinstance(extended_entry_state, dict):
+        return
+    if extended_entry_state.pop(entry_id, False):
+        _decrement_extended_attr_ref(hass)
 
 
 def _increment_extended_attr_ref(hass: HomeAssistant) -> None:

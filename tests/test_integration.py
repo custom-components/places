@@ -701,6 +701,38 @@ async def test_async_unload_entry_prepares_unload_before_platform_unload_and_shu
 
 
 @pytest.mark.asyncio
+async def test_async_unload_entry_clears_owned_state_when_shutdown_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Shutdown failure after platform unload should not leave entry-owned state active."""
+    entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+    await async_setup_entry(mock_hass, entry)
+    coordinator = entry.runtime_data
+    coordinator.async_shutdown.side_effect = RuntimeError("shutdown boom")
+
+    with pytest.raises(RuntimeError, match="shutdown boom"):
+        await async_unload_entry(mock_hass, entry)
+
+    mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(entry, PLATFORMS)
+    coordinator.async_prepare_unload.assert_awaited_once_with()
+    assert entry.runtime_data is None
+    assert EVENT_TYPE not in recorder.exclude_event_types
+
+
+@pytest.mark.asyncio
 async def test_async_unload_entry_resumes_coordinator_when_platform_unload_fails(
     mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
