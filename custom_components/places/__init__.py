@@ -88,7 +88,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise
 
     extended_attr_enabled = bool(entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR))
-    extended_attr_counted = False
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         hass_data = hass.data.setdefault(DOMAIN, {})
@@ -97,23 +96,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         if extended_attr_enabled:
             _increment_extended_attr_ref(hass)
-            extended_attr_counted = True
         await coordinator.async_request_refresh()
     except Exception:
         # Keep entry teardown behavior deterministic before re-raising setup failures.
         _LOGGER.exception("Entry setup failed for %s", name)
-        if extended_attr_counted:
-            _decrement_extended_attr_ref(hass)
-        extended_entry_state = hass.data.get(DOMAIN, {}).get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
-        if isinstance(extended_entry_state, dict):
-            extended_entry_state.pop(entry.entry_id, None)
         try:
-            await coordinator.async_shutdown()
-            await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+            await async_unload_entry(hass, entry)
         except Exception:
             _LOGGER.exception("Cleanup failed after entry setup failure for %s", name)
-        finally:
-            entry.runtime_data = None
         raise
     return True
 
