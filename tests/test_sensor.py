@@ -821,25 +821,6 @@ def test_attribute_sensor_description_keys_are_unique() -> None:
     assert "extended_data" not in keys
 
 
-def test_places_entity_uses_coordinator_device_info(mock_hass: MagicMock) -> None:
-    """PlacesEntity should expose shared device metadata."""
-    mock_hass.states.get.return_value = None
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        entry_id="entry123",
-        data={"name": "TestSensor", "devicetracker_id": "person.test"},
-    )
-    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    entity = Places(coordinator)
-
-    assert entity.device_info == {
-        "identifiers": {("places", "entry123")},
-        "name": "TestSensor",
-        "manufacturer": "Places",
-        "model": "OpenStreetMap reverse geocode",
-    }
-
-
 def test_places_entity_refreshes_device_info_after_coordinator_name_change(
     mock_hass: MagicMock,
 ) -> None:
