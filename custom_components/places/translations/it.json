@@ -28,7 +28,7 @@
                 "description": "Crea un nuovo sensore\nConsulta [Opzioni di configurazione]({component_config_url}) su GitHub per i dettagli",
                 "data_description": {
                     "options": "Consulta [Opzioni di configurazione]({component_config_url}) su GitHub per i dettagli",
-                    "extended_attr": "Mostra gli attributi estesi: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (se presenti). Fornisce molti attributi aggiuntivi per logiche avanzate. Attenzione: questo renderà l'elenco degli attributi molto lungo!",
+                    "extended_attr": "Crea un sensore diagnostico Dati estesi e recupera i dettagli OSM grezzi e i dati Wikidata. Quando è disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono ignorate.",
                     "use_gps_accuracy": "Imposta su falso se il dispositivo di tracciamento dispone di un attributo di precisione GPS (gps_accuracy), ma mostra sempre 0 anche quando latitudine e longitudine sono corrette."
                   }
             }
@@ -61,7 +61,7 @@
                 "description": "**Aggiornamento sensore:&nbsp;{sensor_name}**\nConsulta [Opzioni di configurazione]({component_config_url}) su GitHub per i dettagli",
                 "data_description": {
                     "options": "Consulta [Opzioni di configurazione]({component_config_url}) su GitHub per i dettagli",
-                    "extended_attr": "Mostra gli attributi estesi: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (se presenti). Fornisce molti attributi aggiuntivi per logiche avanzate. Attenzione: questo renderà l'elenco degli attributi molto lungo!",
+                    "extended_attr": "Crea un sensore diagnostico Dati estesi e recupera i dettagli OSM grezzi e i dati Wikidata. Quando è disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono ignorate.",
                     "use_gps_accuracy": "Imposta su falso se il dispositivo di tracciamento dispone di un attributo di precisione GPS (gps_accuracy), ma mostra sempre 0 anche quando latitudine e longitudine sono corrette."
                   }
             }

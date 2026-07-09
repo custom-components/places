@@ -21,8 +21,7 @@ _AttrT = TypeVar("_AttrT", default=Any)
 class PlacesAttributes:
     """Mutable container for Places internal attributes and helper accessors.
 
-    The class centralizes value storage and conversion helpers while preserving
-    the historic behavior currently relied upon by ``Places``.
+    The class centralizes value storage and conversion helpers for ``Places``.
     """
 
     def __init__(self, initial: MutableMapping[str, Any] | None = None) -> None:
@@ -69,7 +68,7 @@ class PlacesAttributes:
 
         Returns:
             ``True`` for missing values, ``None`` and empty string values. Numeric
-            zero is treated as non-blank for compatibility with prior behavior.
+            zero is treated as non-blank.
         """
         val = self._internal_attr.get(attr)
         return not (val or val == 0)
