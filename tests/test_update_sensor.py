@@ -2294,23 +2294,30 @@ async def test_get_dict_from_url_network_variants(
 
 
 @pytest.mark.asyncio
-async def test_get_dict_from_url_list_conversion_and_throttle(
+@pytest.mark.parametrize(
+    ("payload", "dict_name", "expected_attr"),
+    [
+        (json.dumps([{"converted": "yes"}]), ATTR_OSM_DICT, {"converted": "yes"}),
+        (json.dumps({"ok": 1}), "dict_name", {"ok": 1}),
+    ],
+)
+async def test_get_dict_from_url_payloads_respect_throttle(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     aioclient_mock: AioClientMock,
     sensor: MockSensor,
+    payload: str,
+    dict_name: str,
+    expected_attr: dict[str, object],
 ) -> None:
-    """Ensure get_dict_from_url respects throttle wait and converts single-item list payloads to a dict."""
+    """Throttled fetches should cache dict payloads and converted single-item lists."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     url = "https://example.com/nominatim/reverse/"
     name = "OSM Test"
-    dict_name = ATTR_OSM_DICT
 
-    # Prepare a single-item list JSON response which should be converted to a dict
-    resp_text = json.dumps([{"converted": "yes"}])
-    register_aioclient(aioclient_mock, url, text=resp_text)
+    register_aioclient(aioclient_mock, url, text=payload)
 
     # Set up throttle so wait_time > 0 and use a real Lock for 'async with' support
     loop = asyncio.get_running_loop()
@@ -2327,11 +2334,8 @@ async def test_get_dict_from_url_list_conversion_and_throttle(
 
     await updater.get_dict_from_url(url=url, name=name, dict_name=dict_name)
 
-    # The single-item list should be converted to a dict and stored
-    assert sensor.attrs[dict_name] == {"converted": "yes"}
-    # Cache must have been populated
-    assert mock_hass.data[DOMAIN][OSM_CACHE][url] == {"converted": "yes"}
-    # sleep should have been awaited due to throttle
+    assert sensor.attrs[dict_name] == expected_attr
+    assert mock_hass.data[DOMAIN][OSM_CACHE][url] == expected_attr
     sleep_mock.assert_awaited()
 
 
@@ -2593,38 +2597,6 @@ async def test_get_current_time_variants(
     assert dt.tzinfo is not None
     if mock_hass.config.time_zone is None:
         assert dt.tzinfo is UTC
-
-
-@pytest.mark.asyncio
-async def test_get_dict_from_url_respects_throttle(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    aioclient_mock: AioClientMock,
-    sensor: MockSensor,
-) -> None:
-    """Ensure the throttle path calls asyncio.sleep when last_query indicates we must wait."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    url = "http://example.com/throttle/"
-    if DOMAIN not in mock_hass.data:
-        mock_hass.data[DOMAIN] = {
-            OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
-        }
-
-    # Set last_query to now so wait_time = interval (positive)
-    mock_hass.data[DOMAIN][OSM_THROTTLE]["last_query"] = asyncio.get_running_loop().time()
-
-    sleep_mock = AsyncMock()
-    monkeypatch.setattr(asyncio, "sleep", sleep_mock)
-
-    register_aioclient(aioclient_mock, url, text='{"ok": 1}')
-
-    await updater.get_dict_from_url(url, "ThrottleService", "dict_name")
-    # Ensure we attempted to sleep (throttle honored)
-    sleep_mock.assert_awaited_once()
-    # And the result stored in cache
-    assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) is not None
 
 
 @pytest.mark.asyncio
