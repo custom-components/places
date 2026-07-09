@@ -235,12 +235,16 @@ async def test_places_storage_constructs_distinct_store_per_entry(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("remove_error", [None, OSError("store remove failed")])
+@pytest.mark.parametrize("store_data", [["bad", "payload"], "bad"])
 async def test_load_ignores_non_mapping_store_data(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, remove_error: OSError | None
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    remove_error: OSError | None,
+    store_data: object,
 ) -> None:
     """Invalid Store snapshots are removed and return empty state."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.next_data = ["bad", "payload"]
+    _FakeStore.next_data = store_data
     _FakeStore.remove_error = remove_error
     hass = _hass_for_store_path(tmp_path)
 
@@ -250,19 +254,3 @@ async def test_load_ignores_non_mapping_store_data(
     assert loaded == {}
     assert _FakeStore.remove_calls == 1
     assert _FakeStore.last_saved is None
-
-
-@pytest.mark.asyncio
-async def test_load_ignores_non_mapping_store_data_and_returns_empty(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Invalid Store snapshots result in empty state."""
-    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.next_data = "bad"
-    hass = _hass_for_store_path(tmp_path)
-
-    storage = PlacesStorage(hass, "entry-9", "Test")
-    loaded = await storage.async_load()
-
-    assert loaded == {}
-    assert _FakeStore.remove_calls == 1
