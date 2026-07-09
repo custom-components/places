@@ -28,7 +28,7 @@
                 "description": "Crea un nuovo sensore\nGuarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
                 "data_description": {
                     "options": "Guarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
-                    "extended_attr": "Mostra gli Attributi Estesi: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Fornisci attributi aggiuntivi per logiche avanzate. Attenzione, questo renderà l'elenco attributi molto lunga!",
+                    "extended_attr": "Crea un sensore diagnostico Dati estesi e recupera i dettagli OSM grezzi e il payload Wikidata. Quando disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono saltate.",
                     "use_gps_accuracy": "Imposta su False se il tuo Device Tracker ha un attributo Precisione GPS (gps_accuracy), ma mostra sempre 0 anche se latitudine e longitudine sono corrette."
                   }
             }
@@ -61,7 +61,7 @@
                 "description": "**Aggiornamento sensore:&nbsp;{sensor_name}**\nGuarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
                 "data_description": {
                     "options": "Guarda [Configuration Options]({component_config_url}) su GitHub per i dettagli (in Inglese)",
-                    "extended_attr": "Mostra gli Attributi Estesi: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Fornisci attributi aggiuntivi per logiche avanzate. Attenzione, questo renderà l'elenco attributi molto lunga!",
+                    "extended_attr": "Crea un sensore diagnostico Dati estesi e recupera i dettagli OSM grezzi e il payload Wikidata. Quando disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono saltate.",
                     "use_gps_accuracy": "Imposta su False se il tuo Device Tracker ha un attributo Precisione GPS (gps_accuracy), ma mostra sempre 0 anche se latitudine e longitudine sono corrette."
                   }
             }

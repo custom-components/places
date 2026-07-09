@@ -75,7 +75,7 @@ Key | Required | Default | Description |
 `Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20>
 `Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes)
 `Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updating when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.**
-`Extended Attributes` | `No` | `False` | Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict *(if they exist)*. Provides many additional attributes for advanced logic. **Warning, this will make the attributes very long!**
+`Extended Attributes` | `No` | `False` | Create an enabled diagnostic `Extended data` sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped. The extended sensor's raw attributes are excluded from recorder. |
 `Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)`
 
 <details>
@@ -168,42 +168,32 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 </details>
 
 <details>
-<summary>Sample attributes that can be used in notifications, alerts, automations, etc.</summary>
+<summary>Entity model and migration notes</summary>
 
-```json
-{
-  "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
-  "friendly_name": "sharon",
-  "current_latitude": "43.874149009154095",
-  "distance_from_home_km": 7.24,
-  "country": "Canada",
-  "postal_code": "L4C 1B3",
-  "direction_of_travel": "towards home",
-  "neighbourhood": "Beverley Acres",
-  "entity_picture": "/local/sharon.png",
-  "street_number": "6",
-  "devicetracker_entityid": "device_tracker.sharon_iphone7",
-  "home_longitude": "-79.7323453871",
-  "devicetracker_zone": "not_home",
-  "distance_from_home_m": 17239.053,
-  "home_latitude": "43.983234888",
-  "previous_location": "43.86684124904056,-79.4253896502715",
-  "previous_longitude": "-79.4253896502715",
-  "place_category": "building",
-  "map_link": "https://maps.apple.com/maps/?ll=43.874149009154095,-79.42642783709209&z=18",
-  "last_changed": "2018-05-02 13:44:51.019837",
-  "state_province": "Ontario",
-  "county": "York Region",
-  "current_longitude": "-79.42642783709209",
-  "current_location": "43.874149009154095,-79.42642783709209",
-  "place_type": "building",
-  "previous_latitude": "43.86684124904056",
-  "place_name": "Richmond Hill GO Station",
-  "street": "Newkirk Road",
-  "city": "Richmond Hill",
-  "home_zone": "zone.sharon_home"
-}
-```
+The main Places sensor keeps the Display Options state. It only exposes location-context attributes:
+
+* `current_latitude`
+* `current_longitude`
+* `gps_accuracy`
+* `entity_picture`
+* `attribution`
+
+Most values that used to be attributes are now child sensors under the same Places device. For example:
+
+* `state_attr('sensor.alice', 'place_name')` becomes `states('sensor.alice_place_name')`
+* `state_attr('sensor.alice', 'city')` becomes `states('sensor.alice_city')`
+* `state_attr('sensor.alice', 'state_province')` becomes `states('sensor.alice_state_province')`
+* `state_attr('sensor.alice', 'map_link')` becomes `states('sensor.alice_map_link')`
+
+The integration no longer creates a `formatted_address` child sensor.
+
+`country` and detailed address/diagnostic sensors are disabled by default. Enable them from the Places device page if you use them in automations.
+
+When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extended_data`:
+
+* `state_attr('sensor.alice_extended_data', 'osm_dict')`
+* `state_attr('sensor.alice_extended_data', 'osm_details_dict')`
+* `state_attr('sensor.alice_extended_data', 'wikidata_dict')`
 </details>
 
 <details>
@@ -223,7 +213,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:
@@ -245,7 +235,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
       message: |-
         {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
         {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home_km }} km from home and traveling {{ trigger.event.data.direction_of_travel }}
+        {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
       data:
         attachment:

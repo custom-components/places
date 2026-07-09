@@ -81,7 +81,7 @@ async def test_get_json_uses_existing_cache_without_network(
 
 
 def test_details_url_preserves_lookup_semantics() -> None:
-    """Lookup URL matches the historical query shape used by the integration."""
+    """Lookup URL matches the query shape used by the integration."""
     url = OSMClient.details_url(
         osm_type_abbr="N",
         osm_id="12345",
