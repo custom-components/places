@@ -28,7 +28,7 @@
                 "description": "Vytvořte nový senzor\nPodrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
-                    "extended_attr": "Zobrazit rozšířené atributy: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (pokud existují). Poskytuje mnoho dalších atributů pro pokročilou logiku. Upozornění: atributy budou velmi dlouhé!",
+                    "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
                     "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
                   }
             }
@@ -61,7 +61,7 @@
                 "description": "**Aktualizuje se senzor:&nbsp;{sensor_name}**\nPodrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
-                    "extended_attr": "Zobrazit rozšířené atributy: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (pokud existují). Poskytuje mnoho dalších atributů pro pokročilou logiku. Upozornění: atributy budou velmi dlouhé!",
+                    "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
                     "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
                   }
             }
