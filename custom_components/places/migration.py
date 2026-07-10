@@ -139,7 +139,12 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
     try:
         try:
             store_data = await store.async_load()
-        except (*STORE_WRITE_ERRORS, HomeAssistantError) as error:
+        except (
+            *STORE_WRITE_ERRORS,
+            HomeAssistantError,
+            KeyError,
+            NotImplementedError,
+        ) as error:
             _LOGGER.warning(
                 "(%s) Could not load Store before migrating %s: %s: %s",
                 name,

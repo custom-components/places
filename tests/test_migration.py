@@ -20,7 +20,7 @@ class _FakeStore:
 
     next_data: object | None = None
     saved: ClassVar[list[dict[str, object]]] = []
-    load_error: ClassVar[HomeAssistantError | None] = None
+    load_error: ClassVar[Exception | None] = None
     save_error: OSError | None = None
 
     def __init__(
@@ -153,12 +153,21 @@ async def test_store_write_error_still_removes_snapshot(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "load_error",
+    [
+        HomeAssistantError("load failed"),
+        KeyError("version"),
+        NotImplementedError("migration unsupported"),
+    ],
+    ids=["home-assistant", "missing-version", "unsupported-migration"],
+)
 async def test_store_load_error_still_removes_snapshot(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, load_error: Exception
 ) -> None:
     """A Store load failure does not leave the legacy source behind."""
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
-    _FakeStore.load_error = HomeAssistantError("load failed")
+    _FakeStore.load_error = load_error
     hass = _hass_for_legacy_path(tmp_path)
     path = legacy_json_path(hass, "entry-load-error")
     _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
