@@ -40,8 +40,4 @@ class PlacesMapProviderSelect(PlacesEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Save and locally apply a map provider."""
-        normalized_option = option.lower()
-        if normalized_option not in MAP_PROVIDER_OPTIONS:
-            msg = f"Unsupported map provider: {option}"
-            raise ValueError(msg)
-        await self.coordinator.async_update_setting(CONF_MAP_PROVIDER, normalized_option)
+        await self.coordinator.async_update_setting(CONF_MAP_PROVIDER, option)
