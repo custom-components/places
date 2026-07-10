@@ -10,6 +10,7 @@ __pycache__
 .tox
 .venv
 .vscode
+.worktrees/
 [Dd]esktop.ini
 *.lnk
 *.pyc
