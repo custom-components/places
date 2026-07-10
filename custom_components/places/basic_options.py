@@ -68,6 +68,7 @@ class BasicOptionsParser:
             selected options.
         """
         user_display: list[str] = []
+        in_zone = await self.coordinator.in_zone()
 
         # Add basic options
         self._add_to_display(user_display, "driving", option_key="driving")
@@ -75,15 +76,13 @@ class BasicOptionsParser:
             user_display,
             attr_key="devicetracker_zone_name",
             option_key="zone_name",
-            condition=await self.coordinator.in_zone()
-            or "do_not_show_not_home" not in self.display_options,
+            condition=in_zone or "do_not_show_not_home" not in self.display_options,
         )
         self._add_to_display(
             user_display,
             attr_key="devicetracker_zone",
             option_key="zone",
-            condition=await self.coordinator.in_zone()
-            or "do_not_show_not_home" not in self.display_options,
+            condition=in_zone or "do_not_show_not_home" not in self.display_options,
         )
         self._add_to_display(user_display, "place_name", option_key="place_name")
 

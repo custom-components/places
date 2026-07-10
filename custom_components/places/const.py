@@ -17,7 +17,7 @@ from homeassistant.const import (
 DOMAIN = "places"
 VERSION = "v2.9.3"
 EVENT_TYPE = DOMAIN + "_state_update"
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
 
 # Defaults
 DEFAULT_EXTENDED_ATTR = False
