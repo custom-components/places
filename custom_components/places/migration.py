@@ -20,6 +20,19 @@ from .persistence import STORE_VERSION, STORE_WRITE_ERRORS, normalize_snapshot, 
 _LOGGER = logging.getLogger(__name__)
 
 
+def _normalize_legacy_distance_keys(snapshot: dict[str, Any]) -> bool:
+    """Rename legacy meter distance keys to their current persisted names."""
+    changed = False
+    for legacy_key, current_key in (
+        ("distance_from_home_m", ATTR_DISTANCE_FROM_HOME),
+        ("distance_traveled_m", ATTR_DISTANCE_TRAVELED),
+    ):
+        if legacy_key in snapshot:
+            snapshot.setdefault(current_key, snapshot.pop(legacy_key))
+            changed = True
+    return changed
+
+
 def legacy_json_path(hass: HomeAssistant, entry_id: str) -> Path:
     """Return the legacy JSON snapshot path for a config entry.
 
@@ -150,6 +163,18 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
             return
         if store_data is not None:
             if isinstance(store_data, Mapping):
+                stored_snapshot = dict(store_data)
+                if _normalize_legacy_distance_keys(stored_snapshot):
+                    try:
+                        await store.async_save(normalize_snapshot(stored_snapshot))
+                    except STORE_WRITE_ERRORS as error:
+                        _LOGGER.warning(
+                            "(%s) Could not update migrated Store snapshot (%s): %s: %s",
+                            name,
+                            path,
+                            type(error).__name__,
+                            error,
+                        )
                 return
             _LOGGER.warning(
                 "(%s) Invalid Store snapshot root is %s; continuing legacy migration (%s)",
@@ -174,10 +199,7 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
 
         try:
             snapshot = dict(snapshot)
-            if ATTR_DISTANCE_FROM_HOME not in snapshot and "distance_from_home_m" in snapshot:
-                snapshot[ATTR_DISTANCE_FROM_HOME] = snapshot["distance_from_home_m"]
-            if ATTR_DISTANCE_TRAVELED not in snapshot and "distance_traveled_m" in snapshot:
-                snapshot[ATTR_DISTANCE_TRAVELED] = snapshot["distance_traveled_m"]
+            _normalize_legacy_distance_keys(snapshot)
             await store.async_save(normalize_snapshot(snapshot))
         except STORE_WRITE_ERRORS as error:
             _LOGGER.warning(
