@@ -139,8 +139,8 @@ class PlacesUpdater:
             prev_last_place_name = coordinator.get_attr_safe_str(ATTR_LAST_PLACE_NAME)
 
             proceed_with_update = await self.check_device_tracker_and_update_coords()
-            if proceed_with_update == UpdateStatus.PROCEED and not force:
-                proceed_with_update = await self.determine_update_criteria()
+            if proceed_with_update == UpdateStatus.PROCEED:
+                proceed_with_update = await self.determine_update_criteria(force=force)
 
             if proceed_with_update == UpdateStatus.PROCEED:
                 await self.process_osm_update(now=now)
@@ -472,8 +472,12 @@ class PlacesUpdater:
             if tracker_snapshot.longitude is not None:
                 self.coordinator.set_attr(ATTR_LONGITUDE, tracker_snapshot.longitude)
 
-    async def determine_update_criteria(self) -> UpdateStatus:
-        """Run zone, distance, and movement checks for this update.
+    async def determine_update_criteria(self, force: bool = False) -> UpdateStatus:
+        """Run zone, distance, and optional movement checks for this update.
+
+        Args:
+            force: When True, refresh derived fields but skip movement-based
+                update gating.
 
         Returns:
             Status indicating whether the update should continue or be skipped.
@@ -486,7 +490,7 @@ class PlacesUpdater:
             self.coordinator.get_attr(CONF_NAME),
             proceed_with_update,
         )
-        if proceed_with_update == UpdateStatus.PROCEED:
+        if proceed_with_update == UpdateStatus.PROCEED and not force:
             proceed_with_update = await self.determine_if_update_needed()
             _LOGGER.debug(
                 "(%s) [determine_update_criteria] proceed_with_update: %s",

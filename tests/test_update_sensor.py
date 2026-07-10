@@ -165,13 +165,13 @@ async def test_do_update_flow_variants(
 
 
 @pytest.mark.asyncio
-async def test_do_update_force_bypasses_update_criteria(
+async def test_do_update_force_skips_movement_criteria(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
     stubbed_updater: StubbedUpdater,
 ) -> None:
-    """A forced update proceeds without movement criteria and disables cache reads."""
+    """A forced update still runs update criteria and disables cache reads."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     async def process_osm_update(**_kwargs: object) -> None:
@@ -188,7 +188,7 @@ async def test_do_update_force_bypasses_update_criteria(
                 "check_device_tracker_and_update_coords",
                 {"return_value": UpdateStatus.PROCEED},
             ),
-            ("determine_update_criteria", {"return_value": UpdateStatus.SKIP}),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
             ("process_osm_update", {"side_effect": process_osm_update}),
             ("should_update_state", {"return_value": True}),
             ("handle_state_update", {}),
@@ -197,11 +197,39 @@ async def test_do_update_force_bypasses_update_criteria(
     ) as mocks:
         await updater.do_update("Force Update", {}, force=True)
 
-    mocks["determine_update_criteria"].assert_not_awaited()
+    mocks["determine_update_criteria"].assert_awaited_once_with(force=True)
     mocks["process_osm_update"].assert_awaited_once()
     mocks["should_update_state"].assert_not_awaited()
     mocks["handle_state_update"].assert_awaited_once()
     assert updater._use_cache is False
+
+
+@pytest.mark.asyncio
+async def test_determine_update_criteria_force_skips_movement_check(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """Force path should refresh derived fields but ignore movement gating."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    with stubbed_updater(
+        updater,
+        [
+            ("get_initial_last_place_name", {}),
+            ("get_zone_details", {}),
+            ("update_coordinates_and_distance", {"return_value": UpdateStatus.PROCEED}),
+            ("determine_if_update_needed", {"return_value": UpdateStatus.SKIP}),
+        ],
+    ) as mocks:
+        result = await updater.determine_update_criteria(force=True)
+
+    assert result == UpdateStatus.PROCEED
+    mocks["get_initial_last_place_name"].assert_awaited_once()
+    mocks["get_zone_details"].assert_awaited_once()
+    mocks["update_coordinates_and_distance"].assert_awaited_once()
+    mocks["determine_if_update_needed"].assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -224,6 +252,7 @@ async def test_do_update_force_rolls_back_failed_fresh_lookup(
                 "check_device_tracker_and_update_coords",
                 {"return_value": UpdateStatus.PROCEED},
             ),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
             ("process_osm_update", {}),
             ("should_update_state", {"return_value": True}),
             ("handle_state_update", {}),
@@ -278,7 +307,7 @@ async def test_do_update_runs_phases_in_expected_order(
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria() -> UpdateStatus:
+    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -395,7 +424,7 @@ async def test_do_update_rolls_back_and_finishes_on_phase_error(
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria() -> UpdateStatus:
+    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -486,7 +515,7 @@ async def test_do_update_skips_handle_and_finish_when_shutting_down_after_osm_up
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria() -> UpdateStatus:
+    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
