@@ -61,6 +61,7 @@ from custom_components.places.sensor import (
     PlacesExtendedDataSensor,
     async_setup_entry,
 )
+from custom_components.places.update_sensor import PlacesUpdater
 
 
 def _description(key: str) -> PlacesAttributeSensorEntityDescription:
@@ -230,7 +231,13 @@ async def test_coordinator_updates_setting_locally(
     coordinator.async_request_refresh.assert_not_awaited()
 
 
-async def test_coordinator_rejects_invalid_display_options(mock_hass: MagicMock) -> None:
+@pytest.mark.parametrize(
+    "display_options",
+    ["zone_name[", "   ", "x" * (MAX_LENGTH_STATE_STATE + 1)],
+)
+async def test_coordinator_rejects_invalid_display_options(
+    mock_hass: MagicMock, display_options: str
+) -> None:
     """Invalid display options do not alter persisted or runtime settings."""
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
@@ -243,49 +250,10 @@ async def test_coordinator_rejects_invalid_display_options(mock_hass: MagicMock)
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
 
     with pytest.raises(HomeAssistantError, match="Invalid display options"):
-        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "zone_name[")
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, display_options)
 
     mock_hass.config_entries.async_update_entry.assert_not_called()
     assert coordinator.get_attr(CONF_DISPLAY_OPTIONS) == "zone_name, place"
-
-
-async def test_coordinator_rejects_blank_display_options(mock_hass: MagicMock) -> None:
-    """Blank or whitespace display-options input is rejected before config persistence."""
-    mock_hass.states.get.return_value = None
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        entry_id="entry123",
-        data={"name": "TestSensor", "devicetracker_id": "person.test"},
-    )
-    persistence = MagicMock()
-    persistence.async_save = AsyncMock()
-    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
-
-    with pytest.raises(HomeAssistantError, match="Invalid display options"):
-        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "   ")
-
-    mock_hass.config_entries.async_update_entry.assert_not_called()
-    assert coordinator.get_attr(CONF_DISPLAY_OPTIONS) == "zone_name, place"
-
-
-async def test_coordinator_rejects_too_long_display_options(mock_hass: MagicMock) -> None:
-    """Display options longer than Home Assistant state limit are rejected."""
-    mock_hass.states.get.return_value = None
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        entry_id="entry123",
-        data={"name": "TestSensor", "devicetracker_id": "person.test"},
-    )
-    persistence = MagicMock()
-    persistence.async_save = AsyncMock()
-    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
-
-    with pytest.raises(HomeAssistantError, match="Invalid display options"):
-        await coordinator.async_update_setting(
-            CONF_DISPLAY_OPTIONS, "x" * (MAX_LENGTH_STATE_STATE + 1)
-        )
-
-    mock_hass.config_entries.async_update_entry.assert_not_called()
 
 
 async def test_coordinator_display_options_render_stale_native_state_as_blank(
@@ -372,28 +340,14 @@ async def test_coordinator_map_provider_update_rebuilds_current_location(
     coordinator.set_attr(ATTR_LOCATION_CURRENT, "")
     captured: dict[str, str] = {}
 
-    class FakeUpdater:
-        """Capture map-link generation arguments for assertions."""
+    async def capture_map_link(self: PlacesUpdater) -> None:
+        """Record the resolved current-location string used by link generation."""
+        captured["location_current"] = str(self.coordinator.get_attr(ATTR_LOCATION_CURRENT))
 
-        def __init__(
-            self, hass: object, config_entry: object, coordinator: PlacesUpdateCoordinator
-        ) -> None:
-            """Store the coordinator for downstream assertions."""
-            self.coordinator = coordinator
-
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Not used for this code path."""
-            return
-
-        async def get_map_link(self) -> None:
-            """Record the resolved current-location string used by link generation."""
-            captured["location_current"] = str(self.coordinator.get_attr(ATTR_LOCATION_CURRENT))
-
-        async def async_apply_show_time(self) -> None:
-            """Not used for this code path."""
-            return
-
-    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", FakeUpdater)
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_map_link",
+        capture_map_link,
+    )
 
     await coordinator.async_update_setting(CONF_MAP_PROVIDER, "google")
 
@@ -420,25 +374,14 @@ async def test_coordinator_map_provider_update_skips_map_link_without_location(
     coordinator.set_attr(ATTR_MAP_LINK, "https://maps.apple.com/?q=42,1")
     captured: dict[str, bool] = {"called": False}
 
-    class FakeUpdater:
-        """Capture whether map-link generation is requested."""
+    async def capture_map_link(_: PlacesUpdater) -> None:
+        """Record that a map link lookup was attempted."""
+        captured["called"] = True
 
-        def __init__(
-            self, hass: object, config_entry: object, coordinator: PlacesUpdateCoordinator
-        ) -> None:
-            """Store the coordinator for downstream assertions."""
-
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Not used for this code path."""
-
-        async def get_map_link(self) -> None:
-            """Record that a map link lookup was attempted."""
-            captured["called"] = True
-
-        async def async_apply_show_time(self) -> None:
-            """Not used for this code path."""
-
-    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", FakeUpdater)
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_map_link",
+        capture_map_link,
+    )
 
     await coordinator.async_update_setting(CONF_MAP_PROVIDER, "google")
 
@@ -463,38 +406,24 @@ async def test_async_update_setting_serialized_with_scan_updates(
     release_run = asyncio.Event()
     config_written = asyncio.Event()
 
-    class FailingUpdater:
-        """Failing updater used to trigger restore_previous_attr during scan refresh."""
-
-        def __init__(
-            self, hass: object, config_entry: object, coordinator: PlacesUpdateCoordinator
-        ) -> None:
-            """Store coordinator for compatibility with production construction pattern."""
-            self.coordinator = coordinator
-
-        async def do_update(
-            self,
-            reason: str,
-            previous_attr: dict[str, object],
-            **_kwargs: object,
-        ) -> None:
-            """Keep the scan path open long enough to exercise lock contention."""
-            run_started.set()
-            await release_run.wait()
-            raise RuntimeError("forced scan failure")
-
-        async def get_map_link(self) -> None:
-            """Not used in this serialization test."""
-            return
-
-        async def async_apply_show_time(self) -> None:
-            """Not used in this serialization test."""
-            return
+    async def fail_update(
+        _: PlacesUpdater,
+        reason: str,
+        previous_attr: dict[str, object],
+        **_kwargs: object,
+    ) -> None:
+        """Keep the scan path open long enough to exercise lock contention."""
+        run_started.set()
+        await release_run.wait()
+        raise RuntimeError("forced scan failure")
 
     mock_hass.config_entries.async_update_entry.side_effect = lambda *args, **kwargs: (
         config_written.set()
     )
-    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", FailingUpdater)
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.do_update",
+        fail_update,
+    )
 
     scan_task = asyncio.create_task(coordinator._run_update("Scan Interval"))
     await run_started.wait()
