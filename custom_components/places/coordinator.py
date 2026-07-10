@@ -488,13 +488,12 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             await self._run_update_locked(reason)
 
     async def async_force_update(self) -> None:
-        """Remove persisted data and run one cache-bypassing update."""
+        """Run one cache-bypassing update."""
         if self._is_shutting_down:
             return
         async with self._update_lock:
             if self._is_shutting_down:
                 return
-            await self._persistence.async_remove()
             await self._run_update_locked("Force Update", force=True)
 
     async def _run_update_locked(self, reason: str, *, force: bool = False) -> None:

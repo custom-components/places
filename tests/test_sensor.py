@@ -589,10 +589,10 @@ async def test_coordinator_scan_update_throttles_repeated_refreshes(
     updater_ctor.assert_not_called()
 
 
-async def test_coordinator_force_update_removes_store_and_bypasses_scan_timer(
+async def test_coordinator_force_update_preserves_store_and_bypasses_scan_timer(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Force update removes persisted data and runs despite a recent scan."""
+    """Force update preserves rollback data and runs despite a recent scan."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         entry_id="entry123",
@@ -610,7 +610,7 @@ async def test_coordinator_force_update_removes_store_and_bypasses_scan_timer(
 
     await coordinator.async_force_update()
 
-    persistence.async_remove.assert_awaited_once_with()
+    persistence.async_remove.assert_not_awaited()
     updater.do_update.assert_awaited_once()
     assert updater.do_update.await_args.kwargs["force"] is True
 
