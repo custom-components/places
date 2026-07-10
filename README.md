@@ -3,6 +3,8 @@
   <img alt="places Logo" src="https://github.com/custom-components/places/raw/master/logo/icon.png">
 </picture>
 
+[![Integration Usage][integration-usage-shield]][releases]
+
 [![GitHub Downloads][downloads-shield]][releases]
 [![GitHub Latest Downloads][downloads-latest-shield]][releases]
 [![GitHub Release][releases-shield]][releases]
@@ -286,6 +288,7 @@ python -m pip install --group dev -e .
 If you want to contribute to this please read the [Contribution guidelines](CONTRIBUTING.md)
 ***
 
+[integration-usage-shield]: https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https%3A%2F%2Fanalytics.home-assistant.io%2Fcustom_integrations.json&query=%24.places.total&style=for-the-badge
 [downloads-shield]: https://img.shields.io/github/downloads/custom-components/places/total?style=for-the-badge&label=total%20downloads
 [downloads-latest-shield]: https://img.shields.io/github/downloads-pre/custom-components/places/latest/total?style=for-the-badge
 [releases]: https://github.com/custom-components/places/releases
