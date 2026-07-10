@@ -88,9 +88,7 @@ def _remove_legacy_snapshot(path: Path, name: str) -> None:
 
     """
     try:
-        path.unlink()
-    except FileNotFoundError:
-        pass
+        path.unlink(missing_ok=True)
     except OSError as error:
         _LOGGER.warning(
             "(%s) Could not remove legacy snapshot (%s): %s: %s",

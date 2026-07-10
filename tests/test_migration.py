@@ -32,8 +32,7 @@ class _FakeStore:
         serialize_in_event_loop: bool,
     ) -> None:
         """Initialize the fake with the Store constructor contract."""
-        self.atomic_writes = atomic_writes
-        self.serialize_in_event_loop = serialize_in_event_loop
+        _ = atomic_writes, serialize_in_event_loop
 
     async def async_load(self) -> object | None:
         """Return configured Store data."""
