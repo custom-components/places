@@ -589,6 +589,56 @@ async def test_coordinator_scan_update_throttles_repeated_refreshes(
     updater_ctor.assert_not_called()
 
 
+async def test_coordinator_force_update_removes_store_and_bypasses_scan_timer(
+    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Force update removes persisted data and runs despite a recent scan."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    persistence = MagicMock()
+    persistence.async_remove = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator._last_scan_update = 1000.0
+    updater = MagicMock()
+    updater.do_update = AsyncMock()
+    monkeypatch.setattr(
+        "custom_components.places.coordinator.PlacesUpdater", MagicMock(return_value=updater)
+    )
+
+    await coordinator.async_force_update()
+
+    persistence.async_remove.assert_awaited_once_with()
+    updater.do_update.assert_awaited_once()
+    assert updater.do_update.await_args.kwargs["force"] is True
+
+
+async def test_coordinator_force_update_does_nothing_while_shutting_down(
+    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A button press racing unload must not remove persisted data."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    persistence = MagicMock()
+    persistence.async_remove = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator._is_shutting_down = True
+    updater = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.places.coordinator.PlacesUpdater", MagicMock(return_value=updater)
+    )
+
+    await coordinator.async_force_update()
+
+    persistence.async_remove.assert_not_awaited()
+    updater.do_update.assert_not_called()
+
+
 async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -6,7 +6,7 @@ Add one `Force Update` button per Places config entry. Pressing it removes that 
 
 ## Design
 
-- Add the Home Assistant button platform to the integration and create one diagnostic `Force Update` button for each config entry.
+- Add the Home Assistant button platform to the integration and create one disabled-by-default diagnostic `Force Update` button for each config entry.
 - Route button presses through a coordinator method so the Store removal and refresh use the coordinator's existing update lock.
 - Pass a one-shot `force` flag through the coordinator, updater, and OSM client.
 - A forced update bypasses the coordinator scan timer, update-criteria short-circuiting, and reads from the shared OSM/Wikidata response cache.

@@ -50,7 +50,7 @@ Repeat the focused pytest command and expect all selected tests to pass.
 
 - [ ] **Step 1: Write failing button tests**
 
-Test that setup creates one diagnostic button tied to the config entry and pressing it calls the coordinator force method. Test the coordinator method removes Store data before running the forced update, and does not update when removal raises.
+Test that setup creates one disabled-by-default diagnostic button tied to the config entry and pressing it calls the coordinator force method. Test the coordinator method removes Store data before running the forced update, and does not update when removal raises.
 
 - [ ] **Step 2: Verify RED**
 
