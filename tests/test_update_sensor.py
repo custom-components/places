@@ -165,6 +165,107 @@ async def test_do_update_flow_variants(
 
 
 @pytest.mark.asyncio
+async def test_do_update_force_skips_movement_criteria(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """A forced update still runs update criteria and disables cache reads."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    async def process_osm_update(**_kwargs: object) -> None:
+        sensor.attrs[ATTR_OSM_DICT] = {"place_id": 123}
+
+    with stubbed_updater(
+        updater,
+        [
+            ("get_current_time", {"return_value": datetime(2024, 1, 1, tzinfo=UTC)}),
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("update_old_coordinates", {}),
+            (
+                "check_device_tracker_and_update_coords",
+                {"return_value": UpdateStatus.PROCEED},
+            ),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
+            ("process_osm_update", {"side_effect": process_osm_update}),
+            ("should_update_state", {"return_value": True}),
+            ("handle_state_update", {}),
+            ("rollback_update", {}),
+        ],
+    ) as mocks:
+        await updater.do_update("Force Update", {}, force=True)
+
+    mocks["determine_update_criteria"].assert_awaited_once_with(force=True)
+    mocks["process_osm_update"].assert_awaited_once()
+    mocks["should_update_state"].assert_not_awaited()
+    mocks["handle_state_update"].assert_awaited_once()
+    assert updater._use_cache is False
+
+
+@pytest.mark.asyncio
+async def test_determine_update_criteria_force_skips_movement_check(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """Force path should refresh derived fields but ignore movement gating."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    with stubbed_updater(
+        updater,
+        [
+            ("get_initial_last_place_name", {}),
+            ("get_zone_details", {}),
+            ("update_coordinates_and_distance", {"return_value": UpdateStatus.PROCEED}),
+            ("determine_if_update_needed", {"return_value": UpdateStatus.SKIP}),
+        ],
+    ) as mocks:
+        result = await updater.determine_update_criteria(force=True)
+
+    assert result == UpdateStatus.PROCEED
+    mocks["get_initial_last_place_name"].assert_awaited_once()
+    mocks["get_zone_details"].assert_awaited_once()
+    mocks["update_coordinates_and_distance"].assert_awaited_once()
+    mocks["determine_if_update_needed"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_do_update_force_rolls_back_failed_fresh_lookup(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """A forced update does not persist blank state when its fresh lookup fails."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    with stubbed_updater(
+        updater,
+        [
+            ("get_current_time", {"return_value": datetime(2024, 1, 1, tzinfo=UTC)}),
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("update_old_coordinates", {}),
+            (
+                "check_device_tracker_and_update_coords",
+                {"return_value": UpdateStatus.PROCEED},
+            ),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
+            ("process_osm_update", {}),
+            ("should_update_state", {"return_value": True}),
+            ("handle_state_update", {}),
+            ("rollback_update", {}),
+        ],
+    ) as mocks:
+        await updater.do_update("Force Update", {"native_value": "Library"}, force=True)
+
+    mocks["rollback_update"].assert_awaited_once()
+    mocks["handle_state_update"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_do_update_runs_phases_in_expected_order(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
@@ -206,7 +307,7 @@ async def test_do_update_runs_phases_in_expected_order(
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria() -> UpdateStatus:
+    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -323,7 +424,7 @@ async def test_do_update_rolls_back_and_finishes_on_phase_error(
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria() -> UpdateStatus:
+    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -414,7 +515,7 @@ async def test_do_update_skips_handle_and_finish_when_shutting_down_after_osm_up
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria() -> UpdateStatus:
+    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -1527,6 +1628,29 @@ async def test_get_dict_from_url_sets_empty_list_payload(
 
     assert sensor.attrs["dict_name"] == []
     assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == []
+
+
+@pytest.mark.asyncio
+async def test_forced_get_dict_failure_retains_shared_cache(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    aioclient_mock: AioClientMock,
+    sensor: MockSensor,
+) -> None:
+    """A failed forced lookup does not delete another entry's cached response."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    updater._use_cache = False
+    url = "http://example.com/forced-failure"
+    cached = {"place_id": 123}
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {url: cached},
+        OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
+    }
+    aioclient_mock.get(url, exc=OSError("fail"))
+
+    await updater.get_dict_from_url(url, "Test", "dict_name")
+
+    assert mock_hass.data[DOMAIN][OSM_CACHE][url] == cached
 
 
 @pytest.mark.asyncio

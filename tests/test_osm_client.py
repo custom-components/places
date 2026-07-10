@@ -1,6 +1,7 @@
 """Unit tests for shared OSM request behavior."""
 
 import asyncio
+import json
 from typing import Protocol
 from unittest.mock import AsyncMock
 from urllib.parse import parse_qs, urlparse
@@ -78,6 +79,28 @@ async def test_get_json_uses_existing_cache_without_network(
     if expect_copy:
         assert result is not cached_payload
     client_session_getter.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_json_bypasses_existing_cache_once(
+    mock_hass: HomeAssistant, aioclient_mock: AioClientMock
+) -> None:
+    """A forced lookup fetches fresh data without clearing shared cache state."""
+    url = "https://example.test/osm"
+    cached_payload = {"place_id": 123}
+    fresh_payload = {"place_id": 456}
+    mock_hass.data = {
+        DOMAIN: {
+            OSM_CACHE: {url: cached_payload},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0.0},
+        }
+    }
+    aioclient_mock.get(url, text=json.dumps(fresh_payload))
+
+    client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
+
+    assert await client.get_json(url=url, name="OpenStreetMaps", use_cache=False) == fresh_payload
+    assert mock_hass.data[DOMAIN][OSM_CACHE][url] == fresh_payload
 
 
 def test_details_url_preserves_lookup_semantics() -> None:

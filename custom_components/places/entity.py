@@ -126,31 +126,6 @@ class PlacesAttributeSensorEntityDescription(SensorEntityDescription, frozen_or_
     value_fn: PlacesValueFn | None = None
 
 
-def _meters_attr(attr_key: str) -> PlacesValueFn:
-    """Return a value function that reads a meter-valued parent attribute.
-
-    Args:
-        attr_key: Coordinator attribute storing the meter value.
-
-    Returns:
-        A callable that reads the configured meter attribute.
-    """
-
-    def _value(coordinator: PlacesUpdateCoordinator) -> StateType:
-        """Read the configured meter-valued attribute from the coordinator.
-
-        Args:
-            coordinator: Places coordinator that owns runtime attributes.
-
-        Returns:
-            Float meter value, or ``None`` when the source attribute is unset.
-        """
-        value = coordinator.get_attr(attr_key)
-        return coordinator.get_attr_safe_float(attr_key) if value is not None else None
-
-    return _value
-
-
 PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescription, ...] = (
     PlacesAttributeSensorEntityDescription(key=ATTR_PLACE_NAME),
     PlacesAttributeSensorEntityDescription(
@@ -166,13 +141,21 @@ PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescripti
         key=ATTR_DISTANCE_FROM_HOME,
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.METERS,
-        value_fn=_meters_attr(ATTR_DISTANCE_FROM_HOME),
+        value_fn=lambda coordinator: (
+            coordinator.get_attr_safe_float(ATTR_DISTANCE_FROM_HOME)
+            if coordinator.get_attr(ATTR_DISTANCE_FROM_HOME) is not None
+            else None
+        ),
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DISTANCE_TRAVELED,
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.METERS,
-        value_fn=_meters_attr(ATTR_DISTANCE_TRAVELED),
+        value_fn=lambda coordinator: (
+            coordinator.get_attr_safe_float(ATTR_DISTANCE_TRAVELED)
+            if coordinator.get_attr(ATTR_DISTANCE_TRAVELED) is not None
+            else None
+        ),
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_COUNTRY,

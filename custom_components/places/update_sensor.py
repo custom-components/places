@@ -105,8 +105,15 @@ class PlacesUpdater:
             hass=hass,
             sensor_name=str(self.coordinator.get_attr(CONF_NAME)),
         )
+        self._use_cache = True
 
-    async def do_update(self, reason: str, previous_attr: MutableMapping[str, Any]) -> None:
+    async def do_update(
+        self,
+        reason: str,
+        previous_attr: MutableMapping[str, Any],
+        *,
+        force: bool = False,
+    ) -> None:
         """Run one complete update attempt.
 
         Args:
@@ -114,7 +121,9 @@ class PlacesUpdater:
             previous_attr: Attribute snapshot captured before the update, used
                 for rollback when criteria fail or the rendered state is
                 unchanged.
+            force: Whether to bypass update criteria and cached response reads.
         """
+        self._use_cache = not force
         await self.log_update_start(reason)
         now: datetime = await self.get_current_time()
         coordinator = self.coordinator
@@ -131,14 +140,14 @@ class PlacesUpdater:
 
             proceed_with_update = await self.check_device_tracker_and_update_coords()
             if proceed_with_update == UpdateStatus.PROCEED:
-                proceed_with_update = await self.determine_update_criteria()
+                proceed_with_update = await self.determine_update_criteria(force=force)
 
             if proceed_with_update == UpdateStatus.PROCEED:
                 await self.process_osm_update(now=now)
 
-                if self._is_shutting_down():
+                if self._is_shutting_down() or (force and coordinator.is_attr_blank(ATTR_OSM_DICT)):
                     await self.rollback_update(previous_attr, now, proceed_with_update)
-                elif await self.should_update_state(now=now):
+                elif force or await self.should_update_state(now=now):
                     if self._is_shutting_down():
                         await self.rollback_update(previous_attr, now, proceed_with_update)
                     else:
@@ -463,8 +472,12 @@ class PlacesUpdater:
             if tracker_snapshot.longitude is not None:
                 self.coordinator.set_attr(ATTR_LONGITUDE, tracker_snapshot.longitude)
 
-    async def determine_update_criteria(self) -> UpdateStatus:
-        """Run zone, distance, and movement checks for this update.
+    async def determine_update_criteria(self, force: bool = False) -> UpdateStatus:
+        """Run zone, distance, and optional movement checks for this update.
+
+        Args:
+            force: When True, refresh derived fields but skip movement-based
+                update gating.
 
         Returns:
             Status indicating whether the update should continue or be skipped.
@@ -477,7 +490,7 @@ class PlacesUpdater:
             self.coordinator.get_attr(CONF_NAME),
             proceed_with_update,
         )
-        if proceed_with_update == UpdateStatus.PROCEED:
+        if proceed_with_update == UpdateStatus.PROCEED and not force:
             proceed_with_update = await self.determine_if_update_needed()
             _LOGGER.debug(
                 "(%s) [determine_update_criteria] proceed_with_update: %s",
@@ -829,13 +842,14 @@ class PlacesUpdater:
             name: Human-readable service name used in logs.
             dict_name: Sensor attribute that receives the parsed JSON mapping.
         """
-        get_dict = await self._osm_client.get_json(url=url, name=name)
+        get_dict = await self._osm_client.get_json(url=url, name=name, use_cache=self._use_cache)
         self.coordinator.set_attr(dict_name, get_dict if get_dict is not None else {})
         if get_dict is not None:
             return
 
-        # Ensure no stale key survives when no payload was produced.
-        self._hass.data[DOMAIN][OSM_CACHE].pop(url, None)
+        if self._use_cache:
+            # Ensure no stale key survives when a normal lookup produced no payload.
+            self._hass.data[DOMAIN][OSM_CACHE].pop(url, None)
 
     async def determine_if_update_needed(self) -> UpdateStatus:
         """Decide whether movement since the last update warrants geocoding.
