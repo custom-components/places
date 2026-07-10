@@ -24,6 +24,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import PlacesUpdateCoordinator
+from .migration import async_migrate_legacy_snapshot
 from .persistence import PlacesStorage
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -51,6 +52,25 @@ def _ensure_osm_runtime_state(hass: HomeAssistant) -> None:
             "last_query": 0.0,
         },
     )
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate a Places config entry to the current version.
+
+    Args:
+        hass: Home Assistant instance.
+        entry: Config entry to migrate.
+
+    Returns:
+        ``True`` when migration completes.
+    """
+    if entry.version != 1:
+        return True
+
+    name = entry.data.get(CONF_NAME, entry.entry_id)
+    await async_migrate_legacy_snapshot(hass, entry.entry_id, name)
+    hass.config_entries.async_update_entry(entry, version=2, minor_version=1)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

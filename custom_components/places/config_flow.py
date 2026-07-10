@@ -380,7 +380,7 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
 class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
     """Create new Places config entries from UI input."""
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(
         self, user_input: MutableMapping[str, Any] | None = None
