@@ -79,15 +79,13 @@ def _read_legacy_snapshot(path: Path, name: str) -> Mapping[str, Any] | None:
     return snapshot
 
 
-def _remove_legacy_snapshot(path: Path, name: str) -> bool:
+def _remove_legacy_snapshot(path: Path, name: str) -> None:
     """Remove a legacy snapshot and its directory when empty.
 
     Args:
         path: Legacy JSON snapshot path.
         name: Sensor name used for contextual logging.
 
-    Returns:
-        Whether cleanup completed without an unexpected filesystem error.
     """
     try:
         path.unlink()
@@ -101,7 +99,7 @@ def _remove_legacy_snapshot(path: Path, name: str) -> bool:
             type(error).__name__,
             error,
         )
-        return False
+        return
 
     try:
         path.parent.rmdir()
@@ -116,8 +114,7 @@ def _remove_legacy_snapshot(path: Path, name: str) -> bool:
                 type(error).__name__,
                 error,
             )
-            return False
-    return True
+            return
 
 
 async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name: str) -> None:

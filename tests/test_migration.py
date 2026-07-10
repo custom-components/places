@@ -1,4 +1,3 @@
-# mypy: disable-error-code="func-returns-value"
 """Tests for one-time legacy JSON snapshot migration."""
 
 from __future__ import annotations
@@ -87,9 +86,8 @@ async def test_valid_snapshot_is_saved_then_removed(
         json.dumps({ATTR_CITY: "Legacy City", "unknown": "ignored"}),
     )
 
-    result = await async_migrate_legacy_snapshot(hass, "entry 1", "Test Place")
+    await async_migrate_legacy_snapshot(hass, "entry 1", "Test Place")
 
-    assert result is None
     assert _FakeStore.saved == [{ATTR_CITY: "Legacy City"}]
     assert not path.exists()
     assert not path.parent.exists()
@@ -106,9 +104,8 @@ async def test_unusable_snapshot_is_removed_without_save(
     path = legacy_json_path(hass, "entry-2")
     _write_legacy_snapshot(path, contents)
 
-    result = await async_migrate_legacy_snapshot(hass, "entry-2", "Test Place")
+    await async_migrate_legacy_snapshot(hass, "entry-2", "Test Place")
 
-    assert result is None
     assert _FakeStore.saved == []
     assert not path.exists()
     assert not path.parent.exists()
@@ -125,9 +122,8 @@ async def test_invalid_utf8_snapshot_is_removed_without_save(
     path.parent.mkdir(parents=True)
     path.write_bytes(b"\xff")
 
-    result = await async_migrate_legacy_snapshot(hass, "entry-invalid-utf8", "Test Place")
+    await async_migrate_legacy_snapshot(hass, "entry-invalid-utf8", "Test Place")
 
-    assert result is None
     assert _FakeStore.saved == []
     assert not path.exists()
     assert not path.parent.exists()
@@ -144,9 +140,8 @@ async def test_store_write_error_still_removes_snapshot(
     path = legacy_json_path(hass, "entry-3")
     _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
 
-    result = await async_migrate_legacy_snapshot(hass, "entry-3", "Test Place")
+    await async_migrate_legacy_snapshot(hass, "entry-3", "Test Place")
 
-    assert result is None
     assert _FakeStore.saved == []
     assert not path.exists()
     assert not path.parent.exists()
@@ -172,9 +167,8 @@ async def test_store_load_error_still_removes_snapshot(
     path = legacy_json_path(hass, "entry-load-error")
     _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
 
-    result = await async_migrate_legacy_snapshot(hass, "entry-load-error", "Test Place")
+    await async_migrate_legacy_snapshot(hass, "entry-load-error", "Test Place")
 
-    assert result is None
     assert _FakeStore.saved == []
     assert not path.exists()
     assert not path.parent.exists()
@@ -191,9 +185,8 @@ async def test_existing_store_data_wins_and_legacy_snapshot_is_removed(
     path = legacy_json_path(hass, "entry-4")
     _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
 
-    result = await async_migrate_legacy_snapshot(hass, "entry-4", "Test Place")
+    await async_migrate_legacy_snapshot(hass, "entry-4", "Test Place")
 
-    assert result is None
     assert _FakeStore.saved == []
     assert not path.exists()
     assert not path.parent.exists()
@@ -209,7 +202,6 @@ async def test_cleanup_error_is_swallowed(tmp_path: Path, monkeypatch: pytest.Mo
     path = legacy_json_path(hass, "entry-5")
     _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
 
-    result = await async_migrate_legacy_snapshot(hass, "entry-5", "Test Place")
+    await async_migrate_legacy_snapshot(hass, "entry-5", "Test Place")
 
-    assert result is None
     cleanup.assert_called_once_with(path, "Test Place")
