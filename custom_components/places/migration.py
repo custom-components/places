@@ -14,7 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 from homeassistant.util import slugify
 
-from .const import DOMAIN
+from .const import ATTR_DISTANCE_FROM_HOME, ATTR_DISTANCE_TRAVELED, DOMAIN
 from .persistence import STORE_VERSION, STORE_WRITE_ERRORS, normalize_snapshot, store_key
 
 _LOGGER = logging.getLogger(__name__)
@@ -149,7 +149,14 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
             )
             return
         if store_data is not None:
-            return
+            if isinstance(store_data, Mapping):
+                return
+            _LOGGER.warning(
+                "(%s) Invalid Store snapshot root is %s; continuing legacy migration (%s)",
+                name,
+                type(store_data).__name__,
+                path,
+            )
 
         try:
             snapshot = await hass.async_add_executor_job(_read_legacy_snapshot, path, name)
@@ -166,6 +173,11 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
             return
 
         try:
+            snapshot = dict(snapshot)
+            if ATTR_DISTANCE_FROM_HOME not in snapshot and "distance_from_home_m" in snapshot:
+                snapshot[ATTR_DISTANCE_FROM_HOME] = snapshot["distance_from_home_m"]
+            if ATTR_DISTANCE_TRAVELED not in snapshot and "distance_traveled_m" in snapshot:
+                snapshot[ATTR_DISTANCE_TRAVELED] = snapshot["distance_traveled_m"]
             await store.async_save(normalize_snapshot(snapshot))
         except STORE_WRITE_ERRORS as error:
             _LOGGER.warning(

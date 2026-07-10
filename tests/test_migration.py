@@ -10,7 +10,11 @@ from unittest.mock import AsyncMock, MagicMock
 from homeassistant.exceptions import HomeAssistantError
 import pytest
 
-from custom_components.places.const import ATTR_CITY
+from custom_components.places.const import (
+    ATTR_CITY,
+    ATTR_DISTANCE_FROM_HOME,
+    ATTR_DISTANCE_TRAVELED,
+)
 from custom_components.places.migration import async_migrate_legacy_snapshot, legacy_json_path
 
 
@@ -187,6 +191,56 @@ async def test_existing_store_data_wins_and_legacy_snapshot_is_removed(
     await async_migrate_legacy_snapshot(hass, "entry-4", "Test Place")
 
     assert _FakeStore.saved == []
+    assert not path.exists()
+    assert not path.parent.exists()
+
+
+@pytest.mark.asyncio
+async def test_invalid_store_data_is_replaced_by_legacy_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-mapping Store root does not discard a valid legacy snapshot."""
+    monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
+    _FakeStore.next_data = ["invalid"]
+    hass = _hass_for_legacy_path(tmp_path)
+    path = legacy_json_path(hass, "entry-invalid-store")
+    _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
+
+    await async_migrate_legacy_snapshot(hass, "entry-invalid-store", "Test Place")
+
+    assert _FakeStore.saved == [{ATTR_CITY: "Legacy City"}]
+    assert not path.exists()
+    assert not path.parent.exists()
+
+
+@pytest.mark.asyncio
+async def test_legacy_distance_keys_are_normalized_before_store_save(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Legacy meter distance keys are copied to the current persisted names."""
+    monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
+    hass = _hass_for_legacy_path(tmp_path)
+    path = legacy_json_path(hass, "entry-distance")
+    _write_legacy_snapshot(
+        path,
+        json.dumps(
+            {
+                ATTR_CITY: "Legacy City",
+                "distance_from_home_m": 12.5,
+                "distance_traveled_m": 3.25,
+            }
+        ),
+    )
+
+    await async_migrate_legacy_snapshot(hass, "entry-distance", "Test Place")
+
+    assert _FakeStore.saved == [
+        {
+            ATTR_CITY: "Legacy City",
+            ATTR_DISTANCE_FROM_HOME: 12.5,
+            ATTR_DISTANCE_TRAVELED: 3.25,
+        }
+    ]
     assert not path.exists()
     assert not path.parent.exists()
 
