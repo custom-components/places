@@ -356,6 +356,11 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
         The same error mapping, possibly with ``base`` set to a validation
         error key.
     """
+    if not display_options.strip():
+        _LOGGER.error("Invalid syntax: Display options cannot be blank.")
+        errors["base"] = "invalid_syntax"
+        return errors
+
     if len(display_options) > MAX_LENGTH_STATE_STATE:
         _LOGGER.error(
             "Invalid syntax: Display options are limited to %d characters.",

@@ -278,10 +278,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             HomeAssistantError: If display options fail existing validation.
         """
         if key == CONF_DISPLAY_OPTIONS:
-            value_str = str(value).strip()
-            if not value_str:
-                raise HomeAssistantError("Invalid display options")
-            value_str = value_str.lower()
+            value_str = str(value).strip().lower()
             errors = await validate_display_options(value_str, {})
             if errors:
                 raise HomeAssistantError("Invalid display options")

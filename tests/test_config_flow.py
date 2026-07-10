@@ -54,7 +54,7 @@ def config_entry() -> MockConfigEntry:
         data={
             "name": "Test Place",
             "devicetracker_id": "device.test",
-            "display_options": "zone, place",
+            CONF_DISPLAY_OPTIONS: "zone, place",
             "home_zone": "zone.home",
             "map_provider": "osm",
             "map_zoom": 10,
@@ -77,7 +77,7 @@ async def test_config_flow_user_step(mock_hass: MagicMock) -> None:
     user_input = {
         "name": "Test Place",
         "devicetracker_id": "device.test",
-        "display_options": "zone, place",
+        CONF_DISPLAY_OPTIONS: "zone, place",
         "home_zone": "zone.home",
         "map_provider": "osm",
         "map_zoom": 10,
@@ -136,7 +136,7 @@ async def test_options_flow_init(mock_hass: MagicMock, config_entry: MockConfigE
             {
                 "devicetracker_id": "device.test",
                 "name": "Test Place",
-                "display_options": "zone, place",
+                CONF_DISPLAY_OPTIONS: "zone, place",
                 "home_zone": "zone.home",
                 "map_provider": "osm",
                 "map_zoom": 10,
@@ -153,7 +153,7 @@ async def test_options_flow_init(mock_hass: MagicMock, config_entry: MockConfigE
             {
                 "devicetracker_id": "device.test",
                 "name": "",
-                "display_options": "zone, place",
+                CONF_DISPLAY_OPTIONS: "zone, place",
                 "home_zone": "",
                 "map_provider": "osm",
                 "map_zoom": 10,
@@ -167,7 +167,7 @@ async def test_options_flow_init(mock_hass: MagicMock, config_entry: MockConfigE
         ),
         (
             "merges_config_entry",
-            {"devicetracker_id": "device.test", "display_options": "zone, place"},
+            {CONF_DISPLAY_OPTIONS: "zone, place", "devicetracker_id": "device.test"},
         ),
     ],
 )
@@ -483,6 +483,25 @@ async def test_validate_display_options_enforces_entity_state_limit(
     assert result == expected_errors
 
 
+@pytest.mark.parametrize(
+    ("display_options", "expected_errors"),
+    [
+        ("", {"base": "invalid_syntax"}),
+        ("   ", {"base": "invalid_syntax"}),
+        ("\n\t", {"base": "invalid_syntax"}),
+    ],
+)
+async def test_validate_display_options_rejects_blank_values(
+    display_options: str, expected_errors: dict[str, str]
+) -> None:
+    """Blank or whitespace-only display options are rejected to match coordinator validation."""
+    errors: dict[str, str] = {}
+
+    result = await validate_display_options(display_options, errors)
+
+    assert result == expected_errors
+
+
 @pytest.mark.asyncio
 async def test_config_flow_user_step_no_input_shows_form(mock_hass: MagicMock) -> None:
     """User step with no input returns a form and includes description placeholders."""
@@ -502,7 +521,7 @@ async def test_config_flow_user_step_invalid_display_options(mock_hass: MagicMoc
     bad_input = {
         "name": "Bad Sensor",
         "devicetracker_id": "device.test",
-        "options": "zone,[place,(zone]",
+        CONF_DISPLAY_OPTIONS: "zone,[place,(zone]",
         "home_zone": "zone.home",
         "map_provider": "osm",
         "map_zoom": 10,
@@ -532,7 +551,7 @@ async def test_options_flow_invalid_display_options_shows_form(
     )
     bad_user_input = {
         "devicetracker_id": "device.test",
-        "options": "zone,[place,(zone]",
+        CONF_DISPLAY_OPTIONS: "zone,[place,(zone]",
     }
     result = await handler.async_step_init(bad_user_input)
     assert result["type"] == FlowResultType.FORM
