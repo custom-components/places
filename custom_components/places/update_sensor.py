@@ -672,6 +672,15 @@ class PlacesUpdater:
             self.coordinator.get_attr(ATTR_MAP_LINK),
         )
 
+    async def async_apply_show_time(self) -> None:
+        """Apply the configured last-updated suffix to existing sensor state."""
+        state = clear_since_from_state(self.coordinator.get_attr_safe_str(ATTR_NATIVE_VALUE))
+        if self.coordinator.get_attr(CONF_SHOW_TIME) and state:
+            now = await self.get_current_time()
+            suffix = f" (since {now.hour:02}:{now.minute:02})"
+            state = f"{state[: 255 - len(suffix)]}{suffix}"
+        self.coordinator.set_native_value(state or None)
+
     async def async_reset_attributes(self) -> None:
         """Clear transient attributes before parsing fresh geocoding data."""
         for attr in RESET_ATTRIBUTE_LIST:

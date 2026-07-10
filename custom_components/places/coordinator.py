@@ -25,6 +25,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import Throttle
@@ -34,6 +35,7 @@ from homeassistant.util.json import SerializationError
 from .advanced_options import AdvancedOptionsParser
 from .attributes import PlacesAttributes
 from .basic_options import BasicOptionsParser
+from .config_flow import validate_display_options
 from .const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
@@ -247,6 +249,39 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         if self._is_shutting_down:
             return
         self.async_set_updated_data(self.snapshot())
+
+    async def async_update_setting(self, key: str, value: str | bool) -> None:
+        """Persist one configuration entity value and recalculate local state.
+
+        Args:
+            key: Config-entry setting key to update.
+            value: New text, select, or switch value.
+
+        Raises:
+            HomeAssistantError: If display options fail existing validation.
+        """
+        if key == CONF_DISPLAY_OPTIONS:
+            errors = await validate_display_options(str(value), {})
+            if errors:
+                raise HomeAssistantError("Invalid display options")
+
+        self.config[key] = value
+        self.set_attr(key, value)
+        if key == CONF_DISPLAY_OPTIONS:
+            self.set_attr(ATTR_DISPLAY_OPTIONS, value)
+            await self.process_display_options()
+        else:
+            updater = PlacesUpdater(self.hass, self.config_entry, self)
+            if key == CONF_MAP_PROVIDER:
+                await updater.get_map_link()
+            elif key == CONF_SHOW_TIME:
+                await updater.async_apply_show_time()
+
+        data = dict(self.config_entry.data)
+        data[key] = value
+        self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+        self.publish_update()
+        await self.async_persist_attributes()
 
     def get_internal_attr(self) -> MutableMapping[str, Any]:
         """Return the mutable runtime attribute mapping.
