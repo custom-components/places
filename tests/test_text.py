@@ -2,8 +2,14 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.const import MAX_LENGTH_STATE_STATE
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
+import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.places.const import DOMAIN
+from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.text import PlacesDisplayOptionsText, async_setup_entry
 
 
@@ -26,3 +32,24 @@ async def test_display_options_text_setup_and_update() -> None:
     await entity.async_set_value("formatted_place")
 
     coordinator.async_update_setting.assert_awaited_once_with("options", "formatted_place")
+
+
+async def test_display_options_text_entity_enforces_max_length(mock_hass: MagicMock) -> None:
+    """Display-options text entity should use shared validation for 255-char limits."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.process_display_options = AsyncMock()
+    coordinator.publish_update = MagicMock()
+    coordinator.async_persist_attributes = AsyncMock()
+
+    entity = PlacesDisplayOptionsText(coordinator)
+    await entity.async_set_value("x" * MAX_LENGTH_STATE_STATE)
+
+    with pytest.raises(HomeAssistantError, match="Invalid display options"):
+        await entity.async_set_value("x" * (MAX_LENGTH_STATE_STATE + 1))
+
+    assert coordinator.process_display_options.await_count == 1

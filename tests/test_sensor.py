@@ -268,6 +268,50 @@ async def test_coordinator_rejects_blank_display_options(mock_hass: MagicMock) -
     assert coordinator.get_attr(CONF_DISPLAY_OPTIONS) == "zone_name, place"
 
 
+async def test_coordinator_rejects_too_long_display_options(mock_hass: MagicMock) -> None:
+    """Display options longer than Home Assistant state limit are rejected."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+
+    with pytest.raises(HomeAssistantError, match="Invalid display options"):
+        await coordinator.async_update_setting(
+            CONF_DISPLAY_OPTIONS, "x" * (MAX_LENGTH_STATE_STATE + 1)
+        )
+
+    mock_hass.config_entries.async_update_entry.assert_not_called()
+
+
+async def test_coordinator_display_options_render_stale_native_state_as_blank(
+    mock_hass: MagicMock,
+) -> None:
+    """Stale rendered state is cleared when the new display format emits an empty value."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_SHOW_TIME: True,
+            CONF_DISPLAY_OPTIONS: "zone_name, place",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_native_value("Library")
+
+    await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "not-used")
+
+    assert coordinator.data.native_value is None
+    assert coordinator.get_attr(ATTR_NATIVE_VALUE) is None
+
+
 async def test_coordinator_updates_display_options_with_normalized_and_formatted_state(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
@@ -355,6 +399,52 @@ async def test_coordinator_map_provider_update_rebuilds_current_location(
 
     assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
     assert captured["location_current"] == "1.0,2.0"
+
+
+async def test_coordinator_map_provider_update_skips_map_link_without_location(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Map-provider updates clear stale map links when no location context exists."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_MAP_PROVIDER: "apple",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_attr(ATTR_MAP_LINK, "https://maps.apple.com/?q=42,1")
+    captured: dict[str, bool] = {"called": False}
+
+    class FakeUpdater:
+        """Capture whether map-link generation is requested."""
+
+        def __init__(
+            self, hass: object, config_entry: object, coordinator: PlacesUpdateCoordinator
+        ) -> None:
+            """Store the coordinator for downstream assertions."""
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Not used for this code path."""
+
+        async def get_map_link(self) -> None:
+            """Record that a map link lookup was attempted."""
+            captured["called"] = True
+
+        async def async_apply_show_time(self) -> None:
+            """Not used for this code path."""
+
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", FakeUpdater)
+
+    await coordinator.async_update_setting(CONF_MAP_PROVIDER, "google")
+
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+    assert coordinator.get_attr(ATTR_MAP_LINK) is None
+    assert captured["called"] is False
 
 
 async def test_async_update_setting_serialized_with_scan_updates(

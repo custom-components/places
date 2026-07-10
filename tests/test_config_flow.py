@@ -3,7 +3,7 @@
 from collections.abc import Callable, Sequence
 from unittest.mock import AsyncMock, MagicMock
 
-from homeassistant.const import ATTR_FRIENDLY_NAME
+from homeassistant.const import ATTR_FRIENDLY_NAME, MAX_LENGTH_STATE_STATE
 from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
@@ -457,6 +457,25 @@ async def test_validate_display_options_accepts_advanced_options(
     display_options: str, expected_errors: dict[str, str]
 ) -> None:
     """Validate advanced display option strings across simple and complex permutations."""
+    errors: dict[str, str] = {}
+
+    result = await validate_display_options(display_options, errors)
+
+    assert result == expected_errors
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("display_options", "expected_errors"),
+    [
+        ("x" * MAX_LENGTH_STATE_STATE, {}),
+        ("x" * (MAX_LENGTH_STATE_STATE + 1), {"base": "invalid_syntax"}),
+    ],
+)
+async def test_validate_display_options_enforces_entity_state_limit(
+    display_options: str, expected_errors: dict[str, str]
+) -> None:
+    """Display options are rejected once they exceed the HA state length limit."""
     errors: dict[str, str] = {}
 
     result = await validate_display_options(display_options, errors)

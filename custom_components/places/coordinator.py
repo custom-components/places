@@ -51,6 +51,7 @@ from .const import (
     ATTR_LATITUDE,
     ATTR_LOCATION_CURRENT,
     ATTR_LONGITUDE,
+    ATTR_MAP_LINK,
     ATTR_NATIVE_VALUE,
     ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
@@ -291,11 +292,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             updater = PlacesUpdater(self.hass, self.config_entry, self)
             await self.process_display_options()
             await updater.async_apply_show_time()
-        else:
+        elif key == CONF_MAP_PROVIDER:
             if (
-                key == CONF_MAP_PROVIDER
-                and self.is_attr_blank(ATTR_LOCATION_CURRENT)
-                and not (self.is_attr_blank(ATTR_LATITUDE) or self.is_attr_blank(ATTR_LONGITUDE))
+                self.is_attr_blank(ATTR_LOCATION_CURRENT)
+                and not self.is_attr_blank(ATTR_LATITUDE)
+                and not self.is_attr_blank(ATTR_LONGITUDE)
             ):
                 self.set_attr(
                     ATTR_LOCATION_CURRENT,
@@ -304,10 +305,19 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             self.config[key] = value
             self.set_attr(key, value)
             updater = PlacesUpdater(self.hass, self.config_entry, self)
-            if key == CONF_MAP_PROVIDER:
+            if self.is_attr_blank(ATTR_LOCATION_CURRENT):
+                self.clear_attr(ATTR_MAP_LINK)
+            else:
                 await updater.get_map_link()
-            elif key == CONF_SHOW_TIME:
-                await updater.async_apply_show_time()
+        elif key == CONF_SHOW_TIME:
+            self.config[key] = value
+            self.set_attr(key, value)
+            updater = PlacesUpdater(self.hass, self.config_entry, self)
+            await updater.async_apply_show_time()
+        else:
+            self.config[key] = value
+            self.set_attr(key, value)
+            updater = PlacesUpdater(self.hass, self.config_entry, self)
 
         data = dict(self.config_entry.data)
         data[key] = value
@@ -644,6 +654,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     async def process_display_options(self) -> None:
         """Render configured display options into the native value."""
+        self.clear_attr(ATTR_NATIVE_VALUE)
         display_options: list[str] = []
         if not self.is_attr_blank(ATTR_DISPLAY_OPTIONS):
             display_options.extend(
