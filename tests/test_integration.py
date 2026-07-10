@@ -12,6 +12,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places import (
     _ensure_osm_runtime_state,
+    async_migrate_entry,
     async_remove_entry,
     async_remove_extended_entity,
     async_setup_entry,
@@ -119,6 +120,44 @@ def reset_fake_storage() -> None:
     _FakeSetupPlacesStorage.instances = []
     _FakeSetupPlacesStorage.load_result = {}
     _FakeCoordinator.instances = []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("version", "update_calls"), [(1, 1), (2, 0)])
+async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    version: int,
+    update_calls: int,
+) -> None:
+    """Config-entry migration should run only for legacy entry versions."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=version,
+        data={CONF_NAME: "Test Place"},
+    )
+    migrate_legacy_snapshot = AsyncMock()
+    monkeypatch.setattr(
+        "custom_components.places.async_migrate_legacy_snapshot",
+        migrate_legacy_snapshot,
+    )
+
+    result = await async_migrate_entry(mock_hass, entry)
+
+    assert result is True
+    assert migrate_legacy_snapshot.await_count == update_calls
+    assert mock_hass.config_entries.async_update_entry.call_count == update_calls
+    if version == 1:
+        migrate_legacy_snapshot.assert_awaited_once_with(
+            mock_hass,
+            entry.entry_id,
+            "Test Place",
+        )
+        mock_hass.config_entries.async_update_entry.assert_called_once_with(
+            entry,
+            version=2,
+            minor_version=1,
+        )
 
 
 @pytest.mark.asyncio
