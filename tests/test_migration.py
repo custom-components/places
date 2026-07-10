@@ -261,6 +261,30 @@ async def test_existing_store_data_wins_and_legacy_snapshot_is_removed(
 
 
 @pytest.mark.asyncio
+async def test_existing_store_legacy_distance_keys_are_normalized(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Legacy meter distance keys already in Store are migrated in place."""
+    monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
+    _FakeStore.next_data = {
+        ATTR_CITY: "Legacy City",
+        "distance_from_home_m": 12.5,
+        "distance_traveled_m": 3.25,
+    }
+    hass = _hass_for_legacy_path(tmp_path)
+
+    await async_migrate_legacy_snapshot(hass, "entry-store-distance", "Test Place")
+
+    assert _FakeStore.saved == [
+        {
+            ATTR_CITY: "Legacy City",
+            ATTR_DISTANCE_FROM_HOME: 12.5,
+            ATTR_DISTANCE_TRAVELED: 3.25,
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_invalid_store_data_is_replaced_by_legacy_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
