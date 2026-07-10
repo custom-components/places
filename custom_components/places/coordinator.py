@@ -48,6 +48,9 @@ from .const import (
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
+    ATTR_LATITUDE,
+    ATTR_LOCATION_CURRENT,
+    ATTR_LONGITUDE,
     ATTR_NATIVE_VALUE,
     ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
@@ -260,17 +263,46 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         Raises:
             HomeAssistantError: If display options fail existing validation.
         """
+        async with self._update_lock:
+            await self._async_update_setting_locked(key=key, value=value)
+
+    async def _async_update_setting_locked(self, key: str, value: str | bool) -> None:
+        """Apply one setting update while the coordinator update lock is held.
+
+        Args:
+            key: Config-entry setting key to update.
+            value: New text, select, or switch value.
+
+        Raises:
+            HomeAssistantError: If display options fail existing validation.
+        """
         if key == CONF_DISPLAY_OPTIONS:
-            errors = await validate_display_options(str(value), {})
+            value_str = str(value).strip()
+            if not value_str:
+                raise HomeAssistantError("Invalid display options")
+            value_str = value_str.lower()
+            errors = await validate_display_options(value_str, {})
             if errors:
                 raise HomeAssistantError("Invalid display options")
-
-        self.config[key] = value
-        self.set_attr(key, value)
-        if key == CONF_DISPLAY_OPTIONS:
+            value = value_str
+            self.config[key] = value
+            self.set_attr(key, value)
             self.set_attr(ATTR_DISPLAY_OPTIONS, value)
+            updater = PlacesUpdater(self.hass, self.config_entry, self)
             await self.process_display_options()
+            await updater.async_apply_show_time()
         else:
+            if (
+                key == CONF_MAP_PROVIDER
+                and self.is_attr_blank(ATTR_LOCATION_CURRENT)
+                and not (self.is_attr_blank(ATTR_LATITUDE) or self.is_attr_blank(ATTR_LONGITUDE))
+            ):
+                self.set_attr(
+                    ATTR_LOCATION_CURRENT,
+                    f"{self.get_attr_safe_float(ATTR_LATITUDE)},{self.get_attr_safe_float(ATTR_LONGITUDE)}",
+                )
+            self.config[key] = value
+            self.set_attr(key, value)
             updater = PlacesUpdater(self.hass, self.config_entry, self)
             if key == CONF_MAP_PROVIDER:
                 await updater.get_map_link()

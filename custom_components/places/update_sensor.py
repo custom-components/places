@@ -679,6 +679,9 @@ class PlacesUpdater:
             now = await self.get_current_time()
             suffix = f" (since {now.hour:02}:{now.minute:02})"
             state = f"{state[: 255 - len(suffix)]}{suffix}"
+        else:
+            state = state[:255]
+        self.coordinator.set_attr(ATTR_SHOW_DATE, False)
         self.coordinator.set_native_value(state or None)
 
     async def async_reset_attributes(self) -> None:
