@@ -1,3 +1,4 @@
+# mypy: disable-error-code="func-returns-value"
 """Tests for one-time legacy JSON snapshot migration."""
 
 from __future__ import annotations
@@ -7,10 +8,11 @@ from pathlib import Path
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
-from custom_components.places.migration import async_migrate_legacy_snapshot, legacy_json_path
+from homeassistant.exceptions import HomeAssistantError
 import pytest
 
 from custom_components.places.const import ATTR_CITY
+from custom_components.places.migration import async_migrate_legacy_snapshot, legacy_json_path
 
 
 class _FakeStore:
@@ -18,6 +20,7 @@ class _FakeStore:
 
     next_data: object | None = None
     saved: ClassVar[list[dict[str, object]]] = []
+    load_error: ClassVar[HomeAssistantError | None] = None
     save_error: OSError | None = None
 
     def __init__(
@@ -35,6 +38,9 @@ class _FakeStore:
 
     async def async_load(self) -> object | None:
         """Return configured Store data."""
+        load_error = type(self).load_error
+        if load_error is not None:
+            raise load_error
         return type(self).next_data
 
     async def async_save(self, data: dict[str, object]) -> None:
@@ -50,6 +56,7 @@ def reset_fake_store_state() -> None:
     """Reset shared fake Store state for each test."""
     _FakeStore.next_data = None
     _FakeStore.saved = []
+    _FakeStore.load_error = None
     _FakeStore.save_error = None
 
 
@@ -108,6 +115,25 @@ async def test_unusable_snapshot_is_removed_without_save(
 
 
 @pytest.mark.asyncio
+async def test_invalid_utf8_snapshot_is_removed_without_save(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A snapshot containing invalid UTF-8 is discarded without a Store write."""
+    monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
+    hass = _hass_for_legacy_path(tmp_path)
+    path = legacy_json_path(hass, "entry-invalid-utf8")
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"\xff")
+
+    result = await async_migrate_legacy_snapshot(hass, "entry-invalid-utf8", "Test Place")
+
+    assert result is None
+    assert _FakeStore.saved == []
+    assert not path.exists()
+    assert not path.parent.exists()
+
+
+@pytest.mark.asyncio
 async def test_store_write_error_still_removes_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -119,6 +145,25 @@ async def test_store_write_error_still_removes_snapshot(
     _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
 
     result = await async_migrate_legacy_snapshot(hass, "entry-3", "Test Place")
+
+    assert result is None
+    assert _FakeStore.saved == []
+    assert not path.exists()
+    assert not path.parent.exists()
+
+
+@pytest.mark.asyncio
+async def test_store_load_error_still_removes_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Store load failure does not leave the legacy source behind."""
+    monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
+    _FakeStore.load_error = HomeAssistantError("load failed")
+    hass = _hass_for_legacy_path(tmp_path)
+    path = legacy_json_path(hass, "entry-load-error")
+    _write_legacy_snapshot(path, json.dumps({ATTR_CITY: "Legacy City"}))
+
+    result = await async_migrate_legacy_snapshot(hass, "entry-load-error", "Test Place")
 
     assert result is None
     assert _FakeStore.saved == []
