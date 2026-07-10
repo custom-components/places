@@ -485,15 +485,29 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         async with self._update_lock:
             if self._is_shutting_down:
                 return
-            previous_attr = copy.deepcopy(self.get_internal_attr())
-            await PlacesUpdater(
-                hass=self.hass,
-                config_entry=self.config_entry,
-                coordinator=self,
-            ).do_update(
-                reason=reason,
-                previous_attr=previous_attr,
-            )
+            await self._run_update_locked(reason)
+
+    async def async_force_update(self) -> None:
+        """Run one cache-bypassing update."""
+        if self._is_shutting_down:
+            return
+        async with self._update_lock:
+            if self._is_shutting_down:
+                return
+            await self._run_update_locked("Force Update", force=True)
+
+    async def _run_update_locked(self, reason: str, *, force: bool = False) -> None:
+        """Run an update while the caller holds the coordinator update lock."""
+        previous_attr = copy.deepcopy(self.get_internal_attr())
+        updater = PlacesUpdater(
+            hass=self.hass,
+            config_entry=self.config_entry,
+            coordinator=self,
+        )
+        if force:
+            await updater.do_update(reason=reason, previous_attr=previous_attr, force=True)
+        else:
+            await updater.do_update(reason=reason, previous_attr=previous_attr)
 
     @Throttle(MIN_THROTTLE_INTERVAL)
     @callback

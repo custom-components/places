@@ -95,19 +95,20 @@ class OSMClient:
         """Update the cached sensor name used in log messages."""
         self._sensor_name = sensor_name
 
-    async def get_json(self, url: str, name: str) -> Any | None:
+    async def get_json(self, url: str, name: str, *, use_cache: bool = True) -> Any | None:
         """Fetch JSON from a URL with OSM cache and throttle behavior.
 
         Args:
             url: Absolute URL to request.
             name: Friendly label for log output.
+            use_cache: Whether an existing shared cached response may be returned.
 
         Returns:
             Parsed JSON object (or a list-item flattened mapping), or ``None``
             when the request or parse fails.
         """
         osm_cache: dict[str, object] = self._hass.data[DOMAIN][OSM_CACHE]
-        if url in osm_cache:
+        if use_cache and url in osm_cache:
             _LOGGER.debug(
                 "(%s) %s data loaded from cache (Cache size: %s)",
                 self._sensor_name,

@@ -424,13 +424,6 @@ def sensor() -> MockSensor:
 
 
 @pytest.fixture
-def updater_instance(mock_hass: MagicMock) -> PlacesUpdater:
-    """Provide a PlacesUpdater instance wired to the shared `mock_hass` and a fresh sensor."""
-    sensor_obj = mock_sensor()
-    return PlacesUpdater(mock_hass, MockConfigEntry(domain="places", data={}), sensor_obj)
-
-
-@pytest.fixture
 def updater(mock_hass: MagicMock) -> PlacesUpdater:
     """Provide a PlacesUpdater instance using the shared `mock_hass` and a fresh mock_sensor.
 
