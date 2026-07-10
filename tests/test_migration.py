@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 from pathlib import Path
 from typing import ClassVar
@@ -15,7 +16,12 @@ from custom_components.places.const import (
     ATTR_DISTANCE_FROM_HOME,
     ATTR_DISTANCE_TRAVELED,
 )
-from custom_components.places.migration import async_migrate_legacy_snapshot, legacy_json_path
+from custom_components.places.migration import (
+    _read_legacy_snapshot,
+    _remove_legacy_snapshot,
+    async_migrate_legacy_snapshot,
+    legacy_json_path,
+)
 
 
 class _FakeStore:
@@ -74,6 +80,65 @@ def _write_legacy_snapshot(path: Path, contents: str) -> None:
     """Write a legacy snapshot and create its containing folder."""
     path.parent.mkdir(parents=True)
     path.write_text(contents)
+
+
+def test_missing_legacy_snapshot_returns_none(tmp_path: Path) -> None:
+    """A missing legacy snapshot is treated as absent."""
+    assert _read_legacy_snapshot(tmp_path / "missing.json", "Test Place") is None
+
+
+def test_snapshot_cleanup_stops_when_unlink_fails() -> None:
+    """A snapshot unlink error prevents the parent directory removal attempt."""
+    path = MagicMock(spec=Path)
+    path.unlink.side_effect = OSError("unlink failed")
+
+    _remove_legacy_snapshot(path, "Test Place")
+
+    path.unlink.assert_called_once_with(missing_ok=True)
+    path.parent.rmdir.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("parent_error", "expected_warning"),
+    [
+        (FileNotFoundError(), False),
+        (OSError(errno.ENOTEMPTY, "directory not empty"), False),
+        (OSError(errno.EACCES, "permission denied"), True),
+    ],
+    ids=["parent-missing", "parent-not-empty", "parent-remove-error"],
+)
+def test_snapshot_cleanup_handles_parent_directory_errors(
+    parent_error: OSError, expected_warning: bool, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Parent directory cleanup errors do not escape migration cleanup."""
+    path = MagicMock(spec=Path)
+    path.parent = MagicMock(spec=Path)
+    path.parent.rmdir.side_effect = parent_error
+
+    _remove_legacy_snapshot(path, "Test Place")
+
+    path.unlink.assert_called_once_with(missing_ok=True)
+    path.parent.rmdir.assert_called_once_with()
+    assert ("Could not remove legacy snapshot directory" in caplog.text) is expected_warning
+
+
+@pytest.mark.asyncio
+async def test_legacy_snapshot_read_error_is_contained(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A legacy snapshot read error is contained and still triggers cleanup."""
+    monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
+    read = MagicMock(side_effect=OSError("read failed"))
+    cleanup = MagicMock()
+    monkeypatch.setattr("custom_components.places.migration._read_legacy_snapshot", read)
+    monkeypatch.setattr("custom_components.places.migration._remove_legacy_snapshot", cleanup)
+    hass = _hass_for_legacy_path(tmp_path)
+    path = legacy_json_path(hass, "entry-read-error")
+
+    await async_migrate_legacy_snapshot(hass, "entry-read-error", "Test Place")
+
+    read.assert_called_once_with(path, "Test Place")
+    cleanup.assert_called_once_with(path, "Test Place")
 
 
 @pytest.mark.asyncio
