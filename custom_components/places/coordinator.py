@@ -325,7 +325,15 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             # state for all mutation-path failures (including cancellation) before
             # re-raising to preserve caller semantics and avoid claiming rollback
             # success after durable persistence has started.
-            except Exception, asyncio.CancelledError:
+            except (Exception, asyncio.CancelledError) as error:
+                if not isinstance(error, asyncio.CancelledError):
+                    _LOGGER.error(
+                        "(%s) Failed to update Places setting (key=%s, value=%r)",
+                        self.get_attr(CONF_NAME),
+                        key,
+                        value,
+                        exc_info=error,
+                    )
                 if not config_entry_updated:
                     self.config = previous_config
                     await self.restore_previous_attr(previous_data.attributes)

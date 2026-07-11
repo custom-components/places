@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 import pytest
 
@@ -30,15 +31,19 @@ async def test_map_provider_select_setup_and_update() -> None:
     coordinator.async_update_setting.assert_awaited_once_with("map_provider", "osm")
 
 
-async def test_map_provider_select_normalizes_and_validates_option() -> None:
-    """Map provider writes normalize valid values and reject unsupported ones."""
+async def test_map_provider_select_delegates_raw_option_to_coordinator() -> None:
+    """Map provider option updates are delegated directly to coordinator."""
     coordinator = MagicMock()
     coordinator.async_update_setting = AsyncMock()
     entity = PlacesMapProviderSelect(coordinator)
 
     await entity.async_select_option("GoOgLe")
 
-    coordinator.async_update_setting.assert_awaited_once_with("map_provider", "google")
-    with pytest.raises(ValueError, match="Unsupported map provider: bing"):
+    coordinator.async_update_setting.assert_awaited_once_with("map_provider", "GoOgLe")
+
+    coordinator.async_update_setting.reset_mock()
+    coordinator.async_update_setting.side_effect = HomeAssistantError("Invalid map provider")
+    with pytest.raises(HomeAssistantError, match="Invalid map provider"):
         await entity.async_select_option("bing")
-    assert coordinator.async_update_setting.await_count == 1
+
+    coordinator.async_update_setting.assert_awaited_once_with("map_provider", "bing")

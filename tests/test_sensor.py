@@ -330,6 +330,33 @@ async def test_coordinator_updates_setting_rollback_on_display_option_recompute_
     persistence.async_save.assert_not_awaited()
 
 
+async def test_coordinator_updates_setting_logs_context_on_unexpected_error(
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+) -> None:
+    """Unexpected display-option failures should log coordinator context before rollback."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.process_display_options = AsyncMock(side_effect=RuntimeError("recompute failure"))
+
+    with (
+        caplog.at_level(logging.ERROR, logger="custom_components.places.coordinator"),
+        pytest.raises(RuntimeError, match="recompute failure"),
+    ):
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "place")
+
+    assert f"Failed to update Places setting (key={CONF_DISPLAY_OPTIONS}" in caplog.text
+    assert "value='place'" in caplog.text
+    assert "TestSensor" in caplog.text
+
+
 async def test_coordinator_display_options_render_stale_native_state_as_blank(
     mock_hass: MagicMock,
 ) -> None:
