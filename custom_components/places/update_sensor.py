@@ -690,6 +690,10 @@ class PlacesUpdater:
                         changed_at = changed_at.replace(tzinfo=now.tzinfo or UTC)
                     elif now.tzinfo is not None:
                         changed_at = changed_at.astimezone(now.tzinfo)
+            if await self.get_seconds_from_last_change(now) >= 86399:
+                self.coordinator.set_native_value(state)
+                await self.change_show_time_to_date()
+                return
             suffix = f" (since {changed_at.hour:02}:{changed_at.minute:02})"
             state = f"{state[: 255 - len(suffix)]}{suffix}"
         else:
@@ -1158,7 +1162,8 @@ class PlacesUpdater:
             cleared_state = clear_since_from_state(
                 self.coordinator.get_attr_safe_str(ATTR_NATIVE_VALUE)
             )
-            self.coordinator.set_native_value(value=f"{cleared_state} (since {mmddstring})")
+            suffix = f" (since {mmddstring})"
+            self.coordinator.set_native_value(value=f"{cleared_state[: 255 - len(suffix)]}{suffix}")
             self.coordinator.set_attr(ATTR_SHOW_DATE, True)
             await self.coordinator.async_persist_attributes()
             _LOGGER.debug(

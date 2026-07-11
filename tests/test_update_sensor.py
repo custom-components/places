@@ -927,7 +927,7 @@ async def test_async_apply_show_time_uses_last_changed_timestamp(
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[CONF_SHOW_TIME] = True
     sensor.attrs[ATTR_NATIVE_VALUE] = "Library"
-    sensor.attrs[ATTR_LAST_CHANGED] = "2026-07-09 08:30:00+00:00"
+    sensor.attrs[ATTR_LAST_CHANGED] = "2026-07-10 08:30:00+00:00"
     monkeypatch.setattr(
         updater,
         "get_current_time",
@@ -937,6 +937,31 @@ async def test_async_apply_show_time_uses_last_changed_timestamp(
     await updater.async_apply_show_time()
 
     assert sensor.native_value == "Library (since 08:30)"
+
+
+async def test_async_apply_show_time_preserves_aged_date_suffix(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Aged place changes should keep the configured date suffix."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_SHOW_TIME] = True
+    sensor.attrs[CONF_DATE_FORMAT] = "mm/dd"
+    sensor.attrs[ATTR_SHOW_DATE] = True
+    sensor.attrs[ATTR_NATIVE_VALUE] = "Library (since 07/08)"
+    sensor.attrs[ATTR_LAST_CHANGED] = "2026-07-08 08:30:00+00:00"
+    monkeypatch.setattr(
+        updater,
+        "get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    await updater.async_apply_show_time()
+
+    assert sensor.native_value == "Library (since 07/08)"
+    assert sensor.attrs[ATTR_SHOW_DATE] is True
 
 
 @pytest.mark.asyncio
