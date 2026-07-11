@@ -116,6 +116,11 @@ class BasicOptionsParser:
             )
             self._add_to_display(
                 user_display,
+                attr_key=ATTR_PLACE_NEIGHBOURHOOD,
+                require_in_display_options=False,
+            )
+            self._add_to_display(
+                user_display,
                 attr_key="street_number",
                 require_in_display_options=False,
             )

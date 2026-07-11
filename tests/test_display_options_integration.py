@@ -169,8 +169,14 @@ async def render_display_option(
     ("display_option", "expected_state"),
     [
         ("zone_name", "not_home"),
-        ("zone, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
-        ("zone_name, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
+        (
+            "zone, place",
+            "not_home, Roy Spiegel MSW, house, Koreatown, 1, Bridge Plaza North",
+        ),
+        (
+            "zone_name, place",
+            "not_home, Roy Spiegel MSW, house, Koreatown, 1, Bridge Plaza North",
+        ),
         ("formatted_place", "Roy Spiegel MSW, Fort Lee, NJ"),
         (
             README_PLACE_ADVANCED,
@@ -196,23 +202,17 @@ async def test_display_options_state_render(
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patch_entity_registry")
-async def test_readme_place_advanced_example_documents_current_output(
+async def test_basic_and_advanced_place_options_include_neighborhood(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Document current behavior for README `place` example mismatch without changing logic.
-
-    This intentionally captures the non-equivalence between:
-    - basic `place`
-    - README's documented advanced `place` expression.
-    """
+    """Basic and advanced place options should retain neighborhood context."""
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
     advanced_state = await render_display_option(mock_hass, monkeypatch, README_PLACE_ADVANCED)
 
     assert basic_state
     assert advanced_state
-    assert basic_state != advanced_state
     assert "Koreatown" in advanced_state
-    assert "Koreatown" not in basic_state
+    assert "Koreatown" in basic_state
 
 
 def test_readme_display_examples_are_documented() -> None:
