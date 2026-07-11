@@ -167,6 +167,14 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
     ("display_options", "expected_data"),
     [
         (
+            "do_not_reorder, formatted_place",
+            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place"},
+        ),
+        (
+            "do_not_reorder, formatted_place, driving",
+            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place, driving"},
+        ),
+        (
             "do_not_reorder, city, state",
             {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
         ),

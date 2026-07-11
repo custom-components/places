@@ -85,7 +85,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             }
         ]
         if options:
-            options[0] += "[]"
+            if "formatted_place" not in options:
+                options[0] += "[]"
             migrated_options = ", ".join(options)
         else:
             migrated_options = DEFAULT_DISPLAY_OPTIONS
