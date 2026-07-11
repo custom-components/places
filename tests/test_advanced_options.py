@@ -80,6 +80,7 @@ async def test_do_brackets_and_parens_count_match(
     ("key", "expected"),
     [
         ("zone_name", "Home"),
+        ("province", "Virginia"),
         ("missing", None),
     ],
 )
@@ -91,6 +92,7 @@ async def test_get_option_state_basic(
         "zone_name": "Home",
         "place_type": "Restaurant",
         "street": "Main St",
+        "state": "Virginia",
         "name": "Test",
     }
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)

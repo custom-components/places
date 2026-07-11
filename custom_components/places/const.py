@@ -316,6 +316,7 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
     "borough": ATTR_POSTAL_TOWN,
     "region": ATTR_REGION,
     "state": ATTR_REGION,
+    "province": ATTR_REGION,
     "state_abbr": ATTR_STATE_ABBR,
     "county": ATTR_COUNTY,
     "country": ATTR_COUNTRY,
