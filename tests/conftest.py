@@ -377,6 +377,9 @@ class _DummyRegistry(er.EntityRegistry):
     def __init__(self) -> None:
         """Avoid requiring a full Home Assistant instance for registry tests."""
 
+    def async_get(self, entity_id_or_uuid: str) -> None:
+        """Return no registry entry for isolated unit tests."""
+
     def async_get_entity_id(self, domain: str, platform: str, unique_id: str) -> None:
         """Return no entity ID for tests that only need registry lookup isolation."""
         return

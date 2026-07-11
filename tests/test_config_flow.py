@@ -3,7 +3,12 @@
 from collections.abc import Callable, Sequence
 from unittest.mock import AsyncMock, MagicMock
 
-from homeassistant.const import ATTR_FRIENDLY_NAME, MAX_LENGTH_STATE_STATE
+from homeassistant.const import (
+    ATTR_FRIENDLY_NAME,
+    CONF_LATITUDE,
+    CONF_LONGITUDE,
+    MAX_LENGTH_STATE_STATE,
+)
 from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
@@ -241,6 +246,7 @@ async def test_options_flow_handler_variants(
 def test_get_devicetracker_id_entities_current_entity_variants(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
+    patch_entity_registry: object,
     async_all_states: Sequence[State],
     states_get_state: State,
     expected_label_check: LabelCheck,
@@ -250,6 +256,7 @@ def test_get_devicetracker_id_entities_current_entity_variants(
 
     Covers: friendly name present, no friendly name, and already-present cases.
     """
+    _ = patch_entity_registry
     # Limit TRACKING_DOMAINS to a single domain for deterministic results
     domain = "device_tracker"
     monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", [domain])
@@ -262,6 +269,44 @@ def test_get_devicetracker_id_entities_current_entity_variants(
     assert len(matches) == expected_count
     if expected_count:
         assert any(expected_label_check(e) for e in matches)
+
+
+def test_get_devicetracker_id_entities_excludes_places_sensors(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Places sensors should not be offered as their own tracked entities."""
+    places_state = State(
+        "sensor.my_places",
+        "Home",
+        {ATTR_FRIENDLY_NAME: "My Places", CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0},
+    )
+    tracker_state = State(
+        "sensor.gps_tracker",
+        "Home",
+        {ATTR_FRIENDLY_NAME: "GPS Tracker", CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0},
+    )
+    states = {state.entity_id: state for state in (places_state, tracker_state)}
+    registry = MagicMock()
+    registry.async_get.side_effect = lambda entity_id: MagicMock(
+        platform="places" if entity_id == places_state.entity_id else "template"
+    )
+    monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", ["sensor"])
+    monkeypatch.setattr(
+        "custom_components.places.config_flow.TRACKING_DOMAINS_NEED_LATLONG", ["sensor"]
+    )
+    registry_module = MagicMock()
+    registry_module.async_get.return_value = registry
+    monkeypatch.setattr("custom_components.places.config_flow.er", registry_module, raising=False)
+    mock_hass.states.async_all.return_value = [places_state, tracker_state]
+    mock_hass.states.get.side_effect = states.get
+
+    entities = get_devicetracker_id_entities(mock_hass)
+
+    assert [entity["value"] for entity in entities] == [tracker_state.entity_id]
+
+    mock_hass.states.async_all.return_value = []
+    assert get_devicetracker_id_entities(mock_hass, places_state.entity_id) == []
 
 
 def test_get_home_zone_entities_builds_zone_list(
@@ -534,9 +579,13 @@ async def test_config_flow_user_step_invalid_display_options(mock_hass: MagicMoc
 
 @pytest.mark.asyncio
 async def test_options_flow_invalid_display_options_shows_form(
-    mock_hass: MagicMock, config_entry: MockConfigEntry, monkeypatch: pytest.MonkeyPatch
+    mock_hass: MagicMock,
+    config_entry: MockConfigEntry,
+    monkeypatch: pytest.MonkeyPatch,
+    patch_entity_registry: object,
 ) -> None:
     """Options flow with invalid display options string returns form (errors path)."""
+    _ = patch_entity_registry
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass

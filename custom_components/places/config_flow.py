@@ -16,7 +16,7 @@ from homeassistant.const import (
     CONF_NAME,
 )
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import selector
+from homeassistant.helpers import entity_registry as er, selector
 import voluptuous as vol
 
 from .config_schema import (
@@ -74,9 +74,13 @@ def get_devicetracker_id_entities(
         Sorted selector options labelled with friendly names and entity IDs.
     """
     dt_list: list[selector.SelectOptionDict] = []
+    entity_registry = er.async_get(hass)
     for dom in TRACKING_DOMAINS:
         # _LOGGER.debug("Getting entities for domain: %s", dom)
         for ent in hass.states.async_all(dom):
+            registry_entry = entity_registry.async_get(ent.entity_id)
+            if registry_entry is not None and registry_entry.platform == DOMAIN:
+                continue
             if dom not in TRACKING_DOMAINS_NEED_LATLONG or (
                 CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
                 and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
@@ -94,7 +98,12 @@ def get_devicetracker_id_entities(
     if current_entity is not None:
         # _LOGGER.debug("current_entity: %s", current_entity)
         dt_list_entities: list[str] = [d["value"] for d in dt_list]
-        if current_entity not in dt_list_entities and hass.states.get(current_entity) is not None:
+        registry_entry = entity_registry.async_get(current_entity)
+        if (
+            current_entity not in dt_list_entities
+            and hass.states.get(current_entity) is not None
+            and (registry_entry is None or registry_entry.platform != DOMAIN)
+        ):
             if (
                 ATTR_FRIENDLY_NAME in hass.states.get(current_entity).attributes
                 and hass.states.get(current_entity).attributes.get(ATTR_FRIENDLY_NAME) is not None

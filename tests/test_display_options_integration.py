@@ -40,8 +40,8 @@ BASE_INTERNAL_ATTR = {
     "home_latitude": 40.824763,
     "home_longitude": -73.973675,
     "show_date": False,
-    "devicetracker_zone_name": "not_home",
-    "devicetracker_zone": "not_home",
+    "zone_name": "not_home",
+    "zone": "not_home",
     "direction_of_travel": "towards home",
     "distance_from_home": 23898.658,
     "distance_traveled": 2378.348,
@@ -50,9 +50,9 @@ BASE_INTERNAL_ATTR = {
     "last_place_name": "Riverside Drive",
     "last_updated": "2025-07-30 16:52:35-04:00",
     "previous_latitude": 40.83871498707779,
-    "current_latitude": 40.854733600095464,
+    "latitude": 40.854733600095464,
     "previous_longitude": -73.94654779701861,
-    "current_longitude": -73.96526768799811,
+    "longitude": -73.96526768799811,
     "native_value": "Secondary, Riverside Drive, New York, NY",  # Pre-existing state before re-render
     "attribution": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
     "display_options_list": ["formatted_place"],
@@ -100,9 +100,9 @@ BASE_INTERNAL_ATTR = {
     "street_number": "1",
     "street": "Bridge Plaza North",
     "city": "Fort Lee",
-    "neighbourhood": "Koreatown",
+    "neighborhood": "Koreatown",
     "city_clean": "Fort Lee",
-    "state_province": "New Jersey",
+    "state": "New Jersey",
     "state_abbr": "NJ",
     "county": "Bergen County",
     "country": "United States",
@@ -169,8 +169,14 @@ async def render_display_option(
     ("display_option", "expected_state"),
     [
         ("zone_name", "not_home"),
-        ("zone, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
-        ("zone_name, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
+        (
+            "zone, place",
+            "not_home, Roy Spiegel MSW, house, Koreatown, 1, Bridge Plaza North",
+        ),
+        (
+            "zone_name, place",
+            "not_home, Roy Spiegel MSW, house, Koreatown, 1, Bridge Plaza North",
+        ),
         ("formatted_place", "Roy Spiegel MSW, Fort Lee, NJ"),
         (
             README_PLACE_ADVANCED,
@@ -196,23 +202,17 @@ async def test_display_options_state_render(
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patch_entity_registry")
-async def test_readme_place_advanced_example_documents_current_output(
+async def test_basic_and_advanced_place_options_include_neighborhood(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Document current behavior for README `place` example mismatch without changing logic.
-
-    This intentionally captures the non-equivalence between:
-    - basic `place`
-    - README's documented advanced `place` expression.
-    """
+    """Basic and advanced place options should retain neighborhood context."""
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
     advanced_state = await render_display_option(mock_hass, monkeypatch, README_PLACE_ADVANCED)
 
     assert basic_state
     assert advanced_state
-    assert basic_state != advanced_state
     assert "Koreatown" in advanced_state
-    assert "Koreatown" not in basic_state
+    assert "Koreatown" in basic_state
 
 
 def test_readme_display_examples_are_documented() -> None:
