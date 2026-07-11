@@ -21,6 +21,7 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_UNIQUE_ID,
     CONF_ZONE,
+    MAX_LENGTH_STATE_STATE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
@@ -271,6 +272,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             try:
                 if key == CONF_DISPLAY_OPTIONS:
                     value_str = str(value).strip().lower()
+                    if len(value_str) > MAX_LENGTH_STATE_STATE:
+                        raise HomeAssistantError("Invalid display options")
                     errors = await validate_display_options(value_str, {})
                     if errors:
                         raise HomeAssistantError("Invalid display options")

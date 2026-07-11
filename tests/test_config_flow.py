@@ -466,21 +466,16 @@ async def test_validate_display_options_accepts_advanced_options(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("display_options", "expected_errors"),
-    [
-        ("x" * MAX_LENGTH_STATE_STATE, {}),
-        ("x" * (MAX_LENGTH_STATE_STATE + 1), {"base": "invalid_syntax"}),
-    ],
+    "display_options",
+    ["x" * MAX_LENGTH_STATE_STATE, "x" * (MAX_LENGTH_STATE_STATE + 1)],
 )
-async def test_validate_display_options_enforces_entity_state_limit(
-    display_options: str, expected_errors: dict[str, str]
-) -> None:
-    """Display options are rejected once they exceed the HA state length limit."""
+async def test_validate_display_options_allows_legacy_long_rules(display_options: str) -> None:
+    """Config flows allow legacy rules longer than the text entity state limit."""
     errors: dict[str, str] = {}
 
     result = await validate_display_options(display_options, errors)
 
-    assert result == expected_errors
+    assert result == {}
 
 
 @pytest.mark.parametrize(

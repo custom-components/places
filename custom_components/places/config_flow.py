@@ -14,7 +14,6 @@ from homeassistant.const import (
     CONF_LATITUDE,
     CONF_LONGITUDE,
     CONF_NAME,
-    MAX_LENGTH_STATE_STATE,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
@@ -358,14 +357,6 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
     """
     if not display_options.strip():
         _LOGGER.error("Invalid syntax: Display options cannot be blank.")
-        errors["base"] = "invalid_syntax"
-        return errors
-
-    if len(display_options) > MAX_LENGTH_STATE_STATE:
-        _LOGGER.error(
-            "Invalid syntax: Display options are limited to %d characters.",
-            MAX_LENGTH_STATE_STATE,
-        )
         errors["base"] = "invalid_syntax"
         return errors
 
