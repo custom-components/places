@@ -79,7 +79,7 @@ def basic_parser() -> BasicParserFactory:
         (
             {
                 "driving": "Driving",
-                "devicetracker_zone_name": "Home",
+                "zone_name": "Home",
                 "place_name": "Park",
                 "street": "Main St",
                 "city": "Springfield",
@@ -90,14 +90,14 @@ def basic_parser() -> BasicParserFactory:
             None,
         ),
         (
-            {"city": "Springfield", "region": "IL"},
+            {"city": "Springfield", "state": "IL"},
             False,
             ["do_not_reorder", "city", "state"],
             [],
             "Springfield, IL",
         ),
         (
-            {"devicetracker_zone_name": "Work"},
+            {"zone_name": "Work"},
             True,
             ["zone_name"],
             ["Work"],
@@ -156,7 +156,7 @@ async def test_build_display_scenarios(
         ),
         (
             "in_zone",
-            {"devicetracker_zone_name": "Home"},
+            {"zone_name": "Home"},
             True,
             ["zone_name"],
             None,

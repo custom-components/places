@@ -1293,16 +1293,68 @@ def test_attribute_sensor_descriptions_have_expected_default_policy() -> None:
 
     assert {
         "place_name",
-        "devicetracker_zone_name",
+        "zone_name",
         "city",
-        "state_province",
+        "state",
         "direction_of_travel",
         "map_link",
         "distance_from_home",
         "distance_traveled",
     } == default_keys
     assert "formatted_address" not in default_keys
-    assert "country" in disabled_keys
+    assert {"country", "latitude", "longitude", "gps_accuracy"} <= disabled_keys
+
+
+def test_attribute_sensor_descriptions_match_clean_contract() -> None:
+    """Child descriptions should use only the new unpublished entity contract."""
+    keys = {description.key for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS}
+
+    assert {"zone_name", "zone", "neighborhood", "state", "latitude", "longitude"} <= keys
+    assert {
+        "devicetracker_zone_name",
+        "devicetracker_zone",
+        "neighbourhood",
+        "state_province",
+        "place_name_no_dupe",
+        "previous_latitude",
+        "previous_longitude",
+        "last_place_name",
+        "current_latitude",
+        "current_longitude",
+    }.isdisjoint(keys)
+
+
+@pytest.mark.parametrize(
+    ("key", "icon"),
+    [
+        ("direction_of_travel", "mdi:compass"),
+        ("map_link", "mdi:map"),
+        ("zone_name", "mdi:map-marker-radius"),
+        ("zone", "mdi:map-marker-radius-outline"),
+        ("distance_from_home", "mdi:home-import-outline"),
+        ("distance_traveled", "mdi:map-marker-distance"),
+        ("place_name", "mdi:map-marker"),
+        ("place_type", "mdi:form-dropdown"),
+        ("place_category", "mdi:form-select"),
+        ("street_number", "mdi:pound-box"),
+        ("street", "mdi:road"),
+        ("street_ref", "mdi:road-variant"),
+        ("neighborhood", "mdi:home-group"),
+        ("city", "mdi:city-variant"),
+        ("postal_town", "mdi:city-variant-outline"),
+        ("postal_code", "mdi:postage-stamp"),
+        ("county", "mdi:image-marker"),
+        ("state", "mdi:land-plots-marker"),
+        ("state_abbr", "mdi:land-plots-marker"),
+        ("country", "mdi:earth"),
+        ("country_code", "mdi:earth"),
+        ("osm_id", "mdi:map-marker-question"),
+        ("osm_type", "mdi:map-marker-question-outline"),
+    ],
+)
+def test_attribute_sensor_icons(key: str, icon: str) -> None:
+    """Child descriptions should expose the requested icons."""
+    assert _description(key).icon == icon
 
 
 def test_attribute_sensor_description_keys_are_unique() -> None:
@@ -1338,7 +1390,15 @@ def test_places_entity_refreshes_device_info_after_coordinator_name_change(
     write_state.assert_called_once_with()
 
 
-def test_attribute_sensor_reads_coordinator_attribute(mock_hass: MagicMock) -> None:
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [("place_name", "Library"), ("latitude", 1.25), ("longitude", -2.5), ("gps_accuracy", 8.0)],
+)
+def test_attribute_sensor_reads_coordinator_attribute(
+    mock_hass: MagicMock,
+    key: str,
+    value: str | float,
+) -> None:
     """Child sensors should update their native value from coordinator data."""
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
@@ -1347,18 +1407,32 @@ def test_attribute_sensor_reads_coordinator_attribute(mock_hass: MagicMock) -> N
         data={"name": "TestSensor", "devicetracker_id": "person.test"},
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    coordinator.set_attr("place_name", "Library")
+    coordinator.set_attr(key, value)
     coordinator.publish_update()
-    entity = PlacesAttributeSensor(coordinator, _description("place_name"))
+    entity = PlacesAttributeSensor(coordinator, _description(key))
 
-    assert entity.unique_id == "entry123_place_name"
-    assert entity.native_value == "Library"
+    assert entity.unique_id == f"entry123_{key}"
+    assert entity.native_value == value
     assert entity.device_info == Places(coordinator).device_info
     assert isinstance(entity, PlacesEntity)
 
 
-def test_attribute_sensor_has_usable_name(mock_hass: MagicMock) -> None:
-    """Child sensors should expose a simple readable entity name."""
+@pytest.mark.parametrize(
+    ("key", "name"),
+    [
+        ("place_name", "Place Name"),
+        ("zone_name", "Zone Name"),
+        ("zone", "Zone"),
+        ("neighborhood", "Neighborhood"),
+        ("state", "State"),
+    ],
+)
+def test_attribute_sensor_has_usable_name(
+    mock_hass: MagicMock,
+    key: str,
+    name: str,
+) -> None:
+    """Child sensors should expose the requested readable entity names."""
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1366,9 +1440,9 @@ def test_attribute_sensor_has_usable_name(mock_hass: MagicMock) -> None:
         data={"name": "TestSensor", "devicetracker_id": "person.test"},
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    entity = PlacesAttributeSensor(coordinator, _description("place_name"))
+    entity = PlacesAttributeSensor(coordinator, _description(key))
 
-    assert entity.name == "Place Name"
+    assert entity.name == name
 
 
 def test_distance_attribute_sensor_reads_meter_value(mock_hass: MagicMock) -> None:
@@ -1414,7 +1488,7 @@ def test_main_places_sensor_uses_coordinator_state(mock_hass: MagicMock) -> None
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
     coordinator.set_native_value("Library")
-    coordinator.set_attr("current_latitude", 1.25)
+    coordinator.set_attr("latitude", 1.25)
     coordinator.set_attr("city", "Richmond")
     coordinator.publish_update()
     entity = Places(coordinator)
@@ -1424,9 +1498,9 @@ def test_main_places_sensor_uses_coordinator_state(mock_hass: MagicMock) -> None
     entity._handle_coordinator_update()
 
     assert entity.native_value == "Library"
-    assert entity.extra_state_attributes == {"current_latitude": 1.25}
+    assert entity.extra_state_attributes == {"latitude": 1.25}
     assert entity._attr_native_value == "Library"
-    assert entity._attr_extra_state_attributes == {"current_latitude": 1.25}
+    assert entity._attr_extra_state_attributes == {"latitude": 1.25}
     write_state.assert_called_once_with()
 
 

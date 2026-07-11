@@ -88,7 +88,7 @@ async def test_get_option_state_basic(
 ) -> None:
     """Return the expected option state for a basic key lookup."""
     attrs = {
-        "devicetracker_zone_name": "Home",
+        "zone_name": "Home",
         "place_type": "Restaurant",
         "street": "Main St",
         "name": "Test",
@@ -114,7 +114,7 @@ async def test_get_option_state_incl_excl(
     advanced_parser: AdvancedParserFactory,
 ) -> None:
     """Respect inclusion/exclusion lists when resolving option state."""
-    attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
+    attrs = {"zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state("zone_name", incl=incl, excl=excl)
     assert out == expected
@@ -136,7 +136,7 @@ async def test_get_option_state_incl_attr_excl_attr(
     advanced_parser: AdvancedParserFactory,
 ) -> None:
     """Apply attribute-based inclusion/exclusion filters when resolving option state."""
-    attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
+    attrs = {"zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state("zone_name", incl_attr=incl_attr, excl_attr=excl_attr)
     assert out == expected
@@ -155,7 +155,7 @@ async def test_get_option_state_title_case(
 ) -> None:
     """Return title-cased option values when appropriate."""
     attrs = {
-        "devicetracker_zone_name": "home",
+        "zone_name": "home",
         "place_type": "restaurant",
         "place_category": "food",
         "name": "Test",
@@ -291,7 +291,7 @@ async def test_build_from_advanced_options_bracket_and_paren(sensor: MockSensor)
 @pytest.mark.asyncio
 async def test_build_next_option_only_traverses_comma_prefixed_suffix(sensor: MockSensor) -> None:
     """Do not process malformed non-comma suffix text after a bracket option."""
-    sensor.attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant"}
+    sensor.attrs = {"zone_name": "Home", "place_type": "Restaurant"}
     parser = AdvancedOptionsParser(sensor, "zone_name[place_type]place_type")
     calls: list[str] = []
 
@@ -441,7 +441,7 @@ async def test_parse_bracket_variants(
 async def test_process_bracket_or_parens_comma_first_builds_states(sensor: MockSensor) -> None:
     """Process comma-separated options and append title-cased states."""
     attrs: dict[str, object] = {
-        "devicetracker_zone_name": "Home",
+        "zone_name": "Home",
         "place_type": "restaurant",
         "name": "Test",
     }
@@ -469,7 +469,7 @@ async def test_bracket_fallback_when_primary_option_none(sensor: MockSensor) -> 
 async def test_paren_then_bracket_fallback_exclusion(sensor: MockSensor) -> None:
     """Parenthesis filters can exclude primary option and fall back to bracket option."""
     attrs: dict[str, object] = {
-        "devicetracker_zone_name": "Home",
+        "zone_name": "Home",
         "place_type": "restaurant",
         "name": "Test",
     }
@@ -486,7 +486,7 @@ async def test_paren_then_bracket_fallback_exclusion(sensor: MockSensor) -> None
 async def test_get_option_state_incl_attr_blank_causes_exclusion(sensor: MockSensor) -> None:
     """Return None when included attribute filters reference missing/blank attributes."""
     attrs: dict[str, object] = {
-        "devicetracker_zone_name": "Home",
+        "zone_name": "Home",
         "name": "Test",
     }  # place_type missing -> blank
     sensor.attrs = attrs

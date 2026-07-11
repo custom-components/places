@@ -172,8 +172,8 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 
 The main Places sensor keeps the Display Options state. It only exposes location-context attributes:
 
-* `current_latitude`
-* `current_longitude`
+* `latitude`
+* `longitude`
 * `gps_accuracy`
 * `entity_picture`
 * `attribution`
@@ -182,7 +182,7 @@ Most values that used to be attributes are now child sensors under the same Plac
 
 * `state_attr('sensor.alice', 'place_name')` becomes `states('sensor.alice_place_name')`
 * `state_attr('sensor.alice', 'city')` becomes `states('sensor.alice_city')`
-* `state_attr('sensor.alice', 'state_province')` becomes `states('sensor.alice_state_province')`
+* `state_attr('sensor.alice', 'state')` becomes `states('sensor.alice_state')`
 * `state_attr('sensor.alice', 'map_link')` becomes `states('sensor.alice_map_link')`
 
 The integration no longer creates a `formatted_address` child sensor.
@@ -209,9 +209,9 @@ When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extende
   action:
   - service: notify.ios_jim_iphone8
     data_template:
-      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
+      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }}) {{ trigger.event.data.place_name }}'
       message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
+        {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }})
         {{ trigger.event.data.place_name }}
         {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
@@ -231,9 +231,9 @@ When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extende
   action:
   - service: notify.ios_jim_iphone8
     data_template:
-      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }}) {{ trigger.event.data.place_name }}'
+      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }}) {{ trigger.event.data.place_name }}'
       message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.devicetracker_zone }})
+        {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }})
         {{ trigger.event.data.place_name }}
         {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
         {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})

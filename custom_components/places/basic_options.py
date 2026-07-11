@@ -6,7 +6,13 @@ from collections.abc import MutableMapping
 import logging
 from typing import TYPE_CHECKING, Any
 
-from .const import PLACE_NAME_DUPLICATE_LIST
+from .const import (
+    ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_NAME,
+    ATTR_PLACE_NEIGHBOURHOOD,
+    ATTR_REGION,
+    PLACE_NAME_DUPLICATE_LIST,
+)
 
 if TYPE_CHECKING:
     from .coordinator import PlacesUpdateCoordinator
@@ -74,13 +80,13 @@ class BasicOptionsParser:
         self._add_to_display(user_display, "driving", option_key="driving")
         self._add_to_display(
             user_display,
-            attr_key="devicetracker_zone_name",
+            attr_key=ATTR_DEVICETRACKER_ZONE_NAME,
             option_key="zone_name",
             condition=in_zone or "do_not_show_not_home" not in self.display_options,
         )
         self._add_to_display(
             user_display,
-            attr_key="devicetracker_zone",
+            attr_key=ATTR_DEVICETRACKER_ZONE,
             option_key="zone",
             condition=in_zone or "do_not_show_not_home" not in self.display_options,
         )
@@ -109,11 +115,6 @@ class BasicOptionsParser:
             )
             self._add_to_display(
                 user_display,
-                attr_key="place_neighbourhood",
-                require_in_display_options=False,
-            )
-            self._add_to_display(
-                user_display,
                 attr_key="street_number",
                 require_in_display_options=False,
             )
@@ -130,8 +131,8 @@ class BasicOptionsParser:
         for option_key, attr_key in {
             "city": "city",
             "county": "county",
-            "state": "region",
-            "region": "region",
+            "state": ATTR_REGION,
+            "region": ATTR_REGION,
             "postal_code": "postal_code",
             "country": "country",
             "formatted_address": "formatted_address",
@@ -144,9 +145,9 @@ class BasicOptionsParser:
             self.display_options.remove("do_not_reorder")
             for option in self.display_options:
                 attr_key = (
-                    "region"
+                    ATTR_REGION
                     if option == "state"
-                    else "place_neighbourhood"
+                    else ATTR_PLACE_NEIGHBOURHOOD
                     if option == "place_neighborhood"
                     else option
                 )
@@ -182,7 +183,7 @@ class BasicOptionsParser:
             self.add_city_county_state(formatted_place_array, self.coordinator)
         else:
             formatted_place_array.append(
-                self.coordinator.get_attr_safe_str("devicetracker_zone_name").strip()
+                self.coordinator.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE_NAME).strip()
             )
         formatted_place = ", ".join(item for item in formatted_place_array)
         return formatted_place.replace("\n", " ").replace("  ", " ").strip()
@@ -298,10 +299,10 @@ class BasicOptionsParser:
         if (
             not coordinator.is_attr_blank("place_type")
             and coordinator.get_attr_safe_str("place_type").lower() == "house"
-            and not coordinator.is_attr_blank("place_neighbourhood")
+            and not coordinator.is_attr_blank(ATTR_PLACE_NEIGHBOURHOOD)
         ):
             formatted_place_array.append(
-                coordinator.get_attr_safe_str("place_neighbourhood").strip()
+                coordinator.get_attr_safe_str(ATTR_PLACE_NEIGHBOURHOOD).strip()
             )
 
     def add_city_county_state(
