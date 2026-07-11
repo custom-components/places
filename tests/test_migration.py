@@ -13,8 +13,14 @@ import pytest
 
 from custom_components.places.const import (
     ATTR_CITY,
+    ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DISTANCE_FROM_HOME,
     ATTR_DISTANCE_TRAVELED,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
+    ATTR_PLACE_NEIGHBOURHOOD,
+    ATTR_REGION,
 )
 from custom_components.places.migration import (
     _read_legacy_snapshot,
@@ -159,6 +165,42 @@ async def test_valid_snapshot_is_saved_then_removed(
     assert _FakeStore.saved == [{ATTR_CITY: "Legacy City"}]
     assert not path.exists()
     assert not path.parent.exists()
+
+
+@pytest.mark.asyncio
+async def test_legacy_entity_keys_are_renamed_before_store_save(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Legacy JSON entity keys are replaced by the new unpublished names."""
+    monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
+    hass = _hass_for_legacy_path(tmp_path)
+    path = legacy_json_path(hass, "entry-entity-keys")
+    _write_legacy_snapshot(
+        path,
+        json.dumps(
+            {
+                "devicetracker_zone": "home",
+                "devicetracker_zone_name": "Home",
+                "neighbourhood": "Downtown",
+                "state_province": "Virginia",
+                "current_latitude": 37.5,
+                "current_longitude": -77.4,
+            }
+        ),
+    )
+
+    await async_migrate_legacy_snapshot(hass, "entry-entity-keys", "Test Place")
+
+    assert _FakeStore.saved == [
+        {
+            ATTR_DEVICETRACKER_ZONE: "home",
+            ATTR_DEVICETRACKER_ZONE_NAME: "Home",
+            ATTR_PLACE_NEIGHBOURHOOD: "Downtown",
+            ATTR_REGION: "Virginia",
+            ATTR_LATITUDE: 37.5,
+            ATTR_LONGITUDE: -77.4,
+        }
+    ]
 
 
 @pytest.mark.asyncio
