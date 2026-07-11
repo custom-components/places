@@ -231,6 +231,39 @@ async def test_coordinator_updates_setting_locally(
     coordinator.async_request_refresh.assert_not_awaited()
 
 
+async def test_coordinator_normalizes_and_validates_map_provider(mock_hass: MagicMock) -> None:
+    """Direct setting updates normalize valid providers and reject unsupported ones."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_MAP_PROVIDER: "apple",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_attr(ATTR_LOCATION_CURRENT, "1.0,2.0")
+
+    await coordinator.async_update_setting(CONF_MAP_PROVIDER, " Google ")
+
+    assert coordinator.config[CONF_MAP_PROVIDER] == "google"
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+    saved_data = mock_hass.config_entries.async_update_entry.call_args.kwargs["data"]
+    assert saved_data[CONF_MAP_PROVIDER] == "google"
+
+    mock_hass.config_entries.async_update_entry.reset_mock()
+    with pytest.raises(HomeAssistantError, match="Invalid map provider"):
+        await coordinator.async_update_setting(CONF_MAP_PROVIDER, "bing")
+
+    assert coordinator.config[CONF_MAP_PROVIDER] == "google"
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+    mock_hass.config_entries.async_update_entry.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "display_options",
     ["zone_name[", "   ", "x" * (MAX_LENGTH_STATE_STATE + 1)],

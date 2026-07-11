@@ -37,6 +37,7 @@ from .advanced_options import AdvancedOptionsParser
 from .attributes import PlacesAttributes
 from .basic_options import BasicOptionsParser
 from .config_flow import validate_display_options
+from .config_schema import MAP_PROVIDER_OPTIONS
 from .const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
@@ -285,6 +286,10 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
                     await self.process_display_options()
                     await updater.async_apply_show_time()
                 elif key == CONF_MAP_PROVIDER:
+                    value_str = str(value).strip().lower()
+                    if value_str not in MAP_PROVIDER_OPTIONS:
+                        raise HomeAssistantError("Invalid map provider")
+                    value = value_str
                     if (
                         self.is_attr_blank(ATTR_LOCATION_CURRENT)
                         and not self.is_attr_blank(ATTR_LATITUDE)
