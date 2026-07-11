@@ -79,25 +79,26 @@ def basic_parser() -> BasicParserFactory:
         (
             {
                 "driving": "Driving",
-                "devicetracker_zone_name": "Home",
+                "zone_name": "Home",
                 "place_name": "Park",
+                "neighborhood": "Downtown",
                 "street": "Main St",
                 "city": "Springfield",
             },
             False,
             ["driving", "zone_name", "place", "street", "city"],
-            ["Driving", "Home", "Park", "Main St", "Springfield"],
+            ["Driving", "Home", "Park", "Downtown", "Main St", "Springfield"],
             None,
         ),
         (
-            {"city": "Springfield", "region": "IL"},
+            {"city": "Springfield", "state": "IL"},
             False,
             ["do_not_reorder", "city", "state"],
             [],
             "Springfield, IL",
         ),
         (
-            {"devicetracker_zone_name": "Work"},
+            {"zone_name": "Work"},
             True,
             ["zone_name"],
             ["Work"],
@@ -156,7 +157,7 @@ async def test_build_display_scenarios(
         ),
         (
             "in_zone",
-            {"devicetracker_zone_name": "Home"},
+            {"zone_name": "Home"},
             True,
             ["zone_name"],
             None,
@@ -231,7 +232,7 @@ def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserF
                 "place_category": "highway",
                 "place_type": "motorway",
                 "street": "",
-                "street_ref": "I-80",
+                "route_number": "I-80",
             },
             "I-80",
         ),
@@ -240,7 +241,7 @@ def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserF
                 "place_category": "highway",
                 "place_type": "trunk",
                 "street": "",
-                "street_ref": "US-101",
+                "route_number": "US-101",
             },
             "US-101",
         ),
@@ -249,7 +250,7 @@ def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserF
 def test_add_street_info_highway(
     attrs: Attrs, expected: str, basic_parser: BasicParserFactory
 ) -> None:
-    """Verify that add_street_info prefers street_ref for highway/motorway when street is empty."""
+    """Prefer route_number for highways and motorways when street is empty."""
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
     parser.add_street_info(arr, sensor)

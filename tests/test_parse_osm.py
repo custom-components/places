@@ -27,10 +27,10 @@ from custom_components.places.const import (
     ATTR_POSTAL_CODE,
     ATTR_POSTAL_TOWN,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
-    ATTR_STREET_REF,
     CONF_LANGUAGE,
     PLACE_NAME_DUPLICATE_LIST,
 )
@@ -478,7 +478,7 @@ async def test_set_region_details_sets_attrs(
         (ATTR_FORMATTED_ADDRESS, "123 Main St"),
         (ATTR_OSM_ID, "123456"),
         (ATTR_OSM_TYPE, "way"),
-        (ATTR_STREET_REF, "A1"),
+        (ATTR_ROUTE_NUMBER, "A1"),
     ],
 )
 async def test_parse_miscellaneous_sets_attrs(
@@ -525,7 +525,7 @@ async def test_parse_miscellaneous_ignores_invalid_street_ref(
     await parser.parse_miscellaneous(osm_dict)
 
     assert sensor.attrs[ATTR_FORMATTED_ADDRESS] == "123 Main St"
-    assert ATTR_STREET_REF not in sensor.attrs
+    assert ATTR_ROUTE_NUMBER not in sensor.attrs
 
 
 @pytest.mark.asyncio
@@ -545,13 +545,13 @@ async def test_parse_miscellaneous_clears_stale_street_ref_without_usable_ref(
         attrs={
             ATTR_PLACE_CATEGORY: "highway",
             ATTR_OSM_DICT: {"osm_id": 123456},
-            ATTR_STREET_REF: "A1",
+            ATTR_ROUTE_NUMBER: "A1",
         }
     )
 
     await parser.parse_miscellaneous(osm_dict)
 
-    assert ATTR_STREET_REF not in sensor.attrs
+    assert ATTR_ROUTE_NUMBER not in sensor.attrs
 
 
 @pytest.mark.asyncio
