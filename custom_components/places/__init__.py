@@ -12,8 +12,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import (
+    CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
     CONF_NAME,
+    DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
     DOMAIN,
     EVENT_TYPE,
@@ -69,7 +71,18 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     name = entry.data.get(CONF_NAME, entry.entry_id)
     await async_migrate_legacy_snapshot(hass, entry.entry_id, name)
-    hass.config_entries.async_update_entry(entry, version=2, minor_version=1)
+    update_kwargs: dict = {"version": 2, "minor_version": 1}
+    display_options = entry.data.get(CONF_DISPLAY_OPTIONS, "")
+    options = [option.strip() for option in display_options.split(",")]
+    if "do_not_reorder" in options:
+        options.remove("do_not_reorder")
+        if options:
+            options[0] += "[]"
+            migrated_options = ", ".join(options)
+        else:
+            migrated_options = DEFAULT_DISPLAY_OPTIONS
+        update_kwargs["data"] = {**entry.data, CONF_DISPLAY_OPTIONS: migrated_options}
+    hass.config_entries.async_update_entry(entry, **update_kwargs)
     return True
 
 

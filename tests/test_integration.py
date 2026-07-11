@@ -20,8 +20,10 @@ from custom_components.places import (
 )
 from custom_components.places.const import (
     CONF_API_KEY,
+    CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
     CONF_NAME,
+    DEFAULT_DISPLAY_OPTIONS,
     DOMAIN,
     EVENT_TYPE,
     OSM_CACHE,
@@ -158,6 +160,49 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
             version=2,
             minor_version=1,
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("display_options", "expected_data"),
+    [
+        (
+            "do_not_reorder, city, state",
+            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
+        ),
+        ("city, state", None),
+        (
+            "do_not_reorder",
+            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: DEFAULT_DISPLAY_OPTIONS},
+        ),
+    ],
+)
+async def test_async_migrate_entry_converts_do_not_reorder_to_advanced_options(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    display_options: str,
+    expected_data: dict[str, object] | None,
+) -> None:
+    """Legacy ordered display options migrate to an advanced expression."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        data={CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: display_options},
+    )
+    monkeypatch.setattr(
+        "custom_components.places.async_migrate_legacy_snapshot",
+        AsyncMock(),
+    )
+
+    await async_migrate_entry(mock_hass, entry)
+
+    expected_kwargs: dict[str, object] = {"version": 2, "minor_version": 1}
+    if expected_data is not None:
+        expected_kwargs["data"] = expected_data
+    mock_hass.config_entries.async_update_entry.assert_called_once_with(
+        entry,
+        **expected_kwargs,
+    )
 
 
 @pytest.mark.asyncio
