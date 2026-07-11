@@ -2,6 +2,7 @@
 
 from homeassistant.components.text import TextEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import MAX_LENGTH_STATE_STATE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -32,9 +33,10 @@ class PlacesDisplayOptionsText(PlacesEntity, TextEntity):
         super().__init__(coordinator, unique_suffix=CONF_DISPLAY_OPTIONS)
 
     @property
-    def native_value(self) -> str:
+    def native_value(self) -> str | None:
         """Return the configured display options."""
-        return self.coordinator.get_attr_safe_str(CONF_DISPLAY_OPTIONS)
+        value = self.coordinator.get_attr_safe_str(CONF_DISPLAY_OPTIONS)
+        return value if len(value) <= MAX_LENGTH_STATE_STATE else None
 
     async def async_set_value(self, value: str) -> None:
         """Validate, save, and apply new display options."""

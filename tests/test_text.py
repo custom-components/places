@@ -53,3 +53,12 @@ async def test_display_options_text_entity_enforces_max_length(mock_hass: MagicM
         await entity.async_set_value("x" * (MAX_LENGTH_STATE_STATE + 1))
 
     assert coordinator.process_display_options.await_count == 1
+
+
+def test_display_options_text_hides_legacy_overlong_state() -> None:
+    """Legacy rules longer than HA's text-state limit remain stored but unexposed."""
+    coordinator = MagicMock()
+    coordinator.get_attr_safe_str.return_value = "x" * (MAX_LENGTH_STATE_STATE + 1)
+    entity = PlacesDisplayOptionsText(coordinator)
+
+    assert entity.native_value is None
