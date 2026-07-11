@@ -917,6 +917,28 @@ async def test_async_apply_show_time_resets_show_date_and_truncates(
     assert sensor.native_value.endswith(expected_prefix)
 
 
+async def test_async_apply_show_time_uses_last_changed_timestamp(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Show-time toggles should display the stored place-change time."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_SHOW_TIME] = True
+    sensor.attrs[ATTR_NATIVE_VALUE] = "Library"
+    sensor.attrs[ATTR_LAST_CHANGED] = "2026-07-09 08:30:00+00:00"
+    monkeypatch.setattr(
+        updater,
+        "get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    await updater.async_apply_show_time()
+
+    assert sensor.native_value == "Library (since 08:30)"
+
+
 @pytest.mark.asyncio
 async def test_check_for_updated_entity_name_entity_id_new_name(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
