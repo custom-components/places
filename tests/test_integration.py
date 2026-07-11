@@ -174,6 +174,10 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
             "Do_Not_Reorder, City, State",
             {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
         ),
+        (
+            "do_not_reorder, zone, do_not_show_not_home, city",
+            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "zone[], city"},
+        ),
         ("city, state", None),
         (
             "do_not_reorder",
