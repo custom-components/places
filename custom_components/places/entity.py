@@ -22,26 +22,25 @@ from .const import (
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DISTANCE_FROM_HOME,
     ATTR_DISTANCE_TRAVELED,
+    ATTR_GPS_ACCURACY,
     ATTR_LAST_CHANGED,
-    ATTR_LAST_PLACE_NAME,
     ATTR_LAST_UPDATED,
-    ATTR_LATITUDE_OLD,
-    ATTR_LONGITUDE_OLD,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
     ATTR_MAP_LINK,
     ATTR_OSM_ID,
     ATTR_OSM_TYPE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_NAME,
-    ATTR_PLACE_NAME_NO_DUPE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_PLACE_TYPE,
     ATTR_POSTAL_CODE,
     ATTR_POSTAL_TOWN,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
-    ATTR_STREET_REF,
     CONF_NAME,
     DOMAIN,
 )
@@ -127,18 +126,21 @@ class PlacesAttributeSensorEntityDescription(SensorEntityDescription, frozen_or_
 
 
 PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescription, ...] = (
-    PlacesAttributeSensorEntityDescription(key=ATTR_PLACE_NAME),
+    PlacesAttributeSensorEntityDescription(key=ATTR_PLACE_NAME, icon="mdi:map-marker"),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DEVICETRACKER_ZONE_NAME,
+        icon="mdi:map-marker-radius",
     ),
-    PlacesAttributeSensorEntityDescription(key=ATTR_CITY),
-    PlacesAttributeSensorEntityDescription(key=ATTR_REGION),
+    PlacesAttributeSensorEntityDescription(key=ATTR_CITY, icon="mdi:city-variant"),
+    PlacesAttributeSensorEntityDescription(key=ATTR_REGION, icon="mdi:land-plots-marker"),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DIRECTION_OF_TRAVEL,
+        icon="mdi:compass",
     ),
-    PlacesAttributeSensorEntityDescription(key=ATTR_MAP_LINK),
+    PlacesAttributeSensorEntityDescription(key=ATTR_MAP_LINK, icon="mdi:map"),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DISTANCE_FROM_HOME,
+        icon="mdi:home-import-outline",
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.METERS,
         value_fn=lambda coordinator: (
@@ -149,6 +151,7 @@ PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescripti
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DISTANCE_TRAVELED,
+        icon="mdi:map-marker-distance",
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.METERS,
         value_fn=lambda coordinator: (
@@ -159,70 +162,81 @@ PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescripti
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_COUNTRY,
+        icon="mdi:earth",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_COUNTRY_CODE,
+        icon="mdi:earth",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_STREET_NUMBER,
+        icon="mdi:pound-box",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_STREET,
+        icon="mdi:road",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
-        key=ATTR_STREET_REF,
+        key=ATTR_ROUTE_NUMBER,
+        icon="mdi:road-variant",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_PLACE_NEIGHBOURHOOD,
+        icon="mdi:home-group",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_POSTAL_TOWN,
+        icon="mdi:city-variant-outline",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_POSTAL_CODE,
+        icon="mdi:postage-stamp",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_COUNTY,
+        icon="mdi:image-marker",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_STATE_ABBR,
+        icon="mdi:land-plots-marker",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_PLACE_TYPE,
+        icon="mdi:form-dropdown",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_PLACE_CATEGORY,
-        entity_registry_enabled_default=False,
-    ),
-    PlacesAttributeSensorEntityDescription(
-        key=ATTR_PLACE_NAME_NO_DUPE,
+        icon="mdi:form-select",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_DEVICETRACKER_ZONE,
+        icon="mdi:map-marker-radius-outline",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
-        key=ATTR_LATITUDE_OLD,
+        key=ATTR_LATITUDE,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
-        key=ATTR_LONGITUDE_OLD,
+        key=ATTR_LONGITUDE,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
-        key=ATTR_LAST_PLACE_NAME,
+        key=ATTR_GPS_ACCURACY,
+        device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement=UnitOfLength.METERS,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
@@ -235,10 +249,12 @@ PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescripti
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_OSM_ID,
+        icon="mdi:map-marker-question",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_OSM_TYPE,
+        icon="mdi:map-marker-question-outline",
         entity_registry_enabled_default=False,
     ),
 )

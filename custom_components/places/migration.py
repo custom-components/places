@@ -14,18 +14,36 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.storage import Store
 from homeassistant.util import slugify
 
-from .const import ATTR_DISTANCE_FROM_HOME, ATTR_DISTANCE_TRAVELED, DOMAIN
+from .const import (
+    ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_NAME,
+    ATTR_DISTANCE_FROM_HOME,
+    ATTR_DISTANCE_TRAVELED,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
+    ATTR_PLACE_NEIGHBOURHOOD,
+    ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
+    DOMAIN,
+)
 from .persistence import STORE_VERSION, STORE_WRITE_ERRORS, normalize_snapshot, store_key
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _normalize_legacy_distance_keys(snapshot: dict[str, Any]) -> bool:
-    """Rename legacy meter distance keys to their current persisted names."""
+def _normalize_legacy_keys(snapshot: dict[str, Any]) -> bool:
+    """Rename legacy snapshot keys to their current persisted names."""
     changed = False
     for legacy_key, current_key in (
         ("distance_from_home_m", ATTR_DISTANCE_FROM_HOME),
         ("distance_traveled_m", ATTR_DISTANCE_TRAVELED),
+        ("devicetracker_zone", ATTR_DEVICETRACKER_ZONE),
+        ("devicetracker_zone_name", ATTR_DEVICETRACKER_ZONE_NAME),
+        ("neighbourhood", ATTR_PLACE_NEIGHBOURHOOD),
+        ("state_province", ATTR_REGION),
+        ("current_latitude", ATTR_LATITUDE),
+        ("current_longitude", ATTR_LONGITUDE),
+        ("street_ref", ATTR_ROUTE_NUMBER),
     ):
         if legacy_key in snapshot:
             snapshot.setdefault(current_key, snapshot.pop(legacy_key))
@@ -164,7 +182,7 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
         if store_data is not None:
             if isinstance(store_data, Mapping):
                 stored_snapshot = dict(store_data)
-                if _normalize_legacy_distance_keys(stored_snapshot):
+                if _normalize_legacy_keys(stored_snapshot):
                     try:
                         await store.async_save(normalize_snapshot(stored_snapshot))
                     except STORE_WRITE_ERRORS as error:
@@ -199,7 +217,7 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
 
         try:
             snapshot = dict(snapshot)
-            _normalize_legacy_distance_keys(snapshot)
+            _normalize_legacy_keys(snapshot)
             await store.async_save(normalize_snapshot(snapshot))
         except STORE_WRITE_ERRORS as error:
             _LOGGER.warning(

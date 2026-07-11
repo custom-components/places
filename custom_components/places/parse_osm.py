@@ -34,10 +34,10 @@ from .const import (
     ATTR_POSTAL_CODE,
     ATTR_POSTAL_TOWN,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
-    ATTR_STREET_REF,
     CITY_LIST,
     CONF_LANGUAGE,
     NEIGHBOURHOOD_LIST,
@@ -350,7 +350,7 @@ class OSMParser:
         ):
             raw_ref = namedetails.get("ref")
             if not isinstance(raw_ref, str) or not raw_ref.strip():
-                self.coordinator.clear_attr(ATTR_STREET_REF)
+                self.coordinator.clear_attr(ATTR_ROUTE_NUMBER)
                 _LOGGER.debug(
                     "(%s) Skipping street ref parsing due to invalid ref value: %r",
                     self.coordinator.get_attr(CONF_NAME),
@@ -361,16 +361,16 @@ class OSMParser:
                 street_refs = [i for i in street_refs if i.strip()]  # Remove blank strings
                 for ref in street_refs:
                     if bool(re.search(r"\d", ref)):
-                        self.coordinator.set_attr(ATTR_STREET_REF, ref)
+                        self.coordinator.set_attr(ATTR_ROUTE_NUMBER, ref)
                         break
                 else:
-                    self.coordinator.clear_attr(ATTR_STREET_REF)
-            if not self.coordinator.is_attr_blank(ATTR_STREET_REF):
+                    self.coordinator.clear_attr(ATTR_ROUTE_NUMBER)
+            if not self.coordinator.is_attr_blank(ATTR_ROUTE_NUMBER):
                 _LOGGER.debug(
                     "(%s) Street: %s / Street Ref: %s",
                     self.coordinator.get_attr(CONF_NAME),
                     self.coordinator.get_attr(ATTR_STREET),
-                    self.coordinator.get_attr(ATTR_STREET_REF),
+                    self.coordinator.get_attr(ATTR_ROUTE_NUMBER),
                 )
 
     async def set_place_name_no_dupe(self) -> None:

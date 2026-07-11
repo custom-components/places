@@ -78,8 +78,8 @@ ATTR_COUNTRY = "country"
 ATTR_COUNTRY_CODE = "country_code"
 ATTR_COUNTY = "county"
 ATTR_DEVICETRACKER_ID = "devicetracker_entityid"
-ATTR_DEVICETRACKER_ZONE = "devicetracker_zone"
-ATTR_DEVICETRACKER_ZONE_NAME = "devicetracker_zone_name"
+ATTR_DEVICETRACKER_ZONE = "zone"
+ATTR_DEVICETRACKER_ZONE_NAME = "zone_name"
 ATTR_DIRECTION_OF_TRAVEL = "direction_of_travel"
 ATTR_DISTANCE_FROM_HOME = "distance_from_home"
 ATTR_DISPLAY_OPTIONS_LIST = "display_options_list"
@@ -95,11 +95,11 @@ ATTR_INITIAL_UPDATE = "initial_update"
 ATTR_LAST_CHANGED = "last_changed"
 ATTR_LAST_PLACE_NAME = "last_place_name"
 ATTR_LAST_UPDATED = "last_updated"
-ATTR_LATITUDE = "current_latitude"
+ATTR_LATITUDE = "latitude"
 ATTR_LATITUDE_OLD = "previous_latitude"
 ATTR_LOCATION_CURRENT = "current_location"
 ATTR_LOCATION_PREVIOUS = "previous_location"
-ATTR_LONGITUDE = "current_longitude"
+ATTR_LONGITUDE = "longitude"
 ATTR_LONGITUDE_OLD = "previous_longitude"
 ATTR_MAP_LINK = "map_link"
 ATTR_NATIVE_VALUE = "native_value"
@@ -112,16 +112,16 @@ ATTR_PICTURE = "entity_picture"
 ATTR_PLACE_CATEGORY = "place_category"
 ATTR_PLACE_NAME = "place_name"
 ATTR_PLACE_NAME_NO_DUPE = "place_name_no_dupe"
-ATTR_PLACE_NEIGHBOURHOOD = "neighbourhood"
+ATTR_PLACE_NEIGHBOURHOOD = "neighborhood"
 ATTR_PLACE_TYPE = "place_type"
 ATTR_POSTAL_CODE = "postal_code"
 ATTR_POSTAL_TOWN = "postal_town"
 ATTR_PREVIOUS_STATE = "previous_state"
-ATTR_REGION = "state_province"
+ATTR_REGION = "state"
 ATTR_SHOW_DATE = "show_date"
 ATTR_STATE_ABBR = "state_abbr"
 ATTR_STREET = "street"
-ATTR_STREET_REF = "street_ref"
+ATTR_ROUTE_NUMBER = "route_number"
 ATTR_STREET_NUMBER = "street_number"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
 ATTR_WIKIDATA_ID = "wikidata_id"
@@ -182,7 +182,7 @@ RESET_ATTRIBUTE_LIST: list[str] = [
     ATTR_STATE_ABBR,
     ATTR_STREET_NUMBER,
     ATTR_STREET,
-    ATTR_STREET_REF,
+    ATTR_ROUTE_NUMBER,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
 ]
@@ -245,7 +245,7 @@ PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_STATE_ABBR,
     ATTR_STREET_NUMBER,
     ATTR_STREET,
-    ATTR_STREET_REF,
+    ATTR_ROUTE_NUMBER,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
     ATTR_SHOW_DATE,
@@ -276,7 +276,7 @@ EXTENDED_ATTRIBUTE_LIST: list[str] = [
 ]
 PLACE_NAME_DUPLICATE_LIST: list[str] = [
     ATTR_STREET,
-    ATTR_STREET_REF,
+    ATTR_ROUTE_NUMBER,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_CITY,
     ATTR_POSTAL_TOWN,
@@ -303,8 +303,8 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
     "street_number": ATTR_STREET_NUMBER,
     "house_number": ATTR_STREET_NUMBER,
     "street": ATTR_STREET,
-    "street_ref": ATTR_STREET_REF,
-    "route_number": ATTR_STREET_REF,
+    "street_ref": ATTR_ROUTE_NUMBER,
+    "route_number": ATTR_ROUTE_NUMBER,
     "neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
     "neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
     "place_neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
@@ -316,6 +316,7 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
     "borough": ATTR_POSTAL_TOWN,
     "region": ATTR_REGION,
     "state": ATTR_REGION,
+    "province": ATTR_REGION,
     "state_abbr": ATTR_STATE_ABBR,
     "county": ATTR_COUNTY,
     "country": ATTR_COUNTRY,
