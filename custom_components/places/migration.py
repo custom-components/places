@@ -23,6 +23,7 @@ from .const import (
     ATTR_LONGITUDE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
     DOMAIN,
 )
 from .persistence import STORE_VERSION, STORE_WRITE_ERRORS, normalize_snapshot, store_key
@@ -42,6 +43,7 @@ def _normalize_legacy_keys(snapshot: dict[str, Any]) -> bool:
         ("state_province", ATTR_REGION),
         ("current_latitude", ATTR_LATITUDE),
         ("current_longitude", ATTR_LONGITUDE),
+        ("street_ref", ATTR_ROUTE_NUMBER),
     ):
         if legacy_key in snapshot:
             snapshot.setdefault(current_key, snapshot.pop(legacy_key))

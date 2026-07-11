@@ -11,6 +11,7 @@ from .const import (
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
     PLACE_NAME_DUPLICATE_LIST,
 )
 
@@ -262,19 +263,19 @@ class BasicOptionsParser:
             coordinator: Places coordinator used for blank checks and safe value access.
         """
         street = None
-        if coordinator.is_attr_blank("street") and not coordinator.is_attr_blank("street_ref"):
-            street = coordinator.get_attr_safe_str("street_ref").strip()
-            _LOGGER.debug("Using street_ref: %s", street)
+        if coordinator.is_attr_blank("street") and not coordinator.is_attr_blank(ATTR_ROUTE_NUMBER):
+            street = coordinator.get_attr_safe_str(ATTR_ROUTE_NUMBER).strip()
+            _LOGGER.debug("Using route_number: %s", street)
         elif not coordinator.is_attr_blank("street"):
             if (
                 not coordinator.is_attr_blank("place_category")
                 and coordinator.get_attr_safe_str("place_category").lower() == "highway"
                 and not coordinator.is_attr_blank("place_type")
                 and coordinator.get_attr_safe_str("place_type").lower() in {"motorway", "trunk"}
-                and not coordinator.is_attr_blank("street_ref")
+                and not coordinator.is_attr_blank(ATTR_ROUTE_NUMBER)
             ):
-                street = coordinator.get_attr_safe_str("street_ref").strip()
-                _LOGGER.debug("Using street_ref: %s", street)
+                street = coordinator.get_attr_safe_str(ATTR_ROUTE_NUMBER).strip()
+                _LOGGER.debug("Using route_number: %s", street)
             else:
                 street = coordinator.get_attr_safe_str("street").strip()
                 _LOGGER.debug("Using street: %s", street)

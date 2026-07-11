@@ -1309,7 +1309,15 @@ def test_attribute_sensor_descriptions_match_clean_contract() -> None:
     """Child descriptions should use only the new unpublished entity contract."""
     keys = {description.key for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS}
 
-    assert {"zone_name", "zone", "neighborhood", "state", "latitude", "longitude"} <= keys
+    assert {
+        "zone_name",
+        "zone",
+        "neighborhood",
+        "state",
+        "latitude",
+        "longitude",
+        "route_number",
+    } <= keys
     assert {
         "devicetracker_zone_name",
         "devicetracker_zone",
@@ -1321,6 +1329,7 @@ def test_attribute_sensor_descriptions_match_clean_contract() -> None:
         "last_place_name",
         "current_latitude",
         "current_longitude",
+        "street_ref",
     }.isdisjoint(keys)
 
 
@@ -1338,7 +1347,7 @@ def test_attribute_sensor_descriptions_match_clean_contract() -> None:
         ("place_category", "mdi:form-select"),
         ("street_number", "mdi:pound-box"),
         ("street", "mdi:road"),
-        ("street_ref", "mdi:road-variant"),
+        ("route_number", "mdi:road-variant"),
         ("neighborhood", "mdi:home-group"),
         ("city", "mdi:city-variant"),
         ("postal_town", "mdi:city-variant-outline"),

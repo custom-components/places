@@ -37,10 +37,10 @@ from .const import (
     ATTR_POSTAL_CODE,
     ATTR_POSTAL_TOWN,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
-    ATTR_STREET_REF,
     CONF_NAME,
     DOMAIN,
 )
@@ -181,7 +181,7 @@ PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescripti
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
-        key=ATTR_STREET_REF,
+        key=ATTR_ROUTE_NUMBER,
         icon="mdi:road-variant",
         entity_registry_enabled_default=False,
     ),

@@ -18,9 +18,9 @@ from .const import (
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_TYPE,
+    ATTR_ROUTE_NUMBER,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
-    ATTR_STREET_REF,
     DISPLAY_OPTIONS_MAP,
 )
 
@@ -215,7 +215,7 @@ class AdvancedOptionsParser:
             out = out.strip()
             if (
                 DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET
-                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_REF
+                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_ROUTE_NUMBER
             ):
                 self._street_i = self._temp_i
                 # _LOGGER.debug(

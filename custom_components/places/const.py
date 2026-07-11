@@ -121,7 +121,7 @@ ATTR_REGION = "state"
 ATTR_SHOW_DATE = "show_date"
 ATTR_STATE_ABBR = "state_abbr"
 ATTR_STREET = "street"
-ATTR_STREET_REF = "street_ref"
+ATTR_ROUTE_NUMBER = "route_number"
 ATTR_STREET_NUMBER = "street_number"
 ATTR_WIKIDATA_DICT = "wikidata_dict"
 ATTR_WIKIDATA_ID = "wikidata_id"
@@ -182,7 +182,7 @@ RESET_ATTRIBUTE_LIST: list[str] = [
     ATTR_STATE_ABBR,
     ATTR_STREET_NUMBER,
     ATTR_STREET,
-    ATTR_STREET_REF,
+    ATTR_ROUTE_NUMBER,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
 ]
@@ -245,7 +245,7 @@ PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_STATE_ABBR,
     ATTR_STREET_NUMBER,
     ATTR_STREET,
-    ATTR_STREET_REF,
+    ATTR_ROUTE_NUMBER,
     ATTR_WIKIDATA_DICT,
     ATTR_WIKIDATA_ID,
     ATTR_SHOW_DATE,
@@ -276,7 +276,7 @@ EXTENDED_ATTRIBUTE_LIST: list[str] = [
 ]
 PLACE_NAME_DUPLICATE_LIST: list[str] = [
     ATTR_STREET,
-    ATTR_STREET_REF,
+    ATTR_ROUTE_NUMBER,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_CITY,
     ATTR_POSTAL_TOWN,
@@ -303,8 +303,8 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
     "street_number": ATTR_STREET_NUMBER,
     "house_number": ATTR_STREET_NUMBER,
     "street": ATTR_STREET,
-    "street_ref": ATTR_STREET_REF,
-    "route_number": ATTR_STREET_REF,
+    "street_ref": ATTR_ROUTE_NUMBER,
+    "route_number": ATTR_ROUTE_NUMBER,
     "neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
     "neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
     "place_neighborhood": ATTR_PLACE_NEIGHBOURHOOD,

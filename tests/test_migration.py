@@ -21,6 +21,7 @@ from custom_components.places.const import (
     ATTR_LONGITUDE,
     ATTR_PLACE_NEIGHBOURHOOD,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
 )
 from custom_components.places.migration import (
     _read_legacy_snapshot,
@@ -185,6 +186,7 @@ async def test_legacy_entity_keys_are_renamed_before_store_save(
                 "state_province": "Virginia",
                 "current_latitude": 37.5,
                 "current_longitude": -77.4,
+                "street_ref": "US-1",
             }
         ),
     )
@@ -199,6 +201,7 @@ async def test_legacy_entity_keys_are_renamed_before_store_save(
             ATTR_REGION: "Virginia",
             ATTR_LATITUDE: 37.5,
             ATTR_LONGITUDE: -77.4,
+            ATTR_ROUTE_NUMBER: "US-1",
         }
     ]
 
