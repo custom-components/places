@@ -28,3 +28,4 @@ venv.bak/
 venv/
 places.egg-info/
 uv.lock
+.worktrees/
