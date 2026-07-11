@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Coroutine
+from datetime import UTC, datetime
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
@@ -15,6 +16,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -25,10 +27,15 @@ from custom_components.places.const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DIRECTION_OF_TRAVEL,
+    ATTR_DISPLAY_OPTIONS,
     ATTR_DRIVING,
     ATTR_GPS_ACCURACY,
+    ATTR_LAST_CHANGED,
     ATTR_LATITUDE,
+    ATTR_LOCATION_CURRENT,
     ATTR_LONGITUDE,
+    ATTR_MAP_LINK,
+    ATTR_NATIVE_VALUE,
     ATTR_OSM_DETAILS_DICT,
     ATTR_OSM_DICT,
     ATTR_PICTURE,
@@ -36,8 +43,11 @@ from custom_components.places.const import (
     ATTR_PLACE_TYPE,
     ATTR_WIKIDATA_DICT,
     CONF_DEVICETRACKER_ID,
+    CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
+    CONF_MAP_PROVIDER,
     CONF_NAME,
+    CONF_SHOW_TIME,
     DOMAIN,
 )
 from custom_components.places.coordinator import SCAN_INTERVAL, PlacesData, PlacesUpdateCoordinator
@@ -52,6 +62,7 @@ from custom_components.places.sensor import (
     PlacesExtendedDataSensor,
     async_setup_entry,
 )
+from custom_components.places.update_sensor import PlacesUpdater
 
 
 def _description(key: str) -> PlacesAttributeSensorEntityDescription:
@@ -164,6 +175,437 @@ async def test_coordinator_persist_attributes_respects_shutdown_state(
         persistence.async_save.assert_awaited_once_with(coordinator.get_internal_attr())
     else:
         persistence.async_save.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "expected_attr"),
+    [
+        (CONF_DISPLAY_OPTIONS, "formatted_place", "formatted_place"),
+        (CONF_MAP_PROVIDER, "google", "https://maps.google.com/?q=1.0%2C2.0&ll=1.0%2C2.0&z=18"),
+        (CONF_SHOW_TIME, False, "Library"),
+    ],
+)
+async def test_coordinator_updates_setting_locally(
+    mock_hass: MagicMock,
+    key: str,
+    value: str | bool,
+    expected_attr: str,
+) -> None:
+    """Settings persist and recalculate state without requesting a refresh."""
+    mock_hass.config.time_zone = "UTC"
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_DISPLAY_OPTIONS: "zone_name, place",
+            CONF_MAP_PROVIDER: "apple",
+            CONF_SHOW_TIME: True,
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_attr(ATTR_LOCATION_CURRENT, "1.0,2.0")
+    coordinator.set_attr(ATTR_NATIVE_VALUE, "Library (since 12:34)")
+    coordinator.set_native_value("Library (since 12:34)")
+    coordinator.process_display_options = AsyncMock()
+    coordinator.publish_update = MagicMock()
+    coordinator.async_request_refresh = AsyncMock()
+
+    await coordinator.async_update_setting(key, value)
+
+    saved_data = mock_hass.config_entries.async_update_entry.call_args.kwargs["data"]
+    assert saved_data[key] == value
+    assert coordinator.config[key] == value
+    if key == CONF_DISPLAY_OPTIONS:
+        assert coordinator.get_attr(CONF_DISPLAY_OPTIONS) == expected_attr
+        coordinator.process_display_options.assert_awaited_once_with()
+    elif key == CONF_MAP_PROVIDER:
+        assert coordinator.get_attr(ATTR_MAP_LINK) == expected_attr
+    else:
+        assert coordinator.get_attr(ATTR_NATIVE_VALUE) == expected_attr
+    coordinator.publish_update.assert_called_once_with()
+    persistence.async_save.assert_awaited_once()
+    coordinator.async_request_refresh.assert_not_awaited()
+
+
+async def test_coordinator_normalizes_and_validates_map_provider(mock_hass: MagicMock) -> None:
+    """Direct setting updates normalize valid providers and reject unsupported ones."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_MAP_PROVIDER: "apple",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_attr(ATTR_LOCATION_CURRENT, "1.0,2.0")
+
+    await coordinator.async_update_setting(CONF_MAP_PROVIDER, " Google ")
+
+    assert coordinator.config[CONF_MAP_PROVIDER] == "google"
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+    saved_data = mock_hass.config_entries.async_update_entry.call_args.kwargs["data"]
+    assert saved_data[CONF_MAP_PROVIDER] == "google"
+
+    mock_hass.config_entries.async_update_entry.reset_mock()
+    with pytest.raises(HomeAssistantError, match="Invalid map provider"):
+        await coordinator.async_update_setting(CONF_MAP_PROVIDER, "bing")
+
+    assert coordinator.config[CONF_MAP_PROVIDER] == "google"
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+    mock_hass.config_entries.async_update_entry.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "display_options",
+    ["zone_name[", "   ", "x" * (MAX_LENGTH_STATE_STATE + 1)],
+)
+async def test_coordinator_rejects_invalid_display_options(
+    mock_hass: MagicMock, display_options: str
+) -> None:
+    """Invalid display options do not alter persisted or runtime settings."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+
+    with pytest.raises(HomeAssistantError, match="Invalid display options"):
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, display_options)
+
+    mock_hass.config_entries.async_update_entry.assert_not_called()
+    assert coordinator.get_attr(CONF_DISPLAY_OPTIONS) == "zone_name, place"
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_exception", "match"),
+    [
+        (RuntimeError("recompute failure"), RuntimeError, "recompute failure"),
+        (asyncio.CancelledError("cancelled"), asyncio.CancelledError, "cancelled"),
+    ],
+)
+async def test_coordinator_updates_setting_rollback_on_display_option_recompute_failure(
+    mock_hass: MagicMock,
+    failure: BaseException,
+    expected_exception: type[BaseException],
+    match: str,
+) -> None:
+    """Recompute failures for display options must restore config and runtime state."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_native_value("Library")
+    coordinator.publish_update = MagicMock()
+    previous_config = dict(coordinator.config)
+    previous_attrs = dict(coordinator.get_internal_attr())
+
+    coordinator.process_display_options = AsyncMock(side_effect=failure)
+
+    with pytest.raises(expected_exception, match=match):
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "place")
+
+    assert coordinator.config == previous_config
+    assert coordinator.get_internal_attr() == previous_attrs
+    assert coordinator.get_attr(ATTR_NATIVE_VALUE) == "Library"
+    mock_hass.config_entries.async_update_entry.assert_not_called()
+    coordinator.publish_update.assert_not_called()
+    persistence.async_save.assert_not_awaited()
+
+
+async def test_coordinator_updates_setting_logs_context_on_unexpected_error(
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+) -> None:
+    """Unexpected display-option failures should log coordinator context before rollback."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.process_display_options = AsyncMock(side_effect=RuntimeError("recompute failure"))
+
+    with (
+        caplog.at_level(logging.ERROR, logger="custom_components.places.coordinator"),
+        pytest.raises(RuntimeError, match="recompute failure"),
+    ):
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "place")
+
+    assert f"Failed to update Places setting (key={CONF_DISPLAY_OPTIONS}" in caplog.text
+    assert "value='place'" in caplog.text
+    assert "TestSensor" in caplog.text
+
+
+async def test_coordinator_stale_suffix_is_not_persisted_before_setting_commit(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed settings commit must not persist its dated rendered state."""
+    mock_hass.states.get.return_value = None
+    mock_hass.config_entries.async_update_entry.side_effect = RuntimeError("commit failure")
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_SHOW_TIME: True,
+            CONF_DISPLAY_OPTIONS: "zone_name",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_native_value("Library (since 08:30)")
+    coordinator.set_attr(ATTR_LAST_CHANGED, "2026-07-08 08:30:00+00:00")
+    previous_attrs = dict(coordinator.get_internal_attr())
+    coordinator.process_display_options = AsyncMock(
+        side_effect=lambda: coordinator.set_native_value("Library")
+    )
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    with pytest.raises(RuntimeError, match="commit failure"):
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "place")
+
+    assert coordinator.get_internal_attr() == previous_attrs
+    persistence.async_save.assert_not_awaited()
+
+
+async def test_coordinator_display_options_render_stale_native_state_as_blank(
+    mock_hass: MagicMock,
+) -> None:
+    """Stale rendered state is cleared when the new display format emits an empty value."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_SHOW_TIME: True,
+            CONF_DISPLAY_OPTIONS: "zone_name, place",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_native_value("Library")
+
+    await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "not-used")
+
+    assert coordinator.data.native_value is None
+    assert coordinator.get_attr(ATTR_NATIVE_VALUE) is None
+
+
+async def test_coordinator_updates_display_options_with_normalized_and_formatted_state(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Display-options updates are normalized and re-rendered with final state formatting."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_SHOW_TIME: True,
+            CONF_DISPLAY_OPTIONS: "zone_name",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.process_display_options = AsyncMock(
+        side_effect=lambda: coordinator.set_native_value("A" * 260)
+    )
+    coordinator.publish_update = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "Zone_Name, PLACE")
+
+    assert coordinator.get_attr(CONF_DISPLAY_OPTIONS) == "zone_name, place"
+    assert coordinator.get_attr(ATTR_DISPLAY_OPTIONS) == "zone_name, place"
+    assert coordinator.process_display_options.await_count == 1
+    assert coordinator.get_attr(ATTR_NATIVE_VALUE) == "A" * 241 + " (since 14:05)"
+    assert len(coordinator.get_attr(ATTR_NATIVE_VALUE) or "") == 255
+    coordinator.publish_update.assert_called_once_with()
+    persistence.async_save.assert_awaited_once()
+
+
+async def test_coordinator_map_provider_update_rebuilds_current_location(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Map provider updates should rebuild current location from coordinates when needed."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_MAP_PROVIDER: "apple",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_attr(ATTR_LATITUDE, 1.0)
+    coordinator.set_attr(ATTR_LONGITUDE, 2.0)
+    coordinator.set_attr(ATTR_LOCATION_CURRENT, "")
+    captured: dict[str, str] = {}
+
+    async def capture_map_link(self: PlacesUpdater) -> None:
+        """Record the resolved current-location string used by link generation."""
+        captured["location_current"] = str(self.coordinator.get_attr(ATTR_LOCATION_CURRENT))
+
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_map_link",
+        capture_map_link,
+    )
+
+    await coordinator.async_update_setting(CONF_MAP_PROVIDER, "google")
+
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+    assert captured["location_current"] == "1.0,2.0"
+
+
+async def test_coordinator_map_provider_update_skips_map_link_without_location(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Map-provider updates clear stale map links when no location context exists."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_MAP_PROVIDER: "apple",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.set_attr(ATTR_MAP_LINK, "https://maps.apple.com/?q=42,1")
+    captured: dict[str, bool] = {"called": False}
+
+    async def capture_map_link(_: PlacesUpdater) -> None:
+        """Record that a map link lookup was attempted."""
+        captured["called"] = True
+
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_map_link",
+        capture_map_link,
+    )
+
+    await coordinator.async_update_setting(CONF_MAP_PROVIDER, "google")
+
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+    assert coordinator.get_attr(ATTR_MAP_LINK) is None
+    assert captured["called"] is False
+
+
+async def test_async_update_setting_serialized_with_scan_updates(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Settings changes should wait on the update lock and avoid rollback overwrite."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test", CONF_MAP_PROVIDER: "apple"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    run_started = asyncio.Event()
+    release_run = asyncio.Event()
+    config_written = asyncio.Event()
+
+    async def fail_update(
+        _: PlacesUpdater,
+        reason: str,
+        previous_attr: dict[str, object],
+        **_kwargs: object,
+    ) -> None:
+        """Keep the scan path open long enough to exercise lock contention."""
+        run_started.set()
+        await release_run.wait()
+        raise RuntimeError("forced scan failure")
+
+    mock_hass.config_entries.async_update_entry.side_effect = lambda *args, **kwargs: (
+        config_written.set()
+    )
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.do_update",
+        fail_update,
+    )
+
+    scan_task = asyncio.create_task(coordinator._run_update("Scan Interval"))
+    await run_started.wait()
+
+    setting_task = asyncio.create_task(
+        coordinator.async_update_setting(CONF_MAP_PROVIDER, "google")
+    )
+
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(config_written.wait(), timeout=0.05)
+
+    release_run.set()
+
+    with pytest.raises(RuntimeError):
+        await scan_task
+    await setting_task
+
+    assert coordinator.get_attr(CONF_MAP_PROVIDER) == "google"
+
+
+async def test_coordinator_enables_show_time_from_existing_state(
+    mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Enabling Show Last Updated adds the current local time without a refresh."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_native_value("Library")
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    await coordinator.async_update_setting(CONF_SHOW_TIME, True)
+
+    assert coordinator.get_attr(ATTR_NATIVE_VALUE) == "Library (since 14:05)"
 
 
 async def test_coordinator_tsc_update_schedules_updater_with_snapshot(

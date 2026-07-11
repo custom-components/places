@@ -355,6 +355,11 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
         The same error mapping, possibly with ``base`` set to a validation
         error key.
     """
+    if not display_options.strip():
+        _LOGGER.error("Invalid syntax: Display options cannot be blank.")
+        errors["base"] = "invalid_syntax"
+        return errors
+
     # Only run advanced validation if brackets or parentheses are present
     if "[" in display_options or "(" in display_options:
         # Check bracket/parenthesis matching

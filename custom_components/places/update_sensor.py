@@ -672,6 +672,40 @@ class PlacesUpdater:
             self.coordinator.get_attr(ATTR_MAP_LINK),
         )
 
+    async def async_apply_show_time(self) -> None:
+        """Apply the configured last-updated suffix to existing sensor state."""
+        state = clear_since_from_state(self.coordinator.get_attr_safe_str(ATTR_NATIVE_VALUE))
+        if self.coordinator.get_attr(CONF_SHOW_TIME) and state:
+            now = await self.get_current_time()
+            changed_at = now
+            if not self.coordinator.is_attr_blank(ATTR_LAST_CHANGED):
+                try:
+                    changed_at = datetime.fromisoformat(
+                        self.coordinator.get_attr_safe_str(ATTR_LAST_CHANGED)
+                    )
+                except ValueError:
+                    pass
+                else:
+                    if changed_at.tzinfo is None:
+                        changed_at = changed_at.replace(tzinfo=now.tzinfo or UTC)
+                    elif now.tzinfo is not None:
+                        changed_at = changed_at.astimezone(now.tzinfo)
+            if await self.get_seconds_from_last_change(now) >= 86399:
+                self.coordinator.set_native_value(state)
+                await self.change_show_time_to_date()
+                return
+            suffix = f" (since {changed_at.hour:02}:{changed_at.minute:02})"
+            state = f"{state[: 255 - len(suffix)]}{suffix}"
+        else:
+            state = state[:255]
+        self.coordinator.set_attr(ATTR_SHOW_DATE, False)
+        self.coordinator.set_native_value(state or None)
+        _LOGGER.debug(
+            "(%s) Show-time applied, New State: %s",
+            self.coordinator.get_attr(CONF_NAME),
+            self.coordinator.get_attr(ATTR_NATIVE_VALUE),
+        )
+
     async def async_reset_attributes(self) -> None:
         """Clear transient attributes before parsing fresh geocoding data."""
         for attr in RESET_ATTRIBUTE_LIST:
@@ -1128,9 +1162,9 @@ class PlacesUpdater:
             cleared_state = clear_since_from_state(
                 self.coordinator.get_attr_safe_str(ATTR_NATIVE_VALUE)
             )
-            self.coordinator.set_native_value(value=f"{cleared_state} (since {mmddstring})")
+            suffix = f" (since {mmddstring})"
+            self.coordinator.set_native_value(value=f"{cleared_state[: 255 - len(suffix)]}{suffix}")
             self.coordinator.set_attr(ATTR_SHOW_DATE, True)
-            await self.coordinator.async_persist_attributes()
             _LOGGER.debug(
                 "(%s) Updating state to show date instead of time since last change",
                 self.coordinator.get_attr(CONF_NAME),

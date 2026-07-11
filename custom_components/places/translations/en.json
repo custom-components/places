@@ -39,6 +39,21 @@
             "force_update": {
                 "name": "Force Update"
             }
+        },
+        "select": {
+            "map_provider": {
+                "name": "Map Provider"
+            }
+        },
+        "switch": {
+            "show_last_updated": {
+                "name": "Show Last Updated"
+            }
+        },
+        "text": {
+            "display_options": {
+                "name": "Display Options"
+            }
         }
     },
     "options": {
