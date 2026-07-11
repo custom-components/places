@@ -265,49 +265,63 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             HomeAssistantError: If display options fail existing validation.
         """
         async with self._update_lock:
-            if key == CONF_DISPLAY_OPTIONS:
-                value_str = str(value).strip().lower()
-                errors = await validate_display_options(value_str, {})
-                if errors:
-                    raise HomeAssistantError("Invalid display options")
-                value = value_str
-                self.config[key] = value
-                self.set_attr(key, value)
-                self.set_attr(ATTR_DISPLAY_OPTIONS, value)
-                updater = PlacesUpdater(self.hass, self.config_entry, self)
-                await self.process_display_options()
-                await updater.async_apply_show_time()
-            elif key == CONF_MAP_PROVIDER:
-                if (
-                    self.is_attr_blank(ATTR_LOCATION_CURRENT)
-                    and not self.is_attr_blank(ATTR_LATITUDE)
-                    and not self.is_attr_blank(ATTR_LONGITUDE)
-                ):
-                    self.set_attr(
-                        ATTR_LOCATION_CURRENT,
-                        f"{self.get_attr_safe_float(ATTR_LATITUDE)},{self.get_attr_safe_float(ATTR_LONGITUDE)}",
-                    )
-                self.config[key] = value
-                self.set_attr(key, value)
-                updater = PlacesUpdater(self.hass, self.config_entry, self)
-                if self.is_attr_blank(ATTR_LOCATION_CURRENT):
-                    self.clear_attr(ATTR_MAP_LINK)
+            previous_config: MutableMapping[str, Any] = copy.deepcopy(self.config)
+            previous_data = self.snapshot()
+            config_entry_updated = False
+            try:
+                if key == CONF_DISPLAY_OPTIONS:
+                    value_str = str(value).strip().lower()
+                    errors = await validate_display_options(value_str, {})
+                    if errors:
+                        raise HomeAssistantError("Invalid display options")
+                    value = value_str
+                    self.config[key] = value
+                    self.set_attr(key, value)
+                    self.set_attr(ATTR_DISPLAY_OPTIONS, value)
+                    updater = PlacesUpdater(self.hass, self.config_entry, self)
+                    await self.process_display_options()
+                    await updater.async_apply_show_time()
+                elif key == CONF_MAP_PROVIDER:
+                    if (
+                        self.is_attr_blank(ATTR_LOCATION_CURRENT)
+                        and not self.is_attr_blank(ATTR_LATITUDE)
+                        and not self.is_attr_blank(ATTR_LONGITUDE)
+                    ):
+                        self.set_attr(
+                            ATTR_LOCATION_CURRENT,
+                            f"{self.get_attr_safe_float(ATTR_LATITUDE)},{self.get_attr_safe_float(ATTR_LONGITUDE)}",
+                        )
+                    self.config[key] = value
+                    self.set_attr(key, value)
+                    updater = PlacesUpdater(self.hass, self.config_entry, self)
+                    if self.is_attr_blank(ATTR_LOCATION_CURRENT):
+                        self.clear_attr(ATTR_MAP_LINK)
+                    else:
+                        await updater.get_map_link()
+                elif key == CONF_SHOW_TIME:
+                    self.config[key] = value
+                    self.set_attr(key, value)
+                    updater = PlacesUpdater(self.hass, self.config_entry, self)
+                    await updater.async_apply_show_time()
                 else:
-                    await updater.get_map_link()
-            elif key == CONF_SHOW_TIME:
-                self.config[key] = value
-                self.set_attr(key, value)
-                updater = PlacesUpdater(self.hass, self.config_entry, self)
-                await updater.async_apply_show_time()
-            else:
-                self.config[key] = value
-                self.set_attr(key, value)
+                    self.config[key] = value
+                    self.set_attr(key, value)
 
-            data = dict(self.config_entry.data)
-            data[key] = value
-            self.hass.config_entries.async_update_entry(self.config_entry, data=data)
-            self.publish_update()
-            await self.async_persist_attributes()
+                data = dict(self.config_entry.data)
+                data[key] = value
+                self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+                config_entry_updated = True
+                self.publish_update()
+                await self.async_persist_attributes()
+            # Keep this orchestration catch broad enough to restore transient in-memory
+            # state for all mutation-path failures (including cancellation) before
+            # re-raising to preserve caller semantics and avoid claiming rollback
+            # success after durable persistence has started.
+            except Exception, asyncio.CancelledError:
+                if not config_entry_updated:
+                    self.config = previous_config
+                    await self.restore_previous_attr(previous_data.attributes)
+                raise
 
     def get_internal_attr(self) -> MutableMapping[str, Any]:
         """Return the mutable runtime attribute mapping.

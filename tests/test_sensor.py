@@ -256,6 +256,47 @@ async def test_coordinator_rejects_invalid_display_options(
     assert coordinator.get_attr(CONF_DISPLAY_OPTIONS) == "zone_name, place"
 
 
+@pytest.mark.parametrize(
+    ("failure", "expected_exception", "match"),
+    [
+        (RuntimeError("recompute failure"), RuntimeError, "recompute failure"),
+        (asyncio.CancelledError("cancelled"), asyncio.CancelledError, "cancelled"),
+    ],
+)
+async def test_coordinator_updates_setting_rollback_on_display_option_recompute_failure(
+    mock_hass: MagicMock,
+    failure: BaseException,
+    expected_exception: type[BaseException],
+    match: str,
+) -> None:
+    """Recompute failures for display options must restore config and runtime state."""
+    mock_hass.states.get.return_value = None
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_native_value("Library")
+    coordinator.publish_update = MagicMock()
+    previous_config = dict(coordinator.config)
+    previous_attrs = dict(coordinator.get_internal_attr())
+
+    coordinator.process_display_options = AsyncMock(side_effect=failure)
+
+    with pytest.raises(expected_exception, match=match):
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "place")
+
+    assert coordinator.config == previous_config
+    assert coordinator.get_internal_attr() == previous_attrs
+    assert coordinator.get_attr(ATTR_NATIVE_VALUE) == "Library"
+    mock_hass.config_entries.async_update_entry.assert_not_called()
+    coordinator.publish_update.assert_not_called()
+    persistence.async_save.assert_not_awaited()
+
+
 async def test_coordinator_display_options_render_stale_native_state_as_blank(
     mock_hass: MagicMock,
 ) -> None:
