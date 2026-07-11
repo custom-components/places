@@ -73,9 +73,9 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_migrate_legacy_snapshot(hass, entry.entry_id, name)
     update_kwargs: dict = {"version": 2, "minor_version": 1}
     display_options = entry.data.get(CONF_DISPLAY_OPTIONS, "")
-    options = [option.strip() for option in display_options.split(",")]
+    options = [option.strip().lower() for option in display_options.split(",")]
     if "do_not_reorder" in options:
-        options.remove("do_not_reorder")
+        options = [option for option in options if option != "do_not_reorder"]
         if options:
             options[0] += "[]"
             migrated_options = ", ".join(options)

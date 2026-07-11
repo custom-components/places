@@ -79,6 +79,7 @@ async def test_do_brackets_and_parens_count_match(
 @pytest.mark.parametrize(
     ("key", "expected"),
     [
+        ("formatted_address", "123 Any Street"),
         ("zone_name", "Home"),
         ("province", "Virginia"),
         ("missing", None),
@@ -89,6 +90,7 @@ async def test_get_option_state_basic(
 ) -> None:
     """Return the expected option state for a basic key lookup."""
     attrs = {
+        "formatted_address": "123 Any Street",
         "zone_name": "Home",
         "place_type": "Restaurant",
         "street": "Main St",
