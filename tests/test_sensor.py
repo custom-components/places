@@ -30,6 +30,7 @@ from custom_components.places.const import (
     ATTR_DISPLAY_OPTIONS,
     ATTR_DRIVING,
     ATTR_GPS_ACCURACY,
+    ATTR_LAST_CHANGED,
     ATTR_LATITUDE,
     ATTR_LOCATION_CURRENT,
     ATTR_LONGITUDE,
@@ -355,6 +356,44 @@ async def test_coordinator_updates_setting_logs_context_on_unexpected_error(
     assert f"Failed to update Places setting (key={CONF_DISPLAY_OPTIONS}" in caplog.text
     assert "value='place'" in caplog.text
     assert "TestSensor" in caplog.text
+
+
+async def test_coordinator_stale_suffix_is_not_persisted_before_setting_commit(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed settings commit must not persist its dated rendered state."""
+    mock_hass.states.get.return_value = None
+    mock_hass.config_entries.async_update_entry.side_effect = RuntimeError("commit failure")
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_SHOW_TIME: True,
+            CONF_DISPLAY_OPTIONS: "zone_name",
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+    coordinator.set_native_value("Library (since 08:30)")
+    coordinator.set_attr(ATTR_LAST_CHANGED, "2026-07-08 08:30:00+00:00")
+    previous_attrs = dict(coordinator.get_internal_attr())
+    coordinator.process_display_options = AsyncMock(
+        side_effect=lambda: coordinator.set_native_value("Library")
+    )
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    with pytest.raises(RuntimeError, match="commit failure"):
+        await coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, "place")
+
+    assert coordinator.get_internal_attr() == previous_attrs
+    persistence.async_save.assert_not_awaited()
 
 
 async def test_coordinator_display_options_render_stale_native_state_as_blank(

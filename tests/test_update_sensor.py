@@ -1917,7 +1917,7 @@ async def test_change_show_time_to_date_param(
     await updater.change_show_time_to_date()
     assert sensor.native_value is not None
     assert sensor.attrs[ATTR_SHOW_DATE] is True
-    sensor.async_persist_attributes.assert_awaited_once()
+    sensor.async_persist_attributes.assert_not_awaited()
     mock_hass.async_add_executor_job.assert_not_awaited()
 
 

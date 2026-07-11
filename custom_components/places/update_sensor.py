@@ -1165,7 +1165,6 @@ class PlacesUpdater:
             suffix = f" (since {mmddstring})"
             self.coordinator.set_native_value(value=f"{cleared_state[: 255 - len(suffix)]}{suffix}")
             self.coordinator.set_attr(ATTR_SHOW_DATE, True)
-            await self.coordinator.async_persist_attributes()
             _LOGGER.debug(
                 "(%s) Updating state to show date instead of time since last change",
                 self.coordinator.get_attr(CONF_NAME),
