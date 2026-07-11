@@ -683,6 +683,11 @@ class PlacesUpdater:
             state = state[:255]
         self.coordinator.set_attr(ATTR_SHOW_DATE, False)
         self.coordinator.set_native_value(state or None)
+        _LOGGER.debug(
+            "(%s) Show-time applied, New State: %s",
+            self.coordinator.get_attr(CONF_NAME),
+            self.coordinator.get_attr(ATTR_NATIVE_VALUE),
+        )
 
     async def async_reset_attributes(self) -> None:
         """Clear transient attributes before parsing fresh geocoding data."""
