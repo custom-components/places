@@ -762,8 +762,9 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
     mocks["fire_event_data"].assert_awaited_once()
     # show_time path should set a native value with suffix
     assert sensor.native_value is not None
-    # write_sensor_to_json is executed via hass.async_add_executor_job
-    mock_hass.async_add_executor_job.assert_awaited_once()
+    # State persistence now flows through sensor.async_persist_attributes.
+    sensor.async_persist_attributes.assert_awaited_once()
+    mock_hass.async_add_executor_job.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -883,6 +884,84 @@ async def test_handle_state_update_skips_extended_lookup_when_option_false(
     )
 
     get_extended_attr.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("show_time", "expected_prefix"), [(True, " (since 14:05)"), (False, "")])
+async def test_async_apply_show_time_resets_show_date_and_truncates(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+    show_time: bool,
+    expected_prefix: str,
+) -> None:
+    """Show-time toggles should always clear stale flags and enforce state length limits."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_SHOW_TIME] = show_time
+    sensor.attrs[ATTR_SHOW_DATE] = True
+    sensor.attrs[ATTR_NATIVE_VALUE] = "A" * 260
+
+    if show_time:
+        monkeypatch.setattr(
+            "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+            AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+        )
+
+    await updater.async_apply_show_time()
+
+    assert sensor.attrs[ATTR_SHOW_DATE] is False
+    assert sensor.native_value is not None
+    assert len(sensor.native_value) == 255
+    assert isinstance(sensor.native_value, str)
+    assert sensor.native_value.endswith(expected_prefix)
+
+
+async def test_async_apply_show_time_uses_last_changed_timestamp(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Show-time toggles should display the stored place-change time."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_SHOW_TIME] = True
+    sensor.attrs[ATTR_NATIVE_VALUE] = "Library"
+    sensor.attrs[ATTR_LAST_CHANGED] = "2026-07-10 08:30:00+00:00"
+    monkeypatch.setattr(
+        updater,
+        "get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    await updater.async_apply_show_time()
+
+    assert sensor.native_value == "Library (since 08:30)"
+
+
+async def test_async_apply_show_time_preserves_aged_date_suffix(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Aged place changes should keep the configured date suffix."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_SHOW_TIME] = True
+    sensor.attrs[CONF_DATE_FORMAT] = "mm/dd"
+    sensor.attrs[ATTR_SHOW_DATE] = True
+    sensor.attrs[ATTR_NATIVE_VALUE] = "Library (since 07/08)"
+    sensor.attrs[ATTR_LAST_CHANGED] = "2026-07-08 08:30:00+00:00"
+    monkeypatch.setattr(
+        updater,
+        "get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    await updater.async_apply_show_time()
+
+    assert sensor.native_value == "Library (since 07/08)"
+    assert sensor.attrs[ATTR_SHOW_DATE] is True
 
 
 @pytest.mark.asyncio
@@ -1939,7 +2018,8 @@ async def test_change_show_time_to_date_param(
     await updater.change_show_time_to_date()
     assert sensor.native_value is not None
     assert sensor.attrs[ATTR_SHOW_DATE] is True
-    mock_hass.async_add_executor_job.assert_awaited_once()
+    sensor.async_persist_attributes.assert_not_awaited()
+    mock_hass.async_add_executor_job.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1953,7 +2033,8 @@ async def test_change_dot_to_stationary_sets_direction_and_last_changed(
     )
     assert sensor.attrs[ATTR_DIRECTION_OF_TRAVEL] == "stationary"
     assert sensor.attrs[ATTR_LAST_CHANGED] == "2024-01-01 12:00:00"
-    mock_hass.async_add_executor_job.assert_awaited_once()
+    sensor.async_persist_attributes.assert_awaited_once()
+    mock_hass.async_add_executor_job.assert_not_awaited()
 
 
 @pytest.mark.asyncio

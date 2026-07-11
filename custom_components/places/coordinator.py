@@ -21,10 +21,12 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_UNIQUE_ID,
     CONF_ZONE,
+    MAX_LENGTH_STATE_STATE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import Throttle
@@ -34,6 +36,8 @@ from homeassistant.util.json import SerializationError
 from .advanced_options import AdvancedOptionsParser
 from .attributes import PlacesAttributes
 from .basic_options import BasicOptionsParser
+from .config_flow import validate_display_options
+from .config_schema import MAP_PROVIDER_OPTIONS
 from .const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
@@ -46,6 +50,10 @@ from .const import (
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
+    ATTR_LATITUDE,
+    ATTR_LOCATION_CURRENT,
+    ATTR_LONGITUDE,
+    ATTR_MAP_LINK,
     ATTR_NATIVE_VALUE,
     ATTR_PICTURE,
     ATTR_PLACE_CATEGORY,
@@ -247,6 +255,89 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         if self._is_shutting_down:
             return
         self.async_set_updated_data(self.snapshot())
+
+    async def async_update_setting(self, key: str, value: str | bool) -> None:
+        """Persist one configuration entity value and recalculate local state.
+
+        Args:
+            key: Config-entry setting key to update.
+            value: New text, select, or switch value.
+
+        Raises:
+            HomeAssistantError: If display options fail existing validation.
+        """
+        async with self._update_lock:
+            previous_config: MutableMapping[str, Any] = copy.deepcopy(self.config)
+            previous_data = self.snapshot()
+            config_entry_updated = False
+            try:
+                if key == CONF_DISPLAY_OPTIONS:
+                    value_str = str(value).strip().lower()
+                    if len(value_str) > MAX_LENGTH_STATE_STATE:
+                        raise HomeAssistantError("Invalid display options")
+                    errors = await validate_display_options(value_str, {})
+                    if errors:
+                        raise HomeAssistantError("Invalid display options")
+                    value = value_str
+                    self.config[key] = value
+                    self.set_attr(key, value)
+                    self.set_attr(ATTR_DISPLAY_OPTIONS, value)
+                    updater = PlacesUpdater(self.hass, self.config_entry, self)
+                    await self.process_display_options()
+                    await updater.async_apply_show_time()
+                elif key == CONF_MAP_PROVIDER:
+                    value_str = str(value).strip().lower()
+                    if value_str not in MAP_PROVIDER_OPTIONS:
+                        raise HomeAssistantError("Invalid map provider")
+                    value = value_str
+                    if (
+                        self.is_attr_blank(ATTR_LOCATION_CURRENT)
+                        and not self.is_attr_blank(ATTR_LATITUDE)
+                        and not self.is_attr_blank(ATTR_LONGITUDE)
+                    ):
+                        self.set_attr(
+                            ATTR_LOCATION_CURRENT,
+                            f"{self.get_attr_safe_float(ATTR_LATITUDE)},{self.get_attr_safe_float(ATTR_LONGITUDE)}",
+                        )
+                    self.config[key] = value
+                    self.set_attr(key, value)
+                    updater = PlacesUpdater(self.hass, self.config_entry, self)
+                    if self.is_attr_blank(ATTR_LOCATION_CURRENT):
+                        self.clear_attr(ATTR_MAP_LINK)
+                    else:
+                        await updater.get_map_link()
+                elif key == CONF_SHOW_TIME:
+                    self.config[key] = value
+                    self.set_attr(key, value)
+                    updater = PlacesUpdater(self.hass, self.config_entry, self)
+                    await updater.async_apply_show_time()
+                else:
+                    self.config[key] = value
+                    self.set_attr(key, value)
+
+                data = dict(self.config_entry.data)
+                data[key] = value
+                self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+                config_entry_updated = True
+                self.publish_update()
+                await self.async_persist_attributes()
+            # Keep this orchestration catch broad enough to restore transient in-memory
+            # state for all mutation-path failures (including cancellation) before
+            # re-raising to preserve caller semantics and avoid claiming rollback
+            # success after durable persistence has started.
+            except (Exception, asyncio.CancelledError) as error:
+                if not isinstance(error, asyncio.CancelledError):
+                    _LOGGER.error(
+                        "(%s) Failed to update Places setting (key=%s, value=%r)",
+                        self.get_attr(CONF_NAME),
+                        key,
+                        value,
+                        exc_info=error,
+                    )
+                if not config_entry_updated:
+                    self.config = previous_config
+                    await self.restore_previous_attr(previous_data.attributes)
+                raise
 
     def get_internal_attr(self) -> MutableMapping[str, Any]:
         """Return the mutable runtime attribute mapping.
@@ -577,6 +668,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     async def process_display_options(self) -> None:
         """Render configured display options into the native value."""
+        self.clear_attr(ATTR_NATIVE_VALUE)
         display_options: list[str] = []
         if not self.is_attr_blank(ATTR_DISPLAY_OPTIONS):
             display_options.extend(
