@@ -227,24 +227,29 @@ PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS: tuple[PlacesAttributeSensorEntityDescripti
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LATITUDE,
+        icon="mdi:latitude",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LONGITUDE,
+        icon="mdi:longitude",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_GPS_ACCURACY,
+        icon="mdi:crosshairs-gps",
         device_class=SensorDeviceClass.DISTANCE,
         native_unit_of_measurement=UnitOfLength.METERS,
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LAST_CHANGED,
+        icon="mdi:timer-refresh",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
         key=ATTR_LAST_UPDATED,
+        icon="mdi:timer",
         entity_registry_enabled_default=False,
     ),
     PlacesAttributeSensorEntityDescription(
