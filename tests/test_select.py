@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.helpers.entity import EntityCategory
+import pytest
 
 from custom_components.places.select import PlacesMapProviderSelect, async_setup_entry
 
@@ -27,3 +28,17 @@ async def test_map_provider_select_setup_and_update() -> None:
     await entity.async_select_option("osm")
 
     coordinator.async_update_setting.assert_awaited_once_with("map_provider", "osm")
+
+
+async def test_map_provider_select_normalizes_and_validates_option() -> None:
+    """Map provider writes normalize valid values and reject unsupported ones."""
+    coordinator = MagicMock()
+    coordinator.async_update_setting = AsyncMock()
+    entity = PlacesMapProviderSelect(coordinator)
+
+    await entity.async_select_option("GoOgLe")
+
+    coordinator.async_update_setting.assert_awaited_once_with("map_provider", "google")
+    with pytest.raises(ValueError, match="Unsupported map provider: bing"):
+        await entity.async_select_option("bing")
+    assert coordinator.async_update_setting.await_count == 1
