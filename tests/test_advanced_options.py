@@ -79,6 +79,7 @@ async def test_do_brackets_and_parens_count_match(
 @pytest.mark.parametrize(
     ("key", "expected"),
     [
+        ("formatted_address", "123 Any Street"),
         ("zone_name", "Home"),
         ("province", "Virginia"),
         ("missing", None),
@@ -89,6 +90,7 @@ async def test_get_option_state_basic(
 ) -> None:
     """Return the expected option state for a basic key lookup."""
     attrs = {
+        "formatted_address": "123 Any Street",
         "zone_name": "Home",
         "place_type": "Restaurant",
         "street": "Main St",
@@ -142,6 +144,21 @@ async def test_get_option_state_incl_attr_excl_attr(
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state("zone_name", incl_attr=incl_attr, excl_attr=excl_attr)
     assert out == expected
+
+
+@pytest.mark.asyncio
+async def test_get_option_state_numeric_values_are_stringified(
+    advanced_parser: AdvancedParserFactory,
+) -> None:
+    """Handle numeric display values by normalizing them before string operations."""
+    attrs = {
+        "latitude": 40.715,
+        "longitude": -74.006,
+        "name": "Test",
+    }
+    parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
+    out = await parser.get_option_state("latitude")
+    assert out == "40.715"
 
 
 @pytest.mark.asyncio

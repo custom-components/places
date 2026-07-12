@@ -145,21 +145,6 @@ class BasicOptionsParser:
         }.items():
             self._add_to_display(user_display, attr_key, option_key=option_key)
 
-        # Handle "do_not_reorder" option
-        if "do_not_reorder" in self.display_options:
-            user_display = []
-            self.display_options.remove("do_not_reorder")
-            for option in self.display_options:
-                attr_key = (
-                    ATTR_REGION
-                    if option == "state"
-                    else ATTR_PLACE_NEIGHBOURHOOD
-                    if option == "place_neighborhood"
-                    else option
-                )
-                if not self.coordinator.is_attr_blank(attr_key):
-                    user_display.append(self.coordinator.get_attr_safe_str(attr_key))
-
         return ", ".join(user_display)
 
     async def build_formatted_place(self) -> str:
