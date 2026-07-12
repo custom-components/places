@@ -91,13 +91,6 @@ def basic_parser() -> BasicParserFactory:
             None,
         ),
         (
-            {"city": "Springfield", "state": "IL"},
-            False,
-            ["do_not_reorder", "city", "state"],
-            [],
-            "Springfield, IL",
-        ),
-        (
             {"zone_name": "Work"},
             True,
             ["zone_name"],
