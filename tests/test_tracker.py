@@ -49,11 +49,11 @@ class _TrackerAttributesWithoutDefault:
 
 
 @pytest.mark.parametrize(
-    ("tracker_id", "state_lookup_result", "expect_state_lookup"),
+    ("tracker_id", "expect_state_lookup"),
     [
-        ("device_tracker.missing", None, True),
-        (None, None, False),
-        ("", None, False),
+        ("device_tracker.missing", True),
+        (None, False),
+        ("", False),
     ],
 )
 async def test_tracker_missing_or_blank_id_skips_update(
@@ -61,12 +61,11 @@ async def test_tracker_missing_or_blank_id_skips_update(
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
     tracker_id: str | None,
-    state_lookup_result: object | None,
     expect_state_lookup: bool,
 ) -> None:
     """Missing entities and blank tracked entity IDs skip updates."""
     sensor.attrs[CONF_DEVICETRACKER_ID] = tracker_id
-    mock_hass.states.get.return_value = state_lookup_result
+    mock_hass.states.get.return_value = None
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     result = await updater.is_devicetracker_set()

@@ -52,12 +52,6 @@ class OSMParserFactory(Protocol):
 
 
 @pytest.fixture
-def sensor() -> MockSensor:
-    """Shared sensor fixture returning a configured MockSensor instance."""
-    return mock_sensor()
-
-
-@pytest.fixture
 def osm_parser() -> OSMParserFactory:
     """Factory fixture to create an OSMParser and its sensor.
 

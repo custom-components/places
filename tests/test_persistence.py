@@ -150,17 +150,16 @@ def _write_fake_store_snapshot(path: Path, data: dict[str, object]) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("entry_id", "store_data", "expected"),
+    ("store_data", "expected"),
     [
-        ("entry-1", {ATTR_CITY: "Store City"}, {ATTR_CITY: "Store City"}),
-        ("entry-5", None, {}),
+        ({ATTR_CITY: "Store City"}, {ATTR_CITY: "Store City"}),
+        (None, {}),
     ],
     ids=["existing-store-data", "missing-store-data"],
 )
 async def test_load_returns_store_data_or_empty(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    entry_id: str,
     store_data: object | None,
     expected: dict[str, object],
 ) -> None:
@@ -169,7 +168,7 @@ async def test_load_returns_store_data_or_empty(
     _FakeStore.next_data = store_data
     hass = _hass_for_store_path(tmp_path)
 
-    storage = PlacesStorage(hass, entry_id, "Test")
+    storage = PlacesStorage(hass, "entry-1", "Test")
     loaded = await storage.async_load()
 
     assert loaded == expected

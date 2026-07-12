@@ -61,14 +61,13 @@ def basic_parser() -> BasicParserFactory:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("attrs", "in_zone", "options", "expected_contains", "expected_eq"),
+    ("attrs", "in_zone", "options", "expected_contains"),
     [
         (
             {},
             False,
             ["driving", "zone_name", "zone", "place"],
             [],
-            None,
         ),
         (
             {
@@ -82,14 +81,12 @@ def basic_parser() -> BasicParserFactory:
             False,
             ["driving", "zone_name", "place", "street", "city"],
             ["Driving", "Home", "Park", "Downtown", "Main St", "Springfield"],
-            None,
         ),
         (
             {"zone_name": "Work"},
             True,
             ["zone_name"],
             ["Work"],
-            None,
         ),
     ],
 )
@@ -98,7 +95,6 @@ async def test_build_display_scenarios(
     in_zone: bool,
     options: Sequence[str],
     expected_contains: Sequence[str],
-    expected_eq: str | None,
     sensor: MockSensor,
 ) -> None:
     """Parametrized scenarios for BasicOptionsParser.build_display covering blank, populated, reorder, and in-zone cases."""
@@ -107,11 +103,8 @@ async def test_build_display_scenarios(
     sensor._in_zone = in_zone
     parser = BasicOptionsParser(sensor, attrs, options)
     result = await parser.build_display()
-    if expected_eq is not None:
-        assert result == expected_eq
-    else:
-        for substr in expected_contains:
-            assert substr in result
+    for substr in expected_contains:
+        assert substr in result
 
 
 @pytest.mark.asyncio

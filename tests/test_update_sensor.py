@@ -1154,18 +1154,19 @@ async def test_check_device_tracker_and_update_coords_param(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("tracker_attrs", "use_gps", "expected"),
+    ("tracker_attrs", "expected"),
     [
-        ({ATTR_GPS_ACCURACY: 5.0}, True, UpdateStatus.PROCEED),
-        ({ATTR_GPS_ACCURACY: 0}, True, UpdateStatus.SKIP),
+        ({ATTR_GPS_ACCURACY: 5.0}, UpdateStatus.PROCEED),
+        ({ATTR_GPS_ACCURACY: 0}, UpdateStatus.SKIP),
+        (None, UpdateStatus.PROCEED),
     ],
+    ids=["valid-accuracy", "zero-accuracy", "missing-tracker"],
 )
 async def test_get_gps_accuracy_variants(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
     tracker_attrs: dict[str, object] | None,
-    use_gps: bool,
     expected: object,
 ) -> None:
     """Parametrized variants for get_gps_accuracy: valid accuracy, zero accuracy, and missing tracker."""
@@ -1178,7 +1179,7 @@ async def test_get_gps_accuracy_variants(
 
     # Populate required attributes where relevant
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.attrs[CONF_USE_GPS] = use_gps
+    sensor.attrs[CONF_USE_GPS] = True
 
     # is_attr_blank should evaluate based on actual attrs
     sensor.is_attr_blank.side_effect = lambda k: (
@@ -2306,23 +2307,6 @@ async def test_rollback_update_triggers_helpers(
 
 
 @pytest.mark.asyncio
-async def test_get_extended_attr_unknown_type(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    caplog: pytest.LogCaptureFixture,
-    sensor: MockSensor,
-) -> None:
-    """Logs warning for unknown OSM type and returns early."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr_safe_str.side_effect = lambda k: "foo"
-    sensor.get_attr.side_effect = lambda k: (
-        "123" if k == ATTR_OSM_ID else "foo" if k == ATTR_OSM_TYPE else None
-    )
-    await updater.get_extended_attr()
-    assert any("Unknown OSM type" in r.message for r in caplog.records)
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("osm_type", "expect_call", "expect_log"),
