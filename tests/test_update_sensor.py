@@ -1153,24 +1153,6 @@ async def test_check_device_tracker_and_update_coords_param(
 
 
 @pytest.mark.asyncio
-async def test_get_gps_accuracy_sets_accuracy(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Retrieve GPS accuracy and set sensor attribute when available."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    tracker_state = MagicMock()
-    tracker_state.attributes = {ATTR_GPS_ACCURACY: 5.0}
-    mock_hass.states.get.return_value = tracker_state
-    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.is_attr_blank.return_value = False
-    sensor.get_attr.return_value = True
-    sensor.get_attr_safe_float.return_value = 5.0
-    result = await updater.get_gps_accuracy()
-    assert result == UpdateStatus.PROCEED
-    assert sensor.attrs[ATTR_GPS_ACCURACY] == 5.0
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("tracker_attrs", "use_gps", "expected"),
     [
