@@ -26,12 +26,6 @@ class BasicParserFactory(Protocol):
 
 
 @pytest.fixture
-def sensor() -> MockSensor:
-    """Shared sensor fixture returning a configured MockSensor instance."""
-    return mock_sensor()
-
-
-@pytest.fixture
 def basic_parser() -> BasicParserFactory:
     """Factory fixture to create a BasicOptionsParser and its backing sensor.
 

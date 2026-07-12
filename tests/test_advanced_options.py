@@ -25,12 +25,6 @@ class AdvancedParserFactory(Protocol):
 
 
 @pytest.fixture
-def sensor() -> MockSensor:
-    """Shared sensor fixture returning a configured MockSensor instance."""
-    return mock_sensor()
-
-
-@pytest.fixture
 def advanced_parser() -> AdvancedParserFactory:
     """Factory fixture to create an AdvancedOptionsParser and its sensor.
 
