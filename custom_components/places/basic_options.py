@@ -141,7 +141,7 @@ class BasicOptionsParser:
             "region": ATTR_REGION,
             "postal_code": "postal_code",
             "country": "country",
-            "formatted_address": "formatted_address",
+            "osm_formatted_address": "formatted_address",
         }.items():
             self._add_to_display(user_display, attr_key, option_key=option_key)
 

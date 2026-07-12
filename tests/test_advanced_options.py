@@ -79,7 +79,7 @@ async def test_do_brackets_and_parens_count_match(
 @pytest.mark.parametrize(
     ("key", "expected"),
     [
-        ("formatted_address", "123 Any Street"),
+        ("osm_formatted_address", "123 Any Street"),
         ("zone_name", "Home"),
         ("province", "Virginia"),
         ("missing", None),
