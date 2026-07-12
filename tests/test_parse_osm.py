@@ -52,12 +52,6 @@ class OSMParserFactory(Protocol):
 
 
 @pytest.fixture
-def sensor() -> MockSensor:
-    """Shared sensor fixture returning a configured MockSensor instance."""
-    return mock_sensor()
-
-
-@pytest.fixture
 def osm_parser() -> OSMParserFactory:
     """Factory fixture to create an OSMParser and its sensor.
 
@@ -347,31 +341,6 @@ async def test_set_city_details_variants(
     await parser.set_city_details(address)
     assert sensor.attrs[ATTR_CITY] == expected_city
     assert sensor.attrs[ATTR_CITY_CLEAN] == expected_city_clean
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("address", "expected_attr", "expected_value"),
-    [
-        ({"town": "Shelbyville"}, ATTR_CITY, "Shelbyville"),
-        ({"village": "Ogdenville"}, ATTR_CITY, "Ogdenville"),
-    ],
-)
-async def test_set_city_details_postal_town(
-    osm_parser: OSMParserFactory, address: Address, expected_attr: AttrName, expected_value: object
-) -> None:
-    """Test that set_city_details sets the correct city attribute for postal towns and villages.
-
-    Args:
-        osm_parser: Factory fixture for creating the parser and sensor.
-        address: The address dictionary containing town or village information.
-        expected_attr: The expected attribute to be set (e.g., ATTR_CITY).
-        expected_value: The expected value to be set for the attribute.
-
-    """
-    parser, sensor = osm_parser()
-    await parser.set_city_details(address)
-    assert sensor.attrs[expected_attr] == expected_value
 
 
 @pytest.mark.asyncio
