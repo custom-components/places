@@ -23,7 +23,7 @@ Ensure that [HACS](https://hacs.xyz/) is installed
 
 <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=custom-components&repository=places" target="_blank" rel="noreferrer noopener"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance to download the places integration." /></a>
 
-Download the `places` integrtation
+Download the `places` integration
 
 Restart Home Assistant
 
@@ -35,7 +35,7 @@ Restart Home Assistant
 
 Repeat as needed to create additional `places` entries
 
-Options can be changed for existing `places` entries in Home Assistant Integrations clicking the Gear after the desired  `places` entry.
+Options for existing places entries can be changed by clicking the gear icon next to the desired entry under Settings > Devices & services > `places` integration.
 
 ## Configuration Options
 
@@ -153,7 +153,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 
 ```json
 {
-  "formatted_address": "Richmond Hill GO Station, 6, Newkirk Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
+  "formatted_address": "Richmond Hill GO Station, 6, Cherry Road, Beverley Acres, Richmond Hill, York Region, Ontario, L4C 1B3, Canada",
   "friendly_name": "sharon",
   "current_latitude": "43.874149009154095",
   "distance_from_home_km": 7.24,
@@ -180,7 +180,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
   "place_type": "building",
   "previous_latitude": "43.86684124904056",
   "place_name": "Richmond Hill GO Station",
-  "street": "Newkirk Road",
+  "street": "Cherry Road",
   "city": "Richmond Hill",
   "home_zone": "zone.sharon_home"
 }
@@ -213,14 +213,14 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
           url: '{{ trigger.event.data.map_link }}'
           hide_thumbnail: false
 
-- alias: ReverseLocateAidan
+- alias: ReverseLocateFred
   initial_state: 'on'
   trigger:
     platform: event
     event_type: places_state_update
   condition:
     condition: template
-    value_template: '{{ trigger.event.data.entity == "aidan" }}'
+    value_template: '{{ trigger.event.data.entity == "fred" }}'
   action:
   - service: notify.ios_jim_iphone8
     data_template:

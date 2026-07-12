@@ -35,6 +35,14 @@ rev = "v2.4.2"
 id = "codespell"
 
 [[repos]]
+repo = "https://github.com/streetsidesoftware/cspell-cli"
+rev = "v10.0.1"
+
+[[repos.hooks]]
+id = "cspell"
+files = "\\.md$"
+
+[[repos]]
 repo = "https://github.com/pre-commit/mirrors-mypy"
 rev = "v2.1.0"
 

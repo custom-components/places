@@ -1,0 +1,22 @@
+language = "en"
+allowCompoundWords = false
+caseSensitive = false
+words = [
+    "aiohttp",
+    "automations",
+    "conftest",
+    "devicetracker",
+    "docstrings",
+    "entityid",
+    "hacs",
+    "hass",
+    "homeassistant",
+    "licence",
+    "mypy",
+    "neighbourhood",
+    "parameterizing",
+    "prek",
+    "pyproject",
+    "pytest",
+    "venv",
+]
