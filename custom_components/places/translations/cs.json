@@ -25,9 +25,9 @@
                     "date_format": "Formát data, který se zobrazí na konci stavu, když se nezmění za 24 hodin",
                     "use_gps_accuracy": "Použití přesnosti GPS"
                 },
-                "description": "Vytvořte nový senzor\nPodrobnosti najdete v [Možnosti konfigurace] ({component_config_url}) na GitHub",
+                "description": "Vytvořte nový senzor\nPodrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                 "data_description": {
-                    "options": "Podrobnosti najdete v [Možnosti konfigurace] ({component_config_url}) na GitHub",
+                    "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                     "extended_attr": "Zobrazit rozšířené atributy: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (pokud existují). Poskytuje mnoho dalších atributů pro pokročilou logiku. Upozornění: atributy budou velmi dlouhé!",
                     "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
                   }
@@ -60,7 +60,7 @@
                 },
                 "description": "**Aktualizuje se senzor:&nbsp;{sensor_name}**\nPodrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                 "data_description": {
-                    "options": "Podrobnosti najdete v [Možnosti konfigurace] ({component_config_url}) na GitHub",
+                    "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                     "extended_attr": "Zobrazit rozšířené atributy: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (pokud existují). Poskytuje mnoho dalších atributů pro pokročilou logiku. Upozornění: atributy budou velmi dlouhé!",
                     "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
                   }

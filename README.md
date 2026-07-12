@@ -106,13 +106,13 @@ These can be nested.
 
 * To recreate `place`:
 
-```
+```text
 name_no_dupe, category(-, place), type(-, yes), neighborhood, house_number, street
 ```
 
 * To recreate `formatted_place`:
 
-```
+```text
 zone_name[driving, name_no_dupe[type(-, unclassified, category(-, highway))[category(-, highway)], house_number, route_number(type(+, motorway, trunk))[street[route_number]], neighborhood(type(house))], city_clean[county], state_abbr]
 ```
 
@@ -244,7 +244,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 * The OpenStreetMap database is very flexible with regards to tag_names in their database schema.  If you come across a set of coordinates that do not parse properly, you can enable debug logging (see below) to see the actual JSON that is returned from the query.
 * The OpenStreetMap API requests that you include your valid e-mail address in each API call if you are making a large numbers of requests.  They say that this information will be kept confidential and only used to contact you in the event of a problem, see their Usage Policy for more details.
 * The map link that gets generated for Google, Apple or OpenStreetMaps has a push pin marking the users location.
-* When no `language` value is given, default language will be in the location's local language. When a comma separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
+* When no `language` value is given, default language will be in the location's local language. When a comma-separated list of languages is provided - the component will attempt to fill each address field in desired languages by order.
 * Translations are partial in OpenStreetMap database. For each field, if a translation is missing in first requested language it will be resolved with a language following in the provided list, defaulting to local language if no matching translations were found for the list.
 * To enable debug logging for this component, add the following to your `configuration.yaml` file
 

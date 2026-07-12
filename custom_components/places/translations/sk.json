@@ -25,9 +25,9 @@
                     "date_format": "Formát dátumu, ktorý sa zobrazí na konci stavu, keď sa nezmení >24 hodín",
                     "use_gps_accuracy": "Použite presnosť GPS"
                 },
-                "description": "Vytvorte nový senzor\nPodrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
+                "description": "Vytvorte nový senzor\nPodrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                 "data_description": {
-                    "options": "Podrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
+                    "options": "Podrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                     "extended_attr": "Zobraziť rozšírené atribúty: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (ak existujú). Poskytuje mnoho ďalších atribútov pre pokročilú logiku. Upozornenie: atribúty budú veľmi dlhé!",
                     "use_gps_accuracy": "Túto možnosť vypnite, ak má váš sledovač zariadení atribút presnosti GPS (gps_accuracy), ale vždy zobrazuje 0, aj keď sú zemepisná šírka a dĺžka správne."
                   }
@@ -60,7 +60,7 @@
                 },
                 "description": "**Aktualizuje sa senzor:&nbsp;{sensor_name}**\nPodrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                 "data_description": {
-                    "options": "Podrobnosti nájdete v [Možnosti konfigurácie] ({component_config_url}) na GitHub",
+                    "options": "Podrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                     "extended_attr": "Zobraziť rozšírené atribúty: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (ak existujú). Poskytuje mnoho ďalších atribútov pre pokročilú logiku. Upozornenie: atribúty budú veľmi dlhé!",
                     "use_gps_accuracy": "Túto možnosť vypnite, ak má váš sledovač zariadení atribút presnosti GPS (gps_accuracy), ale vždy zobrazuje 0, aj keď sú zemepisná šírka a dĺžka správne."
                   }
