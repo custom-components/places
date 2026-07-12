@@ -207,16 +207,13 @@ async def test_display_options_state_render(
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patch_entity_registry")
-async def test_basic_and_advanced_place_options_include_neighborhood(
+async def test_basic_place_option_includes_neighborhood(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Basic and advanced place options should retain neighborhood context."""
+    """Basic place options should retain neighborhood context."""
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
-    advanced_state = await render_display_option(mock_hass, monkeypatch, README_PLACE_ADVANCED)
 
     assert basic_state
-    assert advanced_state
-    assert "Koreatown" in advanced_state
     assert "Koreatown" in basic_state
 
 

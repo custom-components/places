@@ -26,12 +26,6 @@ class BasicParserFactory(Protocol):
 
 
 @pytest.fixture
-def sensor() -> MockSensor:
-    """Shared sensor fixture returning a configured MockSensor instance."""
-    return mock_sensor()
-
-
-@pytest.fixture
 def basic_parser() -> BasicParserFactory:
     """Factory fixture to create a BasicOptionsParser and its backing sensor.
 
@@ -67,14 +61,13 @@ def basic_parser() -> BasicParserFactory:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("attrs", "in_zone", "options", "expected_contains", "expected_eq"),
+    ("attrs", "in_zone", "options", "expected"),
     [
         (
             {},
             False,
             ["driving", "zone_name", "zone", "place"],
-            [],
-            None,
+            "",
         ),
         (
             {
@@ -87,15 +80,13 @@ def basic_parser() -> BasicParserFactory:
             },
             False,
             ["driving", "zone_name", "place", "street", "city"],
-            ["Driving", "Home", "Park", "Downtown", "Main St", "Springfield"],
-            None,
+            "Driving, Home, Park, Downtown, Main St, Springfield",
         ),
         (
             {"zone_name": "Work"},
             True,
             ["zone_name"],
-            ["Work"],
-            None,
+            "Work",
         ),
     ],
 )
@@ -103,38 +94,30 @@ async def test_build_display_scenarios(
     attrs: Attrs,
     in_zone: bool,
     options: Sequence[str],
-    expected_contains: Sequence[str],
-    expected_eq: str | None,
+    expected: str,
     sensor: MockSensor,
 ) -> None:
-    """Parametrized scenarios for BasicOptionsParser.build_display covering blank, populated, reorder, and in-zone cases."""
+    """Parametrized scenarios for BasicOptionsParser.build_display output."""
     # Mutate shared sensor fixture for this scenario
     sensor.attrs = dict(attrs or {})
     sensor._in_zone = in_zone
     parser = BasicOptionsParser(sensor, attrs, options)
     result = await parser.build_display()
-    if expected_eq is not None:
-        assert result == expected_eq
-    else:
-        for substr in expected_contains:
-            assert substr in result
+    assert result == expected
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("scenario", "attrs", "in_zone", "options", "display_list", "expected_contains", "expected_eq"),
+    ("attrs", "in_zone", "options", "display_list", "expected"),
     [
         (
-            "place_name",
             {ATTR_PLACE_NAME: "Central Park"},
             False,
             ["place"],
             ["driving"],
-            ["Central Park"],
-            None,
+            "Central Park",
         ),
         (
-            "type_category",
             {
                 "place_type": "restaurant",
                 "place_category": "food",
@@ -145,44 +128,32 @@ async def test_build_display_scenarios(
             False,
             ["place"],
             None,
-            ["Elm St", "Metropolis"],
-            None,
+            "Restaurant, Elm St, Metropolis",
         ),
         (
-            "in_zone",
             {"zone_name": "Home"},
             True,
             ["zone_name"],
             None,
-            [],
             "Home",
         ),
     ],
 )
 async def test_build_formatted_place_variants(
-    scenario: str,
     attrs: Attrs,
     in_zone: bool,
     options: Sequence[str],
     display_list: Sequence[str] | None,
-    expected_contains: Sequence[str],
-    expected_eq: str | None,
+    expected: str,
     sensor: MockSensor,
 ) -> None:
-    """Parametrized scenarios for BasicOptionsParser.build_formatted_place."""
+    """Parametrized exact outputs for BasicOptionsParser.build_formatted_place."""
     sensor.attrs = dict(attrs or {})
     sensor._in_zone = in_zone
     sensor.display_options_list = display_list or []
     parser = BasicOptionsParser(sensor, attrs, options)
     result = await parser.build_formatted_place()
-    if expected_eq is not None:
-        assert result == expected_eq
-        return
-    # Special-case: type_category accepts either Type or Category wording
-    if scenario == "type_category":
-        assert ("Restaurant" in result) or ("Food" in result)
-    for substr in expected_contains:
-        assert substr in result
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -207,19 +178,6 @@ def test_add_type_or_category(
     [
         ({"street": "Main St", "street_number": ""}, "Main St"),
         ({"street": "Main St", "street_number": "123"}, "123 Main St"),
-    ],
-)
-def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserFactory) -> None:
-    """Test that `add_street_info` appends the correct street info to the list."""
-    parser, sensor = basic_parser(attrs=attrs)
-    arr: list[str] = []
-    parser.add_street_info(arr, sensor)
-    assert expected in arr
-
-
-@pytest.mark.parametrize(
-    ("attrs", "expected"),
-    [
         (
             {
                 "place_category": "highway",
@@ -240,10 +198,8 @@ def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserF
         ),
     ],
 )
-def test_add_street_info_highway(
-    attrs: Attrs, expected: str, basic_parser: BasicParserFactory
-) -> None:
-    """Prefer route_number for highways and motorways when street is empty."""
+def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserFactory) -> None:
+    """Append normal, numbered, or highway route street info to the list."""
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
     parser.add_street_info(arr, sensor)

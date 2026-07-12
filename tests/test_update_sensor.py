@@ -1153,37 +1153,20 @@ async def test_check_device_tracker_and_update_coords_param(
 
 
 @pytest.mark.asyncio
-async def test_get_gps_accuracy_sets_accuracy(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Retrieve GPS accuracy and set sensor attribute when available."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    tracker_state = MagicMock()
-    tracker_state.attributes = {ATTR_GPS_ACCURACY: 5.0}
-    mock_hass.states.get.return_value = tracker_state
-    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.is_attr_blank.return_value = False
-    sensor.get_attr.return_value = True
-    sensor.get_attr_safe_float.return_value = 5.0
-    result = await updater.get_gps_accuracy()
-    assert result == UpdateStatus.PROCEED
-    assert sensor.attrs[ATTR_GPS_ACCURACY] == 5.0
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("tracker_attrs", "use_gps", "expected"),
+    ("tracker_attrs", "expected"),
     [
-        ({ATTR_GPS_ACCURACY: 5.0}, True, UpdateStatus.PROCEED),
-        ({ATTR_GPS_ACCURACY: 0}, True, UpdateStatus.SKIP),
+        ({ATTR_GPS_ACCURACY: 5.0}, UpdateStatus.PROCEED),
+        ({ATTR_GPS_ACCURACY: 0}, UpdateStatus.SKIP),
+        (None, UpdateStatus.PROCEED),
     ],
+    ids=["valid-accuracy", "zero-accuracy", "missing-tracker"],
 )
 async def test_get_gps_accuracy_variants(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
     tracker_attrs: dict[str, object] | None,
-    use_gps: bool,
     expected: object,
 ) -> None:
     """Parametrized variants for get_gps_accuracy: valid accuracy, zero accuracy, and missing tracker."""
@@ -1196,7 +1179,7 @@ async def test_get_gps_accuracy_variants(
 
     # Populate required attributes where relevant
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.attrs[CONF_USE_GPS] = use_gps
+    sensor.attrs[CONF_USE_GPS] = True
 
     # is_attr_blank should evaluate based on actual attrs
     sensor.is_attr_blank.side_effect = lambda k: (
@@ -1540,35 +1523,6 @@ async def test_should_update_state_param(
     sensor.get_attr.side_effect = lambda k: False
     result = await updater.should_update_state(datetime.now(tz=UTC))
     assert result is expected
-
-
-@pytest.mark.asyncio
-async def test_rollback_update_calls_restore_and_helpers(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    sensor: MockSensor,
-    stubbed_updater: StubbedUpdater,
-) -> None:
-    """Restore previous attributes and conditionally call helper routines."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    with stubbed_updater(
-        updater,
-        [
-            ("get_seconds_from_last_change", {"return_value": 100}),
-            ("change_dot_to_stationary", {}),
-            ("change_show_time_to_date", {}),
-        ],
-    ) as mocks:
-        # Ensure show_time is False and direction is not 'stationary' so change_dot_to_stationary runs
-        sensor.get_attr.side_effect = lambda k: False
-        await updater.rollback_update(
-            {"a": 1}, datetime.now(tz=UTC), UpdateStatus.SKIP_SET_STATIONARY
-        )
-    sensor.restore_previous_attr.assert_awaited_once()
-    # Based on the test setup (proceed SKIP_SET_STATIONARY, default direction not 'stationary', seconds=100),
-    # change_dot_to_stationary should have been awaited once; show_time helper should not be awaited.
-    mocks["change_dot_to_stationary"].assert_awaited_once()
-    mocks["change_show_time_to_date"].assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -2341,6 +2295,7 @@ async def test_rollback_update_triggers_helpers(
         # show_time controls whether change_show_time_to_date should be called
         sensor.get_attr.side_effect = lambda k: show_time if k == CONF_SHOW_TIME else False
         await updater.rollback_update({}, datetime.now(tz=UTC), status)
+    sensor.restore_previous_attr.assert_awaited_once_with({})
     if expect_dot:
         mocks["change_dot_to_stationary"].assert_awaited_once()
     else:
@@ -2352,23 +2307,6 @@ async def test_rollback_update_triggers_helpers(
 
 
 @pytest.mark.asyncio
-async def test_get_extended_attr_unknown_type(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    caplog: pytest.LogCaptureFixture,
-    sensor: MockSensor,
-) -> None:
-    """Logs warning for unknown OSM type and returns early."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr_safe_str.side_effect = lambda k: "foo"
-    sensor.get_attr.side_effect = lambda k: (
-        "123" if k == ATTR_OSM_ID else "foo" if k == ATTR_OSM_TYPE else None
-    )
-    await updater.get_extended_attr()
-    assert any("Unknown OSM type" in r.message for r in caplog.records)
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("osm_type", "expect_call", "expect_log"),
