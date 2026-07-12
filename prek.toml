@@ -35,6 +35,21 @@ rev = "v2.4.2"
 id = "codespell"
 
 [[repos]]
+repo = "https://github.com/streetsidesoftware/cspell-cli"
+rev = "v10.0.1"
+
+[[repos.hooks]]
+id = "cspell"
+files = "(?:\\.md$|custom_components/places/translations/(?:cs|en|it|ru|sk|uk)\\.json$)"
+additional_dependencies = [
+  "@cspell/dict-cs-cz@3.0.8",
+  "@cspell/dict-it-it@3.1.6",
+  "@cspell/dict-ru_ru@2.3.2",
+  "@cspell/dict-sk-sk@1.1.7",
+  "@cspell/dict-uk-ua@4.0.6",
+]
+
+[[repos]]
 repo = "https://github.com/pre-commit/mirrors-mypy"
 rev = "v2.1.0"
 

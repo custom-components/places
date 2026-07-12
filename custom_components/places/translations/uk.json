@@ -3,7 +3,7 @@
     "config": {
         "error": {
             "unknown": "Неочікувана помилка",
-            "bracket_mismatch": "Кількість дужок або круглих дужок не співпадає у розширених параметрах відображення",
+            "bracket_mismatch": "Кількість дужок або круглих дужок не збігається у розширених параметрах відображення",
             "invalid_characters": "Недопустимі символи у розширених параметрах відображення",
             "invalid_syntax": "Неправильний синтаксис у розширених параметрах відображення",
             "invalid_option": "Недопустима опція у розширених параметрах відображення"
@@ -13,22 +13,22 @@
                 "title": "Місця: датчик OpenStreetMap",
                 "data": {
                     "name": "Назва датчика",
-                    "devicetracker_id": "DeviceTracker Ідентифікатор",
+                    "devicetracker_id": "Ідентифікатор відстежуваної сутності",
                     "home_zone": "Домашня зона",
                     "options": "Параметри відображення",
                     "map_provider": "Постачальник карт",
                     "map_zoom": "Масштаб карти",
-                    "api_key": "Електронна пошта для використання як ключа OpenStreetMap API (необов’язково)",
+                    "api_key": "Електронна пошта для використання як ключа OpenStreetMap API (необов'язково)",
                     "language": "Мова (необов'язково)",
                     "extended_attr": "Увімкнути розширені атрибути",
                     "show_time": "Показати час останнього оновлення в кінці стану '(з xx:yy)'",
                     "use_gps_accuracy": "Використовуйте точність GPS"
                 },
-                "description": "Create a new sensor\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
+                "description": "Створити новий датчик\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
                 "data_description": {
                     "options": "Детальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
-                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
-                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                    "extended_attr": "Показувати розширені атрибути: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (якщо вони існують). Вони надають багато додаткових атрибутів для розширеної логіки. Увага: це зробить атрибути дуже довгими!",
+                    "use_gps_accuracy": "Вимкніть цей параметр, якщо ваша відстежувана сутність має атрибут точності GPS (gps_accuracy), але він завжди показує 0, навіть якщо широта й довгота правильні."
                   }
             }
         }
@@ -36,7 +36,7 @@
     "options": {
         "error": {
             "unknown": "Неочікувана помилка",
-            "bracket_mismatch": "Кількість дужок або круглих дужок не співпадає у розширених параметрах відображення",
+            "bracket_mismatch": "Кількість дужок або круглих дужок не збігається у розширених параметрах відображення",
             "invalid_characters": "Недопустимі символи у розширених параметрах відображення",
             "invalid_syntax": "Неправильний синтаксис у розширених параметрах відображення",
             "invalid_option": "Недопустима опція у розширених параметрах відображення"
@@ -45,12 +45,12 @@
             "init": {
                 "title": "Місця: датчик OpenStreetMap",
                 "data": {
-                    "devicetracker_id": "DeviceTracker Ідентифікатор",
+                    "devicetracker_id": "Ідентифікатор відстежуваної сутності",
                     "home_zone": "Домашня зона",
                     "options": "Параметри відображення",
                     "map_provider": "Постачальник карт",
                     "map_zoom": "Масштаб карти",
-                    "api_key": "Електронна пошта для використання як ключа OpenStreetMap API (необов’язково)",
+                    "api_key": "Електронна пошта для використання як ключа OpenStreetMap API (необов'язково)",
                     "language": "Мова (необов'язково)",
                     "extended_attr": "Увімкнути розширені атрибути",
                     "show_time": "Показати час останнього оновлення в кінці стану '(з xx:yy)'",
@@ -59,8 +59,8 @@
                 "description": "**Оновлення датчика:&nbsp;{sensor_name}**\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
                 "data_description": {
                     "options": "Детальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
-                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
-                    "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
+                    "extended_attr": "Показувати розширені атрибути: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (якщо вони існують). Вони надають багато додаткових атрибутів для розширеної логіки. Увага: це зробить атрибути дуже довгими!",
+                    "use_gps_accuracy": "Вимкніть цей параметр, якщо ваша відстежувана сутність має атрибут точності GPS (gps_accuracy), але він завжди показує 0, навіть якщо широта й довгота правильні."
                   }
             }
         }

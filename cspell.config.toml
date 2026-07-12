@@ -1,0 +1,55 @@
+language = "en"
+allowCompoundWords = false
+caseSensitive = false
+import = [
+    "@cspell/dict-cs-cz/cspell-ext.json",
+    "@cspell/dict-it-it/cspell-ext.json",
+    "@cspell/dict-ru_ru/cspell-ext.json",
+    "@cspell/dict-sk-sk/cspell-ext.json",
+    "@cspell/dict-uk-ua/cspell-ext.json",
+]
+
+words = [
+    "aiohttp",
+    "automations",
+    "conftest",
+    "devicetracker",
+    "docstrings",
+    "entityid",
+    "hacs",
+    "hass",
+    "homeassistant",
+    "licence",
+    "mypy",
+    "neighbourhood",
+    "nbsp",
+    "parameterizing",
+    "prek",
+    "pyproject",
+    "pytest",
+    "venv",
+]
+
+[[overrides]]
+filename = "**/custom_components/places/translations/cs.json"
+language = "cs,en"
+
+[[overrides]]
+filename = "**/custom_components/places/translations/en.json"
+language = "en"
+
+[[overrides]]
+filename = "**/custom_components/places/translations/it.json"
+language = "it,en"
+
+[[overrides]]
+filename = "**/custom_components/places/translations/ru.json"
+language = "ru,en"
+
+[[overrides]]
+filename = "**/custom_components/places/translations/sk.json"
+language = "sk,en"
+
+[[overrides]]
+filename = "**/custom_components/places/translations/uk.json"
+language = "uk,en"
