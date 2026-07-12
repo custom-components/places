@@ -74,12 +74,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_migrate_legacy_snapshot(hass, entry.entry_id, name)
     update_kwargs: dict = {"version": 2, "minor_version": 1}
     display_options = entry.data.get(CONF_DISPLAY_OPTIONS, "")
-    migrated_display_options = re.sub(
-        r"\bformatted_address\b",
-        "osm_formatted_address",
-        display_options,
-        flags=re.IGNORECASE,
-    )
+    migrated_display_options = _migrate_formatted_address_display_options(display_options)
     if migrated_display_options != display_options:
         update_kwargs["data"] = {
             **entry.data,
@@ -115,6 +110,35 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         update_kwargs["data"] = {**entry.data, CONF_DISPLAY_OPTIONS: migrated_options}
     hass.config_entries.async_update_entry(entry, **update_kwargs)
     return True
+
+
+def _migrate_formatted_address_display_options(raw_display_options: str) -> str:
+    """Migrate ``formatted_address`` tokens while preserving literal filter values.
+
+    Args:
+        raw_display_options: The raw display-options string to migrate.
+
+    Returns:
+        The migrated display-options string with display-option identifiers renamed where safe.
+    """
+    out: list[str] = []
+    paren_depth = 0
+    last = 0
+    for match in re.finditer(r"(?i)\bformatted_address\b", raw_display_options):
+        segment = raw_display_options[last : match.start()]
+        out.append(segment)
+        paren_depth = max(
+            0,
+            paren_depth + segment.count("(") - segment.count(")"),
+        )
+        out.append(
+            "osm_formatted_address"
+            if paren_depth == 0 or raw_display_options[match.end() :].lstrip().startswith("(")
+            else match.group()
+        )
+        last = match.end()
+    out.append(raw_display_options[last:])
+    return "".join(out)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
