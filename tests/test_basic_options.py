@@ -201,19 +201,6 @@ def test_add_type_or_category(
     [
         ({"street": "Main St", "street_number": ""}, "Main St"),
         ({"street": "Main St", "street_number": "123"}, "123 Main St"),
-    ],
-)
-def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserFactory) -> None:
-    """Test that `add_street_info` appends the correct street info to the list."""
-    parser, sensor = basic_parser(attrs=attrs)
-    arr: list[str] = []
-    parser.add_street_info(arr, sensor)
-    assert expected in arr
-
-
-@pytest.mark.parametrize(
-    ("attrs", "expected"),
-    [
         (
             {
                 "place_category": "highway",
@@ -234,10 +221,8 @@ def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserF
         ),
     ],
 )
-def test_add_street_info_highway(
-    attrs: Attrs, expected: str, basic_parser: BasicParserFactory
-) -> None:
-    """Prefer route_number for highways and motorways when street is empty."""
+def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserFactory) -> None:
+    """Append normal, numbered, or highway route street info to the list."""
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
     parser.add_street_info(arr, sensor)

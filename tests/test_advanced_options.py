@@ -240,6 +240,7 @@ async def test_parse_parens_and_bracket(
         (["Home", "Restaurant"], None, None, "Home, Restaurant"),
         ([None, "Home", "", "Restaurant"], None, None, "Home, Restaurant"),
         (["Home", "123", "Main St"], 1, 1, "Home, 123, Main St"),
+        (["123", "Main St"], 1, 0, "123 Main St"),
     ],
 )
 async def test_compile_state_variants(
@@ -507,20 +508,6 @@ async def test_get_option_state_incl_attr_blank_causes_exclusion(sensor: MockSen
     parser = AdvancedOptionsParser(sensor, "")
     out = await parser.get_option_state("zone_name", incl_attr={"place_type": ["restaurant"]})
     assert out is None
-
-
-@pytest.mark.asyncio
-async def test_compile_state_space_when_street_indices_match(sensor: MockSensor) -> None:
-    """Use a space separator when street indices align after increment."""
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "")
-    parser.state_list = ["123", "Main St"]
-    # Set indices so after increment _street_num_i becomes 0 and matches _street_i=0 for first element? Need both to match second element, so set before increment to 0 so becomes 1 then set _street_i=1
-    parser._street_num_i = 0  # will increment to 1 in compile_state
-    parser._street_i = 1
-    result = await parser.compile_state()
-    # Two items only; index 1 meets condition so space used
-    assert result == "123 Main St"
 
 
 @pytest.mark.asyncio
