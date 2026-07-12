@@ -175,6 +175,35 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
             {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place, driving"},
         ),
         (
+            "formatted_address, city",
+            {
+                CONF_NAME: "Test Place",
+                CONF_DISPLAY_OPTIONS: "osm_formatted_address, city",
+            },
+        ),
+        ("type(formatted_address)[city]", None),
+        (
+            "formatted_address[city]",
+            {
+                CONF_NAME: "Test Place",
+                CONF_DISPLAY_OPTIONS: "osm_formatted_address[city]",
+            },
+        ),
+        (
+            "type(formatted_address(formatted_address), city)",
+            {
+                CONF_NAME: "Test Place",
+                CONF_DISPLAY_OPTIONS: "type(osm_formatted_address(formatted_address), city)",
+            },
+        ),
+        (
+            "do_not_reorder, formatted_address, city",
+            {
+                CONF_NAME: "Test Place",
+                CONF_DISPLAY_OPTIONS: "osm_formatted_address[], city",
+            },
+        ),
+        (
             "do_not_reorder, city, state",
             {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
         ),
