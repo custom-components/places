@@ -3,6 +3,7 @@
 import asyncio
 from collections.abc import Callable
 import logging
+import re
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
@@ -73,6 +74,18 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_migrate_legacy_snapshot(hass, entry.entry_id, name)
     update_kwargs: dict = {"version": 2, "minor_version": 1}
     display_options = entry.data.get(CONF_DISPLAY_OPTIONS, "")
+    migrated_display_options = re.sub(
+        r"\bformatted_address\b",
+        "osm_formatted_address",
+        display_options,
+        flags=re.IGNORECASE,
+    )
+    if migrated_display_options != display_options:
+        update_kwargs["data"] = {
+            **entry.data,
+            CONF_DISPLAY_OPTIONS: migrated_display_options,
+        }
+    display_options = migrated_display_options
     options = [option.strip().lower() for option in display_options.split(",")]
     if "do_not_reorder" in options:
         migrated_options_list: list[str] = []
