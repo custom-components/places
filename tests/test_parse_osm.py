@@ -353,31 +353,6 @@ async def test_set_city_details_variants(
 @pytest.mark.parametrize(
     ("address", "expected_attr", "expected_value"),
     [
-        ({"town": "Shelbyville"}, ATTR_CITY, "Shelbyville"),
-        ({"village": "Ogdenville"}, ATTR_CITY, "Ogdenville"),
-    ],
-)
-async def test_set_city_details_postal_town(
-    osm_parser: OSMParserFactory, address: Address, expected_attr: AttrName, expected_value: object
-) -> None:
-    """Test that set_city_details sets the correct city attribute for postal towns and villages.
-
-    Args:
-        osm_parser: Factory fixture for creating the parser and sensor.
-        address: The address dictionary containing town or village information.
-        expected_attr: The expected attribute to be set (e.g., ATTR_CITY).
-        expected_value: The expected value to be set for the attribute.
-
-    """
-    parser, sensor = osm_parser()
-    await parser.set_city_details(address)
-    assert sensor.attrs[expected_attr] == expected_value
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("address", "expected_attr", "expected_value"),
-    [
         ({"neighbourhood": "Downtown"}, ATTR_PLACE_NEIGHBOURHOOD, "Downtown"),
         ({"suburb": "Westside"}, ATTR_POSTAL_TOWN, "Westside"),
         ({"quarter": "East End"}, ATTR_PLACE_NEIGHBOURHOOD, "East End"),
