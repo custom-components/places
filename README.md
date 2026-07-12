@@ -16,6 +16,23 @@
 
 _Component to integrate with OpenStreetMap Reverse Geocode and create a sensor with numerous address and place attributes from a device_tracker, person, or sensor_
 
+## Breaking Change with v3: Entity model and migration notes
+
+The main places sensor keeps the Display Options state. It now only exposes location-context attributes. Most values that used to be attributes are child sensors under the same places device. For example:
+
+* `state_attr('sensor.alice', 'place_name')` becomes `states('sensor.alice_place_name')`
+* `state_attr('sensor.alice', 'city')` becomes `states('sensor.alice_city')`
+* `state_attr('sensor.alice', 'state')` becomes `states('sensor.alice_state')`
+* `state_attr('sensor.alice', 'map_link')` becomes `states('sensor.alice_map_link')`
+
+`country` and detailed address/diagnostic sensors are disabled by default. Enable them from the places device page if you use them in automations.
+
+When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extended_data`:
+
+* `state_attr('sensor.alice_extended_data', 'osm_dict')`
+* `state_attr('sensor.alice_extended_data', 'osm_details_dict')`
+* `state_attr('sensor.alice_extended_data', 'wikidata_dict')`
+* `state_attr('sensor.alice_extended_data', 'wikidata_id')`
 
 ## Installation via HACS
 
@@ -146,36 +163,6 @@ zone_name[driving, name_no_dupe[type(-, unclassified, category(-, highway))[cate
 __Note:__ `place` and `formatted_place` are not valid fields in the advanced display options. See examples [above](#brackets-and-parenthesis-can-also-be-combined) for how to recreate them.
 
 -------
-</details>
-
-<details>
-<summary>Entity model and migration notes</summary>
-
-The main Places sensor keeps the Display Options state. It only exposes location-context attributes:
-
-* `latitude`
-* `longitude`
-* `gps_accuracy`
-* `entity_picture`
-* `attribution`
-
-Most values that used to be attributes are now child sensors under the same Places device. For example:
-
-* `state_attr('sensor.alice', 'place_name')` becomes `states('sensor.alice_place_name')`
-* `state_attr('sensor.alice', 'city')` becomes `states('sensor.alice_city')`
-* `state_attr('sensor.alice', 'state')` becomes `states('sensor.alice_state')`
-* `state_attr('sensor.alice', 'map_link')` becomes `states('sensor.alice_map_link')`
-
-The integration no longer creates a `formatted_address` child sensor.
-
-`country` and detailed address/diagnostic sensors are disabled by default. Enable them from the Places device page if you use them in automations.
-
-When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extended_data`:
-
-* `state_attr('sensor.alice_extended_data', 'osm_dict')`
-* `state_attr('sensor.alice_extended_data', 'osm_details_dict')`
-* `state_attr('sensor.alice_extended_data', 'wikidata_dict')`
-* `state_attr('sensor.alice_extended_data', 'wikidata_id')`
 </details>
 
 <details>
