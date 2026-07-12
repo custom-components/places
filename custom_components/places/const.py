@@ -309,7 +309,7 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
     "neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
     "place_neighborhood": ATTR_PLACE_NEIGHBOURHOOD,
     "place_neighbourhood": ATTR_PLACE_NEIGHBOURHOOD,
-    "formatted_address": ATTR_FORMATTED_ADDRESS,
+    "osm_formatted_address": ATTR_FORMATTED_ADDRESS,
     "city": ATTR_CITY,
     "city_clean": ATTR_CITY_CLEAN,
     "postal_town": ATTR_POSTAL_TOWN,
