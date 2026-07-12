@@ -147,6 +147,21 @@ async def test_get_option_state_incl_attr_excl_attr(
 
 
 @pytest.mark.asyncio
+async def test_get_option_state_numeric_values_are_stringified(
+    advanced_parser: AdvancedParserFactory,
+) -> None:
+    """Handle numeric display values by normalizing them before string operations."""
+    attrs = {
+        "latitude": 40.715,
+        "longitude": -74.006,
+        "name": "Test",
+    }
+    parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
+    out = await parser.get_option_state("latitude")
+    assert out == "40.715"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("key", "expected"),
     [

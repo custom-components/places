@@ -206,6 +206,7 @@ class AdvancedOptionsParser:
                 out,
             )
         if out:
+            out = str(out)
             if out == out.lower() and (
                 DISPLAY_OPTIONS_MAP.get(opt) == ATTR_DEVICETRACKER_ZONE_NAME
                 or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_TYPE

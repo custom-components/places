@@ -75,15 +75,24 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     display_options = entry.data.get(CONF_DISPLAY_OPTIONS, "")
     options = [option.strip().lower() for option in display_options.split(",")]
     if "do_not_reorder" in options:
-        options = [
-            option
-            for option in options
-            if option
-            not in {
-                "do_not_reorder",
-                "do_not_show_not_home",
-            }
-        ]
+        migrated_options_list: list[str] = []
+        for option in options:
+            if option in {"do_not_reorder", "do_not_show_not_home"}:
+                continue
+            if option == "place":
+                migrated_options_list.extend(
+                    [
+                        "name_no_dupe",
+                        "category(-, place)",
+                        "type(-, yes)",
+                        "neighborhood",
+                        "house_number",
+                        "street",
+                    ]
+                )
+            else:
+                migrated_options_list.append(option)
+        options = migrated_options_list
         if options:
             if "formatted_place" not in options:
                 options[0] += "[]"
