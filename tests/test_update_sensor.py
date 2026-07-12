@@ -1525,35 +1525,6 @@ async def test_should_update_state_param(
 
 
 @pytest.mark.asyncio
-async def test_rollback_update_calls_restore_and_helpers(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    sensor: MockSensor,
-    stubbed_updater: StubbedUpdater,
-) -> None:
-    """Restore previous attributes and conditionally call helper routines."""
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    with stubbed_updater(
-        updater,
-        [
-            ("get_seconds_from_last_change", {"return_value": 100}),
-            ("change_dot_to_stationary", {}),
-            ("change_show_time_to_date", {}),
-        ],
-    ) as mocks:
-        # Ensure show_time is False and direction is not 'stationary' so change_dot_to_stationary runs
-        sensor.get_attr.side_effect = lambda k: False
-        await updater.rollback_update(
-            {"a": 1}, datetime.now(tz=UTC), UpdateStatus.SKIP_SET_STATIONARY
-        )
-    sensor.restore_previous_attr.assert_awaited_once()
-    # Based on the test setup (proceed SKIP_SET_STATIONARY, default direction not 'stationary', seconds=100),
-    # change_dot_to_stationary should have been awaited once; show_time helper should not be awaited.
-    mocks["change_dot_to_stationary"].assert_awaited_once()
-    mocks["change_show_time_to_date"].assert_not_awaited()
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("previous_attr", "status", "now"),
     [
@@ -2323,6 +2294,7 @@ async def test_rollback_update_triggers_helpers(
         # show_time controls whether change_show_time_to_date should be called
         sensor.get_attr.side_effect = lambda k: show_time if k == CONF_SHOW_TIME else False
         await updater.rollback_update({}, datetime.now(tz=UTC), status)
+    sensor.restore_previous_attr.assert_awaited_once_with({})
     if expect_dot:
         mocks["change_dot_to_stationary"].assert_awaited_once()
     else:
