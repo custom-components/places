@@ -220,14 +220,14 @@ When Extended Attributes is enabled, raw payloads move to `sensor.<name>_extende
           url: '{{ trigger.event.data.map_link }}'
           hide_thumbnail: false
 
-- alias: ReverseLocateAidan
+- alias: ReverseLocateFred
   initial_state: 'on'
   trigger:
     platform: event
     event_type: places_state_update
   condition:
     condition: template
-    value_template: '{{ trigger.event.data.entity == "aidan" }}'
+    value_template: '{{ trigger.event.data.entity == "fred" }}'
   action:
   - service: notify.ios_jim_iphone8
     data_template:
