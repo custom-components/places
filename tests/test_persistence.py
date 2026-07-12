@@ -149,31 +149,30 @@ def _write_fake_store_snapshot(path: Path, data: dict[str, object]) -> None:
 
 
 @pytest.mark.asyncio
-async def test_load_uses_store_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Existing Store data is loaded."""
-    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
-    _FakeStore.next_data = {ATTR_CITY: "Store City"}
-    hass = _hass_for_store_path(tmp_path)
-
-    storage = PlacesStorage(hass, "entry-1", "Test")
-    loaded = await storage.async_load()
-
-    assert loaded == {ATTR_CITY: "Store City"}
-    assert _FakeStore.last_saved is None
-
-
-@pytest.mark.asyncio
-async def test_load_missing_store_data_returns_empty(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("entry_id", "store_data", "expected"),
+    [
+        ("entry-1", {ATTR_CITY: "Store City"}, {ATTR_CITY: "Store City"}),
+        ("entry-5", None, {}),
+    ],
+    ids=["existing-store-data", "missing-store-data"],
+)
+async def test_load_returns_store_data_or_empty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    entry_id: str,
+    store_data: object | None,
+    expected: dict[str, object],
 ) -> None:
-    """Missing Store data returns an empty mapping."""
+    """Load existing Store data or return an empty mapping when missing."""
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
+    _FakeStore.next_data = store_data
     hass = _hass_for_store_path(tmp_path)
 
-    storage = PlacesStorage(hass, "entry-5", "Test")
+    storage = PlacesStorage(hass, entry_id, "Test")
     loaded = await storage.async_load()
 
-    assert loaded == {}
+    assert loaded == expected
     assert _FakeStore.last_saved is None
 
 
