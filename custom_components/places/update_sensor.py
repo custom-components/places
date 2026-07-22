@@ -636,7 +636,32 @@ class PlacesUpdater:
             now: Current update timestamp.
             proceed_with_update: Status that caused the update to stop.
         """
+        # Zone membership (devicetracker_zone / devicetracker_zone_name) can change
+        # without the device moving — e.g. a zone's radius was edited, a zone was
+        # created/removed, or a passive zone toggled. get_zone_details() resolves the
+        # current zone early in determine_update_criteria(), but when the update is then
+        # skipped because the coordinates are unchanged, restore_previous_attr() below
+        # would discard that fresh resolution and reinstate a now-stale zone. Snapshot
+        # the zone attrs computed this cycle so they survive the rollback.
+        zone_attrs_snapshot: dict[str, Any] = {
+            ATTR_DEVICETRACKER_ZONE: self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE),
+            ATTR_DEVICETRACKER_ZONE_NAME: self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME),
+        }
         await self.sensor.restore_previous_attr(previous_attr)
+        if (
+            self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE)
+            != zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE]
+        ):
+            self.sensor.set_attr(
+                ATTR_DEVICETRACKER_ZONE, zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE]
+            )
+        if (
+            self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
+            != zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE_NAME]
+        ):
+            self.sensor.set_attr(
+                ATTR_DEVICETRACKER_ZONE_NAME, zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE_NAME]
+            )
         _LOGGER.debug(
             "(%s) Reverting attributes back to before the update started",
             self.sensor.get_attr(CONF_NAME),
