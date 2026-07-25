@@ -3,6 +3,10 @@ name: prek Autoupdate
 on:
   schedule:
     - cron: '41 5 * * *'
+  push:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 jobs:
