@@ -725,7 +725,10 @@ async def test_do_update_publishes_after_successful_rollback_path(
         await updater.do_update("manual", {"snapshot": "value"})
 
         mocks["rollback_update"].assert_awaited_once_with(
-            {"snapshot": "value"}, now, UpdateStatus.PROCEED
+            {"snapshot": "value"},
+            now,
+            UpdateStatus.PROCEED,
+            preserve_zone_attrs=True,
         )
         updater.coordinator.publish_update.assert_called_once_with()
         assert call_order == ["finish_update", "publish"]
