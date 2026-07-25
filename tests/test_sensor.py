@@ -3,8 +3,6 @@
 import asyncio
 from collections.abc import Callable, Coroutine, Mapping, Sequence
 from contextlib import AbstractContextManager
-import logging
-from typing import ClassVar, cast
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.config_entries import ConfigEntryState
@@ -45,9 +43,6 @@ def places_instance(mock_hass: MagicMock, patch_entity_registry: object) -> Plac
     name = "TestSensor"
     unique_id = "unique123"
     imported_attributes: dict[str, object] = {}
-    persistence = MagicMock()
-    persistence.async_save = AsyncMock()
-    persistence.async_remove = AsyncMock()
     return Places(
         hass,
         config,
@@ -55,58 +50,7 @@ def places_instance(mock_hass: MagicMock, patch_entity_registry: object) -> Plac
         name,
         unique_id,
         imported_attributes,
-        persistence,
     )
-
-
-class _FakePlacesStorage:
-    """PlacesStorage test double used by async_setup_entry."""
-
-    instances: ClassVar[list[_FakePlacesStorage]] = []
-
-    def __init__(self, hass: object, entry_id: str, name: str) -> None:
-        """Record construction arguments for assertions."""
-        self.hass = hass
-        self.entry_id = entry_id
-        self.name = name
-        self.saved: list[dict[str, object]] = []
-        self.instances.append(self)
-
-    async def async_load(self) -> dict[str, object]:
-        """Return attributes used to initialize sensor state."""
-        return {"native_value": "Restored"}
-
-    async def async_save(self, attributes: dict[str, object]) -> None:
-        """Record the attributes the sensor asks to persist."""
-        self.saved.append(dict(attributes))
-
-
-@pytest.mark.asyncio
-async def test_async_persist_attributes(
-    places_instance: Places,
-) -> None:
-    """Test that async_persist_attributes writes runtime attrs to injected persistence."""
-    places_instance.set_attr(ATTR_NATIVE_VALUE, "Home")
-    expected_attrs = dict(places_instance.get_internal_attr())
-    await places_instance.async_persist_attributes()
-    persistence_save = cast("AsyncMock", places_instance._persistence.async_save)
-    persistence_save.assert_awaited_once_with(expected_attrs)
-
-
-@pytest.mark.asyncio
-async def test_async_persist_attributes_logs_save_failure(
-    places_instance: Places, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Store write failures should not abort freshly computed sensor updates."""
-    places_instance.set_attr(ATTR_NATIVE_VALUE, "Home")
-    persistence_save = cast("AsyncMock", places_instance._persistence.async_save)
-    persistence_save.side_effect = OSError("disk full")
-
-    with caplog.at_level(logging.WARNING, logger="custom_components.places.sensor"):
-        await places_instance.async_persist_attributes()
-
-    persistence_save.assert_awaited_once()
-    assert "Could not persist Places attributes" in caplog.text
 
 
 @pytest.mark.parametrize(
@@ -236,18 +180,16 @@ def test_get_internal_attr_returns_dict(places_instance: Places) -> None:
     assert result["baz"] == 123
 
 
-def test_import_persisted_attributes(
+def test_import_attributes_from_json(
     monkeypatch: pytest.MonkeyPatch, places_instance: Places
 ) -> None:
-    """Test that attributes are correctly imported from persisted data."""
-    monkeypatch.setattr("custom_components.places.attributes.PERSISTED_ATTRIBUTE_LIST", ["a", "b"])
+    """Test that attributes are correctly imported from JSON."""
+    monkeypatch.setattr("custom_components.places.attributes.JSON_ATTRIBUTE_LIST", ["a", "b"])
     monkeypatch.setattr("custom_components.places.attributes.CONFIG_ATTRIBUTES_LIST", ["c"])
-    monkeypatch.setattr(
-        "custom_components.places.attributes.PERSISTENCE_IGNORE_ATTRIBUTE_LIST", ["d"]
-    )
+    monkeypatch.setattr("custom_components.places.attributes.JSON_IGNORE_ATTRIBUTE_LIST", ["d"])
     monkeypatch.setattr("custom_components.places.sensor.ATTR_NATIVE_VALUE", "native_value")
-    persisted_attr = {"a": 1, "b": 2, "c": 3, "d": 4, "native_value": "nv"}
-    places_instance.import_persisted_attributes(persisted_attr)
+    json_attr = {"a": 1, "b": 2, "c": 3, "d": 4, "native_value": "nv"}
+    places_instance.import_attributes_from_json(json_attr)
     assert places_instance.get_attr("a") == 1
     assert places_instance.get_attr("b") == 2
     # The import only sets _attr_native_value if ATTR_NATIVE_VALUE is not blank
@@ -533,9 +475,12 @@ async def test_async_setup_entry_places_param(
 
     async_add_entities = _Adder()
 
-    # Patch persistence and the appropriate Places class
-    _FakePlacesStorage.instances = []
-    monkeypatch.setattr("custom_components.places.sensor.PlacesStorage", _FakePlacesStorage)
+    hass.config.path = lambda *args: "/tmp/json_sensors"
+    monkeypatch.setattr("custom_components.places.sensor.create_json_folder", lambda path: None)
+    monkeypatch.setattr(
+        "custom_components.places.sensor.get_dict_from_json_file",
+        lambda name, filename, folder: {},
+    )
     entity_class = MagicMock()
     monkeypatch.setattr(f"custom_components.places.sensor.{patched_class}", entity_class)
 
@@ -544,11 +489,8 @@ async def test_async_setup_entry_places_param(
     ):
         await async_setup_entry(hass, config_entry, async_add_entities)
 
-    assert _FakePlacesStorage.instances
-    assert _FakePlacesStorage.instances[0].entry_id == config_entry.entry_id
     assert entity_class.call_args is not None
-    assert entity_class.call_args.kwargs["persistence"] is _FakePlacesStorage.instances[0]
-    assert entity_class.call_args.kwargs["imported_attributes"] == {"native_value": "Restored"}
+    assert entity_class.call_args.kwargs["imported_attributes"] == {}
 
     # Should call async_add_entities once and pass update_before_add=True
     assert async_add_entities.call_count == 1
@@ -649,9 +591,6 @@ async def test_async_will_remove_from_hass_counts_other_extended_entries(
     mock_logger = MagicMock()
     monkeypatch.setattr("custom_components.places.sensor._LOGGER", mock_logger)
     await places_instance.async_will_remove_from_hass()
-    persistence_remove = cast("AsyncMock", places_instance._persistence.async_remove)
-    persistence_remove.assert_not_awaited()
-
     if current_extended and recorder is not None:
         places_instance._hass.config_entries.async_entries.assert_called_once_with(DOMAIN)
         mock_logger.debug.assert_any_call(
