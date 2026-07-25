@@ -51,6 +51,7 @@ jobs:
         run: pytest
 
       - name: 'Generate coverage Comment (and possibly Post to PR)'
+        if: github.event_name != 'workflow_dispatch'
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
