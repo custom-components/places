@@ -748,26 +748,50 @@ async def test_rollback_update_calls_restore_and_helpers(
     [
         # Stationary skip (preserve=True): fresh zone survives; the unrelated
         # previous_attr key (ATTR_LATITUDE) is still restored.
-        ("new_zone", "New Zone Name",
-         {ATTR_DEVICETRACKER_ZONE: "not_home", ATTR_DEVICETRACKER_ZONE_NAME: "Away",
-          ATTR_LATITUDE: 11.0},
-         UpdateStatus.SKIP_SET_STATIONARY, True,
-         "new_zone", "New Zone Name"),
+        (
+            "new_zone",
+            "New Zone Name",
+            {
+                ATTR_DEVICETRACKER_ZONE: "not_home",
+                ATTR_DEVICETRACKER_ZONE_NAME: "Away",
+                ATTR_LATITUDE: 11.0,
+            },
+            UpdateStatus.SKIP_SET_STATIONARY,
+            True,
+            "new_zone",
+            "New Zone Name",
+        ),
         # Bad-coords skip (preserve=True, status SKIP): get_zone_details already
         # ran, so the fresh zone must survive here too - not just on the
         # stationary path.
-        ("new_zone", "New Zone Name",
-         {ATTR_DEVICETRACKER_ZONE: "not_home", ATTR_DEVICETRACKER_ZONE_NAME: "Away",
-          ATTR_LATITUDE: 11.0},
-         UpdateStatus.SKIP, True,
-         "new_zone", "New Zone Name"),
+        (
+            "new_zone",
+            "New Zone Name",
+            {
+                ATTR_DEVICETRACKER_ZONE: "not_home",
+                ATTR_DEVICETRACKER_ZONE_NAME: "Away",
+                ATTR_LATITUDE: 11.0,
+            },
+            UpdateStatus.SKIP,
+            True,
+            "new_zone",
+            "New Zone Name",
+        ),
         # Exception path (preserve=False default): previous_attr's clean zone
         # values win; a transient/mid-failure value on the sensor must NOT survive.
-        ("transient_zone", "Transient",
-         {ATTR_DEVICETRACKER_ZONE: "home", ATTR_DEVICETRACKER_ZONE_NAME: "Home",
-          ATTR_LATITUDE: 11.0},
-         UpdateStatus.SKIP_SET_STATIONARY, False,
-         "home", "Home"),
+        (
+            "transient_zone",
+            "Transient",
+            {
+                ATTR_DEVICETRACKER_ZONE: "home",
+                ATTR_DEVICETRACKER_ZONE_NAME: "Home",
+                ATTR_LATITUDE: 11.0,
+            },
+            UpdateStatus.SKIP_SET_STATIONARY,
+            False,
+            "home",
+            "Home",
+        ),
     ],
     ids=[
         "stationary_skip_preserves_zone_and_unrelated",
@@ -789,7 +813,7 @@ async def test_rollback_update_zone_attrs_preserve_policy(
     expected_zone: str,
     expected_zone_name: str,
 ) -> None:
-    """zone attrs survive rollback when preserve_zone_attrs is set; unrelated attrs always restore."""
+    """Zone attrs survive rollback when preserve_zone_attrs is set; unrelated attrs always restore."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[ATTR_DEVICETRACKER_ZONE] = live_zone
     sensor.attrs[ATTR_DEVICETRACKER_ZONE_NAME] = live_zone_name
