@@ -628,6 +628,8 @@ class PlacesUpdater:
         previous_attr: MutableMapping[str, Any],
         now: datetime,
         proceed_with_update: UpdateStatus,
+        *,
+        preserve_zone_attrs: bool = False,
     ) -> None:
         """Restore prior attributes and perform time-based skipped-update adjustments.
 
@@ -635,8 +637,24 @@ class PlacesUpdater:
             previous_attr: Attribute snapshot from before the update started.
             now: Current update timestamp.
             proceed_with_update: Status that caused the update to stop.
+            preserve_zone_attrs: If True, keep the freshly resolved
+                devicetracker_zone and devicetracker_zone_name across
+                restore_previous_attr(). Set on the non-exception paths where
+                get_zone_details() has run this cycle (stationary skip,
+                bad-coords skip, no-state-change); leave False on the exception
+                path, which may carry a half-applied zone pair that must not
+                survive.
         """
+        zone = zone_name = None
+        if preserve_zone_attrs:
+            zone = self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE)
+            zone_name = self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
         await self.sensor.restore_previous_attr(previous_attr)
+        if preserve_zone_attrs:
+            if self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE) != zone:
+                self.sensor.set_attr(ATTR_DEVICETRACKER_ZONE, zone)
+            if self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME) != zone_name:
+                self.sensor.set_attr(ATTR_DEVICETRACKER_ZONE_NAME, zone_name)
         _LOGGER.debug(
             "(%s) Reverting attributes back to before the update started",
             self.sensor.get_attr(CONF_NAME),
