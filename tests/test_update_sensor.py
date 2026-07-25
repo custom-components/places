@@ -735,6 +735,83 @@ async def test_rollback_update_calls_restore_and_helpers(
     mocks["change_show_time_to_date"].assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    (
+        "live_zone",
+        "live_zone_name",
+        "previous_attr",
+        "proceed_with_update",
+        "preserve_zone_attrs",
+        "expected_zone",
+        "expected_zone_name",
+    ),
+    [
+        # Stationary skip (preserve=True): fresh zone survives; the unrelated
+        # previous_attr key (ATTR_LATITUDE) is still restored.
+        ("new_zone", "New Zone Name",
+         {ATTR_DEVICETRACKER_ZONE: "not_home", ATTR_DEVICETRACKER_ZONE_NAME: "Away",
+          ATTR_LATITUDE: 11.0},
+         UpdateStatus.SKIP_SET_STATIONARY, True,
+         "new_zone", "New Zone Name"),
+        # Bad-coords skip (preserve=True, status SKIP): get_zone_details already
+        # ran, so the fresh zone must survive here too - not just on the
+        # stationary path.
+        ("new_zone", "New Zone Name",
+         {ATTR_DEVICETRACKER_ZONE: "not_home", ATTR_DEVICETRACKER_ZONE_NAME: "Away",
+          ATTR_LATITUDE: 11.0},
+         UpdateStatus.SKIP, True,
+         "new_zone", "New Zone Name"),
+        # Exception path (preserve=False default): previous_attr's clean zone
+        # values win; a transient/mid-failure value on the sensor must NOT survive.
+        ("transient_zone", "Transient",
+         {ATTR_DEVICETRACKER_ZONE: "home", ATTR_DEVICETRACKER_ZONE_NAME: "Home",
+          ATTR_LATITUDE: 11.0},
+         UpdateStatus.SKIP_SET_STATIONARY, False,
+         "home", "Home"),
+    ],
+    ids=[
+        "stationary_skip_preserves_zone_and_unrelated",
+        "bad_coords_skip_preserves_zone",
+        "error_path_restores_previous",
+    ],
+)
+@pytest.mark.asyncio
+async def test_rollback_update_zone_attrs_preserve_policy(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    live_zone: str,
+    live_zone_name: str,
+    previous_attr: dict,
+    proceed_with_update: UpdateStatus,
+    preserve_zone_attrs: bool,
+    expected_zone: str,
+    expected_zone_name: str,
+) -> None:
+    """zone attrs survive rollback when preserve_zone_attrs is set; unrelated attrs always restore."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[ATTR_DEVICETRACKER_ZONE] = live_zone
+    sensor.attrs[ATTR_DEVICETRACKER_ZONE_NAME] = live_zone_name
+    with stubbed_updater(
+        updater,
+        [
+            ("get_seconds_from_last_change", {"return_value": 100}),
+            ("change_dot_to_stationary", {}),
+        ],
+    ):
+        await updater.rollback_update(
+            previous_attr,
+            datetime.now(tz=UTC),
+            proceed_with_update,
+            preserve_zone_attrs=preserve_zone_attrs,
+        )
+    assert sensor.attrs[ATTR_DEVICETRACKER_ZONE] == expected_zone
+    assert sensor.attrs[ATTR_DEVICETRACKER_ZONE_NAME] == expected_zone_name
+    # Unrelated attribute from previous_attr is always restored, regardless of preserve.
+    assert sensor.attrs[ATTR_LATITUDE] == 11.0
+
+
 @pytest.mark.asyncio
 async def test_build_osm_url_returns_url(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor

@@ -628,6 +628,8 @@ class PlacesUpdater:
         previous_attr: MutableMapping[str, Any],
         now: datetime,
         proceed_with_update: UpdateStatus,
+        *,
+        preserve_zone_attrs: bool = False,
     ) -> None:
         """Restore prior attributes and perform time-based skipped-update adjustments.
 
@@ -635,33 +637,24 @@ class PlacesUpdater:
             previous_attr: Attribute snapshot from before the update started.
             now: Current update timestamp.
             proceed_with_update: Status that caused the update to stop.
+            preserve_zone_attrs: If True, keep the freshly resolved
+                devicetracker_zone and devicetracker_zone_name across
+                restore_previous_attr(). Set on the non-exception paths where
+                get_zone_details() has run this cycle (stationary skip,
+                bad-coords skip, no-state-change); leave False on the exception
+                path, which may carry a half-applied zone pair that must not
+                survive.
         """
-        # Zone membership (devicetracker_zone / devicetracker_zone_name) can change
-        # without the device moving — e.g. a zone's radius was edited, a zone was
-        # created/removed, or a passive zone toggled. get_zone_details() resolves the
-        # current zone early in determine_update_criteria(), but when the update is then
-        # skipped because the coordinates are unchanged, restore_previous_attr() below
-        # would discard that fresh resolution and reinstate a now-stale zone. Snapshot
-        # the zone attrs computed this cycle so they survive the rollback.
-        zone_attrs_snapshot: dict[str, Any] = {
-            ATTR_DEVICETRACKER_ZONE: self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE),
-            ATTR_DEVICETRACKER_ZONE_NAME: self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME),
-        }
+        zone = zone_name = None
+        if preserve_zone_attrs:
+            zone = self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE)
+            zone_name = self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
         await self.sensor.restore_previous_attr(previous_attr)
-        if (
-            self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE)
-            != zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE]
-        ):
-            self.sensor.set_attr(
-                ATTR_DEVICETRACKER_ZONE, zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE]
-            )
-        if (
-            self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME)
-            != zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE_NAME]
-        ):
-            self.sensor.set_attr(
-                ATTR_DEVICETRACKER_ZONE_NAME, zone_attrs_snapshot[ATTR_DEVICETRACKER_ZONE_NAME]
-            )
+        if preserve_zone_attrs:
+            if self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE) != zone:
+                self.sensor.set_attr(ATTR_DEVICETRACKER_ZONE, zone)
+            if self.sensor.get_attr(ATTR_DEVICETRACKER_ZONE_NAME) != zone_name:
+                self.sensor.set_attr(ATTR_DEVICETRACKER_ZONE_NAME, zone_name)
         _LOGGER.debug(
             "(%s) Reverting attributes back to before the update started",
             self.sensor.get_attr(CONF_NAME),

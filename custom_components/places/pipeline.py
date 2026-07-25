@@ -61,9 +61,25 @@ class PlacesUpdatePipeline:
                         "(%s) No entity update needed, Previous State = New State",
                         sensor.get_attr(CONF_NAME),
                     )
-                    await self.updater.rollback_update(previous_attr, now, proceed_with_update)
+                    # Reached the update end (PROCEED) with no state change, so the
+                    # freshly resolved zone is still valid - preserve it.
+                    await self.updater.rollback_update(
+                        previous_attr, now, proceed_with_update, preserve_zone_attrs=True
+                    )
             else:
-                await self.updater.rollback_update(previous_attr, now, proceed_with_update)
+                # Non-PROCEED skip. get_zone_details() runs unconditionally at the
+                # top of determine_update_criteria(), so the zone is freshly
+                # resolved for both SKIP (e.g. bad lat/long) and SKIP_SET_STATIONARY
+                # here. Preserve it on both; on the early check_device_tracker SKIP
+                # path get_zone_details hasn't run, so the snapshot equals what
+                # previous_attr restores and the re-apply is a no-op.
+                await self.updater.rollback_update(
+                    previous_attr,
+                    now,
+                    proceed_with_update,
+                    preserve_zone_attrs=proceed_with_update
+                    in (UpdateStatus.SKIP, UpdateStatus.SKIP_SET_STATIONARY),
+                )
         except Exception:
             # This orchestration boundary must rollback partial state for any
             # phase failure, then re-raise so Home Assistant can report it.
