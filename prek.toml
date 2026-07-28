@@ -29,7 +29,7 @@ additional_dependencies = ["github.com/wasilibs/go-shellcheck/cmd/shellcheck@v0.
 
 [[repos]]
 repo = "https://github.com/codespell-project/codespell"
-rev = "v2.4.2"
+rev = "v2.4.3"
 
 [[repos.hooks]]
 id = "codespell"
@@ -77,7 +77,7 @@ additional_dependencies = [
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.15.21"
+rev = "v0.15.22"
 
 [[repos.hooks]]
 id = "ruff-check"
