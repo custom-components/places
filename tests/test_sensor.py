@@ -967,11 +967,11 @@ async def test_coordinator_scan_update_runs_updater_with_snapshot(
     assert previous_attr is not coordinator.get_internal_attr()
 
 
-async def test_coordinator_scan_update_failure_still_sets_throttle_marker(
+async def test_coordinator_scan_update_failure_does_not_set_throttle_marker(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scan failures should still set the throttle marker and suppress immediate retries."""
+    """Scan failures should not throttle the next retry."""
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -996,15 +996,12 @@ async def test_coordinator_scan_update_failure_still_sets_throttle_marker(
     monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
     monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FailingUpdater)
 
-    with pytest.raises(RuntimeError, match="scan failed"):
-        await coordinator.async_scan_update()
+    for expected_calls in (1, 2):
+        with pytest.raises(RuntimeError, match="scan failed"):
+            await coordinator.async_scan_update()
 
-    assert coordinator._last_scan_update == 1000.0
-
-    data = await coordinator.async_scan_update()
-
-    assert data is not None
-    assert call_tracker["constructors"] == 1
+        assert coordinator._last_scan_update is None
+        assert call_tracker["constructors"] == expected_calls
 
 
 async def test_coordinator_scan_update_throttles_repeated_refreshes(

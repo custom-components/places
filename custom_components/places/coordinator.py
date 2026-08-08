@@ -561,8 +561,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         ):
             return self.snapshot()
 
-        self._last_scan_update = now
         await self._run_update("Scan Interval")
+        self._last_scan_update = now
         return self.snapshot()
 
     async def _run_update(self, reason: str) -> None:
