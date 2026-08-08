@@ -286,6 +286,13 @@ async def test_do_update_runs_phases_in_expected_order(
         assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
 
     updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
+    persisted_last_updated: list[str] = []
+
+    async def persist_attributes() -> None:
+        persisted_last_updated.append(updater.coordinator.get_attr(ATTR_LAST_UPDATED))
+        call_order.append("persist")
+
+    updater.coordinator.async_persist_attributes = AsyncMock(side_effect=persist_attributes)
 
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
@@ -388,9 +395,11 @@ async def test_do_update_runs_phases_in_expected_order(
         "should_update_state",
         "handle_state_update",
         "finish_update",
+        "persist",
         "publish",
     ]
     assert call_order == expected_order
+    assert persisted_last_updated == ["2024-01-01 12:00:00"]
 
 
 @pytest.mark.asyncio
@@ -689,7 +698,7 @@ async def test_do_update_publishes_after_successful_rollback_path(
         AbstractContextManager[dict[str, AsyncMock]],
     ],
 ) -> None:
-    """Rollback-based successful exits should publish the latest coordinator snapshot."""
+    """Rollback-based successful exits should persist and publish finalized state."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
 
@@ -698,6 +707,13 @@ async def test_do_update_publishes_after_successful_rollback_path(
         assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
 
     updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
+    persisted_last_updated: list[str] = []
+
+    async def persist_attributes() -> None:
+        persisted_last_updated.append(updater.coordinator.get_attr(ATTR_LAST_UPDATED))
+        call_order.append("persist")
+
+    updater.coordinator.async_persist_attributes = AsyncMock(side_effect=persist_attributes)
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
     async def finish_update(*_args: object, **_kwargs: object) -> None:
@@ -731,7 +747,9 @@ async def test_do_update_publishes_after_successful_rollback_path(
             preserve_zone_attrs=True,
         )
         updater.coordinator.publish_update.assert_called_once_with()
-        assert call_order == ["finish_update", "publish"]
+        updater.coordinator.async_persist_attributes.assert_awaited_once_with()
+        assert persisted_last_updated == ["2024-01-01 12:00:00"]
+        assert call_order == ["finish_update", "persist", "publish"]
 
 
 @pytest.mark.asyncio
@@ -765,8 +783,8 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
     mocks["fire_event_data"].assert_awaited_once()
     # show_time path should set a native value with suffix
     assert sensor.native_value is not None
-    # State persistence now flows through sensor.async_persist_attributes.
-    sensor.async_persist_attributes.assert_awaited_once()
+    # Persistence belongs to the enclosing update cycle after final bookkeeping.
+    sensor.async_persist_attributes.assert_not_awaited()
     mock_hass.async_add_executor_job.assert_not_awaited()
 
 

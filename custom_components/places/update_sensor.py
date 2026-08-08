@@ -196,6 +196,8 @@ class PlacesUpdater:
             if not self._is_shutting_down() and not was_cancelled and not had_error:
                 await self.finish_update(now=now)
                 if not self._is_shutting_down():
+                    await coordinator.async_persist_attributes()
+                if not self._is_shutting_down():
                     coordinator.publish_update()
 
     def _is_shutting_down(self) -> bool:
@@ -229,7 +231,7 @@ class PlacesUpdater:
         _LOGGER.info("(%s) End of Update", self.coordinator.get_attr(CONF_NAME))
 
     async def handle_state_update(self, now: datetime, prev_last_place_name: str) -> None:
-        """Finalize a successful update and persist the new sensor state.
+        """Finalize and publish a successful sensor state update.
 
         Args:
             now: Update timestamp in the HA timezone.
@@ -272,8 +274,6 @@ class PlacesUpdater:
             return
         await self.fire_event_data(prev_last_place_name=prev_last_place_name)
         self.coordinator.set_attr(ATTR_INITIAL_UPDATE, False)
-        if not self._is_shutting_down():
-            await self.coordinator.async_persist_attributes()
 
     async def fire_event_data(self, prev_last_place_name: str) -> None:
         """Fire the Places state-update event with changed display attributes.
