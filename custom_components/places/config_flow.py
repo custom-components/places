@@ -423,7 +423,6 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
             self.hass
         )
         zone_list = get_home_zone_entities(self.hass)
-        # _LOGGER.debug("Trackable entities with lat/long: %s", devicetracker_id_list)
         data_schema: vol.Schema = user_schema(devicetracker_id_list, zone_list)
         return self.async_show_form(
             step_id="user",
@@ -610,8 +609,6 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                 ),
             }
         )
-
-        # _LOGGER.debug("[Options Update] initial config: %s", self.config_entry.data)
 
         return self.async_show_form(
             step_id="init",
