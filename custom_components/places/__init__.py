@@ -32,6 +32,7 @@ from .persistence import PlacesStorage
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 _EXTENDED_ENTRY_COUNT_KEY = "_extended_attr_entry_count"
+_EXTENDED_EVENT_EXCLUSION_OWNED_KEY = "_extended_event_exclusion_owned"
 _EXTENDED_ENTRY_SETUP_STATE_KEY = "_extended_attr_entry_setup_state"
 
 CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
@@ -81,7 +82,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_DISPLAY_OPTIONS: migrated_display_options,
         }
     display_options = migrated_display_options
-    options = [option.strip().lower() for option in display_options.split(",")]
+    options = [option.strip().lower() for option in _split_top_level_options(display_options)]
     if "do_not_reorder" in options:
         migrated_options_list: list[str] = []
         for option in options:
@@ -110,6 +111,30 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         update_kwargs["data"] = {**entry.data, CONF_DISPLAY_OPTIONS: migrated_options}
     hass.config_entries.async_update_entry(entry, **update_kwargs)
     return True
+
+
+def _split_top_level_options(display_options: str) -> list[str]:
+    """Split display options on commas outside parentheses and brackets.
+
+    Args:
+        display_options: Raw comma-separated display-options expression.
+
+    Returns:
+        Display-option expressions with nested commas kept intact.
+    """
+    options: list[str] = []
+    start = 0
+    depth = 0
+    for index, character in enumerate(display_options):
+        if character in "([":
+            depth += 1
+        elif character in ")]":
+            depth = max(0, depth - 1)
+        elif character == "," and depth == 0:
+            options.append(display_options[start:index])
+            start = index + 1
+    options.append(display_options[start:])
+    return options
 
 
 def _migrate_formatted_address_display_options(raw_display_options: str) -> str:
@@ -359,7 +384,9 @@ def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
     recorder = hass.data.get(DATA_INSTANCE)
     if recorder is None:
         return
-    recorder.exclude_event_types.add(EVENT_TYPE)
+    if EVENT_TYPE not in recorder.exclude_event_types:
+        recorder.exclude_event_types.add(EVENT_TYPE)
+        domain_data[_EXTENDED_EVENT_EXCLUSION_OWNED_KEY] = True
 
 
 def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
@@ -376,8 +403,9 @@ def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
         domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
         return
     domain_data.pop(_EXTENDED_ENTRY_COUNT_KEY, None)
+    owns_event_exclusion = bool(domain_data.pop(_EXTENDED_EVENT_EXCLUSION_OWNED_KEY, False))
     recorder = hass.data.get(DATA_INSTANCE)
-    if recorder is None:
+    if recorder is None or not owns_event_exclusion:
         return
     recorder.exclude_event_types.discard(EVENT_TYPE)
 

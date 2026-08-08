@@ -225,6 +225,13 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
                 ),
             },
         ),
+        (
+            "do_not_reorder, type(-, yes), city",
+            {
+                CONF_NAME: "Test Place",
+                CONF_DISPLAY_OPTIONS: "type(-, yes)[], city",
+            },
+        ),
         ("city, state", None),
         (
             "do_not_reorder",
@@ -764,6 +771,33 @@ async def test_async_unload_entry_keeps_and_clears_recorder_exclusion_by_active_
     await async_unload_entry(mock_hass, entry_two)
 
     assert EVENT_TYPE not in recorder.exclude_event_types
+
+
+@pytest.mark.asyncio
+async def test_async_unload_entry_preserves_preexisting_event_exclusion(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Unload should preserve an event exclusion owned outside Places."""
+    entry = MockConfigEntry(
+        domain="places",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: True,
+        },
+    )
+    recorder = MagicMock()
+    recorder.exclude_event_types = {EVENT_TYPE}
+    mock_hass.data[DATA_INSTANCE] = recorder
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    await async_setup_entry(mock_hass, entry)
+    result = await async_unload_entry(mock_hass, entry)
+
+    assert result is True
+    assert EVENT_TYPE in recorder.exclude_event_types
 
 
 @pytest.mark.asyncio
