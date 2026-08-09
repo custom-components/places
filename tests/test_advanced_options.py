@@ -85,7 +85,7 @@ def advanced_parser() -> AdvancedParserFactory:
 async def test_do_brackets_and_parens_count_match(
     input_str: str, expected: bool, advanced_parser: AdvancedParserFactory
 ) -> None:
-    """Return True when brackets and parens counts match, otherwise False.
+    """Assert bracket and parenthesis count matching for the supplied text.
 
     Args:
         input_str (str):

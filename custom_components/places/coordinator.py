@@ -279,7 +279,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         Raises:
             HomeAssistantError:
-                If display options fail existing validation.
+                If display options or the map provider fail validation.
             Exception:
                 Propagated when the operation fails.
             asyncio.CancelledError:

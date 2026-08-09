@@ -104,7 +104,7 @@ async def test_set_attribution(
     expected_value: object,
     should_call: bool,
 ) -> None:
-    """Ensure set_attribution sets ATTR_ATTRIBUTION only when the OSM 'licence' key exists.
+    """Ensure set_attribution sets ATTR_ATTRIBUTION only for a truthy OSM licence.
 
     Args:
         osm_parser (OSMParserFactory):

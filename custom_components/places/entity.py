@@ -125,7 +125,7 @@ class PlacesSensorEntity(PlacesEntity, SensorEntity):
 
         Raises:
             NotImplementedError:
-                Propagated when the operation fails.
+                Always raised until a concrete entity implements the update.
         """
         raise NotImplementedError
 

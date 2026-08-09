@@ -1,7 +1,7 @@
 """Pytest fixtures and mock classes for testing Home Assistant integrations."""
 
 import asyncio
-from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, suppress
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -97,7 +97,7 @@ class MockSensor:
                 The value.
         """
         self.attrs = attrs or {}
-        self.display_options_list = display_options_list or []
+        self.display_options_list: Sequence[str] = display_options_list or []
         self.blank_attrs = blank_attrs or set()
         self._in_zone = in_zone
         self.native_value = None
@@ -186,69 +186,66 @@ class MockSensor:
 
             Returns:
                 float:
-                    Converted float value, or ``0.0`` when neither the stored value
-                    nor the fallback can be converted.
+                    Converted float value, or ``0.0`` when conversion is not
+                    possible.
             """
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
-                if isinstance(default, MagicMock):
-                    return 0.0
-                return float(default) if isinstance(default, int | float | str) else 0.0
+                val = default
+            if isinstance(val, MagicMock):
+                return 0.0
             try:
                 return float(val)
             except TypeError, ValueError:
-                if isinstance(default, MagicMock):
-                    return 0.0
-                return float(default) if isinstance(default, int | float | str) else 0.0
+                return 0.0
 
         self.get_attr_safe_float = mock_method(_get_attr_safe_float_default)
 
         # Custom get_attr_safe_dict: mock_method
         def _get_attr_safe_dict_default(
-            attr: str, default: Mapping[str, object] | None = None
-        ) -> Mapping[str, object]:
+            attr: str, default: MutableMapping[str, object] | None = None
+        ) -> MutableMapping[str, object]:
             """Return a stored mapping attribute with production-like fallback behavior.
 
             Args:
                 attr (str):
                     Attribute name to read.
-                default (Mapping[str, object] | None):
-                    Fallback mapping when the stored value is not a dict.
+                default (MutableMapping[str, object] | None):
+                    Fallback mapping when the attribute is missing.
 
             Returns:
-                Mapping[str, object]:
-                    Stored mapping value, a dict fallback, or an empty dict.
+                MutableMapping[str, object]:
+                    Stored mutable mapping, a mutable mapping fallback, or an
+                    empty dict.
             """
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
-                return {} if not isinstance(default, dict) else default
-            return val if isinstance(val, dict) else (default if isinstance(default, dict) else {})
+                return {}
+            return val if isinstance(val, MutableMapping) else {}
 
         self.get_attr_safe_dict = mock_method(_get_attr_safe_dict_default)
 
         # Custom get_attr_safe_list: mock_method
-        def _get_attr_safe_list_default(
-            attr: str, default: Sequence[object] | None = None
-        ) -> Sequence[object]:
-            """Return a stored sequence attribute with display-options handling.
+        def _get_attr_safe_list_default(attr: str, default: object | None = None) -> list[object]:
+            """Return a stored list attribute with display-options handling.
 
             Args:
                 attr (str):
                     Attribute name to read.
-                default (Sequence[object] | None):
-                    Fallback sequence when the stored value is not a list.
+                default (object | None):
+                    Fallback value when the attribute is missing.
 
             Returns:
-                Sequence[object]:
-                    The configured display options, a stored list, a list fallback,
-                    or an empty list.
+                list[object]:
+                    The configured display options, a stored list, a list
+                    fallback, or an empty list.
             """
             if attr == "display_options_list":
-                return self.display_options_list
+                return list[object](self.display_options_list)
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
-                return [] if not isinstance(default, list) else default
-            return val if isinstance(val, list) else (default if isinstance(default, list) else [])
+                return []
+            return val if isinstance(val, list) else []
 
         self.get_attr_safe_list = mock_method(_get_attr_safe_list_default)
         # Custom set_attr: updates attrs and records calls

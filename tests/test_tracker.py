@@ -237,7 +237,7 @@ async def _assert_tracker_state_can_proceed_with_coordinates(
     sensor: MockSensor,
     tracker_state: str,
 ) -> None:
-    """Return PROCEED when state-like tracker has usable coordinates.
+    """Assert a state-like tracker with usable coordinates can proceed.
 
     Args:
         mock_hass (MagicMock):

@@ -134,8 +134,9 @@ class OSMClient:
 
         Returns:
             Any | None:
-                Parsed JSON object (or a list-item flattened mapping), or ``None``
-                when the request or parse fails.
+                Parsed JSON value. A one-element list containing a mapping is
+                flattened to that mapping. Returns ``None`` when the request or
+                parse fails.
         """
         osm_cache: dict[str, object] = self._hass.data[DOMAIN][OSM_CACHE]
         if use_cache and url in osm_cache:
