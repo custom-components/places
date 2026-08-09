@@ -52,11 +52,11 @@ class OSMParserFactory(Protocol):
 
         Args:
             attrs (Attrs | None):
-                The value.
+                Places attribute mapping used by the test.
 
         Returns:
             tuple[OSMParser, MockSensor]:
-                The value.
+                Parser instance constructed from the supplied option string.
         """
 
 
@@ -68,7 +68,7 @@ def osm_parser() -> OSMParserFactory:
 
     Returns:
         OSMParserFactory:
-            The value.
+            Factory that builds a parser and its associated sensor double.
     """
 
     def _create(attrs: Attrs | None = None) -> tuple[OSMParser, MockSensor]:
@@ -108,15 +108,15 @@ async def test_set_attribution(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         osm_dict (OsmDict):
-            The value.
+            OpenStreetMap response fields supplied to the parser.
         expected_attr (AttrName):
-            The value.
+            Attribute name whose resulting content is asserted.
         expected_value (object):
-            The value.
+            Attribute content expected for this parametrized case.
         should_call (bool):
-            The value.
+            Whether the mocked method is expected to be called.
     """
     parser, sensor = osm_parser()
     await parser.set_attribution(osm_dict)
@@ -162,15 +162,15 @@ async def test_parse_type_variants(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         osm_dict (OsmDict):
-            The value.
+            OpenStreetMap response fields supplied to the parser.
         get_attr_value (str | None):
-            The value.
+            Existing attribute content returned by the sensor double.
         expect_clear (bool):
-            The value.
+            Whether stale attributes are expected to be cleared.
         expected_set_calls (Sequence[SetAttrCall]):
-            The value.
+            Attribute assignments expected from parsing.
     """
     # Create sensor pre-populated with any existing place_type value
     parser, sensor = osm_parser(
@@ -200,13 +200,13 @@ async def test_parse_category_variants(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         category (str | None):
-            The value.
+            OpenStreetMap category supplied to place-name parsing.
         address (Address | None):
-            The value.
+            OpenStreetMap address fields supplied to the parser.
         expect_calls (bool):
-            The value.
+            Whether parser helper calls are expected.
     """
     osm_dict: OsmDict = {}
     if category is not None:
@@ -261,15 +261,15 @@ async def test_parse_namedetails_variants(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         namedetails (Mapping[str, str]):
-            The value.
+            Localized OpenStreetMap names supplied to the parser.
         language_pref (str | None):
-            The value.
+            Preferred language for OpenStreetMap names.
         is_lang_blank (bool):
-            The value.
+            Whether the language preference is blank.
         expected_calls (Sequence[str]):
-            The value.
+            Calls expected on the mocked dependency.
     """
     # Create a sensor with language preference or blankness configured via attrs/blank_attrs
     if is_lang_blank:
@@ -310,7 +310,7 @@ async def test_parse_address_calls_submethods(osm_parser: OSMParserFactory) -> N
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
     """
     osm_dict = {"address": {"house_number": "123", "road": "Main"}}
     parser, _sensor = osm_parser()
@@ -338,13 +338,13 @@ async def test_set_address_details_sets_attrs(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         address (Address):
-            The value.
+            OpenStreetMap address fields supplied to the parser.
         expected_attr (AttrName):
-            The value.
+            Attribute name whose resulting content is asserted.
         expected_value (object):
-            The value.
+            Attribute content expected for this parametrized case.
     """
     parser, sensor = osm_parser()
     await parser.set_address_details(address)
@@ -384,7 +384,7 @@ async def test_parse_miscellaneous_osm_id_prefers_argument_over_sensor_state(
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs[ATTR_OSM_DICT] = {
         "osm_id": 12345,
@@ -468,7 +468,7 @@ async def test_set_city_details_preserves_overlapping_type_precedence(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
     """
     address = {
         "town": "City Value",
@@ -502,13 +502,13 @@ async def test_set_city_details_preserves_lower_priority_postal_town(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         address (Address):
-            The value.
+            OpenStreetMap address fields supplied to the parser.
         expected_city (str):
-            The value.
+            City name expected after address parsing.
         expected_postal_town (str):
-            The value.
+            Postal-town name expected after address parsing.
     """
     parser, sensor = osm_parser()
 
@@ -537,11 +537,11 @@ async def test_set_region_details_sets_attrs(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         expected_attr (AttrName):
-            The value.
+            Attribute name whose resulting content is asserted.
         expected_value (object):
-            The value.
+            Attribute content expected for this parametrized case.
     """
     address = {
         "state": "CA",
@@ -565,9 +565,9 @@ async def test_set_region_details_ignores_non_string_codes(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         invalid_value (object):
-            The value.
+            Invalid input used to verify defensive parsing.
     """
     parser, sensor = osm_parser()
 
@@ -601,11 +601,11 @@ async def test_parse_miscellaneous_sets_attrs(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         expected_attr (AttrName):
-            The value.
+            Attribute name whose resulting content is asserted.
         expected_value (object):
-            The value.
+            Attribute content expected for this parametrized case.
     """
     osm_dict = {
         "display_name": "123 Main St",
@@ -633,9 +633,9 @@ async def test_parse_miscellaneous_ignores_invalid_street_ref(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         raw_ref (object):
-            The value.
+            Raw highway reference supplied by OpenStreetMap.
     """
     osm_dict = {
         "display_name": "123 Main St",
@@ -666,9 +666,9 @@ async def test_parse_miscellaneous_clears_stale_street_ref_without_usable_ref(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         raw_ref (object):
-            The value.
+            Raw highway reference supplied by OpenStreetMap.
     """
     osm_dict = {
         "display_name": "123 Main St",
@@ -707,11 +707,11 @@ async def test_set_place_name_no_dupe_param(
 
     Args:
         case (str):
-            The value.
+            Named parameter set for the current case.
         current_name (str):
-            The value.
+            Current place name used during finalization.
         should_set (bool):
-            The value.
+            Whether the parsed attribute is expected to be stored.
     """
     # Build sensor state rather than stubbing methods
     if case == "unique":
@@ -773,13 +773,13 @@ async def test_finalize_last_place_name_variants(
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
         _case (str):
-            The value.
+            Named parameter set for the current case.
         existing_attrs (Attrs):
-            The value.
+            Attributes present before the parser update.
         should_set (bool):
-            The value.
+            Whether the parsed attribute is expected to be stored.
     """
     parser, sensor = osm_parser(attrs=existing_attrs)
     await parser.finalize_last_place_name("old_name")
@@ -799,7 +799,7 @@ async def test_parse_osm_dict_full_flow(osm_parser: OSMParserFactory) -> None:
 
     Args:
         osm_parser (OSMParserFactory):
-            The value.
+            OpenStreetMap parser fixture.
     """
     osm_dict = {
         "licence": "OSM License",

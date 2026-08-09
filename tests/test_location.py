@@ -36,11 +36,11 @@ async def test_location_strings_are_current_format(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs.update(
         {
@@ -78,11 +78,11 @@ async def test_distance_fields_are_populated(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs.update(
         {
@@ -106,11 +106,11 @@ async def test_direction_of_travel_stationary_when_distance_unchanged(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs[ATTR_DISTANCE_TRAVELED] = 1.0
     sensor.attrs[ATTR_DISTANCE_FROM_HOME] = 100.0

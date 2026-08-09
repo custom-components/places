@@ -52,15 +52,15 @@ class _FakeStore:
 
         Args:
             _hass (MagicMock):
-                The value.
+                Mocked Home Assistant runtime.
             _version (int):
-                The value.
+                Storage or configuration schema version.
             _key (str):
-                The value.
+                Configuration or attribute key being accessed.
             atomic_writes (bool):
-                The value.
+                Whether the fake store models atomic writes.
             serialize_in_event_loop (bool):
-                The value.
+                Whether serialization runs in the event loop.
         """
         _ = atomic_writes, serialize_in_event_loop
 
@@ -69,7 +69,7 @@ class _FakeStore:
 
         Returns:
             object | None:
-                The value.
+                Stored payload configured for the persistence scenario.
 
         Raises:
             load_error:
@@ -85,7 +85,7 @@ class _FakeStore:
 
         Args:
             data (dict[str, object]):
-                The value.
+                Places payload processed by the persistence or update helper.
 
         Raises:
             save_error:
@@ -111,11 +111,11 @@ def _hass_for_legacy_path(tmp_path: Path) -> MagicMock:
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
 
     Returns:
         MagicMock:
-            The value.
+            Home Assistant instance bound to the legacy storage path.
     """
     hass = MagicMock()
     hass.config.path.side_effect = lambda *parts: str(tmp_path.joinpath(*parts))
@@ -128,9 +128,9 @@ def _write_legacy_snapshot(path: Path, contents: str) -> None:
 
     Args:
         path (Path):
-            The value.
+            Storage path used for the persistence operation.
         contents (str):
-            The value.
+            Serialized legacy snapshot written to disk.
     """
     path.parent.mkdir(parents=True)
     path.write_text(contents)
@@ -141,7 +141,7 @@ def test_missing_legacy_snapshot_returns_none(tmp_path: Path) -> None:
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
     """
     assert _read_legacy_snapshot(tmp_path / "missing.json", "Test Place") is None
 
@@ -179,11 +179,11 @@ def test_snapshot_cleanup_handles_parent_directory_errors(
 
     Args:
         parent_error (OSError):
-            The value.
+            Parent operation failure injected by the test.
         expected_warning (bool):
-            The value.
+            Warning text expected in captured logs.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     path = MagicMock(spec=Path)
     path.parent = MagicMock(spec=Path)
@@ -204,9 +204,9 @@ async def test_legacy_snapshot_read_error_is_contained(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     read = MagicMock(side_effect=OSError("read failed"))
@@ -230,9 +230,9 @@ async def test_valid_snapshot_is_saved_then_removed(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
@@ -257,9 +257,9 @@ async def test_legacy_entity_keys_are_renamed_before_store_save(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
@@ -303,11 +303,11 @@ async def test_unusable_snapshot_is_removed_without_save(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         contents (str):
-            The value.
+            Serialized legacy snapshot written to disk.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
@@ -329,9 +329,9 @@ async def test_invalid_utf8_snapshot_is_removed_without_save(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
@@ -354,9 +354,9 @@ async def test_store_write_error_still_removes_snapshot(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.save_error = OSError("write failed")
@@ -388,11 +388,11 @@ async def test_store_load_error_still_removes_snapshot(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         load_error (Exception):
-            The value.
+            Storage read failure injected by the test.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.load_error = load_error
@@ -415,9 +415,9 @@ async def test_existing_store_data_wins_and_legacy_snapshot_is_removed(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.next_data = {}
@@ -440,9 +440,9 @@ async def test_existing_store_legacy_distance_keys_are_normalized(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.next_data = {
@@ -471,9 +471,9 @@ async def test_invalid_store_data_is_replaced_by_legacy_snapshot(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.next_data = ["invalid"]
@@ -496,9 +496,9 @@ async def test_legacy_distance_keys_are_normalized_before_store_save(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
@@ -533,9 +533,9 @@ async def test_cleanup_error_is_swallowed(tmp_path: Path, monkeypatch: pytest.Mo
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     cleanup = MagicMock(side_effect=OSError("cleanup failed"))

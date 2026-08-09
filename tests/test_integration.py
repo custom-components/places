@@ -38,7 +38,7 @@ def mock_entry() -> MockConfigEntry:
 
     Returns:
         MockConfigEntry:
-            The value.
+            Configuration entry prepared for the integration scenario.
     """
     return MockConfigEntry(domain="places", data={"name": "test", "other": "value"})
 
@@ -49,7 +49,7 @@ def sensitive_entry() -> MockConfigEntry:
 
     Returns:
         MockConfigEntry:
-            The value.
+            Configuration entry populated with values requiring redaction.
     """
     return MockConfigEntry(
         domain="places",
@@ -69,11 +69,11 @@ class _FakePlacesStorage:
 
         Args:
             hass (object):
-                The value.
+                Mocked Home Assistant runtime.
             entry_id (str):
-                The value.
+                Stable identifier of the configuration entry.
             name (str):
-                The value.
+                Display name assigned to the fake configuration entry.
         """
         self.hass = hass
         self.entry_id = entry_id
@@ -104,11 +104,11 @@ class _FakeSetupPlacesStorage:
 
         Args:
             hass (object):
-                The value.
+                Mocked Home Assistant runtime.
             entry_id (str):
-                The value.
+                Stable identifier of the configuration entry.
             name (str):
-                The value.
+                Display name assigned to the fake configuration entry.
         """
         self.hass = hass
         self.entry_id = entry_id
@@ -120,7 +120,7 @@ class _FakeSetupPlacesStorage:
 
         Returns:
             dict[str, object]:
-                The value.
+                Stored payload configured for the persistence scenario.
         """
         return dict(type(self).load_result)
 
@@ -141,13 +141,13 @@ class _FakeCoordinator:
 
         Args:
             hass (object):
-                The value.
+                Mocked Home Assistant runtime.
             config_entry (MockConfigEntry):
-                The value.
+                Places configuration entry used by the test.
             imported_attributes (dict[str, object]):
-                The value.
+                Persisted attributes imported at startup.
             persistence (_FakeSetupPlacesStorage | MagicMock):
-                The value.
+                Places persistence manager used by the test.
         """
         self.hass = hass
         self.config_entry = config_entry
@@ -184,13 +184,13 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         version (int):
-            The value.
+            Storage or configuration schema version.
         update_calls (int):
-            The value.
+            Coordinator update calls expected during migration.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -314,13 +314,13 @@ async def test_async_migrate_entry_converts_do_not_reorder_to_advanced_options(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         display_options (str):
-            The value.
+            Display options applied to state rendering.
         expected_data (dict[str, object] | None):
-            The value.
+            Places payload expected for this parametrized case.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -351,11 +351,11 @@ async def test_async_remove_entry_removes_store_data(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = None
@@ -382,9 +382,9 @@ async def test_async_remove_entry_uses_entry_id_if_name_missing(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     entry = MockConfigEntry(domain="places", data={})
     registry = MagicMock()
@@ -410,9 +410,9 @@ async def test_async_remove_extended_entity_removes_registry_entry(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = "sensor.test_extended_data"
@@ -436,9 +436,9 @@ async def test_async_remove_extended_entity_ignores_missing_registry_entry(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = None
@@ -464,13 +464,13 @@ async def test_async_remove_entry_logs_storage_errors_without_blocking(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         sensitive_entry (MockConfigEntry):
-            The value.
+            Configuration entry containing secrets that must not be logged.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = None
@@ -500,11 +500,11 @@ async def test_async_unload_entry_logs_safe_identifier(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         sensitive_entry (MockConfigEntry):
-            The value.
+            Configuration entry containing secrets that must not be logged.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     sensitive_entry.runtime_data = _FakeCoordinator(
         mock_hass,
@@ -530,11 +530,11 @@ async def test_async_setup_entry_calls_forward_setups(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     _FakeSetupPlacesStorage.load_result = {"native_value": "Restored"}
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
@@ -550,9 +550,9 @@ async def test_async_setup_entry_calls_forward_setups(
 
         Args:
             _args (object):
-                The value.
+                Positional arguments captured by the forwarding callback.
             _kwargs (object):
-                The value.
+                Optional keyword arguments captured by the forwarding callback.
         """
         call_order.append("forward")
 
@@ -569,15 +569,15 @@ async def test_async_setup_entry_calls_forward_setups(
 
         Args:
             self (_FakeCoordinator):
-                The value.
+                Fake coordinator instance initialized by the patched method.
             hass (object):
-                The value.
+                Mocked Home Assistant runtime.
             config_entry (MockConfigEntry):
-                The value.
+                Places configuration entry used by the test.
             imported_attributes (dict[str, object]):
-                The value.
+                Persisted attributes imported at startup.
             persistence (_FakeSetupPlacesStorage | MagicMock):
-                The value.
+                Places persistence manager used by the test.
         """
         original_init(self, hass, config_entry, imported_attributes, persistence)
         self.async_added_to_hass.side_effect = record_subscription
@@ -610,7 +610,7 @@ def test_ensure_osm_runtime_state_preserves_existing_state(mock_hass: MagicMock)
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     cache: dict[str, object] = {"cached": {"ok": True}}
     throttle = {"lock": asyncio.Lock(), "last_query": 42.0}
@@ -637,11 +637,11 @@ async def test_async_setup_entry_does_not_subscribe_when_platform_setup_fails(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
@@ -670,13 +670,13 @@ async def test_async_setup_entry_clears_runtime_when_platform_cleanup_fails(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         cleanup_raises (bool):
-            The value.
+            Whether cleanup is expected to raise internally.
     """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
@@ -706,9 +706,9 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     entry = MockConfigEntry(
         domain="places",
@@ -754,15 +754,15 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
 
         Args:
             self (_FakeCoordinator):
-                The value.
+                Fake coordinator instance initialized by the patched method.
             hass (object):
-                The value.
+                Mocked Home Assistant runtime.
             config_entry (MockConfigEntry):
-                The value.
+                Places configuration entry used by the test.
             imported_attributes (dict[str, object]):
-                The value.
+                Persisted attributes imported at startup.
             persistence (_FakeSetupPlacesStorage | MagicMock):
-                The value.
+                Places persistence manager used by the test.
         """
         original_init(self, hass, config_entry, imported_attributes, persistence)
         self.async_request_refresh.side_effect = raise_refresh_error
@@ -792,11 +792,11 @@ async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
@@ -823,15 +823,15 @@ async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
 
         Args:
             self (_FakeCoordinator):
-                The value.
+                Fake coordinator instance initialized by the patched method.
             hass (object):
-                The value.
+                Mocked Home Assistant runtime.
             config_entry (MockConfigEntry):
-                The value.
+                Places configuration entry used by the test.
             imported_attributes (dict[str, object]):
-                The value.
+                Persisted attributes imported at startup.
             persistence (_FakeSetupPlacesStorage | MagicMock):
-                The value.
+                Places persistence manager used by the test.
         """
         original_init(self, hass, config_entry, imported_attributes, persistence)
         self.async_added_to_hass.side_effect = raise_subscription_error
@@ -857,9 +857,9 @@ async def test_async_setup_entry_with_empty_data(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     entry = MockConfigEntry(domain="places", data={})
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
@@ -881,9 +881,9 @@ async def test_async_setup_entry_preserves_recorder_event_exclusions_for_extende
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     entry = MockConfigEntry(
         domain="places",
@@ -913,13 +913,13 @@ async def test_async_unload_entry_result(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         unload_return (bool):
-            The value.
+            Platform-unload result returned by the mock.
         expected (bool):
-            The value.
+            Expected result for this parametrized case.
     """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
@@ -948,9 +948,9 @@ async def test_async_unload_entry_prepares_unload_before_platform_unload_and_shu
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
@@ -986,11 +986,11 @@ async def test_async_unload_entry_completes_when_shutdown_raises(
 
     Args:
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     entry = MockConfigEntry(
         domain="places",
@@ -1025,9 +1025,9 @@ async def test_async_unload_entry_resumes_coordinator_when_platform_unload_fails
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
@@ -1064,11 +1064,11 @@ async def test_async_unload_entry_resumes_coordinator_when_prepare_unload_raises
 
     Args:
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
@@ -1099,11 +1099,11 @@ async def test_async_unload_entry_resumes_coordinator_when_platform_unload_raise
 
     Args:
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
@@ -1144,17 +1144,17 @@ async def test_async_unload_entry_resume_failure_preserves_unload_result(
 
     Args:
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         failure_path (str):
-            The value.
+            Failure stage selected by the parametrized case.
         expected_error (str | None):
-            The value.
+            Error text expected from the failure path.
         expected_result (bool | None):
-            The value.
+            Return result expected for this parametrized case.
     """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
@@ -1189,9 +1189,9 @@ async def test_runtime_data_isolation(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     entry1 = MockConfigEntry(domain="places", data={"name": "entry1"})
     entry2 = MockConfigEntry(domain="places", data={"name": "entry2"})
@@ -1216,11 +1216,11 @@ async def test_setup_entry_multiple_calls(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
@@ -1239,11 +1239,11 @@ async def test_async_unload_entry_does_not_remove_store_data(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
     mock_entry.runtime_data = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())

@@ -46,7 +46,7 @@ async def test_display_options_text_entity_enforces_max_length(mock_hass: MagicM
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,

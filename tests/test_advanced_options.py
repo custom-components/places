@@ -25,15 +25,15 @@ class AdvancedParserFactory(Protocol):
 
         Args:
             opts_str (str | None):
-                The value.
+                Display-options expression parsed by the fixture.
             attrs (Attrs | None):
-                The value.
+                Places attribute mapping used by the test.
             in_zone (bool):
-                The value.
+                Whether the tracker is inside the selected zone.
 
         Returns:
             tuple[AdvancedOptionsParser, MockSensor]:
-                The value.
+                Parser instance constructed from the supplied option string.
         """
 
 
@@ -45,7 +45,7 @@ def advanced_parser() -> AdvancedParserFactory:
 
     Returns:
         AdvancedParserFactory:
-            The value.
+            Factory that constructs advanced-option parsers for test inputs.
     """
 
     def _create(
@@ -89,11 +89,11 @@ async def test_do_brackets_and_parens_count_match(
 
     Args:
         input_str (str):
-            The value.
+            Text supplied to the display-options parser.
         expected (bool):
-            The value.
+            Expected result for this parametrized case.
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     parser, _sensor = advanced_parser()
     assert await parser.do_brackets_and_parens_count_match(input_str) is expected
@@ -116,11 +116,11 @@ async def test_get_option_state_basic(
 
     Args:
         key (str):
-            The value.
+            Configuration or attribute key being accessed.
         expected (str | None):
-            The value.
+            Expected result for this parametrized case.
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     attrs = {
         "formatted_address": "123 Any Street",
@@ -154,13 +154,13 @@ async def test_get_option_state_incl_excl(
 
     Args:
         incl (list[str] | None):
-            The value.
+            Option tokens included in the rendered state.
         excl (list[str] | None):
-            The value.
+            Option tokens excluded from the rendered state.
         expected (str | None):
-            The value.
+            Expected result for this parametrized case.
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     attrs = {"zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
@@ -187,13 +187,13 @@ async def test_get_option_state_incl_attr_excl_attr(
 
     Args:
         incl_attr (FilterMap | None):
-            The value.
+            Attributes included in the rendered state.
         excl_attr (FilterMap | None):
-            The value.
+            Attributes excluded from the rendered state.
         expected (str | None):
-            The value.
+            Expected result for this parametrized case.
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     attrs = {"zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
@@ -209,7 +209,7 @@ async def test_get_option_state_numeric_values_are_stringified(
 
     Args:
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     attrs = {
         "latitude": 40.715,
@@ -236,11 +236,11 @@ async def test_get_option_state_title_case(
 
     Args:
         key (str):
-            The value.
+            Configuration or attribute key being accessed.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     attrs = {
         "zone_name": "home",
@@ -272,15 +272,15 @@ async def test_parse_attribute_parentheses_incl_excl(
 
     Args:
         input_str (str):
-            The value.
+            Text supplied to the display-options parser.
         expected_attr (str):
-            The value.
+            Attribute name whose resulting content is asserted.
         expected_lst (list[str]):
-            The value.
+            Parsed option list expected for this case.
         expected_incl (bool):
-            The value.
+            Included option tokens expected after parsing.
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     parser, _sensor = advanced_parser()
     attr, lst, incl = parser.parse_attribute_parentheses(input_str)
@@ -315,17 +315,17 @@ async def test_parse_parens_and_bracket(
 
     Args:
         parens_input (str):
-            The value.
+            Parenthesized expression supplied to the parser.
         parens_expected_incl (list[str]):
-            The value.
+            Tokens expected inside the parenthesized group.
         parens_expected_excl (list[str]):
-            The value.
+            Tokens expected outside the parenthesized group.
         bracket_input (str):
-            The value.
+            Bracketed expression supplied to the parser.
         bracket_expected (str):
-            The value.
+            Tokens expected after bracket parsing.
         advanced_parser (AdvancedParserFactory):
-            The value.
+            Advanced display-options parser fixture.
     """
     parser, _sensor = advanced_parser()
     incl, excl, _incl_attr, _excl_attr, next_opt = await parser.parse_parens(parens_input)
@@ -357,15 +357,15 @@ async def test_compile_state_variants(
 
     Args:
         state_list (list[StateItem]):
-            The value.
+            Ordered state components to compile.
         street_i (int | None):
-            The value.
+            Street component included in state formatting.
         street_num_i (int | None):
-            The value.
+            Street-number component included in state formatting.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     # Use shared sensor fixture and adjust state for this scenario
     sensor.attrs = {}
@@ -385,7 +385,7 @@ async def test_build_from_advanced_options_bracket_paren_mismatch(sensor: MockSe
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     # Use shared sensor fixture
     sensor.attrs = {}
@@ -401,7 +401,7 @@ async def test_build_from_advanced_options_bracket_and_paren(sensor: MockSensor)
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     attrs: dict[str, object] = {"zone_name": "Home", "place_type": "Restaurant"}
     sensor.attrs = attrs
@@ -438,7 +438,7 @@ async def test_build_next_option_only_traverses_comma_prefixed_suffix(sensor: Mo
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = {"zone_name": "Home", "place_type": "Restaurant"}
     parser = AdvancedOptionsParser(sensor, "zone_name[place_type]place_type")
@@ -460,7 +460,7 @@ async def test_build_from_advanced_options_empty_string(sensor: MockSensor) -> N
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")
@@ -486,13 +486,13 @@ async def test_mismatched_special_chars_log_error(
 
     Args:
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         fn_name (str):
-            The value.
+            Parser helper name included in the diagnostic message.
         input_val (str):
-            The value.
+            Input consumed by the conversion helper.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")
@@ -516,7 +516,7 @@ async def test_build_from_advanced_options_not_none_calls_normal(sensor: MockSen
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
@@ -544,9 +544,9 @@ async def test_build_from_advanced_options_processed_options(
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
@@ -569,7 +569,7 @@ async def test_build_from_advanced_options_no_bracket_or_paren(sensor: MockSenso
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
@@ -587,7 +587,7 @@ async def test_build_from_advanced_options_with_comma(sensor: MockSensor) -> Non
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name,place_type")
@@ -602,7 +602,7 @@ async def test_build_from_advanced_options_no_comma(sensor: MockSensor) -> None:
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "zone_name")
@@ -627,13 +627,13 @@ async def test_parse_bracket_variants(
 
     Args:
         input_str (str):
-            The value.
+            Text supplied to the display-options parser.
         expected_none_opt (object):
-            The value.
+            Option expected to produce no selection.
         expected_next_opt (object):
-            The value.
+            Option expected after advancing the selection.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     parser = AdvancedOptionsParser(sensor, "")
     none_opt, next_opt = await parser.parse_bracket(input_str)
@@ -647,7 +647,7 @@ async def test_process_bracket_or_parens_comma_first_builds_states(sensor: MockS
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     attrs: dict[str, object] = {
         "zone_name": "Home",
@@ -668,7 +668,7 @@ async def test_bracket_fallback_when_primary_option_none(sensor: MockSensor) -> 
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     attrs: dict[str, object] = {"place_type": "work", "name": "Test"}
     sensor.attrs = attrs
@@ -685,7 +685,7 @@ async def test_paren_then_bracket_fallback_exclusion(sensor: MockSensor) -> None
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     attrs: dict[str, object] = {
         "zone_name": "Home",
@@ -707,7 +707,7 @@ async def test_get_option_state_incl_attr_blank_causes_exclusion(sensor: MockSen
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     attrs: dict[str, object] = {
         "zone_name": "Home",
@@ -726,7 +726,7 @@ async def test_parse_parens_with_attribute_filters(sensor: MockSensor) -> None:
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = {}
     parser = AdvancedOptionsParser(sensor, "")

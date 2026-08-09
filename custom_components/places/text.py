@@ -43,7 +43,7 @@ class PlacesDisplayOptionsText(PlacesEntity, TextEntity):
 
         Args:
             coordinator (PlacesUpdateCoordinator):
-                The value.
+                Places update coordinator used by the entity or test.
         """
         super().__init__(coordinator, unique_suffix=CONF_DISPLAY_OPTIONS)
 
@@ -53,7 +53,7 @@ class PlacesDisplayOptionsText(PlacesEntity, TextEntity):
 
         Returns:
             str | None:
-                The value.
+                Current text value exposed to Home Assistant.
         """
         value = self.coordinator.get_attr_safe_str(CONF_DISPLAY_OPTIONS)
         return value if len(value) <= MAX_LENGTH_STATE_STATE else None
@@ -63,6 +63,6 @@ class PlacesDisplayOptionsText(PlacesEntity, TextEntity):
 
         Args:
             value (str):
-                The value.
+                Display-options string saved through the coordinator.
         """
         await self.coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, value)

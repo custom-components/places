@@ -24,11 +24,11 @@ def _coordinator(mock_hass: MagicMock) -> PlacesUpdateCoordinator:
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
 
     Returns:
         PlacesUpdateCoordinator:
-            The value.
+            Coordinator populated with the supplied Places attributes.
     """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
@@ -43,7 +43,7 @@ def test_places_attribute_blank_semantics(mock_hass: MagicMock) -> None:
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     coordinator = _coordinator(mock_hass)
     coordinator.clear_attr("missing")
@@ -75,7 +75,7 @@ def test_places_attribute_safe_conversions(mock_hass: MagicMock) -> None:
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     coordinator = _coordinator(mock_hass)
     coordinator.set_attr("int_text", "12")
@@ -99,7 +99,7 @@ async def test_places_attribute_cleanup_and_restore(mock_hass: MagicMock) -> Non
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     coordinator = _coordinator(mock_hass)
     coordinator.set_attr("keep_zero", 0)
@@ -123,7 +123,7 @@ async def test_places_attribute_restore_previous_attr(mock_hass: MagicMock) -> N
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     coordinator = _coordinator(mock_hass)
     previous: MutableMapping[str, object] = {
@@ -153,11 +153,11 @@ def test_coordinator_import_persisted_attrs_updates_initial_update(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         persisted_attr (MutableMapping[str, object]):
-            The value.
+            Persisted attributes imported into the coordinator.
         expected_initial_update (bool):
-            The value.
+            Initial-update flag expected after import.
     """
     coordinator = _coordinator(mock_hass)
 

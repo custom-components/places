@@ -21,9 +21,9 @@ def test_clear_since_from_state_removes_pattern(input_str: str, expected: str) -
 
     Args:
         input_str (str):
-            The value.
+            Text supplied to the display-options parser.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
     """
     assert clear_since_from_state(input_str) == expected
 
@@ -42,11 +42,11 @@ def test_safe_truncate(input_str: str | None, max_len: int, expected: str) -> No
 
     Args:
         input_str (str | None):
-            The value.
+            Text supplied to the display-options parser.
         max_len (int):
-            The value.
+            Maximum output length enforced by truncation.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
     """
     assert safe_truncate(input_str, max_len) == expected
 
@@ -74,8 +74,8 @@ def test_is_float_param(value: object, expected: bool) -> None:
 
     Args:
         value (object):
-            The value.
+            Candidate input checked for float compatibility.
         expected (bool):
-            The value.
+            Expected result for this parametrized case.
     """
     assert helpers.is_float(value) is expected

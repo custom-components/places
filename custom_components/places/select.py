@@ -44,7 +44,7 @@ class PlacesMapProviderSelect(PlacesEntity, SelectEntity):
 
         Args:
             coordinator (PlacesUpdateCoordinator):
-                The value.
+                Places update coordinator used by the entity or test.
         """
         super().__init__(coordinator, unique_suffix=CONF_MAP_PROVIDER)
 
@@ -54,7 +54,7 @@ class PlacesMapProviderSelect(PlacesEntity, SelectEntity):
 
         Returns:
             str | None:
-                The value.
+                Currently selected display option.
         """
         return self.coordinator.get_attr_safe_str(CONF_MAP_PROVIDER) or None
 
@@ -63,6 +63,6 @@ class PlacesMapProviderSelect(PlacesEntity, SelectEntity):
 
         Args:
             option (str):
-                The value.
+                Map provider or display option selected by the user.
         """
         await self.coordinator.async_update_setting(CONF_MAP_PROVIDER, option)

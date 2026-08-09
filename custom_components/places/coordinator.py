@@ -176,7 +176,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         Returns:
             bool:
-                The value.
+                Whether coordinator shutdown has begun.
         """
         return self._is_shutting_down
 
@@ -596,7 +596,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         Returns:
             PlacesData:
-                The value.
+                Fresh Places data from the completed scan.
         """
         return await self.async_scan_update()
 
@@ -651,9 +651,9 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
         Args:
             reason (str):
-                The value.
+                Reason recorded for the coordinator refresh.
             force (bool):
-                The value.
+                Whether normal update suppression is bypassed.
         """
         previous_attr = copy.deepcopy(self.get_internal_attr())
         updater = PlacesUpdater(

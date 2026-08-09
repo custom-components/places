@@ -132,15 +132,15 @@ async def render_display_option(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         display_option (str):
-            The value.
+            Display option rendered by the parametrized case.
 
     Returns:
         str | None:
-            The value.
+            Rendered state produced for the selected display option.
     """
     mock_hass.states.get.return_value = None
     config_entry = MockConfigEntry(
@@ -218,13 +218,13 @@ async def test_display_options_state_render(
 
     Args:
         display_option (str):
-            The value.
+            Display option rendered by the parametrized case.
         expected_state (str):
-            The value.
+            Entity state expected for this parametrized case.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     state = await render_display_option(mock_hass, monkeypatch, display_option)
 
@@ -240,9 +240,9 @@ async def test_basic_place_option_includes_neighborhood(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
 

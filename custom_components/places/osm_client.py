@@ -104,11 +104,11 @@ class OSMClient:
 
         Args:
             wikidata_id (object):
-                The value.
+                Wikidata entity identifier used to build the lookup URL.
 
         Returns:
             str:
-                The value.
+                Wikidata API URL for the configured entity identifier.
         """
         return f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
 
@@ -117,7 +117,7 @@ class OSMClient:
 
         Args:
             sensor_name (str):
-                The value.
+                Sensor name cached for subsequent log messages.
         """
         self._sensor_name = sensor_name
 

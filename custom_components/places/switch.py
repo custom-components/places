@@ -42,7 +42,7 @@ class PlacesShowLastUpdatedSwitch(PlacesEntity, SwitchEntity):
 
         Args:
             coordinator (PlacesUpdateCoordinator):
-                The value.
+                Places update coordinator used by the entity or test.
         """
         super().__init__(coordinator, unique_suffix=CONF_SHOW_TIME)
 
@@ -52,7 +52,7 @@ class PlacesShowLastUpdatedSwitch(PlacesEntity, SwitchEntity):
 
         Returns:
             bool:
-                The value.
+                Whether the represented Places option is enabled.
         """
         return bool(self.coordinator.get_attr(CONF_SHOW_TIME))
 
@@ -61,7 +61,7 @@ class PlacesShowLastUpdatedSwitch(PlacesEntity, SwitchEntity):
 
         Args:
             kwargs (object):
-                The value.
+                Optional keyword arguments supplied by Home Assistant.
         """
         await self.coordinator.async_update_setting(CONF_SHOW_TIME, value=True)
 
@@ -70,6 +70,6 @@ class PlacesShowLastUpdatedSwitch(PlacesEntity, SwitchEntity):
 
         Args:
             kwargs (object):
-                The value.
+                Optional keyword arguments supplied by Home Assistant.
         """
         await self.coordinator.async_update_setting(CONF_SHOW_TIME, value=False)

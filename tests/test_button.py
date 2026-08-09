@@ -14,7 +14,7 @@ async def test_force_update_button_setup_and_press(mock_hass: HomeAssistant) -> 
 
     Args:
         mock_hass (HomeAssistant):
-            The value.
+            Mocked Home Assistant runtime.
     """
     coordinator = MagicMock()
     coordinator.async_force_update = AsyncMock()

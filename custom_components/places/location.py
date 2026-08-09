@@ -19,7 +19,7 @@ class CoordinatePair:
 
         Returns:
             str:
-                The value.
+                Human-readable latitude and longitude pair.
         """
         return f"{self.latitude},{self.longitude}"
 

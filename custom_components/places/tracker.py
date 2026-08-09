@@ -27,11 +27,11 @@ def _float_or_none(value: Any) -> float | None:
 
     Args:
         value (Any):
-            The value.
+            Candidate coordinate converted to a finite float when possible.
 
     Returns:
         float | None:
-            The value.
+            Converted finite coordinate, or ``None`` when conversion fails.
     """
     return float(value) if is_float(value) else None
 
@@ -204,6 +204,6 @@ class TrackerSnapshot:
 
         Returns:
             bool:
-                The value.
+                Whether both coordinates are present and finite.
         """
         return self.status == TrackerStatus.OK

@@ -92,13 +92,13 @@ class AioClientMock(Protocol):
 
         Args:
             url (str):
-                The value.
+                URL requested from the mocked HTTP client.
             kwargs (object):
-                The value.
+                Request options forwarded to the mocked HTTP client.
 
         Returns:
             object:
-                The value.
+                State or attribute selected by the test double for the requested key.
         """
 
 
@@ -108,7 +108,7 @@ def mock_config_entry() -> MockConfigEntry:
 
     Returns:
         MockConfigEntry:
-            The value.
+            Places configuration entry installed for the test.
     """
     return MockConfigEntry(domain="places", data={CONF_NAME: "TestSensor"}, options={})
 
@@ -121,11 +121,11 @@ def register_aioclient(aioclient_mock: AioClientMock, url: str, **kwargs: object
 
     Args:
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         url (str):
-            The value.
+            URL requested from the mocked HTTP client.
         kwargs (object):
-            The value.
+            Request options forwarded to the mocked HTTP client.
     """
     # exact
     aioclient_mock.get(url, **kwargs)
@@ -178,19 +178,19 @@ async def test_do_update_flow_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
         check_result (UpdateStatus):
-            The value.
+            Update status returned by the tracker validation step.
         should_rollback (bool):
-            The value.
+            Whether rollback is expected after the injected failure.
         should_handle (bool):
-            The value.
+            Whether the error is expected to be handled.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -239,13 +239,13 @@ async def test_do_update_force_skips_movement_criteria(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -290,13 +290,13 @@ async def test_determine_update_criteria_force_skips_movement_check(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -329,13 +329,13 @@ async def test_do_update_force_rolls_back_failed_fresh_lookup(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -376,13 +376,13 @@ async def test_do_update_runs_phases_in_expected_order(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (Callable[[PlacesUpdater, list[tuple[str, dict[str, object]]]], AbstractContextManager[dict[str, AsyncMock]]]):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
@@ -524,13 +524,13 @@ async def test_do_update_rolls_back_and_finishes_on_phase_error(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (Callable[[PlacesUpdater, list[tuple[str, dict[str, object]]]], AbstractContextManager[dict[str, AsyncMock]]]):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
@@ -626,13 +626,13 @@ async def test_do_update_skips_handle_and_finish_when_shutting_down_after_osm_up
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (Callable[[PlacesUpdater, list[tuple[str, dict[str, object]]]], AbstractContextManager[dict[str, AsyncMock]]]):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
@@ -733,13 +733,13 @@ async def test_do_update_skips_finish_and_publish_on_cancelled_task(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
@@ -788,13 +788,13 @@ async def test_do_update_rolls_back_partial_state_when_cancelled_during_shutdown
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
@@ -854,13 +854,13 @@ async def test_do_update_publishes_after_successful_rollback_path(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (Callable[[PlacesUpdater, list[tuple[str, dict[str, object]]]], AbstractContextManager[dict[str, AsyncMock]]]):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     call_order: list[str] = []
@@ -926,13 +926,13 @@ async def test_handle_state_update_sets_native_value_and_calls_helpers(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     # Ensure extended attribute logic is triggered and show_time path exercised
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
@@ -973,13 +973,13 @@ async def test_handle_state_update_publishes_before_firing_event(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs = {
@@ -1013,11 +1013,11 @@ async def test_handle_state_update_skips_final_publish_and_persist_after_shutdow
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs = {
@@ -1057,11 +1057,11 @@ async def test_handle_state_update_rechecks_shutdown_before_publish_and_event(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs = {
@@ -1101,9 +1101,9 @@ async def test_handle_state_update_skips_extended_lookup_when_option_false(
 
     Args:
         updater (PlacesUpdater):
-            The value.
+            Places updater used by the test.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     updater.coordinator.set_attr(CONF_EXTENDED_ATTR, False)
     get_extended_attr = AsyncMock()
@@ -1131,17 +1131,17 @@ async def test_async_apply_show_time_resets_show_date_and_truncates(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         show_time (bool):
-            The value.
+            Whether the state includes a time suffix.
         expected_prefix (str):
-            The value.
+            State prefix expected after formatting.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[CONF_SHOW_TIME] = show_time
@@ -1173,13 +1173,13 @@ async def test_async_apply_show_time_uses_last_changed_timestamp(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[CONF_SHOW_TIME] = True
@@ -1207,15 +1207,15 @@ async def test_async_apply_show_time_logs_malformed_last_changed(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[CONF_SHOW_TIME] = True
@@ -1244,13 +1244,13 @@ async def test_async_apply_show_time_preserves_aged_date_suffix(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[CONF_SHOW_TIME] = True
@@ -1278,11 +1278,11 @@ async def test_check_for_updated_entity_name_entity_id_new_name(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.entity_id = "sensor.test"
@@ -1304,11 +1304,11 @@ async def test_check_for_updated_entity_name_with_real_coordinator_entity(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         patch_entity_registry (object):
-            The value.
+            Isolated entity-registry fixture.
         coordinator_factory (CoordinatorFactory):
-            The value.
+            Factory for Places update coordinators.
     """
     _ = patch_entity_registry
     mock_hass.states.get.return_value = MagicMock(attributes={})
@@ -1339,9 +1339,9 @@ async def test_check_for_updated_entity_name_uses_latest_coordinator_entity_id(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         coordinator_factory (CoordinatorFactory):
-            The value.
+            Factory for Places update coordinators.
     """
     entry, coordinator = coordinator_factory("OldName")
     coordinator.entity_id = "sensor.old_name"
@@ -1380,15 +1380,15 @@ async def test_update_previous_state_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         show_time (bool):
-            The value.
+            Whether the state includes a time suffix.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -1432,19 +1432,19 @@ async def test_update_old_coordinates_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         lat_val (float | str):
-            The value.
+            Latitude candidate supplied by the tracker.
         lon_val (float | str):
-            The value.
+            Longitude candidate supplied by the tracker.
         expect_lat_old (float | None):
-            The value.
+            Whether the previous latitude is expected to be retained.
         expect_lon_old (float | None):
-            The value.
+            Whether the previous longitude is expected to be retained.
     """
     sensor.attrs[ATTR_LATITUDE] = lat_val
     sensor.attrs[ATTR_LONGITUDE] = lon_val
@@ -1480,17 +1480,17 @@ async def test_check_device_tracker_and_update_coords_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
         gps_result (UpdateStatus):
-            The value.
+            GPS coordinates returned by the tracker check.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -1528,15 +1528,15 @@ async def test_get_gps_accuracy_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         tracker_attrs (dict[str, object] | None):
-            The value.
+            Attributes exposed by the source tracker.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -1581,13 +1581,13 @@ async def test_get_gps_accuracy_clears_stale_zero(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         tracker_attrs (dict[str, object]):
-            The value.
+            Attributes exposed by the source tracker.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     tracker_state = MagicMock()
@@ -1614,13 +1614,13 @@ async def test_update_coordinates_variants_present_and_missing(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     # Present case
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
@@ -1649,13 +1649,13 @@ async def test_determine_update_criteria_calls(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -1693,15 +1693,15 @@ async def test_update_coordinates_and_distance_accepts_unqualified_home_zone(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[CONF_HOME_ZONE] = "home"
@@ -1759,19 +1759,19 @@ async def test_get_initial_last_place_name_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         in_zone (bool):
-            The value.
+            Whether the tracker is inside the selected zone.
         place_name (str | None):
-            The value.
+            Place name available before zone-name selection.
         zone_name (str | None):
-            The value.
+            Zone name available before place-name selection.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.return_value = False
@@ -1896,21 +1896,21 @@ async def test_get_zone_details_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         scenario (str):
-            The value.
+            Named parameter set for the current case.
         setup_func (ZoneSetup):
-            The value.
+            Setup callable used to initialize the case.
         expected_zone (str | None):
-            The value.
+            Zone identifier expected for this parametrized case.
         expected_zone_name_present (bool):
-            The value.
+            Whether a zone name is expected in the output.
         expected_zone_name (str | None):
-            The value.
+            Zone name expected for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     # Execute scenario-specific setup
@@ -1940,11 +1940,11 @@ async def test_get_zone_details_uses_home_zone_friendly_name_from_state(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker_state = MagicMock(state="home", attributes={})
@@ -1977,13 +1977,13 @@ async def test_process_osm_update_calls(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -2005,7 +2005,7 @@ def assert_map_link_set(sensor: MockSensor) -> None:
 
     Args:
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     found = False
     for call in sensor.set_attr.call_args_list:
@@ -2027,13 +2027,13 @@ async def test_get_map_link_providers_all(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         provider (str):
-            The value.
+            Map provider selected for link generation.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if provider == "osm":
@@ -2058,11 +2058,11 @@ async def test_async_reset_attributes_calls(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     await updater.async_reset_attributes()
@@ -2090,17 +2090,17 @@ async def test_should_update_state_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         prev_val (str):
-            The value.
+            Previous sensor content used for update comparison.
         native_val (str):
-            The value.
+            Candidate native sensor state.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -2194,27 +2194,27 @@ async def test_rollback_update_zone_attrs_preserve_policy(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
         live_zone (str):
-            The value.
+            Current zone retained during rollback.
         live_zone_name (str):
-            The value.
+            Current zone name retained during rollback.
         previous_attr (dict):
-            The value.
+            Previous attribute content used for comparison.
         proceed_with_update (UpdateStatus):
-            The value.
+            Whether the location update should proceed.
         preserve_zone_attrs (bool):
-            The value.
+            Whether rollback should retain current zone attributes.
         expected_zone (str):
-            The value.
+            Zone identifier expected for this parametrized case.
         expected_zone_name (str):
-            The value.
+            Zone name expected for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[ATTR_DEVICETRACKER_ZONE] = live_zone
@@ -2274,17 +2274,17 @@ async def test_rollback_update_skips_persistent_side_effects_during_shutdown(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         previous_attr (dict[str, object]):
-            The value.
+            Previous attribute content used for comparison.
         status (UpdateStatus):
-            The value.
+            HTTP status returned by the mocked response.
         now (datetime):
-            The value.
+            Current timestamp supplied by the patched clock.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     object.__setattr__(sensor, "is_shutting_down", True)
@@ -2304,11 +2304,11 @@ async def test_build_osm_url_returns_url(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr_safe_float.side_effect = lambda k: 1.0
@@ -2349,21 +2349,21 @@ async def test_get_dict_from_url_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         cached (bool):
-            The value.
+            Whether the response is already cached.
         payload (str | None):
-            The value.
+            Places payload returned by the mocked request.
         expected_attr (object | None):
-            The value.
+            Attribute name whose resulting content is asserted.
         network_error (bool):
-            The value.
+            Network failure injected by the mocked client.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/test"
@@ -2405,13 +2405,13 @@ async def test_get_dict_from_url_sets_empty_list_payload(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/empty-list"
@@ -2439,13 +2439,13 @@ async def test_forced_get_dict_failure_retains_shared_cache(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     updater._use_cache = False
@@ -2473,13 +2473,13 @@ async def test_get_dict_from_url_removes_stale_cache_on_fetch_failure(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/stale"
@@ -2507,11 +2507,11 @@ async def test_determine_if_update_needed_initial_update(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr.side_effect = lambda k: True if k == ATTR_INITIAL_UPDATE else None
@@ -2527,11 +2527,11 @@ async def test_update_location_attributes_sets_locations(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -2561,15 +2561,15 @@ async def test_calculate_distance_methods(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         method_name (str):
-            The value.
+            Distance-calculation method selected by the case.
         expected_distance_attr (str):
-            The value.
+            Distance attribute expected after calculation.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -2598,13 +2598,13 @@ async def test_update_coordinates_and_distance_calls(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -2643,15 +2643,15 @@ async def test_get_seconds_from_last_change_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         scenario (str):
-            The value.
+            Named parameter set for the current case.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     now = datetime.now(tz=UTC)
@@ -2710,13 +2710,13 @@ async def test_change_show_time_to_date_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         date_format (str):
-            The value.
+            Format applied to rendered timestamps.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -2745,11 +2745,11 @@ async def test_change_dot_to_stationary_sets_direction_and_last_changed(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     await updater.change_dot_to_stationary(
@@ -2783,19 +2783,19 @@ async def test_is_devicetracker_set_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
         tracker_available (bool):
-            The value.
+            Whether the source tracker is available.
         has_valid_coords (bool | None):
-            The value.
+            Whether the source tracker has usable coordinates.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -2832,15 +2832,15 @@ async def test_is_tracker_available_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         tracker_state (object):
-            The value.
+            State exposed by the source tracker.
         expected_result (object):
-            The value.
+            Return result expected for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.return_value = False
@@ -2874,15 +2874,15 @@ async def test_has_valid_coordinates_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         tracker_attrs (dict[str, object] | None):
-            The value.
+            Attributes exposed by the source tracker.
         expected_result (object):
-            The value.
+            Return result expected for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
@@ -2909,15 +2909,15 @@ async def test_log_tracker_issue_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         warn_flag (bool):
-            The value.
+            Whether the tracker issue is logged as a warning.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = warn_flag
@@ -2943,15 +2943,15 @@ async def test_query_osm_and_finalize_runs_parser_and_sets_last_changed(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     sensor.attrs["osm_dict"] = {"some": "value"}
     sensor.attrs["last_place_name"] = "TestPlace"
@@ -3009,13 +3009,13 @@ async def test_calculate_distances_not_all_attrs_set(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         blank_attr (str):
-            The value.
+            Attribute name treated as blank.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -3073,17 +3073,17 @@ async def test_calculate_travel_distance_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         mode (str):
-            The value.
+            State-rendering mode selected by the case.
         blank_attr (str | None):
-            The value.
+            Attribute name treated as blank.
         expected_direction (str | None):
-            The value.
+            Direction of travel expected for this case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -3178,13 +3178,13 @@ async def test_determine_update_criteria_skip_before_determine_if_update_needed(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -3209,11 +3209,11 @@ async def test_get_initial_last_place_name_not_in_zone_blank_keeps_previous(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: k == ATTR_PLACE_NAME
@@ -3235,15 +3235,15 @@ async def test_query_osm_and_finalize_no_osm_dict(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     sensor.attrs[ATTR_OSM_DICT] = None
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
@@ -3270,11 +3270,11 @@ async def test_should_update_state_initial_update_true(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.get_attr.side_effect = lambda k: k == ATTR_INITIAL_UPDATE
@@ -3306,23 +3306,23 @@ async def test_rollback_update_triggers_helpers(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         status (UpdateStatus):
-            The value.
+            HTTP status returned by the mocked response.
         seconds (int):
-            The value.
+            Elapsed seconds used to format the state suffix.
         show_time (bool):
-            The value.
+            Whether the state includes a time suffix.
         expect_dot (bool):
-            The value.
+            Whether a stationary marker is expected.
         expect_show (bool):
-            The value.
+            Whether the time suffix is expected to be shown.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -3370,21 +3370,21 @@ async def test_get_extended_attr_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         osm_type (str):
-            The value.
+            OpenStreetMap object type supplied to parsing.
         expect_call (bool):
-            The value.
+            Whether the mocked dependency is expected to be called.
         expect_log (bool):
-            The value.
+            Whether a diagnostic log message is expected.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
@@ -3419,13 +3419,13 @@ async def test_get_extended_attr_node_triggers_wikidata_lookup(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -3490,23 +3490,23 @@ async def test_get_dict_from_url_network_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         payload (str | None):
-            The value.
+            Places payload returned by the mocked request.
         expect_log_substr (str | None):
-            The value.
+            Whether the specified log fragment is expected.
         expect_cached (bool):
-            The value.
+            Whether the response is expected to enter the cache.
         expect_sensor_attr (object):
-            The value.
+            Whether the sensor attribute is expected to exist.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/nettest"
@@ -3550,21 +3550,21 @@ async def test_get_dict_from_url_payloads_respect_throttle(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         payload (str):
-            The value.
+            Places payload returned by the mocked request.
         dict_name (str):
-            The value.
+            Response-cache key for the requested payload.
         expected_attr (dict[str, object]):
-            The value.
+            Attribute name whose resulting content is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -3620,23 +3620,23 @@ async def test_determine_if_update_needed_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         native (object):
-            The value.
+            Current native sensor state.
         prev (object):
-            The value.
+            Previous state used for update comparison.
         cur (object):
-            The value.
+            Current state used for update comparison.
         prev_loc (object):
-            The value.
+            Previous location used for distance comparison.
         distance (float):
-            The value.
+            Distance used for travel-direction calculation.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if native is not None:
@@ -3684,19 +3684,19 @@ async def test_determine_direction_of_travel_param(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         has_last_distance (bool | None):
-            The value.
+            Whether a previous travel distance is available.
         reported_distance (float):
-            The value.
+            Distance reported by the current update.
         last_distance_arg (float | None):
-            The value.
+            Previous distance supplied to direction calculation.
         expected (object):
-            The value.
+            Expected result for this parametrized case.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if has_last_distance is not None:
@@ -3730,13 +3730,13 @@ async def test_update_coordinates_and_distance_skip_missing_attr(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         stubbed_updater (StubbedUpdater):
-            The value.
+            Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -3763,11 +3763,11 @@ async def test_is_tracker_available_valid(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     # Provide tracker id in attrs and let default get_attr work
@@ -3798,13 +3798,13 @@ async def test_log_tracker_issue_initial_update(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = False
@@ -3821,11 +3821,11 @@ async def test_fire_event_data_includes_core_attributes(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
@@ -3869,15 +3869,15 @@ async def test_fire_event_data_respects_shutdown_state(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         shutting_down (bool):
-            The value.
+            Whether coordinator shutdown has begun.
         expect_event (bool):
-            The value.
+            Whether a state-change event is expected.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     object.__setattr__(sensor, "is_shutting_down", shutting_down)
@@ -3902,7 +3902,7 @@ async def test_fire_event_data_omits_raw_extended_payloads(updater: PlacesUpdate
 
     Args:
         updater (PlacesUpdater):
-            The value.
+            Places updater used by the test.
     """
     updater.coordinator.set_attr(CONF_EXTENDED_ATTR, True)
     updater.coordinator.set_attr(ATTR_OSM_DICT, {"raw": "payload"})
@@ -3929,13 +3929,13 @@ async def test_log_coordinate_issue_warn_flag(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.warn_if_device_tracker_prob = True
@@ -3955,13 +3955,13 @@ async def test_get_current_time_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
         tz (str | None):
-            The value.
+            Timezone used for the timestamp calculation.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     mock_hass.config.time_zone = tz
@@ -3983,15 +3983,15 @@ async def test_get_dict_from_url_handles_network_error(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         caplog (pytest.LogCaptureFixture):
-            The value.
+            Captured log records used for message assertions.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/network-error/"

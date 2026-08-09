@@ -39,7 +39,7 @@ class PlacesAttributes:
 
         Returns:
             MutableMapping[str, Any]:
-                The value.
+                Latest data published by the update coordinator.
         """
         return self._internal_attr
 
@@ -49,7 +49,7 @@ class PlacesAttributes:
 
         Args:
             value (MutableMapping[str, Any]):
-                The value.
+                Replacement coordinator data published to entity consumers.
         """
         self._internal_attr = value
 

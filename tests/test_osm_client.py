@@ -21,13 +21,13 @@ class AioClientMock(Protocol):
 
         Args:
             url (str):
-                The value.
+                URL requested from the mocked HTTP client.
             kwargs (object):
-                The value.
+                Request options forwarded to the mocked HTTP client.
 
         Returns:
             object:
-                The value.
+                State or attribute selected by the test double for the requested key.
         """
 
 
@@ -73,15 +73,15 @@ async def test_get_json_uses_existing_cache_without_network(
 
     Args:
         mock_hass (HomeAssistant):
-            The value.
+            Mocked Home Assistant runtime.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         url (str):
-            The value.
+            URL requested from the mocked HTTP client.
         cached_payload (object):
-            The value.
+            Places payload already present in the response cache.
         expect_copy (bool):
-            The value.
+            Whether legacy data is expected to be copied.
     """
     mock_hass.data = {
         DOMAIN: {
@@ -113,9 +113,9 @@ async def test_get_json_bypasses_existing_cache_once(
 
     Args:
         mock_hass (HomeAssistant):
-            The value.
+            Mocked Home Assistant runtime.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
     """
     url = "https://example.test/osm"
     cached_payload = {"place_id": 123}
@@ -171,9 +171,9 @@ async def test_get_json_flattens_one_item_error_list_payload(
 
     Args:
         mock_hass (HomeAssistant):
-            The value.
+            Mocked Home Assistant runtime.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
     """
     url = "https://example.test/osm"
     mock_hass.data = {
@@ -199,9 +199,9 @@ async def test_get_json_caches_non_mapping_payload(
 
     Args:
         mock_hass (HomeAssistant):
-            The value.
+            Mocked Home Assistant runtime.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
     """
     url = "https://example.test/osm"
     mock_hass.data = {
@@ -229,11 +229,11 @@ async def test_get_json_returns_none_for_error_status_without_caching(
 
     Args:
         mock_hass (HomeAssistant):
-            The value.
+            Mocked Home Assistant runtime.
         aioclient_mock (AioClientMock):
-            The value.
+            Mocked HTTP client used for deterministic responses.
         status (int):
-            The value.
+            HTTP status returned by the mocked response.
     """
     url = f"https://example.test/osm-{status}"
     mock_hass.data = {

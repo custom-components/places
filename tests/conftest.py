@@ -31,11 +31,11 @@ def mock_method(default_func: Callable[..., object]) -> Mock:
 
     Args:
         default_func (Callable[..., object]):
-            The value.
+            Fallback callable used by the mock.
 
     Returns:
         Mock:
-            The value.
+            Mock callable that delegates to the fallback implementation.
     """
     m = Mock()
     # Use a unique sentinel so tests can explicitly set `m.return_value = None`
@@ -88,13 +88,13 @@ class MockSensor:
 
         Args:
             attrs (Attrs | None):
-                The value.
+                Places attribute mapping used by the test.
             display_options_list (Sequence[str] | None):
-                The value.
+                Display-option tokens available to the parser.
             blank_attrs (set[str] | None):
-                The value.
+                Attribute names treated as blank.
             in_zone (bool):
-                The value.
+                Whether the tracker is inside the selected zone.
         """
         self.attrs = attrs or {}
         self.display_options_list: Sequence[str] = display_options_list or []
@@ -331,7 +331,7 @@ class MockSensor:
 
         Args:
             key (str | None):
-                The value.
+                Configuration or attribute key being accessed.
         """
         if key is not None and key in self.attrs:
             self.attrs.pop(key)
@@ -352,7 +352,7 @@ class MockSensor:
 
         Returns:
             bool:
-                The value.
+                Zone-membership result returned by the stub.
         """
         return self._in_zone
 
@@ -363,7 +363,7 @@ def mock_hass() -> MagicMock:
 
     Returns:
         MagicMock:
-            The value.
+            Home Assistant instance configured for integration tests.
     """
     hass_instance = MagicMock()
     # Config entries
@@ -407,7 +407,7 @@ def mock_config_entry() -> MockConfigEntry:
 
     Returns:
         MockConfigEntry:
-            The value.
+            Places configuration entry installed for the test.
     """
     return MockConfigEntry(
         domain="places",
@@ -425,15 +425,15 @@ def places_instance(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         patch_entity_registry (object):
-            The value.
+            Isolated entity-registry fixture.
         mock_config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
 
     Returns:
         Places:
-            The value.
+            Initialized Places API object for the test entry.
     """
     _ = patch_entity_registry
     persistence = MagicMock()
@@ -455,11 +455,11 @@ def coordinator_factory(mock_hass: MagicMock) -> CoordinatorFactory:
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
 
     Returns:
         CoordinatorFactory:
-            The value.
+            Factory that creates coordinators with controlled dependencies.
     """
 
     def create(name: str = "OldName") -> tuple[MockConfigEntry, PlacesUpdateCoordinator]:
@@ -497,7 +497,7 @@ class _DummyRegistry(er.EntityRegistry):
 
         Args:
             entity_id_or_uuid (str):
-                The value.
+                Entity ID or registry UUID to resolve.
         """
 
     def async_get_entity_id(self, domain: str, platform: str, unique_id: str) -> None:
@@ -505,11 +505,11 @@ class _DummyRegistry(er.EntityRegistry):
 
         Args:
             domain (str):
-                The value.
+                Entity domain used for the registry lookup.
             platform (str):
-                The value.
+                Integration platform used for the registry lookup.
             unique_id (str):
-                The value.
+                Unique ID used for the entity-registry lookup.
         """
         return
 
@@ -519,11 +519,11 @@ def _async_get_entity_registry(hass: HomeAssistant) -> er.EntityRegistry:
 
     Args:
         hass (HomeAssistant):
-            The value.
+            Mocked Home Assistant runtime.
 
     Returns:
         er.EntityRegistry:
-            The value.
+            Entity registry backing the current test.
     """
     return _DummyRegistry()
 
@@ -538,17 +538,17 @@ def mock_sensor(
 
     Args:
         attrs (Attrs | None):
-            The value.
+            Places attribute mapping used by the test.
         display_options_list (Sequence[str] | None):
-            The value.
+            Display-option tokens available to the parser.
         blank_attrs (set[str] | None):
-            The value.
+            Attribute names treated as blank.
         in_zone (bool):
-            The value.
+            Whether the tracker is inside the selected zone.
 
     Returns:
         MockSensor:
-            The value.
+            Factory that creates sensor doubles with supplied attributes.
 
     Usage in tests:
         sensor = mock_sensor()
@@ -570,9 +570,9 @@ def assert_awaited_count(mock_obj: AsyncMock, expected: int) -> None:
 
     Args:
         mock_obj (AsyncMock):
-            The value.
+            Mock whose awaited calls are asserted.
         expected (int):
-            The value.
+            Expected result for this parametrized case.
     """
     actual = getattr(mock_obj, "await_count", None)
     assert actual == expected, f"Expected await_count == {expected}, got {actual} for {mock_obj}"
@@ -584,7 +584,7 @@ def sensor() -> MockSensor:
 
     Returns:
         MockSensor:
-            The value.
+            Sensor double configured for the parser test.
     """
     return mock_sensor()
 
@@ -597,11 +597,11 @@ def updater(mock_hass: MagicMock) -> PlacesUpdater:
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
 
     Returns:
         PlacesUpdater:
-            The value.
+            Updater configured with the default test dependencies.
     """
     sensor = mock_sensor()
     return PlacesUpdater(mock_hass, MockConfigEntry(domain="places", data={}), sensor)
@@ -617,11 +617,11 @@ def prepared_updater(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
 
     Returns:
         MagicMock:
-            The value.
+            Updater initialized with persisted and tracker state.
     """
     mock_updater = MagicMock()
     init_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
@@ -658,7 +658,7 @@ def patch_entity_registry() -> Iterator[Callable[[HomeAssistant], er.EntityRegis
 
     Yields:
         Callable[[HomeAssistant], er.EntityRegistry]:
-            The value.
+            Callable that installs and restores an isolated entity registry.
     """
     original = er.async_get
     er.async_get = _async_get_entity_registry
@@ -673,13 +673,13 @@ def stub_in_zone(obj: object, return_value: bool) -> AbstractContextManager[Stub
 
     Args:
         obj (object):
-            The value.
+            Object whose method is temporarily replaced.
         return_value (bool):
-            The value.
+            Result returned by the stubbed method.
 
     Returns:
         AbstractContextManager[StubMock]:
-            The value.
+            Replacement zone-membership result used during the test.
 
     Usage:
         with stub_in_zone(sensor, False):
@@ -714,11 +714,11 @@ def stub_method(
         async_method (bool):
             whether to patch with AsyncMock (True) or MagicMock (False)
         restore_original (bool):
-            The value.
+            Whether the original method is restored on exit.
 
     Returns:
         AbstractContextManager[StubMock]:
-            The value.
+            Method double configured with the supplied result or error.
 
     Usage:
         with stub_method(parser, "parse_type", return_value=None):
@@ -776,7 +776,7 @@ def stubbed_updater() -> Callable[
 
     Returns:
         Callable[[object, Sequence[MethodSpec]], AbstractContextManager[StubMapping]]:
-            The value.
+            Updater whose external dependencies are replaced by test doubles.
 
     Usage:
         with stubbed_updater(updater, [
@@ -840,13 +840,13 @@ def stubbed_parser(
 
     Args:
         parser (object):
-            The value.
+            Parser whose methods are replaced by stubs.
         methods (Sequence[MethodSpec]):
-            The value.
+            Method names replaced on the parser or sensor double.
 
     Returns:
         AbstractContextManager[StubMapping]:
-            The value.
+            Parser whose external lookups are replaced by test doubles.
 
     Usage:
         with stubbed_parser(parser, [("parse_type", {}), ("set_attribution", {})]):
@@ -881,13 +881,13 @@ def stubbed_sensor(
 
     Args:
         sensor_obj (object):
-            The value.
+            Places sensor whose methods are replaced by stubs.
         methods (Sequence[MethodSpec]):
-            The value.
+            Method names replaced on the parser or sensor double.
 
     Returns:
         AbstractContextManager[StubMapping]:
-            The value.
+            Sensor whose coordinator and state dependencies are controlled.
 
     Usage:
         with stubbed_sensor(sensor, [("process_display_options", {})]):

@@ -81,7 +81,7 @@ async def test_config_flow_user_step(mock_hass: MagicMock) -> None:
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     flow = PlacesConfigFlow()
     flow.hass = mock_hass
@@ -136,9 +136,9 @@ async def test_options_flow_init(mock_hass: MagicMock, config_entry: MockConfigE
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
     """
     config_entry.add_to_hass(mock_hass)
     result = await mock_hass.config_entries.options.async_init(config_entry.entry_id)
@@ -200,15 +200,15 @@ async def test_options_flow_handler_variants(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         case (str):
-            The value.
+            Named parameter set for the current case.
         user_input (ConfigData):
-            The value.
+            Options-flow submission for the parametrized case.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
@@ -284,19 +284,19 @@ def test_get_devicetracker_id_entities_current_entity_variants(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         patch_entity_registry (object):
-            The value.
+            Isolated entity-registry fixture.
         async_all_states (Sequence[State]):
-            The value.
+            Tracker states returned by the mocked state machine.
         states_get_state (State):
-            The value.
+            Current tracker state returned by direct lookup.
         expected_label_check (LabelCheck):
-            The value.
+            Whether label matching is expected.
         expected_count (int):
-            The value.
+            Number of calls or entities expected by the assertion.
     """
     _ = patch_entity_registry
     # Limit TRACKING_DOMAINS to a single domain for deterministic results
@@ -321,9 +321,9 @@ def test_get_devicetracker_id_entities_excludes_places_sensors(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     places_state = State(
         "sensor.my_places",
@@ -365,9 +365,9 @@ def test_get_home_zone_entities_builds_zone_list(
 
     Args:
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     # use mock_hass fixture to provide a consistent hass object
     hass = mock_hass
@@ -407,11 +407,11 @@ async def test_options_flow_handler_shows_form_when_no_user_input(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
@@ -460,9 +460,9 @@ def test_validate_brackets(display_options: str, expected: bool) -> None:
 
     Args:
         display_options (str):
-            The value.
+            Display options applied to state rendering.
         expected (bool):
-            The value.
+            Expected result for this parametrized case.
     """
     errors: Errors = {}
     result = _validate_brackets(display_options, errors)
@@ -577,9 +577,9 @@ async def test_validate_display_options_accepts_advanced_options(
 
     Args:
         display_options (str):
-            The value.
+            Display options applied to state rendering.
         expected_errors (dict[str, str]):
-            The value.
+            Validation errors expected from the options flow.
     """
     errors: dict[str, str] = {}
 
@@ -598,7 +598,7 @@ async def test_validate_display_options_allows_legacy_long_rules(display_options
 
     Args:
         display_options (str):
-            The value.
+            Display options applied to state rendering.
     """
     errors: dict[str, str] = {}
 
@@ -622,9 +622,9 @@ async def test_validate_display_options_rejects_blank_values(
 
     Args:
         display_options (str):
-            The value.
+            Display options applied to state rendering.
         expected_errors (dict[str, str]):
-            The value.
+            Validation errors expected from the options flow.
     """
     errors: dict[str, str] = {}
 
@@ -639,7 +639,7 @@ async def test_config_flow_user_step_no_input_shows_form(mock_hass: MagicMock) -
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     flow = PlacesConfigFlow()
     flow.hass = mock_hass
@@ -655,7 +655,7 @@ async def test_config_flow_user_step_invalid_display_options(mock_hass: MagicMoc
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
     """
     flow = PlacesConfigFlow()
     flow.hass = mock_hass
@@ -689,13 +689,13 @@ async def test_options_flow_invalid_display_options_shows_form(
 
     Args:
         mock_hass (MagicMock):
-            The value.
+            Mocked Home Assistant runtime.
         config_entry (MockConfigEntry):
-            The value.
+            Places configuration entry used by the test.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         patch_entity_registry (object):
-            The value.
+            Isolated entity-registry fixture.
     """
     _ = patch_entity_registry
     config_entry.add_to_hass(mock_hass)

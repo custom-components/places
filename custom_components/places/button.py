@@ -41,7 +41,7 @@ class PlacesForceUpdateButton(PlacesEntity, ButtonEntity):
 
         Args:
             coordinator (PlacesUpdateCoordinator):
-                The value.
+                Places update coordinator used by the entity or test.
         """
         super().__init__(coordinator, unique_suffix="force_update")
 

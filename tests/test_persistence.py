@@ -95,15 +95,15 @@ class _FakeStore:
 
         Args:
             hass (MagicMock):
-                The value.
+                Mocked Home Assistant runtime.
             version (int):
-                The value.
+                Storage or configuration schema version.
             key (str):
-                The value.
+                Configuration or attribute key being accessed.
             atomic_writes (bool):
-                The value.
+                Whether the fake store models atomic writes.
             serialize_in_event_loop (bool):
-                The value.
+                Whether serialization runs in the event loop.
         """
         self._hass = hass
         self._version = version
@@ -116,7 +116,7 @@ class _FakeStore:
 
         Returns:
             object | None:
-                The value.
+                Stored payload configured for the persistence scenario.
         """
         return type(self).next_data
 
@@ -125,7 +125,7 @@ class _FakeStore:
 
         Args:
             data (dict[str, object]):
-                The value.
+                Places payload processed by the persistence or update helper.
         """
         type(self).last_saved = data
         await self._hass.async_add_executor_job(
@@ -167,11 +167,11 @@ def _hass_for_store_path(tmp_path: Path) -> MagicMock:
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
 
     Returns:
         MagicMock:
-            The value.
+            Home Assistant instance bound to the requested storage path.
     """
     hass = MagicMock()
     hass.config.path.side_effect = lambda *parts: str(tmp_path.joinpath(*parts))
@@ -184,9 +184,9 @@ def _write_fake_store_snapshot(path: Path, data: dict[str, object]) -> None:
 
     Args:
         path (Path):
-            The value.
+            Storage path used for the persistence operation.
         data (dict[str, object]):
-            The value.
+            Places payload processed by the persistence or update helper.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data))
@@ -211,13 +211,13 @@ async def test_load_returns_store_data_or_empty(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         store_data (object | None):
-            The value.
+            Places payload present in storage before loading.
         expected (dict[str, object]):
-            The value.
+            Expected result for this parametrized case.
     """
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     _FakeStore.next_data = store_data
@@ -236,9 +236,9 @@ async def test_remove_deletes_store_data(tmp_path: Path, monkeypatch: pytest.Mon
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     _FakeStore.remove_calls = 0
@@ -258,9 +258,9 @@ async def test_save_normalizes_snapshot_before_store_write(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     hass = _hass_for_store_path(tmp_path)
@@ -305,9 +305,9 @@ async def test_places_storage_constructs_store_with_expected_parameters(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     hass = _hass_for_store_path(tmp_path)
@@ -331,9 +331,9 @@ async def test_places_storage_constructs_distinct_store_per_entry(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     hass = _hass_for_store_path(tmp_path)
@@ -361,13 +361,13 @@ async def test_load_ignores_non_mapping_store_data(
 
     Args:
         tmp_path (Path):
-            The value.
+            Temporary directory used for isolated storage files.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
         remove_error (OSError | None):
-            The value.
+            Storage cleanup failure injected by the test.
         store_data (object):
-            The value.
+            Places payload present in storage before loading.
     """
     monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
     _FakeStore.next_data = store_data

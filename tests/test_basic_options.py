@@ -26,17 +26,17 @@ class BasicParserFactory(Protocol):
 
         Args:
             attrs (Attrs | None):
-                The value.
+                Places attribute mapping used by the test.
             options (Sequence[str] | None):
-                The value.
+                Configuration options applied by the flow or parser.
             display_options_list (Sequence[str] | None):
-                The value.
+                Display-option tokens available to the parser.
             in_zone (bool):
-                The value.
+                Whether the tracker is inside the selected zone.
 
         Returns:
             tuple[BasicOptionsParser, MockSensor]:
-                The value.
+                Parser instance constructed from the supplied option string.
         """
 
 
@@ -48,7 +48,7 @@ def basic_parser() -> BasicParserFactory:
 
     Returns:
         BasicParserFactory:
-            The value.
+            Factory that constructs basic-option parsers for test inputs.
     """
 
     def _create(
@@ -125,15 +125,15 @@ async def test_build_display_scenarios(
 
     Args:
         attrs (Attrs):
-            The value.
+            Places attribute mapping used by the test.
         in_zone (bool):
-            The value.
+            Whether the tracker is inside the selected zone.
         options (Sequence[str]):
-            The value.
+            Configuration options applied by the flow or parser.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     # Mutate shared sensor fixture for this scenario
     sensor.attrs = dict(attrs or {})
@@ -188,17 +188,17 @@ async def test_build_formatted_place_variants(
 
     Args:
         attrs (Attrs):
-            The value.
+            Places attribute mapping used by the test.
         in_zone (bool):
-            The value.
+            Whether the tracker is inside the selected zone.
         options (Sequence[str]):
-            The value.
+            Configuration options applied by the flow or parser.
         display_list (Sequence[str] | None):
-            The value.
+            Display-option tokens used to render the state.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
         sensor (MockSensor):
-            The value.
+            Places sensor fixture whose state is asserted.
     """
     sensor.attrs = dict(attrs or {})
     sensor._in_zone = in_zone
@@ -222,11 +222,11 @@ def test_add_type_or_category(
 
     Args:
         attrs (Attrs):
-            The value.
+            Places attribute mapping used by the test.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
         basic_parser (BasicParserFactory):
-            The value.
+            Basic display-options parser fixture.
     """
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
@@ -264,11 +264,11 @@ def test_add_street_info(attrs: Attrs, expected: str, basic_parser: BasicParserF
 
     Args:
         attrs (Attrs):
-            The value.
+            Places attribute mapping used by the test.
         expected (str):
-            The value.
+            Expected result for this parametrized case.
         basic_parser (BasicParserFactory):
-            The value.
+            Basic display-options parser fixture.
     """
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
@@ -291,13 +291,13 @@ def test_add_city_county_state(
 
     Args:
         attrs (Attrs):
-            The value.
+            Places attribute mapping used by the test.
         expected_city (str):
-            The value.
+            City name expected after address parsing.
         expected_state (str):
-            The value.
+            Entity state expected for this parametrized case.
         basic_parser (BasicParserFactory):
-            The value.
+            Basic display-options parser fixture.
     """
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
@@ -326,15 +326,15 @@ def test_should_use_place_name(
 
     Args:
         attrs (Attrs):
-            The value.
+            Places attribute mapping used by the test.
         duplicate_list (list[str]):
-            The value.
+            Duplicate place names used to test deduplication.
         expected (bool):
-            The value.
+            Expected result for this parametrized case.
         basic_parser (BasicParserFactory):
-            The value.
+            Basic display-options parser fixture.
         monkeypatch (pytest.MonkeyPatch):
-            The value.
+            Pytest fixture for replacing dependencies.
     """
     parser, sensor = basic_parser(attrs=attrs)
     if duplicate_list:
