@@ -48,18 +48,49 @@ class _FakeStore:
         atomic_writes: bool,
         serialize_in_event_loop: bool,
     ) -> None:
-        """Initialize the fake with the Store constructor contract."""
+        """Initialize the fake with the Store constructor contract.
+
+        Args:
+            _hass (MagicMock):
+                The value.
+            _version (int):
+                The value.
+            _key (str):
+                The value.
+            atomic_writes (bool):
+                The value.
+            serialize_in_event_loop (bool):
+                The value.
+        """
         _ = atomic_writes, serialize_in_event_loop
 
     async def async_load(self) -> object | None:
-        """Return configured Store data."""
+        """Return configured Store data.
+
+        Returns:
+            object | None:
+                The value.
+
+        Raises:
+            load_error:
+                Propagated when the operation fails.
+        """
         load_error = type(self).load_error
         if load_error is not None:
             raise load_error
         return type(self).next_data
 
     async def async_save(self, data: dict[str, object]) -> None:
-        """Record saved data or raise the configured write error."""
+        """Record saved data or raise the configured write error.
+
+        Args:
+            data (dict[str, object]):
+                The value.
+
+        Raises:
+            save_error:
+                Propagated when the operation fails.
+        """
         save_error = type(self).save_error
         if save_error is not None:
             raise save_error
@@ -76,7 +107,16 @@ def reset_fake_store_state() -> None:
 
 
 def _hass_for_legacy_path(tmp_path: Path) -> MagicMock:
-    """Return a Home Assistant mock with config path and executor passthrough."""
+    """Return a Home Assistant mock with config path and executor passthrough.
+
+    Args:
+        tmp_path (Path):
+            The value.
+
+    Returns:
+        MagicMock:
+            The value.
+    """
     hass = MagicMock()
     hass.config.path.side_effect = lambda *parts: str(tmp_path.joinpath(*parts))
     hass.async_add_executor_job = AsyncMock(side_effect=lambda func, *args: func(*args))
@@ -84,13 +124,25 @@ def _hass_for_legacy_path(tmp_path: Path) -> MagicMock:
 
 
 def _write_legacy_snapshot(path: Path, contents: str) -> None:
-    """Write a legacy snapshot and create its containing folder."""
+    """Write a legacy snapshot and create its containing folder.
+
+    Args:
+        path (Path):
+            The value.
+        contents (str):
+            The value.
+    """
     path.parent.mkdir(parents=True)
     path.write_text(contents)
 
 
 def test_missing_legacy_snapshot_returns_none(tmp_path: Path) -> None:
-    """A missing legacy snapshot is treated as absent."""
+    """A missing legacy snapshot is treated as absent.
+
+    Args:
+        tmp_path (Path):
+            The value.
+    """
     assert _read_legacy_snapshot(tmp_path / "missing.json", "Test Place") is None
 
 
@@ -123,7 +175,16 @@ def test_snapshot_cleanup_stops_when_unlink_fails() -> None:
 def test_snapshot_cleanup_handles_parent_directory_errors(
     parent_error: OSError, expected_warning: bool, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Parent directory cleanup errors do not escape migration cleanup."""
+    """Parent directory cleanup errors do not escape migration cleanup.
+
+    Args:
+        parent_error (OSError):
+            The value.
+        expected_warning (bool):
+            The value.
+        caplog (pytest.LogCaptureFixture):
+            The value.
+    """
     path = MagicMock(spec=Path)
     path.parent = MagicMock(spec=Path)
     path.parent.rmdir.side_effect = parent_error
@@ -139,7 +200,14 @@ def test_snapshot_cleanup_handles_parent_directory_errors(
 async def test_legacy_snapshot_read_error_is_contained(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A legacy snapshot read error is contained and still triggers cleanup."""
+    """A legacy snapshot read error is contained and still triggers cleanup.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     read = MagicMock(side_effect=OSError("read failed"))
     cleanup = MagicMock()
@@ -158,7 +226,14 @@ async def test_legacy_snapshot_read_error_is_contained(
 async def test_valid_snapshot_is_saved_then_removed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A valid legacy object is normalized, saved, and removed."""
+    """A valid legacy object is normalized, saved, and removed.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
     path = legacy_json_path(hass, "entry 1")
@@ -178,7 +253,14 @@ async def test_valid_snapshot_is_saved_then_removed(
 async def test_legacy_entity_keys_are_renamed_before_store_save(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Legacy JSON entity keys are replaced by the new unpublished names."""
+    """Legacy JSON entity keys are replaced by the new unpublished names.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
     path = legacy_json_path(hass, "entry-entity-keys")
@@ -217,7 +299,16 @@ async def test_legacy_entity_keys_are_renamed_before_store_save(
 async def test_unusable_snapshot_is_removed_without_save(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, contents: str
 ) -> None:
-    """Malformed and non-object snapshots are discarded without a Store write."""
+    """Malformed and non-object snapshots are discarded without a Store write.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        contents (str):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
     path = legacy_json_path(hass, "entry-2")
@@ -234,7 +325,14 @@ async def test_unusable_snapshot_is_removed_without_save(
 async def test_invalid_utf8_snapshot_is_removed_without_save(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A snapshot containing invalid UTF-8 is discarded without a Store write."""
+    """A snapshot containing invalid UTF-8 is discarded without a Store write.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
     path = legacy_json_path(hass, "entry-invalid-utf8")
@@ -252,7 +350,14 @@ async def test_invalid_utf8_snapshot_is_removed_without_save(
 async def test_store_write_error_still_removes_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A Store write failure does not leave the legacy source behind."""
+    """A Store write failure does not leave the legacy source behind.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.save_error = OSError("write failed")
     hass = _hass_for_legacy_path(tmp_path)
@@ -279,7 +384,16 @@ async def test_store_write_error_still_removes_snapshot(
 async def test_store_load_error_still_removes_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, load_error: Exception
 ) -> None:
-    """A Store load failure does not leave the legacy source behind."""
+    """A Store load failure does not leave the legacy source behind.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        load_error (Exception):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.load_error = load_error
     hass = _hass_for_legacy_path(tmp_path)
@@ -297,7 +411,14 @@ async def test_store_load_error_still_removes_snapshot(
 async def test_existing_store_data_wins_and_legacy_snapshot_is_removed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Existing Store data prevents stale JSON from being saved."""
+    """Existing Store data prevents stale JSON from being saved.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.next_data = {}
     hass = _hass_for_legacy_path(tmp_path)
@@ -315,7 +436,14 @@ async def test_existing_store_data_wins_and_legacy_snapshot_is_removed(
 async def test_existing_store_legacy_distance_keys_are_normalized(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Legacy meter distance keys already in Store are migrated in place."""
+    """Legacy meter distance keys already in Store are migrated in place.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.next_data = {
         ATTR_CITY: "Legacy City",
@@ -339,7 +467,14 @@ async def test_existing_store_legacy_distance_keys_are_normalized(
 async def test_invalid_store_data_is_replaced_by_legacy_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A non-mapping Store root does not discard a valid legacy snapshot."""
+    """A non-mapping Store root does not discard a valid legacy snapshot.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     _FakeStore.next_data = ["invalid"]
     hass = _hass_for_legacy_path(tmp_path)
@@ -357,7 +492,14 @@ async def test_invalid_store_data_is_replaced_by_legacy_snapshot(
 async def test_legacy_distance_keys_are_normalized_before_store_save(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Legacy meter distance keys are copied to the current persisted names."""
+    """Legacy meter distance keys are copied to the current persisted names.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     hass = _hass_for_legacy_path(tmp_path)
     path = legacy_json_path(hass, "entry-distance")
@@ -387,7 +529,14 @@ async def test_legacy_distance_keys_are_normalized_before_store_save(
 
 @pytest.mark.asyncio
 async def test_cleanup_error_is_swallowed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A cleanup failure is swallowed after one removal attempt."""
+    """A cleanup failure is swallowed after one removal attempt.
+
+    Args:
+        tmp_path (Path):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.migration.Store", _FakeStore)
     cleanup = MagicMock(side_effect=OSError("cleanup failed"))
     monkeypatch.setattr("custom_components.places.migration._remove_legacy_snapshot", cleanup)

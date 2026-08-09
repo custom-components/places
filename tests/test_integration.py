@@ -34,13 +34,23 @@ from tests.conftest import assert_awaited_count
 
 @pytest.fixture
 def mock_entry() -> MockConfigEntry:
-    """Return a MockConfigEntry pre-populated with sample data for tests."""
+    """Return a MockConfigEntry pre-populated with sample data for tests.
+
+    Returns:
+        MockConfigEntry:
+            The value.
+    """
     return MockConfigEntry(domain="places", data={"name": "test", "other": "value"})
 
 
 @pytest.fixture
 def sensitive_entry() -> MockConfigEntry:
-    """Return a config entry containing data that must not be logged."""
+    """Return a config entry containing data that must not be logged.
+
+    Returns:
+        MockConfigEntry:
+            The value.
+    """
     return MockConfigEntry(
         domain="places",
         data={CONF_NAME: "test", CONF_API_KEY: "secret@example.com"},
@@ -55,13 +65,27 @@ class _FakePlacesStorage:
     remove_error: OSError | None = None
 
     def __init__(self, hass: object, entry_id: str, name: str) -> None:
-        """Record constructor arguments for assertions."""
+        """Record constructor arguments for assertions.
+
+        Args:
+            hass (object):
+                The value.
+            entry_id (str):
+                The value.
+            name (str):
+                The value.
+        """
         self.hass = hass
         self.entry_id = entry_id
         self.name = name
 
     async def async_remove(self) -> None:
-        """Record a removal request from async_remove_entry."""
+        """Record a removal request from async_remove_entry.
+
+        Raises:
+            remove_error:
+                Propagated when the operation fails.
+        """
         remove_error = type(self).remove_error
         if remove_error is not None:
             raise remove_error
@@ -76,14 +100,28 @@ class _FakeSetupPlacesStorage:
     load_result: ClassVar[dict[str, object]] = {}
 
     def __init__(self, hass: object, entry_id: str, name: str) -> None:
-        """Record constructor arguments for assertions."""
+        """Record constructor arguments for assertions.
+
+        Args:
+            hass (object):
+                The value.
+            entry_id (str):
+                The value.
+            name (str):
+                The value.
+        """
         self.hass = hass
         self.entry_id = entry_id
         self.name = name
         self.instances.append(self)
 
     async def async_load(self) -> dict[str, object]:
-        """Return the configured persisted snapshot for setup tests."""
+        """Return the configured persisted snapshot for setup tests.
+
+        Returns:
+            dict[str, object]:
+                The value.
+        """
         return dict(type(self).load_result)
 
 
@@ -99,7 +137,18 @@ class _FakeCoordinator:
         imported_attributes: dict[str, object],
         persistence: _FakeSetupPlacesStorage | MagicMock,
     ) -> None:
-        """Record construction arguments and expose async hooks for assertions."""
+        """Record construction arguments and expose async hooks for assertions.
+
+        Args:
+            hass (object):
+                The value.
+            config_entry (MockConfigEntry):
+                The value.
+            imported_attributes (dict[str, object]):
+                The value.
+            persistence (_FakeSetupPlacesStorage | MagicMock):
+                The value.
+        """
         self.hass = hass
         self.config_entry = config_entry
         self.imported_attributes = imported_attributes
@@ -131,7 +180,18 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
     version: int,
     update_calls: int,
 ) -> None:
-    """Config-entry migration should run only for legacy entry versions."""
+    """Config-entry migration should run only for legacy entry versions.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        version (int):
+            The value.
+        update_calls (int):
+            The value.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         version=version,
@@ -250,7 +310,18 @@ async def test_async_migrate_entry_converts_do_not_reorder_to_advanced_options(
     display_options: str,
     expected_data: dict[str, object] | None,
 ) -> None:
-    """Legacy ordered display options migrate to an advanced expression."""
+    """Legacy ordered display options migrate to an advanced expression.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        display_options (str):
+            The value.
+        expected_data (dict[str, object] | None):
+            The value.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         version=1,
@@ -276,7 +347,16 @@ async def test_async_migrate_entry_converts_do_not_reorder_to_advanced_options(
 async def test_async_remove_entry_removes_store_data(
     monkeypatch: pytest.MonkeyPatch, mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
-    """Config-entry deletion should remove the per-entry Store snapshot."""
+    """Config-entry deletion should remove the per-entry Store snapshot.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = None
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
@@ -298,7 +378,14 @@ async def test_async_remove_entry_removes_store_data(
 async def test_async_remove_entry_uses_entry_id_if_name_missing(
     monkeypatch: pytest.MonkeyPatch, mock_hass: MagicMock
 ) -> None:
-    """async_remove_entry should use entry_id when no config entry name exists."""
+    """async_remove_entry should use entry_id when no config entry name exists.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     entry = MockConfigEntry(domain="places", data={})
     registry = MagicMock()
     registry.async_get_entity_id.return_value = None
@@ -319,7 +406,14 @@ async def test_async_remove_extended_entity_removes_registry_entry(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Extended-data entity cleanup should remove the registry entry when present."""
+    """Extended-data entity cleanup should remove the registry entry when present.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = "sensor.test_extended_data"
     monkeypatch.setattr("custom_components.places.er.async_get", lambda hass: registry)
@@ -338,7 +432,14 @@ async def test_async_remove_extended_entity_ignores_missing_registry_entry(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Extended-data cleanup should no-op when no registry entry exists."""
+    """Extended-data cleanup should no-op when no registry entry exists.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = None
     monkeypatch.setattr("custom_components.places.er.async_get", lambda hass: registry)
@@ -359,7 +460,18 @@ async def test_async_remove_entry_logs_storage_errors_without_blocking(
     sensitive_entry: MockConfigEntry,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Config-entry deletion should not be blocked by storage cleanup errors."""
+    """Config-entry deletion should not be blocked by storage cleanup errors.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        sensitive_entry (MockConfigEntry):
+            The value.
+        caplog (pytest.LogCaptureFixture):
+            The value.
+    """
     registry = MagicMock()
     registry.async_get_entity_id.return_value = None
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
@@ -384,7 +496,16 @@ async def test_async_unload_entry_logs_safe_identifier(
     sensitive_entry: MockConfigEntry,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Config-entry unload should not log the full entry data mapping."""
+    """Config-entry unload should not log the full entry data mapping.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        sensitive_entry (MockConfigEntry):
+            The value.
+        caplog (pytest.LogCaptureFixture):
+            The value.
+    """
     sensitive_entry.runtime_data = _FakeCoordinator(
         mock_hass,
         sensitive_entry,
@@ -405,7 +526,16 @@ async def test_async_setup_entry_calls_forward_setups(
     mock_hass: MagicMock,
     mock_entry: MockConfigEntry,
 ) -> None:
-    """Ensure setup creates the coordinator runtime owner and forwards platforms."""
+    """Ensure setup creates the coordinator runtime owner and forwards platforms.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     _FakeSetupPlacesStorage.load_result = {"native_value": "Restored"}
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
@@ -416,7 +546,14 @@ async def test_async_setup_entry_calls_forward_setups(
         call_order.append("subscribe")
 
     async def record_forward(*_args: object, **_kwargs: object) -> None:
-        """Record platform forwarding after subscription."""
+        """Record platform forwarding after subscription.
+
+        Args:
+            _args (object):
+                The value.
+            _kwargs (object):
+                The value.
+        """
         call_order.append("forward")
 
     original_init = _FakeCoordinator.__init__
@@ -428,7 +565,20 @@ async def test_async_setup_entry_calls_forward_setups(
         imported_attributes: dict[str, object],
         persistence: _FakeSetupPlacesStorage | MagicMock,
     ) -> None:
-        """Install a recorded async_added_to_hass hook on the fake coordinator."""
+        """Install a recorded async_added_to_hass hook on the fake coordinator.
+
+        Args:
+            self (_FakeCoordinator):
+                The value.
+            hass (object):
+                The value.
+            config_entry (MockConfigEntry):
+                The value.
+            imported_attributes (dict[str, object]):
+                The value.
+            persistence (_FakeSetupPlacesStorage | MagicMock):
+                The value.
+        """
         original_init(self, hass, config_entry, imported_attributes, persistence)
         self.async_added_to_hass.side_effect = record_subscription
 
@@ -456,7 +606,12 @@ async def test_async_setup_entry_calls_forward_setups(
 
 
 def test_ensure_osm_runtime_state_preserves_existing_state(mock_hass: MagicMock) -> None:
-    """OSM runtime setup should not replace existing shared cache or throttle."""
+    """OSM runtime setup should not replace existing shared cache or throttle.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     cache: dict[str, object] = {"cached": {"ok": True}}
     throttle = {"lock": asyncio.Lock(), "last_query": 42.0}
     mock_hass.data = {
@@ -478,7 +633,16 @@ async def test_async_setup_entry_does_not_subscribe_when_platform_setup_fails(
     mock_hass: MagicMock,
     mock_entry: MockConfigEntry,
 ) -> None:
-    """Forwarding failure should unsubscribe the coordinator and clear runtime data."""
+    """Forwarding failure should unsubscribe the coordinator and clear runtime data.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
     mock_hass.config_entries.async_forward_entry_setups.side_effect = RuntimeError("boom")
@@ -502,7 +666,18 @@ async def test_async_setup_entry_clears_runtime_when_platform_cleanup_fails(
     mock_entry: MockConfigEntry,
     cleanup_raises: bool,
 ) -> None:
-    """Forwarding failure cleanup should not resume a never-loaded coordinator."""
+    """Forwarding failure cleanup should not resume a never-loaded coordinator.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+        cleanup_raises (bool):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
     mock_hass.config_entries.async_forward_entry_setups.side_effect = RuntimeError("setup failed")
@@ -527,7 +702,14 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Initial refresh failure should clean up forwarded platforms and runtime state."""
+    """Initial refresh failure should clean up forwarded platforms and runtime state.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     entry = MockConfigEntry(
         domain="places",
         data={
@@ -541,7 +723,12 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
     call_order: list[str] = []
 
     async def raise_refresh_error() -> None:
-        """Raise after platforms have been forwarded."""
+        """Raise after platforms have been forwarded.
+
+        Raises:
+            RuntimeError:
+                Propagated when the operation fails.
+        """
         raise RuntimeError("refresh boom")
 
     async def mark_prepare_unload() -> None:
@@ -563,7 +750,20 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
         imported_attributes: dict[str, object],
         persistence: _FakeSetupPlacesStorage | MagicMock,
     ) -> None:
-        """Install a failing initial refresh hook on the fake coordinator."""
+        """Install a failing initial refresh hook on the fake coordinator.
+
+        Args:
+            self (_FakeCoordinator):
+                The value.
+            hass (object):
+                The value.
+            config_entry (MockConfigEntry):
+                The value.
+            imported_attributes (dict[str, object]):
+                The value.
+            persistence (_FakeSetupPlacesStorage | MagicMock):
+                The value.
+        """
         original_init(self, hass, config_entry, imported_attributes, persistence)
         self.async_request_refresh.side_effect = raise_refresh_error
         self.async_prepare_unload.side_effect = mark_prepare_unload
@@ -588,12 +788,26 @@ async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
     mock_hass: MagicMock,
     mock_entry: MockConfigEntry,
 ) -> None:
-    """Subscription failure should shutdown the coordinator before any platform unload."""
+    """Subscription failure should shutdown the coordinator before any platform unload.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
 
     async def raise_subscription_error() -> None:
-        """Raise a subscription error after platform forwarding succeeds."""
+        """Raise a subscription error after platform forwarding succeeds.
+
+        Raises:
+            RuntimeError:
+                Propagated when the operation fails.
+        """
         raise RuntimeError("subscribe boom")
 
     original_init = _FakeCoordinator.__init__
@@ -605,7 +819,20 @@ async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
         imported_attributes: dict[str, object],
         persistence: _FakeSetupPlacesStorage | MagicMock,
     ) -> None:
-        """Install a failing async_added_to_hass hook on the fake coordinator."""
+        """Install a failing async_added_to_hass hook on the fake coordinator.
+
+        Args:
+            self (_FakeCoordinator):
+                The value.
+            hass (object):
+                The value.
+            config_entry (MockConfigEntry):
+                The value.
+            imported_attributes (dict[str, object]):
+                The value.
+            persistence (_FakeSetupPlacesStorage | MagicMock):
+                The value.
+        """
         original_init(self, hass, config_entry, imported_attributes, persistence)
         self.async_added_to_hass.side_effect = raise_subscription_error
 
@@ -626,7 +853,14 @@ async def test_async_setup_entry_with_empty_data(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Setup should fall back to entry_id when no config-entry name exists."""
+    """Setup should fall back to entry_id when no config-entry name exists.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     entry = MockConfigEntry(domain="places", data={})
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
@@ -643,7 +877,14 @@ async def test_async_setup_entry_preserves_recorder_event_exclusions_for_extende
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Extended mode should not alter global Recorder event exclusions."""
+    """Extended mode should not alter global Recorder event exclusions.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     entry = MockConfigEntry(
         domain="places",
         data={
@@ -668,7 +909,18 @@ async def test_async_setup_entry_preserves_recorder_event_exclusions_for_extende
 async def test_async_unload_entry_result(
     mock_hass: MagicMock, mock_entry: MockConfigEntry, unload_return: bool, expected: bool
 ) -> None:
-    """Unload should proxy the platform result and only finalize shutdown on success."""
+    """Unload should proxy the platform result and only finalize shutdown on success.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+        unload_return (bool):
+            The value.
+        expected (bool):
+            The value.
+    """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     mock_hass.config_entries.async_unload_platforms.return_value = unload_return
@@ -692,7 +944,14 @@ async def test_async_unload_entry_result(
 async def test_async_unload_entry_prepares_unload_before_platform_unload_and_shutdowns_after_success(
     mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
-    """Teardown should stop update work before unloading and finalize after success."""
+    """Teardown should stop update work before unloading and finalize after success.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     call_order: list[str] = []
@@ -723,7 +982,16 @@ async def test_async_unload_entry_completes_when_shutdown_raises(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Shutdown failure after platform unload should not leave entry-owned state active."""
+    """Shutdown failure after platform unload should not leave entry-owned state active.
+
+    Args:
+        caplog (pytest.LogCaptureFixture):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     entry = MockConfigEntry(
         domain="places",
         data={
@@ -753,7 +1021,14 @@ async def test_async_unload_entry_completes_when_shutdown_raises(
 async def test_async_unload_entry_resumes_coordinator_when_platform_unload_fails(
     mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
-    """A failed platform unload should leave the still-loaded coordinator active."""
+    """A failed platform unload should leave the still-loaded coordinator active.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     call_order: list[str] = []
@@ -785,7 +1060,16 @@ async def test_async_unload_entry_resumes_coordinator_when_prepare_unload_raises
     mock_hass: MagicMock,
     mock_entry: MockConfigEntry,
 ) -> None:
-    """A prepare failure should leave the still-loaded coordinator active."""
+    """A prepare failure should leave the still-loaded coordinator active.
+
+    Args:
+        caplog (pytest.LogCaptureFixture):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     coordinator.async_prepare_unload.side_effect = RuntimeError("prepare boom")
@@ -811,7 +1095,16 @@ async def test_async_unload_entry_resumes_coordinator_when_platform_unload_raise
     mock_hass: MagicMock,
     mock_entry: MockConfigEntry,
 ) -> None:
-    """An unload exception should leave the still-loaded coordinator active."""
+    """An unload exception should leave the still-loaded coordinator active.
+
+    Args:
+        caplog (pytest.LogCaptureFixture):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     mock_hass.config_entries.async_unload_platforms.side_effect = RuntimeError("unload boom")
@@ -847,7 +1140,22 @@ async def test_async_unload_entry_resume_failure_preserves_unload_result(
     expected_error: str | None,
     expected_result: bool | None,
 ) -> None:
-    """Resume cleanup failures should not mask the unload terminal state."""
+    """Resume cleanup failures should not mask the unload terminal state.
+
+    Args:
+        caplog (pytest.LogCaptureFixture):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+        failure_path (str):
+            The value.
+        expected_error (str | None):
+            The value.
+        expected_result (bool | None):
+            The value.
+    """
     coordinator = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
     mock_entry.runtime_data = coordinator
     coordinator.async_resume_after_failed_unload.side_effect = RuntimeError("resume boom")
@@ -877,7 +1185,14 @@ async def test_runtime_data_isolation(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Each config entry should receive its own coordinator instance."""
+    """Each config entry should receive its own coordinator instance.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     entry1 = MockConfigEntry(domain="places", data={"name": "entry1"})
     entry2 = MockConfigEntry(domain="places", data={"name": "entry2"})
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
@@ -897,7 +1212,16 @@ async def test_setup_entry_multiple_calls(
     mock_hass: MagicMock,
     mock_entry: MockConfigEntry,
 ) -> None:
-    """Repeated setup calls should still forward platforms each time."""
+    """Repeated setup calls should still forward platforms each time.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
 
@@ -911,7 +1235,16 @@ async def test_setup_entry_multiple_calls(
 async def test_async_unload_entry_does_not_remove_store_data(
     monkeypatch: pytest.MonkeyPatch, mock_hass: MagicMock, mock_entry: MockConfigEntry
 ) -> None:
-    """Unloading/reloading an entry should not remove Store state."""
+    """Unloading/reloading an entry should not remove Store state.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        mock_entry (MockConfigEntry):
+            The value.
+    """
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakePlacesStorage)
     mock_entry.runtime_data = _FakeCoordinator(mock_hass, mock_entry, {}, MagicMock())
 

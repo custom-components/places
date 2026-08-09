@@ -128,7 +128,20 @@ README_FORMATTED_PLACE_ADVANCED = (
 async def render_display_option(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch, display_option: str
 ) -> str | None:
-    """Render one display option using the coordinator attribute snapshot."""
+    """Render one display option using the coordinator attribute snapshot.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        display_option (str):
+            The value.
+
+    Returns:
+        str | None:
+            The value.
+    """
     mock_hass.states.get.return_value = None
     config_entry = MockConfigEntry(
         domain="places",
@@ -201,7 +214,18 @@ async def test_display_options_state_render(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
+    """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state.
+
+    Args:
+        display_option (str):
+            The value.
+        expected_state (str):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     state = await render_display_option(mock_hass, monkeypatch, display_option)
 
     assert state == expected_state
@@ -212,7 +236,14 @@ async def test_display_options_state_render(
 async def test_basic_place_option_includes_neighborhood(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Basic place options should retain neighborhood context."""
+    """Basic place options should retain neighborhood context.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
 
     assert basic_state

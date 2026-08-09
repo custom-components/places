@@ -32,7 +32,16 @@ def test_coordinate_pair_formats_storage_value() -> None:
 async def test_location_strings_are_current_format(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Location string formatting uses the current format."""
+    """Location string formatting uses the current format.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+    """
     sensor.attrs.update(
         {
             ATTR_LATITUDE: 40.1,
@@ -65,7 +74,16 @@ async def test_location_strings_are_current_format(
 async def test_distance_fields_are_populated(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Distance calculation stores the current distance from home in meters."""
+    """Distance calculation stores the current distance from home in meters.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+    """
     sensor.attrs.update(
         {
             ATTR_LATITUDE: 40.1,
@@ -84,7 +102,16 @@ async def test_distance_fields_are_populated(
 async def test_direction_of_travel_stationary_when_distance_unchanged(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Direction remains stationary when distance from home is unchanged."""
+    """Direction remains stationary when distance from home is unchanged.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+    """
     sensor.attrs[ATTR_DISTANCE_TRAVELED] = 1.0
     sensor.attrs[ATTR_DISTANCE_FROM_HOME] = 100.0
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)

@@ -121,10 +121,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Initialize coordinator state for one Places config entry.
 
         Args:
-            hass: Home Assistant instance.
-            config_entry: Config entry backing this Places setup.
-            imported_attributes: Persisted runtime attributes restored from Store.
-            persistence: Snapshot persistence helper.
+            hass (HomeAssistant):
+                Home Assistant instance.
+            config_entry (ConfigEntry):
+                Config entry backing this Places setup.
+            imported_attributes (MutableMapping[str, Any]):
+                Persisted runtime attributes restored from Store.
+            persistence (PlacesStorage):
+                Snapshot persistence helper.
         """
         self.hass = hass
         self.config_entry = config_entry
@@ -157,7 +161,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Return location-context attributes for the display entity.
 
         Returns:
-            Non-blank parent sensor attributes shown on the main entity.
+            dict[str, Any]:
+                Non-blank parent sensor attributes shown on the main entity.
         """
         return {
             attr: self.get_attr(attr)
@@ -167,7 +172,12 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     @property
     def is_shutting_down(self) -> bool:
-        """Return whether the coordinator is in shutdown mode."""
+        """Return whether the coordinator is in shutdown mode.
+
+        Returns:
+            bool:
+                The value.
+        """
         return self._is_shutting_down
 
     def _initialize_config_attributes(self) -> None:
@@ -244,7 +254,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Return an immutable snapshot of current runtime state.
 
         Returns:
-            Coordinator data snapshot for entity listeners.
+            PlacesData:
+                Coordinator data snapshot for entity listeners.
         """
         return PlacesData(
             native_value=self._native_value,
@@ -261,11 +272,18 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Persist one configuration entity value and recalculate local state.
 
         Args:
-            key: Config-entry setting key to update.
-            value: New text, select, or switch value.
+            key (str):
+                Config-entry setting key to update.
+            value (str | bool):
+                New text, select, or switch value.
 
         Raises:
-            HomeAssistantError: If display options fail existing validation.
+            HomeAssistantError:
+                If display options fail existing validation.
+            Exception:
+                Propagated when the operation fails.
+            asyncio.CancelledError:
+                Propagated when the operation fails.
         """
         async with self._update_lock:
             previous_config: MutableMapping[str, Any] = copy.deepcopy(self.config)
@@ -349,7 +367,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Return the mutable runtime attribute mapping.
 
         Returns:
-            Live mutable mapping that stores all runtime attributes.
+            MutableMapping[str, Any]:
+                Live mutable mapping that stores all runtime attributes.
         """
         return self._attributes.data
 
@@ -357,10 +376,12 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Return whether a stored attribute is blank.
 
         Args:
-            attr: Attribute name to inspect.
+            attr (str):
+                Attribute name to inspect.
 
         Returns:
-            ``True`` when the attribute is missing or contains a blank value.
+            bool:
+                ``True`` when the attribute is missing or contains a blank value.
         """
         return self._attributes.is_blank(attr)
 
@@ -368,11 +389,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Read a stored runtime attribute.
 
         Args:
-            attr: Attribute name to read.
-            default: Value returned when the attribute is unset.
+            attr (str | None):
+                Attribute name to read.
+            default (_AttrT | None):
+                Value returned when the attribute is unset.
 
         Returns:
-            Stored attribute value, or ``default`` when unset.
+            _AttrT | None:
+                Stored attribute value, or ``default`` when unset.
         """
         return self._attributes.get(attr, default)
 
@@ -380,11 +404,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Read a stored runtime attribute as a safe string.
 
         Args:
-            attr: Attribute name to read.
-            default: Value converted when the attribute is unset.
+            attr (str | None):
+                Attribute name to read.
+            default (object | None):
+                Value converted when the attribute is unset.
 
         Returns:
-            String value, or an empty string when no value is available.
+            str:
+                String value, or an empty string when no value is available.
         """
         return self._attributes.safe_str(attr, default)
 
@@ -392,11 +419,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Read a stored runtime attribute as a safe float.
 
         Args:
-            attr: Attribute name to read.
-            default: Value converted when the attribute is unset.
+            attr (str | None):
+                Attribute name to read.
+            default (object | None):
+                Value converted when the attribute is unset.
 
         Returns:
-            Float value, or ``0.0`` when conversion is not possible.
+            float:
+                Float value, or ``0.0`` when conversion is not possible.
         """
         return self._attributes.safe_float(attr, default)
 
@@ -404,11 +434,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Read a stored runtime attribute as a safe list.
 
         Args:
-            attr: Attribute name to read.
-            default: Value used when the attribute is unset.
+            attr (str | None):
+                Attribute name to read.
+            default (object | None):
+                Value used when the attribute is unset.
 
         Returns:
-            Stored list, or an empty list when no list is available.
+            list[Any]:
+                Stored list, or an empty list when no list is available.
         """
         return self._attributes.safe_list(attr, default)
 
@@ -418,11 +451,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Read a stored runtime attribute as a safe mapping.
 
         Args:
-            attr: Attribute name to read.
-            default: Mapping used when the attribute is unset.
+            attr (str | None):
+                Attribute name to read.
+            default (MutableMapping[str, _AttrT] | None):
+                Mapping used when the attribute is unset.
 
         Returns:
-            Stored mapping, or an empty mapping when no mapping is available.
+            MutableMapping[str, _AttrT]:
+                Stored mapping, or an empty mapping when no mapping is available.
         """
         return self._attributes.safe_dict(attr, default)
 
@@ -430,8 +466,10 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Store a runtime attribute.
 
         Args:
-            attr: Attribute name to update.
-            value: Value to store.
+            attr (str):
+                Attribute name to update.
+            value (object | None):
+                Value to store.
         """
         self._attributes.set(attr, value)
 
@@ -439,7 +477,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Remove a runtime attribute.
 
         Args:
-            attr: Attribute name to remove.
+            attr (str):
+                Attribute name to remove.
         """
         self._attributes.clear(attr)
         if attr == ATTR_NATIVE_VALUE:
@@ -449,7 +488,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Update the display state and mirror it into runtime attributes.
 
         Args:
-            value: New state value for the main Places sensor.
+            value (object):
+                New state value for the main Places sensor.
         """
         if value is None:
             self._native_value = None
@@ -462,7 +502,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Restore runtime attributes from persisted storage.
 
         Args:
-            persisted_attr: Previously saved runtime attribute mapping.
+            persisted_attr (MutableMapping[str, Any]):
+                Previously saved runtime attribute mapping.
         """
         if persisted_attr:
             self.set_attr(ATTR_INITIAL_UPDATE, False)
@@ -551,14 +592,20 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         await self.async_request_refresh()
 
     async def _async_update_data(self) -> PlacesData:
-        """Run the periodic Places refresh path and return the latest snapshot."""
+        """Run the periodic Places refresh path and return the latest snapshot.
+
+        Returns:
+            PlacesData:
+                The value.
+        """
         return await self.async_scan_update()
 
     async def async_scan_update(self) -> PlacesData:
         """Run a throttled scan-interval update and return the latest snapshot.
 
         Returns:
-            Current coordinator data after the scan update path completes.
+            PlacesData:
+                Current coordinator data after the scan update path completes.
         """
         if self._is_shutting_down:
             return self.snapshot()
@@ -580,7 +627,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Run one update cycle while serializing concurrent invocations.
 
         Args:
-            reason: Human-readable reason for the update cycle.
+            reason (str):
+                Human-readable reason for the update cycle.
         """
         if self._is_shutting_down:
             return
@@ -599,7 +647,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             await self._run_update_locked("Force Update", force=True)
 
     async def _run_update_locked(self, reason: str, *, force: bool = False) -> None:
-        """Run an update while the caller holds the coordinator update lock."""
+        """Run an update while the caller holds the coordinator update lock.
+
+        Args:
+            reason (str):
+                The value.
+            force (bool):
+                The value.
+        """
         previous_attr = copy.deepcopy(self.get_internal_attr())
         updater = PlacesUpdater(
             hass=self.hass,
@@ -617,7 +672,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Schedule an update from a tracked-entity state change.
 
         Args:
-            event: Tracked entity state change event.
+            event (Event[EventStateChangedData]):
+                Tracked entity state change event.
         """
         if self._is_shutting_down:
             return
@@ -640,7 +696,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Return whether the tracked entity is in a real non-passive zone.
 
         Returns:
-            ``True`` when the tracker is currently in an active HA zone.
+            bool:
+                ``True`` when the tracker is currently in an active HA zone.
         """
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
             zone = self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower()
@@ -738,7 +795,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         """Restore a prior runtime attribute snapshot after rollback.
 
         Args:
-            previous_attr: Attribute mapping captured before the failed update.
+            previous_attr (MutableMapping[str, Any]):
+                Attribute mapping captured before the failed update.
         """
         self._attributes.data = previous_attr
         native_value = self.get_attr(ATTR_NATIVE_VALUE)

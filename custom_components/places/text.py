@@ -20,9 +20,12 @@ async def async_setup_entry(
     """Set up the Display Options configuration entity.
 
     Args:
-        hass: Home Assistant instance.
-        config_entry: Config entry being set up.
-        async_add_entities: Callback used to register created entities.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        config_entry (ConfigEntry):
+            Config entry being set up.
+        async_add_entities (AddEntitiesCallback):
+            Callback used to register created entities.
     """
     coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
     async_add_entities([PlacesDisplayOptionsText(coordinator)])
@@ -36,15 +39,30 @@ class PlacesDisplayOptionsText(PlacesEntity, TextEntity):
     _attr_translation_key = "display_options"
 
     def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
-        """Initialize the Display Options text entity."""
+        """Initialize the Display Options text entity.
+
+        Args:
+            coordinator (PlacesUpdateCoordinator):
+                The value.
+        """
         super().__init__(coordinator, unique_suffix=CONF_DISPLAY_OPTIONS)
 
     @property
     def native_value(self) -> str | None:
-        """Return the configured display options."""
+        """Return the configured display options.
+
+        Returns:
+            str | None:
+                The value.
+        """
         value = self.coordinator.get_attr_safe_str(CONF_DISPLAY_OPTIONS)
         return value if len(value) <= MAX_LENGTH_STATE_STATE else None
 
     async def async_set_value(self, value: str) -> None:
-        """Validate, save, and apply new display options."""
+        """Validate, save, and apply new display options.
+
+        Args:
+            value (str):
+                The value.
+        """
         await self.coordinator.async_update_setting(CONF_DISPLAY_OPTIONS, value)

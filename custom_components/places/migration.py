@@ -35,10 +35,12 @@ def _normalize_legacy_keys(snapshot: dict[str, Any]) -> bool:
     """Rename legacy snapshot keys to their current persisted names.
 
     Args:
-        snapshot: Mutable legacy snapshot to normalize in place.
+        snapshot (dict[str, Any]):
+            Mutable legacy snapshot to normalize in place.
 
     Returns:
-        ``True`` when at least one legacy key was renamed.
+        bool:
+            ``True`` when at least one legacy key was renamed.
     """
     changed = False
     for legacy_key, current_key in (
@@ -62,11 +64,14 @@ def legacy_json_path(hass: HomeAssistant, entry_id: str) -> Path:
     """Return the legacy JSON snapshot path for a config entry.
 
     Args:
-        hass: Home Assistant instance.
-        entry_id: Config entry ID used for the legacy filename.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry_id (str):
+            Config entry ID used for the legacy filename.
 
     Returns:
-        Path to the legacy JSON snapshot.
+        Path:
+            Path to the legacy JSON snapshot.
     """
     return Path(
         hass.config.path(
@@ -82,14 +87,14 @@ def _read_legacy_snapshot(path: Path, name: str) -> Mapping[str, Any] | None:
     """Read a legacy JSON snapshot when it is valid.
 
     Args:
-        path: Legacy JSON snapshot path.
-        name: Sensor name used for contextual logging.
+        path (Path):
+            Legacy JSON snapshot path.
+        name (str):
+            Sensor name used for contextual logging.
 
     Returns:
-        Snapshot mapping, or ``None`` when missing or invalid.
-
-    Raises:
-        OSError: If the snapshot cannot be read for a reason other than absence.
+        Mapping[str, Any] | None:
+            Snapshot mapping, or ``None`` when missing or invalid.
     """
     try:
         with path.open(encoding="utf-8") as snapshot_file:
@@ -121,9 +126,10 @@ def _remove_legacy_snapshot(path: Path, name: str) -> None:
     """Remove a legacy snapshot and its directory when empty.
 
     Args:
-        path: Legacy JSON snapshot path.
-        name: Sensor name used for contextual logging.
-
+        path (Path):
+            Legacy JSON snapshot path.
+        name (str):
+            Sensor name used for contextual logging.
     """
     try:
         path.unlink(missing_ok=True)
@@ -157,9 +163,12 @@ async def async_migrate_legacy_snapshot(hass: HomeAssistant, entry_id: str, name
     """Migrate one legacy JSON snapshot to Home Assistant Store.
 
     Args:
-        hass: Home Assistant instance.
-        entry_id: Config entry ID used for persistence naming.
-        name: Sensor name used for contextual logging.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry_id (str):
+            Config entry ID used for persistence naming.
+        name (str):
+            Sensor name used for contextual logging.
     """
     path = legacy_json_path(hass, entry_id)
     store: Store[dict[str, Any]] = Store(

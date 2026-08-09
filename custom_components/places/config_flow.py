@@ -66,12 +66,15 @@ def get_devicetracker_id_entities(
     """Build selector options for trackable entities with usable coordinates.
 
     Args:
-        hass: Home Assistant instance used to inspect current states.
-        current_entity: Existing configured entity to retain in the options
+        hass (HomeAssistant):
+            Home Assistant instance used to inspect current states.
+        current_entity (str | None):
+            Existing configured entity to retain in the options
             list even if it is no longer returned by the normal domain scan.
 
     Returns:
-        Sorted selector options labelled with friendly names and entity IDs.
+        list[selector.SelectOptionDict]:
+            Sorted selector options labelled with friendly names and entity IDs.
     """
     dt_list: list[selector.SelectOptionDict] = []
     entity_registry = er.async_get(hass)
@@ -139,10 +142,12 @@ def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDic
     """Build selector options for zones that can be used as the home reference.
 
     Args:
-        hass: Home Assistant instance used to inspect current zone states.
+        hass (HomeAssistant):
+            Home Assistant instance used to inspect current zone states.
 
     Returns:
-        Sorted selector options labelled with friendly names and entity IDs.
+        list[selector.SelectOptionDict]:
+            Sorted selector options labelled with friendly names and entity IDs.
     """
     zone_list: list[selector.SelectOptionDict] = []
     for dom in HOME_LOCATION_DOMAINS:
@@ -171,13 +176,16 @@ def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
     """Validate bracket and parenthesis pairing in advanced display options.
 
     Args:
-        display_options: Raw display options string entered by the user.
-        errors: Mutable config-flow error mapping to populate on validation
+        display_options (str):
+            Raw display options string entered by the user.
+        errors (dict[str, Any]):
+            Mutable config-flow error mapping to populate on validation
             failure.
 
     Returns:
-        ``True`` when brackets and parentheses are balanced and placed after an
-        option token; otherwise ``False``.
+        bool:
+            ``True`` when brackets and parentheses are balanced and placed after an
+            option token; otherwise ``False``.
     """
     stack = []
     last_token = ""
@@ -254,12 +262,15 @@ def _validate_comma_syntax(display_options: str, errors: dict[str, Any]) -> bool
     """Reject empty list items and dangling commas in grouped options.
 
     Args:
-        display_options: Raw display options string entered by the user.
-        errors: Mutable config-flow error mapping to populate on validation
+        display_options (str):
+            Raw display options string entered by the user.
+        errors (dict[str, Any]):
+            Mutable config-flow error mapping to populate on validation
             failure.
 
     Returns:
-        ``True`` when comma placement is valid; otherwise ``False``.
+        bool:
+            ``True`` when comma placement is valid; otherwise ``False``.
     """
     if re.search(r"(,\s*,)", display_options):
         _LOGGER.error("Invalid syntax: Empty item between commas in '%s'.", display_options)
@@ -279,13 +290,16 @@ def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool
     """Ensure parsed display option identifiers do not contain spaces.
 
     Args:
-        display_options: Raw display options string entered by the user.
-        errors: Mutable config-flow error mapping to populate on validation
+        display_options (str):
+            Raw display options string entered by the user.
+        errors (dict[str, Any]):
+            Mutable config-flow error mapping to populate on validation
             failure.
 
     Returns:
-        ``True`` when all parsed option identifiers are syntactically valid;
-        otherwise ``False``.
+        bool:
+            ``True`` when all parsed option identifiers are syntactically valid;
+            otherwise ``False``.
     """
     tokens = re.split(r"[\[\]\(\),]", display_options)
     for token in tokens:
@@ -302,13 +316,16 @@ def _validate_known_options(display_options: str, errors: dict[str, Any]) -> boo
     """Validate option identifiers while allowing literal filter values.
 
     Args:
-        display_options: Raw display options string entered by the user.
-        errors: Mutable config-flow error mapping to populate on validation
+        display_options (str):
+            Raw display options string entered by the user.
+        errors (dict[str, Any]):
+            Mutable config-flow error mapping to populate on validation
             failure.
 
     Returns:
-        ``True`` when option identifiers are known or are explicit include/
-        exclude markers; otherwise ``False``.
+        bool:
+            ``True`` when option identifiers are known or are explicit include/
+            exclude markers; otherwise ``False``.
     """
     valid_options = set(DISPLAY_OPTIONS_MAP.keys())
     stack: list[str] = []
@@ -357,12 +374,15 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
     """Validate advanced display option syntax for the config and options flows.
 
     Args:
-        display_options: Raw display option string entered by the user.
-        errors: Mutable flow error mapping to populate when validation fails.
+        display_options (str):
+            Raw display option string entered by the user.
+        errors (dict[str, Any]):
+            Mutable flow error mapping to populate when validation fails.
 
     Returns:
-        The same error mapping, possibly with ``base`` set to a validation
-        error key.
+        dict[str, Any]:
+            The same error mapping, possibly with ``base`` set to a validation
+            error key.
     """
     if not display_options.strip():
         _LOGGER.error("Invalid syntax: Display options cannot be blank.")
@@ -402,11 +422,13 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         """Show and process the initial Places setup form.
 
         Args:
-            user_input: Submitted form values, or ``None`` while displaying
+            user_input (MutableMapping[str, Any] | None):
+                Submitted form values, or ``None`` while displaying
                 the form.
 
         Returns:
-            A Home Assistant config-flow result for a form or created entry.
+            ConfigFlowResult:
+                A Home Assistant config-flow result for a form or created entry.
         """
         errors: dict[str, Any] = {}
         if user_input is not None:
@@ -441,10 +463,12 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         """Return the options flow handler for an existing entry.
 
         Args:
-            config_entry: Existing Places config entry.
+            config_entry (ConfigEntry):
+                Existing Places config entry.
 
         Returns:
-            Options flow handler instance.
+            PlacesOptionsFlowHandler:
+                Options flow handler instance.
         """
         return PlacesOptionsFlowHandler()
 
@@ -458,11 +482,13 @@ class PlacesOptionsFlowHandler(OptionsFlow):
         """Show and process the Places options form.
 
         Args:
-            user_input: Submitted option values, or ``None`` while displaying
+            user_input (MutableMapping[str, Any] | None):
+                Submitted option values, or ``None`` while displaying
                 the form.
 
         Returns:
-            A Home Assistant options-flow result for a form or completed update.
+            ConfigFlowResult:
+                A Home Assistant options-flow result for a form or completed update.
         """
         errors: dict[str, Any] = {}
         if user_input is not None:

@@ -94,9 +94,12 @@ class PlacesUpdater:
         """Initialize an updater for a Places coordinator.
 
         Args:
-            hass: Home Assistant instance.
-            config_entry: Config entry backing the coordinator.
-            coordinator: Coordinator whose attributes and state will be updated.
+            hass (HomeAssistant):
+                Home Assistant instance.
+            config_entry (ConfigEntry):
+                Config entry backing the coordinator.
+            coordinator (PlacesUpdateCoordinator):
+                Coordinator whose attributes and state will be updated.
         """
         self.coordinator = coordinator
         self._config_entry: ConfigEntry = config_entry
@@ -117,11 +120,20 @@ class PlacesUpdater:
         """Run one complete update attempt.
 
         Args:
-            reason: Human-readable trigger reason used in logs.
-            previous_attr: Attribute snapshot captured before the update, used
+            reason (str):
+                Human-readable trigger reason used in logs.
+            previous_attr (MutableMapping[str, Any]):
+                Attribute snapshot captured before the update, used
                 for rollback when criteria fail or the rendered state is
                 unchanged.
-            force: Whether to bypass update criteria and cached response reads.
+            force (bool):
+                Whether to bypass update criteria and cached response reads.
+
+        Raises:
+            asyncio.CancelledError:
+                Propagated when the operation fails.
+            Exception:
+                Propagated when the operation fails.
         """
         self._use_cache = not force
         await self.log_update_start(reason)
@@ -204,7 +216,8 @@ class PlacesUpdater:
         """Return whether final update side effects should be suppressed.
 
         Returns:
-            ``True`` when the owning coordinator has started unload cleanup.
+            bool:
+                ``True`` when the owning coordinator has started unload cleanup.
         """
         return bool(getattr(self.coordinator, "is_shutting_down", False))
 
@@ -212,7 +225,8 @@ class PlacesUpdater:
         """Log a consistent update-start message.
 
         Args:
-            reason: Human-readable update reason.
+            reason (str):
+                Human-readable update reason.
         """
         _LOGGER.info(
             "(%s) Starting %s Update (Tracked Entity: %s)",
@@ -225,7 +239,8 @@ class PlacesUpdater:
         """Finalize update bookkeeping.
 
         Args:
-            now: Timestamp for the completed update.
+            now (datetime):
+                Timestamp for the completed update.
         """
         self.coordinator.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
         _LOGGER.info("(%s) End of Update", self.coordinator.get_attr(CONF_NAME))
@@ -234,8 +249,10 @@ class PlacesUpdater:
         """Finalize and publish a successful sensor state update.
 
         Args:
-            now: Update timestamp in the HA timezone.
-            prev_last_place_name: Last-place value from before this update,
+            now (datetime):
+                Update timestamp in the HA timezone.
+            prev_last_place_name (str):
+                Last-place value from before this update,
                 used to decide event payload contents.
         """
         if self.coordinator.get_attr(CONF_EXTENDED_ATTR):
@@ -279,7 +296,8 @@ class PlacesUpdater:
         """Fire the Places state-update event with changed display attributes.
 
         Args:
-            prev_last_place_name: Last-place value captured before this update.
+            prev_last_place_name (str):
+                Last-place value captured before this update.
         """
         if self._is_shutting_down():
             return
@@ -321,7 +339,8 @@ class PlacesUpdater:
         """Return the current time in Home Assistant's configured timezone.
 
         Returns:
-            Timezone-aware current datetime.
+            datetime:
+                Timezone-aware current datetime.
         """
         if self._hass.config.time_zone:
             return datetime.now(tz=ZoneInfo(str(self._hass.config.time_zone)))
@@ -397,8 +416,9 @@ class PlacesUpdater:
         """Validate the tracker and refresh coordinates before geocoding.
 
         Returns:
-            ``PROCEED`` when tracker data is usable, otherwise an update skip
-            status.
+            UpdateStatus:
+                ``PROCEED`` when tracker data is usable, otherwise an update skip
+                status.
         """
         proceed_with_update: UpdateStatus = await self.is_devicetracker_set()
         _LOGGER.debug(
@@ -420,8 +440,9 @@ class PlacesUpdater:
         """Read GPS accuracy and optionally skip zero-accuracy GPS updates.
 
         Returns:
-            ``SKIP`` when GPS mode is enabled and accuracy is zero, otherwise
-            ``PROCEED``.
+            UpdateStatus:
+                ``SKIP`` when GPS mode is enabled and accuracy is zero, otherwise
+                ``PROCEED``.
         """
         tracker_state = self._hass.states.get(self.coordinator.get_attr(CONF_DEVICETRACKER_ID))
         if (
@@ -488,11 +509,13 @@ class PlacesUpdater:
         """Run zone, distance, and optional movement checks for this update.
 
         Args:
-            force: When True, refresh derived fields but skip movement-based
+            force (bool):
+                When True, refresh derived fields but skip movement-based
                 update gating.
 
         Returns:
-            Status indicating whether the update should continue or be skipped.
+            UpdateStatus:
+                Status indicating whether the update should continue or be skipped.
         """
         await self.get_initial_last_place_name()
         await self.get_zone_details()
@@ -629,7 +652,8 @@ class PlacesUpdater:
         """Reset transient attributes, build links, and query OSM.
 
         Args:
-            now: Update timestamp to store as ``last_changed`` when geocoding
+            now (datetime):
+                Update timestamp to store as ``last_changed`` when geocoding
                 succeeds.
         """
         _LOGGER.info(
@@ -738,7 +762,8 @@ class PlacesUpdater:
         """Fetch reverse-geocode data and render the display state.
 
         Args:
-            now: Update timestamp to store when OSM returned usable data.
+            now (datetime):
+                Update timestamp to store when OSM returned usable data.
         """
         osm_url: str = await self.build_osm_url()
         await self.get_dict_from_url(url=osm_url, name="OpenStreetMaps", dict_name=ATTR_OSM_DICT)
@@ -755,11 +780,13 @@ class PlacesUpdater:
         """Return whether the rendered state should replace the prior state.
 
         Args:
-            now: Update timestamp. Reserved for future time-based criteria.
+            now (datetime):
+                Update timestamp. Reserved for future time-based criteria.
 
         Returns:
-            ``True`` for initial updates, blank previous/current states, or a
-            meaningful state change.
+            bool:
+                ``True`` for initial updates, blank previous/current states, or a
+                meaningful state change.
         """
         prev_state: str = self.coordinator.get_attr_safe_str(ATTR_PREVIOUS_STATE)
         native_value: str = self.coordinator.get_attr_safe_str(ATTR_NATIVE_VALUE)
@@ -791,10 +818,14 @@ class PlacesUpdater:
         """Restore prior attributes and perform time-based skipped-update adjustments.
 
         Args:
-            previous_attr: Attribute snapshot from before the update started.
-            now: Current update timestamp.
-            proceed_with_update: Status that caused the update to stop.
-            preserve_zone_attrs: If True, keep the freshly resolved
+            previous_attr (MutableMapping[str, Any]):
+                Attribute snapshot from before the update started.
+            now (datetime):
+                Current update timestamp.
+            proceed_with_update (UpdateStatus):
+                Status that caused the update to stop.
+            preserve_zone_attrs (bool):
+                If True, keep the freshly resolved
                 devicetracker_zone and devicetracker_zone_name across
                 restore_previous_attr(). Set on the non-exception paths where
                 get_zone_details() has run this cycle (stationary skip,
@@ -838,7 +869,8 @@ class PlacesUpdater:
         """Build the Nominatim reverse-geocode URL for current coordinates.
 
         Returns:
-            Fully encoded Nominatim reverse lookup URL.
+            str:
+                Fully encoded Nominatim reverse lookup URL.
         """
         return OSMClient.reverse_url(
             self.coordinator.get_attr_safe_float(ATTR_LATITUDE),
@@ -912,9 +944,12 @@ class PlacesUpdater:
         """Fetch JSON with shared throttling and cache it on the HA instance.
 
         Args:
-            url: Absolute URL to request.
-            name: Human-readable service name used in logs.
-            dict_name: Sensor attribute that receives the parsed JSON mapping.
+            url (str):
+                Absolute URL to request.
+            name (str):
+                Human-readable service name used in logs.
+            dict_name (str):
+                Sensor attribute that receives the parsed JSON mapping.
         """
         get_dict = await self._osm_client.get_json(url=url, name=name, use_cache=self._use_cache)
         self.coordinator.set_attr(dict_name, get_dict if get_dict is not None else {})
@@ -929,8 +964,9 @@ class PlacesUpdater:
         """Decide whether movement since the last update warrants geocoding.
 
         Returns:
-            ``PROCEED`` for initial/unknown/moved states, or
-            ``SKIP_SET_STATIONARY`` when the entity has not moved enough.
+            UpdateStatus:
+                ``PROCEED`` for initial/unknown/moved states, or
+                ``SKIP_SET_STATIONARY`` when the entity has not moved enough.
         """
         proceed_with_update = UpdateStatus.PROCEED
 
@@ -1060,7 +1096,8 @@ class PlacesUpdater:
         """Classify movement relative to home as towards, away, or stationary.
 
         Args:
-            last_distance_from_home: Prior distance-from-home value captured
+            last_distance_from_home (float):
+                Prior distance-from-home value captured
                 before recalculating distances.
         """
         if not self.coordinator.is_attr_blank(ATTR_DISTANCE_TRAVELED):
@@ -1080,8 +1117,9 @@ class PlacesUpdater:
         """Refresh derived coordinate, distance, and direction attributes.
 
         Returns:
-            ``PROCEED`` when current and home coordinates are all usable,
-            otherwise ``SKIP``.
+            UpdateStatus:
+                ``PROCEED`` when current and home coordinates are all usable,
+                otherwise ``SKIP``.
         """
         last_distance_from_home: float = self.coordinator.get_attr_safe_float(
             ATTR_DISTANCE_FROM_HOME
@@ -1154,11 +1192,13 @@ class PlacesUpdater:
         """Calculate elapsed seconds since ``ATTR_LAST_CHANGED``.
 
         Args:
-            now: Current update timestamp.
+            now (datetime):
+                Current update timestamp.
 
         Returns:
-            Elapsed seconds, or ``3600`` when the saved timestamp is missing or
-            cannot be parsed.
+            int:
+                Elapsed seconds, or ``3600`` when the saved timestamp is missing or
+                cannot be parsed.
         """
         if self.coordinator.is_attr_blank(ATTR_LAST_CHANGED):
             return 3600
@@ -1220,8 +1260,10 @@ class PlacesUpdater:
         """Mark direction as stationary after a skipped movement update.
 
         Args:
-            now: Timestamp to store as the new last-changed value.
-            changed_diff_sec: Seconds since the prior last-changed value, used
+            now (datetime):
+                Timestamp to store as the new last-changed value.
+            changed_diff_sec (int):
+                Seconds since the prior last-changed value, used
                 only for diagnostic logging.
         """
         self.coordinator.set_attr(ATTR_DIRECTION_OF_TRAVEL, "stationary")
@@ -1237,7 +1279,8 @@ class PlacesUpdater:
         """Validate tracker availability and coordinates before an update.
 
         Returns:
-            ``PROCEED`` when the tracker can be used, otherwise ``SKIP``.
+            UpdateStatus:
+                ``PROCEED`` when the tracker can be used, otherwise ``SKIP``.
         """
         if not await self.is_tracker_available():
             return UpdateStatus.SKIP
@@ -1252,7 +1295,8 @@ class PlacesUpdater:
         """Return whether the configured tracked entity exists and is available.
 
         Returns:
-            ``True`` when Home Assistant has a usable state object for the
+            bool:
+                ``True`` when Home Assistant has a usable state object for the
                 configured tracker.
         """
         tracker_id = self.coordinator.get_attr(CONF_DEVICETRACKER_ID)
@@ -1271,8 +1315,9 @@ class PlacesUpdater:
         """Return whether the tracked entity exposes numeric coordinates.
 
         Returns:
-            ``True`` when latitude and longitude attributes both exist and are
-            float-convertible.
+            bool:
+                ``True`` when latitude and longitude attributes both exist and are
+                float-convertible.
         """
         tracker_snapshot = TrackerSnapshot.from_hass(
             self._hass, self.coordinator.get_attr(CONF_DEVICETRACKER_ID)
@@ -1287,7 +1332,8 @@ class PlacesUpdater:
         """Log tracker availability problems at warning or info level.
 
         Args:
-            message: Specific tracker problem without the standard suffix.
+            message (str):
+                Specific tracker problem without the standard suffix.
         """
         full_message = (
             f"({self.coordinator.get_attr(CONF_NAME)}) {message}. Not Proceeding with Update"

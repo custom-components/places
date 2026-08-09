@@ -20,7 +20,16 @@ from custom_components.places.coordinator import PlacesUpdateCoordinator
 
 
 def _coordinator(mock_hass: MagicMock) -> PlacesUpdateCoordinator:
-    """Return a coordinator with empty Home Assistant state lookups."""
+    """Return a coordinator with empty Home Assistant state lookups.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+
+    Returns:
+        PlacesUpdateCoordinator:
+            The value.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain="places",
@@ -30,7 +39,12 @@ def _coordinator(mock_hass: MagicMock) -> PlacesUpdateCoordinator:
 
 
 def test_places_attribute_blank_semantics(mock_hass: MagicMock) -> None:
-    """Blank checks preserve the current falsey-value behavior."""
+    """Blank checks preserve the current falsey-value behavior.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     coordinator = _coordinator(mock_hass)
     coordinator.clear_attr("missing")
     coordinator.set_attr("empty_string", "")
@@ -57,7 +71,12 @@ def test_places_attributes_preserves_empty_initial_mapping() -> None:
 
 
 def test_places_attribute_safe_conversions(mock_hass: MagicMock) -> None:
-    """Safe conversion helpers keep current fallback behavior."""
+    """Safe conversion helpers keep current fallback behavior.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     coordinator = _coordinator(mock_hass)
     coordinator.set_attr("int_text", "12")
     coordinator.set_attr("bad_float", object())
@@ -76,7 +95,12 @@ def test_places_attribute_safe_conversions(mock_hass: MagicMock) -> None:
 
 
 async def test_places_attribute_cleanup_and_restore(mock_hass: MagicMock) -> None:
-    """Cleanup removes blank values while leaving configured state intact."""
+    """Cleanup removes blank values while leaving configured state intact.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     coordinator = _coordinator(mock_hass)
     coordinator.set_attr("keep_zero", 0)
     coordinator.set_attr("remove_empty", "")
@@ -95,7 +119,12 @@ async def test_places_attribute_cleanup_and_restore(mock_hass: MagicMock) -> Non
 
 
 async def test_places_attribute_restore_previous_attr(mock_hass: MagicMock) -> None:
-    """Rollback restores the exact previous mapping object and content."""
+    """Rollback restores the exact previous mapping object and content.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     coordinator = _coordinator(mock_hass)
     previous: MutableMapping[str, object] = {
         CONF_NAME: "Restored",
@@ -120,7 +149,16 @@ def test_coordinator_import_persisted_attrs_updates_initial_update(
     persisted_attr: MutableMapping[str, object],
     expected_initial_update: bool,
 ) -> None:
-    """Persisted attrs only clear the initial-update guard when data is imported."""
+    """Persisted attrs only clear the initial-update guard when data is imported.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        persisted_attr (MutableMapping[str, object]):
+            The value.
+        expected_initial_update (bool):
+            The value.
+    """
     coordinator = _coordinator(mock_hass)
 
     coordinator.import_persisted_attributes(persisted_attr)

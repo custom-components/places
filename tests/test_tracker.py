@@ -28,11 +28,27 @@ class _TrackerAttributeMapping:
     """Minimal duck-typed mapping used by tracker attributes tests."""
 
     def __init__(self, values: dict[str, object]) -> None:
-        """Store an internal mapping for ``get`` access."""
+        """Store an internal mapping for ``get`` access.
+
+        Args:
+            values (dict[str, object]):
+                The value.
+        """
         self._values = values
 
     def get(self, key: str, default: object | None = None) -> object | None:
-        """Return a value from the stored attributes."""
+        """Return a value from the stored attributes.
+
+        Args:
+            key (str):
+                The value.
+            default (object | None):
+                The value.
+
+        Returns:
+            object | None:
+                The value.
+        """
         return self._values.get(key, default)
 
 
@@ -40,11 +56,25 @@ class _TrackerAttributesWithoutDefault:
     """Duck-typed attributes object whose ``get`` does not accept a default."""
 
     def __init__(self, values: dict[str, object]) -> None:
-        """Store an internal mapping for single-argument ``get`` access."""
+        """Store an internal mapping for single-argument ``get`` access.
+
+        Args:
+            values (dict[str, object]):
+                The value.
+        """
         self._values = values
 
     def get(self, key: str) -> object | None:
-        """Return a value from the stored attributes."""
+        """Return a value from the stored attributes.
+
+        Args:
+            key (str):
+                The value.
+
+        Returns:
+            object | None:
+                The value.
+        """
         return self._values.get(key)
 
 
@@ -63,7 +93,20 @@ async def test_tracker_missing_or_blank_id_skips_update(
     tracker_id: str | None,
     expect_state_lookup: bool,
 ) -> None:
-    """Missing entities and blank tracked entity IDs skip updates."""
+    """Missing entities and blank tracked entity IDs skip updates.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+        tracker_id (str | None):
+            The value.
+        expect_state_lookup (bool):
+            The value.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = tracker_id
     mock_hass.states.get.return_value = None
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
@@ -80,7 +123,16 @@ async def test_tracker_missing_or_blank_id_skips_update(
 async def test_tracker_invalid_coordinates_skip_update(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Non-numeric coordinates skip updates."""
+    """Non-numeric coordinates skip updates.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.attributes = {CONF_LATITUDE: "north", CONF_LONGITUDE: "-70.0"}
@@ -97,7 +149,16 @@ async def test_tracker_invalid_coordinates_skip_update(
 async def test_tracker_attributes_with_get_only_preserves_ok_path(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Non-Mapping attribute objects with `.get` preserve tracker coordinate flow."""
+    """Non-Mapping attribute objects with `.get` preserve tracker coordinate flow.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.attributes = _TrackerAttributeMapping(
@@ -116,7 +177,16 @@ async def test_tracker_attributes_with_get_only_preserves_ok_path(
 async def test_tracker_float_like_coordinates_are_converted(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Float-compatible non-primitive values update tracker coordinates."""
+    """Float-compatible non-primitive values update tracker coordinates.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.attributes = {
@@ -140,7 +210,12 @@ async def test_tracker_float_like_coordinates_are_converted(
 async def test_tracker_get_without_default_treats_none_coordinates_as_missing(
     mock_hass: MagicMock,
 ) -> None:
-    """Fallback ``get`` calls treat returned ``None`` coordinates as missing."""
+    """Fallback ``get`` calls treat returned ``None`` coordinates as missing.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     tracker = MagicMock()
     tracker.entity_id = "device_tracker.person"
     tracker.state = "home"
@@ -162,7 +237,18 @@ async def _assert_tracker_state_can_proceed_with_coordinates(
     sensor: MockSensor,
     tracker_state: str,
 ) -> None:
-    """Return PROCEED when state-like tracker has usable coordinates."""
+    """Return PROCEED when state-like tracker has usable coordinates.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+        tracker_state (str):
+            The value.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.state = tracker_state
@@ -182,7 +268,18 @@ async def test_tracker_state_object_with_coordinates_can_proceed(
     sensor: MockSensor,
     tracker_state: str,
 ) -> None:
-    """HA state-like objects with unknown/unavailable state still use coordinates."""
+    """HA state-like objects with unknown/unavailable state still use coordinates.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        mock_config_entry (MockConfigEntry):
+            The value.
+        sensor (MockSensor):
+            The value.
+        tracker_state (str):
+            The value.
+    """
     await _assert_tracker_state_can_proceed_with_coordinates(
         mock_hass, mock_config_entry, sensor, tracker_state
     )

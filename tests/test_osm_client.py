@@ -17,7 +17,18 @@ class AioClientMock(Protocol):
     """Minimal aiohttp mock interface used by these tests."""
 
     def get(self, url: str, **kwargs: object) -> object:
-        """Register mocked responses for URL requests."""
+        """Register mocked responses for URL requests.
+
+        Args:
+            url (str):
+                The value.
+            kwargs (object):
+                The value.
+
+        Returns:
+            object:
+                The value.
+        """
 
 
 def test_reverse_url_matches_nominatim_query_contract() -> None:
@@ -58,7 +69,20 @@ async def test_get_json_uses_existing_cache_without_network(
     cached_payload: object,
     expect_copy: bool,
 ) -> None:
-    """Cached OSM payloads are returned without session calls."""
+    """Cached OSM payloads are returned without session calls.
+
+    Args:
+        mock_hass (HomeAssistant):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        url (str):
+            The value.
+        cached_payload (object):
+            The value.
+        expect_copy (bool):
+            The value.
+    """
     mock_hass.data = {
         DOMAIN: {
             OSM_CACHE: {url: cached_payload},
@@ -85,7 +109,14 @@ async def test_get_json_uses_existing_cache_without_network(
 async def test_get_json_bypasses_existing_cache_once(
     mock_hass: HomeAssistant, aioclient_mock: AioClientMock
 ) -> None:
-    """A forced lookup fetches fresh data without clearing shared cache state."""
+    """A forced lookup fetches fresh data without clearing shared cache state.
+
+    Args:
+        mock_hass (HomeAssistant):
+            The value.
+        aioclient_mock (AioClientMock):
+            The value.
+    """
     url = "https://example.test/osm"
     cached_payload = {"place_id": 123}
     fresh_payload = {"place_id": 456}
@@ -136,7 +167,14 @@ def test_wikidata_url_preserves_lookup_semantics() -> None:
 async def test_get_json_flattens_one_item_error_list_payload(
     mock_hass: HomeAssistant, aioclient_mock: AioClientMock
 ) -> None:
-    """A flattened one-item error list returns no payload and is not cached."""
+    """A flattened one-item error list returns no payload and is not cached.
+
+    Args:
+        mock_hass (HomeAssistant):
+            The value.
+        aioclient_mock (AioClientMock):
+            The value.
+    """
     url = "https://example.test/osm"
     mock_hass.data = {
         DOMAIN: {
@@ -157,7 +195,14 @@ async def test_get_json_flattens_one_item_error_list_payload(
 async def test_get_json_caches_non_mapping_payload(
     mock_hass: HomeAssistant, aioclient_mock: AioClientMock
 ) -> None:
-    """Non-mapping payloads such as empty lists are cached and returned as-is."""
+    """Non-mapping payloads such as empty lists are cached and returned as-is.
+
+    Args:
+        mock_hass (HomeAssistant):
+            The value.
+        aioclient_mock (AioClientMock):
+            The value.
+    """
     url = "https://example.test/osm"
     mock_hass.data = {
         DOMAIN: {
@@ -180,7 +225,16 @@ async def test_get_json_caches_non_mapping_payload(
 async def test_get_json_returns_none_for_error_status_without_caching(
     mock_hass: HomeAssistant, aioclient_mock: AioClientMock, status: int
 ) -> None:
-    """Non-success HTTP responses are not parsed or cached as payloads."""
+    """Non-success HTTP responses are not parsed or cached as payloads.
+
+    Args:
+        mock_hass (HomeAssistant):
+            The value.
+        aioclient_mock (AioClientMock):
+            The value.
+        status (int):
+            The value.
+    """
     url = f"https://example.test/osm-{status}"
     mock_hass.data = {
         DOMAIN: {

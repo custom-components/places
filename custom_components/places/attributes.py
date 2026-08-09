@@ -28,26 +28,39 @@ class PlacesAttributes:
         """Create a new attribute store.
 
         Args:
-            initial: Initial mutable attribute mapping used for in-place storage.
+            initial (MutableMapping[str, Any] | None):
+                Initial mutable attribute mapping used for in-place storage.
         """
         self._internal_attr: MutableMapping[str, Any] = initial if initial is not None else {}
 
     @property
     def data(self) -> MutableMapping[str, Any]:
-        """Return the backing mutable attribute mapping."""
+        """Return the backing mutable attribute mapping.
+
+        Returns:
+            MutableMapping[str, Any]:
+                The value.
+        """
         return self._internal_attr
 
     @data.setter
     def data(self, value: MutableMapping[str, Any]) -> None:
-        """Replace the backing mapping for rollback and restore flows."""
+        """Replace the backing mapping for rollback and restore flows.
+
+        Args:
+            value (MutableMapping[str, Any]):
+                The value.
+        """
         self._internal_attr = value
 
     def set(self, attr: str, value: object | None = None) -> None:
         """Store a key/value pair in the backing mapping.
 
         Args:
-            attr: Attribute key to store.
-            value: Value for the attribute.
+            attr (str):
+                Attribute key to store.
+            value (object | None):
+                Value for the attribute.
         """
         if attr:
             self._internal_attr.update({attr: value})
@@ -56,7 +69,8 @@ class PlacesAttributes:
         """Drop a key from the backing mapping.
 
         Args:
-            attr: Attribute key to remove.
+            attr (str):
+                Attribute key to remove.
         """
         self._internal_attr.pop(attr, None)
 
@@ -64,11 +78,13 @@ class PlacesAttributes:
         """Return whether a value is considered blank.
 
         Args:
-            attr: Attribute key to evaluate.
+            attr (str):
+                Attribute key to evaluate.
 
         Returns:
-            ``True`` for missing values, ``None`` and empty string values. Numeric
-            zero is treated as non-blank.
+            bool:
+                ``True`` for missing values, ``None`` and empty string values. Numeric
+                zero is treated as non-blank.
         """
         val = self._internal_attr.get(attr)
         return not (val or val == 0)
@@ -77,11 +93,14 @@ class PlacesAttributes:
         """Return a stored value with optional fallback and blank handling.
 
         Args:
-            attr: Attribute key to read. ``None`` returns ``None``.
-            default: Optional fallback when the key is not present.
+            attr (str | None):
+                Attribute key to read. ``None`` returns ``None``.
+            default (_AttrT | None):
+                Optional fallback when the key is not present.
 
         Returns:
-            Stored value, ``default`` when provided, or ``None`` when blank.
+            _AttrT | None:
+                Stored value, ``default`` when provided, or ``None`` when blank.
         """
         if attr is None or (default is None and self.is_blank(attr)):
             return None
@@ -91,11 +110,14 @@ class PlacesAttributes:
         """Return a safe string representation for an attribute value.
 
         Args:
-            attr: Attribute key to convert.
-            default: Optional fallback when missing.
+            attr (str | None):
+                Attribute key to convert.
+            default (object | None):
+                Optional fallback when missing.
 
         Returns:
-            String value, or ``""`` on missing values or conversion failures.
+            str:
+                String value, or ``""`` on missing values or conversion failures.
         """
         value = self.get(attr) if default is None else self.get(attr, default)
         if value is not None:
@@ -109,11 +131,14 @@ class PlacesAttributes:
         """Return a safe float for a stored attribute value.
 
         Args:
-            attr: Attribute key to convert.
-            default: Optional fallback when missing.
+            attr (str | None):
+                Attribute key to convert.
+            default (object | None):
+                Optional fallback when missing.
 
         Returns:
-            Float conversion result, or ``0.0`` when conversion is not possible.
+            float:
+                Float conversion result, or ``0.0`` when conversion is not possible.
         """
         value: object | None = self.get(attr) if default is None else self.get(attr, default)
         if value is None:
@@ -129,11 +154,14 @@ class PlacesAttributes:
         """Return a list value or an empty list fallback.
 
         Args:
-            attr: Attribute key to read.
-            default: Optional fallback used only when missing.
+            attr (str | None):
+                Attribute key to read.
+            default (object | None):
+                Optional fallback used only when missing.
 
         Returns:
-            Stored list value, or ``[]`` when conversion is not possible.
+            list:
+                Stored list value, or ``[]`` when conversion is not possible.
         """
         value = self.get(attr) if default is None else self.get(attr, default)
         if not isinstance(value, list):
@@ -146,11 +174,14 @@ class PlacesAttributes:
         """Return a mutable mapping for an attribute or an empty mapping.
 
         Args:
-            attr: Attribute key to read.
-            default: Optional fallback value.
+            attr (str | None):
+                Attribute key to read.
+            default (MutableMapping[str, _AttrT] | None):
+                Optional fallback value.
 
         Returns:
-            Stored mapping or ``{}`` when not available.
+            MutableMapping[str, _AttrT]:
+                Stored mapping or ``{}`` when not available.
         """
         value = self.get(attr) if default is None else self.get(attr, default)
         if not isinstance(value, MutableMapping):
@@ -170,7 +201,8 @@ class PlacesAttributes:
         ``PlacesAttributes.import_persisted_attributes``.
 
         Args:
-            persisted_attr: Mutable mapping loaded from a persisted snapshot.
+            persisted_attr (MutableMapping[str, Any]):
+                Mutable mapping loaded from a persisted snapshot.
         """
         for attr in PERSISTED_ATTRIBUTE_LIST:
             if attr in persisted_attr:

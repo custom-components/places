@@ -51,8 +51,9 @@ def config_entry() -> MockConfigEntry:
     """Create a mock configuration entry for the 'places' integration with predefined test data.
 
     Returns:
-        MockConfigEntry: A mock config entry populated with typical 'places' integration fields for testing.
-
+        MockConfigEntry:
+            MockConfigEntry: A mock config entry populated with typical 'places' integration fields
+            for testing.
     """
     return MockConfigEntry(
         domain="places",
@@ -76,7 +77,12 @@ def config_entry() -> MockConfigEntry:
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step(mock_hass: MagicMock) -> None:
-    """Verify the config flow user step creates an entry when given valid input."""
+    """Verify the config flow user step creates an entry when given valid input.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     flow = PlacesConfigFlow()
     flow.hass = mock_hass
     user_input = {
@@ -126,7 +132,14 @@ def test_user_schema_sets_expected_defaults() -> None:
 
 @pytest.mark.asyncio
 async def test_options_flow_init(mock_hass: MagicMock, config_entry: MockConfigEntry) -> None:
-    """Ensure the options flow init returns a form schema for editing options."""
+    """Ensure the options flow init returns a form schema for editing options.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        config_entry (MockConfigEntry):
+            The value.
+    """
     config_entry.add_to_hass(mock_hass)
     result = await mock_hass.config_entries.options.async_init(config_entry.entry_id)
     assert result["type"] == FlowResultType.FORM
@@ -183,7 +196,20 @@ async def test_options_flow_handler_variants(
     user_input: ConfigData,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Parametrized: ensure options flow handler behaves correctly for different input variants."""
+    """Parametrized: ensure options flow handler behaves correctly for different input variants.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        config_entry (MockConfigEntry):
+            The value.
+        case (str):
+            The value.
+        user_input (ConfigData):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass
@@ -255,6 +281,22 @@ def test_get_devicetracker_id_entities_current_entity_variants(
     """Parametrized tests for current_entity handling in get_devicetracker_id_entities.
 
     Covers: friendly name present, no friendly name, and already-present cases.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+        patch_entity_registry (object):
+            The value.
+        async_all_states (Sequence[State]):
+            The value.
+        states_get_state (State):
+            The value.
+        expected_label_check (LabelCheck):
+            The value.
+        expected_count (int):
+            The value.
     """
     _ = patch_entity_registry
     # Limit TRACKING_DOMAINS to a single domain for deterministic results
@@ -275,7 +317,14 @@ def test_get_devicetracker_id_entities_excludes_places_sensors(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Places sensors should not be offered as their own tracked entities."""
+    """Places sensors should not be offered as their own tracked entities.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     places_state = State(
         "sensor.my_places",
         "Home",
@@ -312,7 +361,14 @@ def test_get_devicetracker_id_entities_excludes_places_sensors(
 def test_get_home_zone_entities_builds_zone_list(
     monkeypatch: pytest.MonkeyPatch, mock_hass: MagicMock
 ) -> None:
-    """get_home_zone_entities should return zone entities labeled by their friendly names and sorted by label."""
+    """get_home_zone_entities should return zone entities labeled by their friendly names and sorted by label.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        mock_hass (MagicMock):
+            The value.
+    """
     # use mock_hass fixture to provide a consistent hass object
     hass = mock_hass
     # Only one domain for simplicity
@@ -347,7 +403,16 @@ def test_async_get_options_flow_returns_handler() -> None:
 async def test_options_flow_handler_shows_form_when_no_user_input(
     mock_hass: MagicMock, config_entry: MockConfigEntry, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test that the options flow handler displays a form with the correct schema and description placeholders when no user input is provided (None)."""
+    """Test that the options flow handler displays a form with the correct schema and description placeholders when no user input is provided (None).
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        config_entry (MockConfigEntry):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+    """
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
     handler.hass = mock_hass
@@ -391,7 +456,14 @@ async def test_options_flow_handler_shows_form_when_no_user_input(
     ],
 )
 def test_validate_brackets(display_options: str, expected: bool) -> None:
-    """Test the _validate_brackets function to ensure it correctly validates bracket usage in display_options."""
+    """Test the _validate_brackets function to ensure it correctly validates bracket usage in display_options.
+
+    Args:
+        display_options (str):
+            The value.
+        expected (bool):
+            The value.
+    """
     errors: Errors = {}
     result = _validate_brackets(display_options, errors)
     assert result is expected
@@ -501,7 +573,14 @@ def test_validate_brackets(display_options: str, expected: bool) -> None:
 async def test_validate_display_options_accepts_advanced_options(
     display_options: str, expected_errors: dict[str, str]
 ) -> None:
-    """Validate advanced display option strings across simple and complex permutations."""
+    """Validate advanced display option strings across simple and complex permutations.
+
+    Args:
+        display_options (str):
+            The value.
+        expected_errors (dict[str, str]):
+            The value.
+    """
     errors: dict[str, str] = {}
 
     result = await validate_display_options(display_options, errors)
@@ -515,7 +594,12 @@ async def test_validate_display_options_accepts_advanced_options(
     ["x" * MAX_LENGTH_STATE_STATE, "x" * (MAX_LENGTH_STATE_STATE + 1)],
 )
 async def test_validate_display_options_allows_legacy_long_rules(display_options: str) -> None:
-    """Config flows allow legacy rules longer than the text entity state limit."""
+    """Config flows allow legacy rules longer than the text entity state limit.
+
+    Args:
+        display_options (str):
+            The value.
+    """
     errors: dict[str, str] = {}
 
     result = await validate_display_options(display_options, errors)
@@ -534,7 +618,14 @@ async def test_validate_display_options_allows_legacy_long_rules(display_options
 async def test_validate_display_options_rejects_blank_values(
     display_options: str, expected_errors: dict[str, str]
 ) -> None:
-    """Blank or whitespace-only display options are rejected to match coordinator validation."""
+    """Blank or whitespace-only display options are rejected to match coordinator validation.
+
+    Args:
+        display_options (str):
+            The value.
+        expected_errors (dict[str, str]):
+            The value.
+    """
     errors: dict[str, str] = {}
 
     result = await validate_display_options(display_options, errors)
@@ -544,7 +635,12 @@ async def test_validate_display_options_rejects_blank_values(
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step_no_input_shows_form(mock_hass: MagicMock) -> None:
-    """User step with no input returns a form and includes description placeholders."""
+    """User step with no input returns a form and includes description placeholders.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     flow = PlacesConfigFlow()
     flow.hass = mock_hass
     result = await flow.async_step_user(None)
@@ -555,7 +651,12 @@ async def test_config_flow_user_step_no_input_shows_form(mock_hass: MagicMock) -
 
 @pytest.mark.asyncio
 async def test_config_flow_user_step_invalid_display_options(mock_hass: MagicMock) -> None:
-    """Invalid display options should return form with errors populated."""
+    """Invalid display options should return form with errors populated.
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+    """
     flow = PlacesConfigFlow()
     flow.hass = mock_hass
     bad_input = {
@@ -584,7 +685,18 @@ async def test_options_flow_invalid_display_options_shows_form(
     monkeypatch: pytest.MonkeyPatch,
     patch_entity_registry: object,
 ) -> None:
-    """Options flow with invalid display options string returns form (errors path)."""
+    """Options flow with invalid display options string returns form (errors path).
+
+    Args:
+        mock_hass (MagicMock):
+            The value.
+        config_entry (MockConfigEntry):
+            The value.
+        monkeypatch (pytest.MonkeyPatch):
+            The value.
+        patch_entity_registry (object):
+            The value.
+    """
     _ = patch_entity_registry
     config_entry.add_to_hass(mock_hass)
     handler = PlacesOptionsFlowHandler()
@@ -622,9 +734,10 @@ def test_validate_comma_syntax(display_options: str, expected: bool) -> None:
     """Test the _validate_comma_syntax function to ensure it correctly validates comma usage in display_options.
 
     Args:
-        display_options (str): The display options string to validate.
-        expected (bool): The expected result of the validation.
-
+        display_options (str):
+            The display options string to validate.
+        expected (bool):
+            The expected result of the validation.
     """
     errors: Errors = {}
     result = _validate_comma_syntax(display_options, errors)
@@ -648,9 +761,10 @@ def test_validate_option_names(display_options: str, expected: bool) -> None:
     """Test the _validate_option_names function to ensure it correctly validates option names in display_options.
 
     Args:
-        display_options (str): The display options string to validate.
-        expected (bool): The expected result of the validation.
-
+        display_options (str):
+            The display options string to validate.
+        expected (bool):
+            The expected result of the validation.
     """
     errors: Errors = {}
     result = _validate_option_names(display_options, errors)

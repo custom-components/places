@@ -37,8 +37,10 @@ class AdvancedOptionsParser:
         """Initialize the advanced-options parser.
 
         Args:
-            coordinator: Places coordinator that provides attribute access helpers.
-            curr_options: Raw advanced display option expression.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator that provides attribute access helpers.
+            curr_options (str):
+                Raw advanced display option expression.
         """
         self.coordinator = coordinator
         self.curr_options = curr_options
@@ -52,7 +54,8 @@ class AdvancedOptionsParser:
         """Parse an option expression and append matching values to ``state_list``.
 
         Args:
-            curr_options: Option expression to parse. When omitted, the parser's
+            curr_options (str | None):
+                Option expression to parse. When omitted, the parser's
                 configured root expression is used and recursion tracking is
                 reset.
         """
@@ -79,7 +82,8 @@ class AdvancedOptionsParser:
         """Continue parsing after a comma-prefixed next expression.
 
         Args:
-            next_opt: Remaining option expression, including the leading comma.
+            next_opt (str | None):
+                Remaining option expression, including the leading comma.
         """
         if not next_opt or len(next_opt) <= 1 or next_opt[0] != ",":
             return
@@ -91,11 +95,13 @@ class AdvancedOptionsParser:
         """Check whether an option expression has balanced delimiters.
 
         Args:
-            curr_options: Option expression to inspect.
+            curr_options (str):
+                Option expression to inspect.
 
         Returns:
-            ``True`` when opening and closing brackets and parentheses have the
-            same counts.
+            bool:
+                ``True`` when opening and closing brackets and parentheses have the
+                same counts.
         """
         if curr_options.count("[") != curr_options.count("]"):
             _LOGGER.error("Bracket Count Mismatch: %s", curr_options)
@@ -116,15 +122,21 @@ class AdvancedOptionsParser:
         """Return an option value after applying zone and filter constraints.
 
         Args:
-            opt: Display option name to resolve through ``DISPLAY_OPTIONS_MAP``.
-            incl: Lowercase option values that are allowed.
-            excl: Lowercase option values that are suppressed.
-            incl_attr: Attribute filters that must match before ``opt`` is used.
-            excl_attr: Attribute filters that suppress ``opt`` when matched.
+            opt (str):
+                Display option name to resolve through ``DISPLAY_OPTIONS_MAP``.
+            incl (list | None):
+                Lowercase option values that are allowed.
+            excl (list | None):
+                Lowercase option values that are suppressed.
+            incl_attr (MutableMapping[str, Any] | None):
+                Attribute filters that must match before ``opt`` is used.
+            excl_attr (MutableMapping[str, Any] | None):
+                Attribute filters that suppress ``opt`` when matched.
 
         Returns:
-            Resolved display string, or ``None`` when the option is blank,
-            outside its zone context, or filtered out.
+            str | None:
+                Resolved display string, or ``None`` when the option is blank,
+                outside its zone context, or filtered out.
         """
         incl = [] if incl is None else incl
         excl = [] if excl is None else excl
@@ -237,7 +249,8 @@ class AdvancedOptionsParser:
         """Process the next advanced option segment with filters or fallback text.
 
         Args:
-            curr_options: Remaining option expression containing at least one
+            curr_options (str):
+                Remaining option expression containing at least one
                 bracket, parenthesis, or comma.
         """
         comma_num: int = curr_options.find(",")
@@ -314,7 +327,8 @@ class AdvancedOptionsParser:
         """Append values for a comma-separated list of simple options.
 
         Args:
-            curr_options: Option names separated by commas.
+            curr_options (str):
+                Option names separated by commas.
         """
         for opt in curr_options.split(","):
             if opt:
@@ -326,7 +340,8 @@ class AdvancedOptionsParser:
         """Append a resolved value for one simple option name.
 
         Args:
-            curr_options: Single display option name.
+            curr_options (str):
+                Single display option name.
         """
         ret_state = await self.get_option_state(curr_options.strip())
         if ret_state:
@@ -336,12 +351,14 @@ class AdvancedOptionsParser:
         """Parse an attribute-scoped include/exclude filter.
 
         Args:
-            item: Filter expression such as ``place_type(cafe,park)`` or
+            item (str):
+                Filter expression such as ``place_type(cafe,park)`` or
                 ``place_type(-,house)``.
 
         Returns:
-            Attribute option name, normalized filter values, and ``True`` for
-            include mode or ``False`` for exclude mode.
+            tuple[str, list[str], bool]:
+                Attribute option name, normalized filter values, and ``True`` for
+                include mode or ``False`` for exclude mode.
         """
         paren_attr = item[: item.find("(")]
         paren_attr_first = True
@@ -365,12 +382,14 @@ class AdvancedOptionsParser:
         """Parse value filters from a parenthesized expression.
 
         Args:
-            curr_options: Expression beginning with ``(``.
+            curr_options (str):
+                Expression beginning with ``(``.
 
         Returns:
-            Included values, excluded values, included attribute filters,
-            excluded attribute filters, and the remaining expression after the
-            closing parenthesis.
+            tuple[list, list, MutableMapping[str, Any], MutableMapping[str, Any], str | None]:
+                Included values, excluded values, included attribute filters,
+                excluded attribute filters, and the remaining expression after the
+                closing parenthesis.
         """
         incl, excl = [], []
         incl_attr, excl_attr = {}, {}
@@ -434,11 +453,13 @@ class AdvancedOptionsParser:
         """Parse a bracketed fallback expression.
 
         Args:
-            curr_options: Expression beginning with ``[``.
+            curr_options (str):
+                Expression beginning with ``[``.
 
         Returns:
-            Fallback option expression to use when the primary option is blank,
-            plus the remaining expression after the closing bracket.
+            tuple[str | None, str | None]:
+                Fallback option expression to use when the primary option is blank,
+                plus the remaining expression after the closing bracket.
         """
         empty_bracket: bool = False
         none_opt: str | None = None
@@ -472,8 +493,9 @@ class AdvancedOptionsParser:
         """Join resolved option values into the final coordinator state.
 
         Returns:
-            Comma-separated state string, with street number and street joined
-            by a space when they are adjacent.
+            str:
+                Comma-separated state string, with street number and street joined
+                by a space when they are adjacent.
         """
         self._street_num_i += 1
         first = True

@@ -20,9 +20,12 @@ async def async_setup_entry(
     """Set up the Map Provider configuration entity.
 
     Args:
-        hass: Home Assistant instance.
-        config_entry: Config entry being set up.
-        async_add_entities: Callback used to register created entities.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        config_entry (ConfigEntry):
+            Config entry being set up.
+        async_add_entities (AddEntitiesCallback):
+            Callback used to register created entities.
     """
     coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
     async_add_entities([PlacesMapProviderSelect(coordinator)])
@@ -37,14 +40,29 @@ class PlacesMapProviderSelect(PlacesEntity, SelectEntity):
     _attr_translation_key = "map_provider"
 
     def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
-        """Initialize the Map Provider select entity."""
+        """Initialize the Map Provider select entity.
+
+        Args:
+            coordinator (PlacesUpdateCoordinator):
+                The value.
+        """
         super().__init__(coordinator, unique_suffix=CONF_MAP_PROVIDER)
 
     @property
     def current_option(self) -> str | None:
-        """Return the configured map provider."""
+        """Return the configured map provider.
+
+        Returns:
+            str | None:
+                The value.
+        """
         return self.coordinator.get_attr_safe_str(CONF_MAP_PROVIDER) or None
 
     async def async_select_option(self, option: str) -> None:
-        """Save and locally apply a map provider."""
+        """Save and locally apply a map provider.
+
+        Args:
+            option (str):
+                The value.
+        """
         await self.coordinator.async_update_setting(CONF_MAP_PROVIDER, option)

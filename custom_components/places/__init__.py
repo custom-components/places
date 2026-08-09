@@ -35,7 +35,8 @@ def _ensure_osm_runtime_state(hass: HomeAssistant) -> None:
     """Initialize shared OSM cache and throttle state.
 
     Args:
-        hass: Home Assistant instance that owns integration runtime data.
+        hass (HomeAssistant):
+            Home Assistant instance that owns integration runtime data.
     """
     domain_data = hass.data.setdefault(DOMAIN, {})
     domain_data.setdefault(
@@ -55,11 +56,14 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate a Places config entry to the current version.
 
     Args:
-        hass: Home Assistant instance.
-        entry: Config entry to migrate.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry (ConfigEntry):
+            Config entry to migrate.
 
     Returns:
-        ``True`` when migration completes.
+        bool:
+            ``True`` when migration completes.
     """
     if entry.version != 1:
         return True
@@ -110,10 +114,12 @@ def _split_top_level_options(display_options: str) -> list[str]:
     """Split display options on commas outside parentheses and brackets.
 
     Args:
-        display_options: Raw comma-separated display-options expression.
+        display_options (str):
+            Raw comma-separated display-options expression.
 
     Returns:
-        Display-option expressions with nested commas kept intact.
+        list[str]:
+            Display-option expressions with nested commas kept intact.
     """
     options: list[str] = []
     start = 0
@@ -134,10 +140,12 @@ def _migrate_formatted_address_display_options(raw_display_options: str) -> str:
     """Migrate ``formatted_address`` tokens while preserving literal filter values.
 
     Args:
-        raw_display_options: The raw display-options string to migrate.
+        raw_display_options (str):
+            The raw display-options string to migrate.
 
     Returns:
-        The migrated display-options string with display-option identifiers renamed where safe.
+        str:
+            The migrated display-options string with display-option identifiers renamed where safe.
     """
     out: list[str] = []
     paren_depth = 0
@@ -163,11 +171,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Places from a config entry.
 
     Args:
-        hass: Home Assistant instance.
-        entry: Config entry to set up.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry (ConfigEntry):
+            Config entry to set up.
 
     Returns:
-        ``True`` when setup completes successfully.
+        bool:
+            ``True`` when setup completes successfully.
+
+    Raises:
+        Exception:
+            Propagated when the operation fails.
     """
     _ensure_osm_runtime_state(hass)
     name = entry.data.get(CONF_NAME, entry.entry_id)
@@ -212,9 +227,12 @@ async def _async_cleanup_failed_setup(
     """Best-effort cleanup for setup that did not reach the loaded state.
 
     Args:
-        hass: Home Assistant instance.
-        entry: Config entry whose setup failed.
-        coordinator: Coordinator created for the failed setup attempt.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry (ConfigEntry):
+            Config entry whose setup failed.
+        coordinator (PlacesUpdateCoordinator):
+            Coordinator created for the failed setup attempt.
     """
     try:
         await coordinator.async_prepare_unload()
@@ -264,8 +282,10 @@ async def _async_resume_failed_unload(
     """Best-effort resume for entries that remain loaded after unload failure.
 
     Args:
-        entry: Config entry whose unload failed.
-        coordinator: Coordinator that still owns runtime state.
+        entry (ConfigEntry):
+            Config entry whose unload failed.
+        coordinator (PlacesUpdateCoordinator):
+            Coordinator that still owns runtime state.
     """
     try:
         await coordinator.async_resume_after_failed_unload()
@@ -282,11 +302,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a Places config entry.
 
     Args:
-        hass: Home Assistant instance.
-        entry: Config entry to unload.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry (ConfigEntry):
+            Config entry to unload.
 
     Returns:
-        ``True`` when all Places platforms unload successfully.
+        bool:
+            ``True`` when all Places platforms unload successfully.
+
+    Raises:
+        Exception:
+            Propagated when the operation fails.
     """
     # This is called when an entry/configured device is to be removed. The class
     # needs to unload itself, and remove callbacks. See the classes for further
@@ -345,8 +372,10 @@ async def async_remove_extended_entity(hass: HomeAssistant, entry: ConfigEntry) 
     """Remove the optional extended-data sensor registry entry if it exists.
 
     Args:
-        hass: Home Assistant instance.
-        entry: Config entry whose extended-data entity should be removed.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry (ConfigEntry):
+            Config entry whose extended-data entity should be removed.
     """
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id(
@@ -362,11 +391,14 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Remove config-entry specific persisted state.
 
     Args:
-        hass: Home Assistant instance.
-        entry: Config entry being removed.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        entry (ConfigEntry):
+            Config entry being removed.
 
     Returns:
-        ``True`` after best-effort persisted-state cleanup completes.
+        bool:
+            ``True`` after best-effort persisted-state cleanup completes.
     """
     _LOGGER.info("Removing Places entry: %s", entry.entry_id)
     name = entry.data.get(CONF_NAME, entry.entry_id)

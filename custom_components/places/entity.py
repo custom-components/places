@@ -63,8 +63,10 @@ class PlacesEntity(CoordinatorEntity["PlacesUpdateCoordinator"]):
         """Initialize a Places coordinator entity.
 
         Args:
-            coordinator: Places coordinator that owns runtime data.
-            unique_suffix: Optional unique-id suffix for child entities.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator that owns runtime data.
+            unique_suffix (str | None):
+                Optional unique-id suffix for child entities.
         """
         super().__init__(coordinator)
         self._attr_unique_id = (
@@ -78,7 +80,8 @@ class PlacesEntity(CoordinatorEntity["PlacesUpdateCoordinator"]):
         """Return the shared HA Device metadata for this config entry.
 
         Returns:
-            Device metadata used to group Places entities in Home Assistant.
+            DeviceInfo:
+                Device metadata used to group Places entities in Home Assistant.
         """
         current_name = self.coordinator.get_attr_safe_str(CONF_NAME)
         if not current_name:
@@ -103,8 +106,10 @@ class PlacesSensorEntity(PlacesEntity, SensorEntity):
         """Initialize a Places sensor entity.
 
         Args:
-            coordinator: Places coordinator that owns runtime data.
-            unique_suffix: Optional unique-id suffix for child entities.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator that owns runtime data.
+            unique_suffix (str | None):
+                Optional unique-id suffix for child entities.
         """
         super().__init__(coordinator, unique_suffix)
         self._attr_native_value = None
@@ -116,7 +121,12 @@ class PlacesSensorEntity(PlacesEntity, SensorEntity):
         self.async_write_ha_state()
 
     def _update_from_coordinator(self) -> None:
-        """Copy coordinator data into this entity's cached attributes."""
+        """Copy coordinator data into this entity's cached attributes.
+
+        Raises:
+            NotImplementedError:
+                Propagated when the operation fails.
+        """
         raise NotImplementedError
 
 

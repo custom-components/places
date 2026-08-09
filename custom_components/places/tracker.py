@@ -23,7 +23,16 @@ from .helpers import is_float
 
 
 def _float_or_none(value: Any) -> float | None:
-    """Convert a float-compatible value, returning ``None`` for invalid values."""
+    """Convert a float-compatible value, returning ``None`` for invalid values.
+
+    Args:
+        value (Any):
+            The value.
+
+    Returns:
+        float | None:
+            The value.
+    """
     return float(value) if is_float(value) else None
 
 
@@ -57,11 +66,14 @@ class TrackerSnapshot:
         """Build a tracker snapshot from ``hass.states.get``.
 
         Args:
-            hass: Home Assistant instance used to fetch tracker state.
-            entity_id: Tracker entity ID to look up in HA state registry.
+            hass (HomeAssistant):
+                Home Assistant instance used to fetch tracker state.
+            entity_id (str | None):
+                Tracker entity ID to look up in HA state registry.
 
         Returns:
-            Snapshot describing tracker availability, state, and location data.
+            TrackerSnapshot:
+                Snapshot describing tracker availability, state, and location data.
         """
         if not entity_id:
             return cls(
@@ -188,5 +200,10 @@ class TrackerSnapshot:
 
     @property
     def has_valid_coordinates(self) -> bool:
-        """Return whether both coordinate values are parseable."""
+        """Return whether both coordinate values are parseable.
+
+        Returns:
+            bool:
+                The value.
+        """
         return self.status == TrackerStatus.OK

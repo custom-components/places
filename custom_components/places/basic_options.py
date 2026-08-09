@@ -33,10 +33,13 @@ class BasicOptionsParser:
         """Initialize the parser with coordinator state and selected display options.
 
         Args:
-            coordinator: Places coordinator that provides attribute access helpers.
-            internal_attr: Current coordinator attribute mapping used for duplicate
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator that provides attribute access helpers.
+            internal_attr (MutableMapping[str, Any]):
+                Current coordinator attribute mapping used for duplicate
                 checks.
-            display_options: Ordered user-selected display option names.
+            display_options (list[str]):
+                Ordered user-selected display option names.
         """
         self.coordinator = coordinator
         self._internal_attr = internal_attr
@@ -53,11 +56,16 @@ class BasicOptionsParser:
         """Append an attribute value when the display rules allow it.
 
         Args:
-            user_display: Mutable list to which the display value is appended.
-            attr_key: Attribute name to check and append.
-            option_key: Display option key that gates inclusion.
-            condition: Additional condition required before adding the value.
-            require_in_display_options: When true, require ``option_key`` to be
+            user_display (list[str]):
+                Mutable list to which the display value is appended.
+            attr_key (str):
+                Attribute name to check and append.
+            option_key (str | None):
+                Display option key that gates inclusion.
+            condition (bool):
+                Additional condition required before adding the value.
+            require_in_display_options (bool):
+                When true, require ``option_key`` to be
                 present in display options.
         """
         if (
@@ -71,8 +79,9 @@ class BasicOptionsParser:
         """Build a comma-separated state string from basic display options.
 
         Returns:
-            Display state assembled from non-blank attributes allowed by the
-            selected options.
+            str:
+                Display state assembled from non-blank attributes allowed by the
+                selected options.
         """
         user_display: list[str] = []
         in_zone = await self.coordinator.in_zone()
@@ -151,8 +160,9 @@ class BasicOptionsParser:
         """Build the opinionated ``formatted_place`` display value.
 
         Returns:
-            Human-readable place string with driving, place/street, and locality
-            components collapsed into a single line.
+            str:
+                Human-readable place string with driving, place/street, and locality
+                components collapsed into a single line.
         """
         formatted_place_array: list[str] = []
         if not await self.coordinator.in_zone():
@@ -185,12 +195,15 @@ class BasicOptionsParser:
         """Decide whether the OSM place name adds distinct information.
 
         Args:
-            internal_attr: Current coordinator attribute mapping.
-            coordinator: Places coordinator used for blank checks and safe value access.
+            internal_attr (MutableMapping[str, Any]):
+                Current coordinator attribute mapping.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator used for blank checks and safe value access.
 
         Returns:
-            ``True`` when ``place_name`` exists and does not duplicate address
-            fields that will already be shown.
+            bool:
+                ``True`` when ``place_name`` exists and does not duplicate address
+                fields that will already be shown.
         """
         use_place_name = True
         sensor_attributes_values = [
@@ -214,8 +227,10 @@ class BasicOptionsParser:
         """Append a useful place type or category to a formatted-place list.
 
         Args:
-            formatted_place_array: Mutable output list being assembled.
-            coordinator: Places coordinator used for blank checks and safe value access.
+            formatted_place_array (list[str]):
+                Mutable output list being assembled.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator used for blank checks and safe value access.
         """
         if (
             not coordinator.is_attr_blank("place_type")
@@ -245,8 +260,10 @@ class BasicOptionsParser:
         """Append street reference or house-number/street details.
 
         Args:
-            formatted_place_array: Mutable output list being assembled.
-            coordinator: Places coordinator used for blank checks and safe value access.
+            formatted_place_array (list[str]):
+                Mutable output list being assembled.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator used for blank checks and safe value access.
         """
         street = None
         if coordinator.is_attr_blank("street") and not coordinator.is_attr_blank(ATTR_ROUTE_NUMBER):
@@ -280,8 +297,10 @@ class BasicOptionsParser:
         """Append neighbourhood context for house-level places.
 
         Args:
-            formatted_place_array: Mutable output list being assembled.
-            coordinator: Places coordinator used for blank checks and safe value access.
+            formatted_place_array (list[str]):
+                Mutable output list being assembled.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator used for blank checks and safe value access.
         """
         if (
             not coordinator.is_attr_blank("place_type")
@@ -300,8 +319,10 @@ class BasicOptionsParser:
         """Append the best locality and state abbreviation available.
 
         Args:
-            formatted_place_array: Mutable output list being assembled.
-            coordinator: Places coordinator used for blank checks and safe value access.
+            formatted_place_array (list[str]):
+                Mutable output list being assembled.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator used for blank checks and safe value access.
         """
         if not coordinator.is_attr_blank("city_clean"):
             formatted_place_array.append(coordinator.get_attr_safe_str("city_clean").strip())

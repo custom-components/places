@@ -26,8 +26,10 @@ class OSMClient:
         """Create an OSM client bound to a sensor for logging and HA context.
 
         Args:
-            hass: Home Assistant instance.
-            sensor_name: Sensor name used in log messages.
+            hass (HomeAssistant):
+                Home Assistant instance.
+            sensor_name (str):
+                Sensor name used in log messages.
         """
         self._hass: HomeAssistant = hass
         self._sensor_name: str = sensor_name
@@ -39,13 +41,18 @@ class OSMClient:
         """Build the Nominatim reverse-geocode URL for the supplied coordinates.
 
         Args:
-            latitude: Latitude for the reverse lookup.
-            longitude: Longitude for the reverse lookup.
-            language: Accept-Language value to request localized results.
-            email: Nominatim contact email value.
+            latitude (object):
+                Latitude for the reverse lookup.
+            longitude (object):
+                Longitude for the reverse lookup.
+            language (str | None):
+                Accept-Language value to request localized results.
+            email (str | None):
+                Nominatim contact email value.
 
         Returns:
-            Fully encoded reverse geocode URL.
+            str:
+                Fully encoded reverse geocode URL.
         """
         base_url = "https://nominatim.openstreetmap.org/reverse?format=json"
         params = {
@@ -67,13 +74,18 @@ class OSMClient:
         """Build the Nominatim lookup URL for a typed OSM feature.
 
         Args:
-            osm_type_abbr: One-letter OSM type prefix (N/W/R).
-            osm_id: Object identifier for the feature.
-            language: Accept-Language value to request localized results.
-            email: Nominatim contact email value.
+            osm_type_abbr (str):
+                One-letter OSM type prefix (N/W/R).
+            osm_id (object):
+                Object identifier for the feature.
+            language (str | None):
+                Accept-Language value to request localized results.
+            email (str | None):
+                Nominatim contact email value.
 
         Returns:
-            Fully encoded OSM lookup URL.
+            str:
+                Fully encoded OSM lookup URL.
         """
         params = {
             "osm_ids": f"{osm_type_abbr}{osm_id}",
@@ -88,24 +100,42 @@ class OSMClient:
 
     @staticmethod
     def wikidata_url(wikidata_id: object) -> str:
-        """Build the wikidata entity URL used by OSM extras lookup."""
+        """Build the wikidata entity URL used by OSM extras lookup.
+
+        Args:
+            wikidata_id (object):
+                The value.
+
+        Returns:
+            str:
+                The value.
+        """
         return f"https://www.wikidata.org/wiki/Special:EntityData/{wikidata_id}.json"
 
     def update_sensor_name(self, sensor_name: str) -> None:
-        """Update the cached sensor name used in log messages."""
+        """Update the cached sensor name used in log messages.
+
+        Args:
+            sensor_name (str):
+                The value.
+        """
         self._sensor_name = sensor_name
 
     async def get_json(self, url: str, name: str, *, use_cache: bool = True) -> Any | None:
         """Fetch JSON from a URL with OSM cache and throttle behavior.
 
         Args:
-            url: Absolute URL to request.
-            name: Friendly label for log output.
-            use_cache: Whether an existing shared cached response may be returned.
+            url (str):
+                Absolute URL to request.
+            name (str):
+                Friendly label for log output.
+            use_cache (bool):
+                Whether an existing shared cached response may be returned.
 
         Returns:
-            Parsed JSON object (or a list-item flattened mapping), or ``None``
-            when the request or parse fails.
+            Any | None:
+                Parsed JSON object (or a list-item flattened mapping), or ``None``
+                when the request or parse fails.
         """
         osm_cache: dict[str, object] = self._hass.data[DOMAIN][OSM_CACHE]
         if use_cache and url in osm_cache:
