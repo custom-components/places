@@ -313,7 +313,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     Raises:
         Exception:
-            Propagated when the operation fails.
+            Propagated from coordinator unload preparation or platform unload;
+            coordinator shutdown errors are logged and suppressed.
     """
     # This is called when an entry/configured device is to be removed. The class
     # needs to unload itself, and remove callbacks. See the classes for further

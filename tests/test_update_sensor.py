@@ -98,7 +98,7 @@ class AioClientMock(Protocol):
 
         Returns:
             object:
-                State or attribute selected by the test double for the requested key.
+                Mocked HTTP response registration for the requested URL.
         """
 
 
@@ -188,9 +188,9 @@ async def test_do_update_flow_variants(
         check_result (UpdateStatus):
             Update status returned by the tracker validation step.
         should_rollback (bool):
-            Whether rollback is expected after the injected failure.
+            Whether ``rollback_update`` is expected to be called.
         should_handle (bool):
-            Whether the error is expected to be handled.
+            Whether ``handle_state_update`` is expected to be called.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
@@ -1442,9 +1442,9 @@ async def test_update_old_coordinates_param(
         lon_val (float | str):
             Longitude candidate supplied by the tracker.
         expect_lat_old (float | None):
-            Whether the previous latitude is expected to be retained.
+            Expected previous latitude value, or ``None`` when it is not stored.
         expect_lon_old (float | None):
-            Whether the previous longitude is expected to be retained.
+            Expected previous longitude value, or ``None`` when it is not stored.
     """
     sensor.attrs[ATTR_LATITUDE] = lat_val
     sensor.attrs[ATTR_LONGITUDE] = lon_val
@@ -2282,7 +2282,7 @@ async def test_rollback_update_skips_persistent_side_effects_during_shutdown(
         previous_attr (dict[str, object]):
             Previous attribute content used for comparison.
         status (UpdateStatus):
-            HTTP status returned by the mocked response.
+            Update status supplied to ``rollback_update``.
         now (datetime):
             Current timestamp supplied by the patched clock.
     """
@@ -2361,7 +2361,7 @@ async def test_get_dict_from_url_variants(
         payload (str | None):
             Places payload returned by the mocked request.
         expected_attr (object | None):
-            Attribute name whose resulting content is asserted.
+            Expected payload value stored in the sensor attribute.
         network_error (bool):
             Network failure injected by the mocked client.
     """
@@ -3312,7 +3312,7 @@ async def test_rollback_update_triggers_helpers(
         sensor (MockSensor):
             Places sensor fixture whose state is asserted.
         status (UpdateStatus):
-            HTTP status returned by the mocked response.
+            Update status supplied to ``rollback_update``.
         seconds (int):
             Elapsed seconds used to format the state suffix.
         show_time (bool):
@@ -3502,11 +3502,11 @@ async def test_get_dict_from_url_network_variants(
         payload (str | None):
             Places payload returned by the mocked request.
         expect_log_substr (str | None):
-            Whether the specified log fragment is expected.
+            Expected log-message fragment, or ``None`` when no fragment is expected.
         expect_cached (bool):
             Whether the response is expected to enter the cache.
         expect_sensor_attr (object):
-            Whether the sensor attribute is expected to exist.
+            Expected stored sensor-attribute value, where applicable.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/nettest"
@@ -3564,7 +3564,7 @@ async def test_get_dict_from_url_payloads_respect_throttle(
         dict_name (str):
             Response-cache key for the requested payload.
         expected_attr (dict[str, object]):
-            Attribute name whose resulting content is asserted.
+            Expected payload value stored in the sensor attribute.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 

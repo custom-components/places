@@ -21,7 +21,7 @@ def test_clear_since_from_state_removes_pattern(input_str: str, expected: str) -
 
     Args:
         input_str (str):
-            Text supplied to the display-options parser.
+            State string from which a ``(since ...)`` suffix is removed.
         expected (str):
             Expected result for this parametrized case.
     """
@@ -42,7 +42,7 @@ def test_safe_truncate(input_str: str | None, max_len: int, expected: str) -> No
 
     Args:
         input_str (str | None):
-            Text supplied to the display-options parser.
+            Text to truncate safely.
         max_len (int):
             Maximum output length enforced by truncation.
         expected (str):

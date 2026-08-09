@@ -56,7 +56,7 @@ class OSMParserFactory(Protocol):
 
         Returns:
             tuple[OSMParser, MockSensor]:
-                Parser instance constructed from the supplied option string.
+                OpenStreetMap parser and the backing ``MockSensor``.
         """
 
 
@@ -269,7 +269,7 @@ async def test_parse_namedetails_variants(
         is_lang_blank (bool):
             Whether the language preference is blank.
         expected_calls (Sequence[str]):
-            Calls expected on the mocked dependency.
+            Expected place-name values assigned by the parser.
     """
     # Create a sensor with language preference or blankness configured via attrs/blank_attrs
     if is_lang_blank:
@@ -795,7 +795,7 @@ async def test_finalize_last_place_name_variants(
 
 @pytest.mark.asyncio
 async def test_parse_osm_dict_full_flow(osm_parser: OSMParserFactory) -> None:
-    """Test that `parse_osm_dict` calls all parsing submethods with the OSM dictionary and sets attributes as expected.
+    """Test that ``parse_osm_dict`` awaits parser submethods with the OSM dictionary.
 
     Args:
         osm_parser (OSMParserFactory):

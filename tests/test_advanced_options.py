@@ -33,7 +33,7 @@ class AdvancedParserFactory(Protocol):
 
         Returns:
             tuple[AdvancedOptionsParser, MockSensor]:
-                Parser instance constructed from the supplied option string.
+                Advanced options parser and the backing ``MockSensor``.
         """
 
 
@@ -359,9 +359,9 @@ async def test_compile_state_variants(
         state_list (list[StateItem]):
             Ordered state components to compile.
         street_i (int | None):
-            Street component included in state formatting.
+            Index of the street component in ``state_list``.
         street_num_i (int | None):
-            Street-number component included in state formatting.
+            Index of the street-number component in ``state_list``.
         expected (str):
             Expected result for this parametrized case.
         sensor (MockSensor):

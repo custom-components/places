@@ -27,7 +27,7 @@ class AioClientMock(Protocol):
 
         Returns:
             object:
-                State or attribute selected by the test double for the requested key.
+                Mocked HTTP response registration for the requested URL.
         """
 
 
@@ -81,7 +81,7 @@ async def test_get_json_uses_existing_cache_without_network(
         cached_payload (object):
             Places payload already present in the response cache.
         expect_copy (bool):
-            Whether legacy data is expected to be copied.
+            Whether the cached payload is copied before return.
     """
     mock_hass.data = {
         DOMAIN: {

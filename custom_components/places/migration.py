@@ -95,6 +95,9 @@ def _read_legacy_snapshot(path: Path, name: str) -> Mapping[str, Any] | None:
     Returns:
         Mapping[str, Any] | None:
             Snapshot mapping, or ``None`` when missing or invalid.
+
+    Notes:
+        ``OSError`` from opening the snapshot propagates to the caller.
     """
     try:
         with path.open(encoding="utf-8") as snapshot_file:

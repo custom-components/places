@@ -548,7 +548,7 @@ def mock_sensor(
 
     Returns:
         MockSensor:
-            Factory that creates sensor doubles with supplied attributes.
+            Configured sensor double with the supplied attributes.
 
     Usage in tests:
         sensor = mock_sensor()
@@ -658,7 +658,7 @@ def patch_entity_registry() -> Iterator[Callable[[HomeAssistant], er.EntityRegis
 
     Yields:
         Callable[[HomeAssistant], er.EntityRegistry]:
-            Callable that installs and restores an isolated entity registry.
+            Patched entity-registry getter that returns the isolated registry.
     """
     original = er.async_get
     er.async_get = _async_get_entity_registry
@@ -679,7 +679,7 @@ def stub_in_zone(obj: object, return_value: bool) -> AbstractContextManager[Stub
 
     Returns:
         AbstractContextManager[StubMock]:
-            Replacement zone-membership result used during the test.
+            Context manager that yields the replacement zone-membership mock.
 
     Usage:
         with stub_in_zone(sensor, False):
@@ -718,7 +718,7 @@ def stub_method(
 
     Returns:
         AbstractContextManager[StubMock]:
-            Method double configured with the supplied result or error.
+            Context manager that yields the configured method double.
 
     Usage:
         with stub_method(parser, "parse_type", return_value=None):
@@ -776,7 +776,7 @@ def stubbed_updater() -> Callable[
 
     Returns:
         Callable[[object, Sequence[MethodSpec]], AbstractContextManager[StubMapping]]:
-            Updater whose external dependencies are replaced by test doubles.
+            Callable factory that creates context managers for updater method stubs.
 
     Usage:
         with stubbed_updater(updater, [
@@ -846,7 +846,7 @@ def stubbed_parser(
 
     Returns:
         AbstractContextManager[StubMapping]:
-            Parser whose external lookups are replaced by test doubles.
+            Context manager that yields parser method names mapped to their mocks.
 
     Usage:
         with stubbed_parser(parser, [("parse_type", {}), ("set_attribution", {})]):
@@ -887,7 +887,7 @@ def stubbed_sensor(
 
     Returns:
         AbstractContextManager[StubMapping]:
-            Sensor whose coordinator and state dependencies are controlled.
+            Context manager that yields sensor method names mapped to their mocks.
 
     Usage:
         with stubbed_sensor(sensor, [("process_display_options", {})]):

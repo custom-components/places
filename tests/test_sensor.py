@@ -240,7 +240,7 @@ async def test_coordinator_updates_setting_locally(
         value (str | bool):
             Setting content written to coordinator data.
         expected_attr (str):
-            Attribute name whose resulting content is asserted.
+            Expected resulting setting value.
     """
     mock_hass.config.time_zone = "UTC"
     mock_hass.states.get.return_value = None

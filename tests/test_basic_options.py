@@ -36,7 +36,7 @@ class BasicParserFactory(Protocol):
 
         Returns:
             tuple[BasicOptionsParser, MockSensor]:
-                Parser instance constructed from the supplied option string.
+                Basic options parser and the backing ``MockSensor``.
         """
 
 
@@ -328,7 +328,7 @@ def test_should_use_place_name(
         attrs (Attrs):
             Places attribute mapping used by the test.
         duplicate_list (list[str]):
-            Duplicate place names used to test deduplication.
+            Configured attribute names checked for duplicate place names.
         expected (bool):
             Expected result for this parametrized case.
         basic_parser (BasicParserFactory):

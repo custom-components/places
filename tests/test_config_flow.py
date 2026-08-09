@@ -294,9 +294,9 @@ def test_get_devicetracker_id_entities_current_entity_variants(
         states_get_state (State):
             Current tracker state returned by direct lookup.
         expected_label_check (LabelCheck):
-            Whether label matching is expected.
+            Predicate callable that validates a matching entity label.
         expected_count (int):
-            Number of calls or entities expected by the assertion.
+            Number of matching entities expected by the assertion.
     """
     _ = patch_entity_registry
     # Limit TRACKING_DOMAINS to a single domain for deterministic results

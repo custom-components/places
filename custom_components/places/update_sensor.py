@@ -949,7 +949,7 @@ class PlacesUpdater:
             name (str):
                 Human-readable service name used in logs.
             dict_name (str):
-                Sensor attribute that receives the parsed JSON mapping.
+                Sensor attribute that receives the parsed JSON payload.
         """
         get_dict = await self._osm_client.get_json(url=url, name=name, use_cache=self._use_cache)
         self.coordinator.set_attr(dict_name, get_dict if get_dict is not None else {})

@@ -802,7 +802,7 @@ async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
 
     async def raise_subscription_error() -> None:
-        """Raise a subscription error after platform forwarding succeeds.
+        """Raise a subscription error during ``async_added_to_hass`` before platform forwarding.
 
         Raises:
             RuntimeError:
