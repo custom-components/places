@@ -11,10 +11,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places import (
-    _EXTENDED_ENTRY_COUNT_KEY,
-    _decrement_extended_attr_ref,
     _ensure_osm_runtime_state,
-    _increment_extended_attr_ref,
     async_migrate_entry,
     async_remove_entry,
     async_remove_extended_entity,
@@ -28,40 +25,11 @@ from custom_components.places.const import (
     CONF_NAME,
     DEFAULT_DISPLAY_OPTIONS,
     DOMAIN,
-    EVENT_TYPE,
     OSM_CACHE,
     OSM_THROTTLE,
     PLATFORMS,
 )
 from tests.conftest import assert_awaited_count
-
-
-def test_recorder_unavailable_is_observable_without_changing_ref_counts(
-    caplog: pytest.LogCaptureFixture,
-    mock_hass: MagicMock,
-) -> None:
-    """Missing recorder runtime should be observable while ref counts stay authoritative."""
-    with caplog.at_level(logging.DEBUG, logger="custom_components.places"):
-        _increment_extended_attr_ref(mock_hass)
-
-    assert mock_hass.data[DOMAIN][_EXTENDED_ENTRY_COUNT_KEY] == 1
-    assert "Recorder is unavailable" in caplog.text
-
-    recorder = MagicMock()
-    recorder.exclude_event_types = set()
-    mock_hass.data[DATA_INSTANCE] = recorder
-    _increment_extended_attr_ref(mock_hass)
-    assert EVENT_TYPE in recorder.exclude_event_types
-
-    mock_hass.data.pop(DATA_INSTANCE)
-    _decrement_extended_attr_ref(mock_hass)
-    assert mock_hass.data[DOMAIN][_EXTENDED_ENTRY_COUNT_KEY] == 1
-
-    with caplog.at_level(logging.DEBUG, logger="custom_components.places"):
-        _decrement_extended_attr_ref(mock_hass)
-
-    assert _EXTENDED_ENTRY_COUNT_KEY not in mock_hass.data[DOMAIN]
-    assert "cannot be released" in caplog.text
 
 
 @pytest.fixture
@@ -568,9 +536,6 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
             CONF_EXTENDED_ATTR: True,
         },
     )
-    recorder = MagicMock()
-    recorder.exclude_event_types = set()
-    mock_hass.data[DATA_INSTANCE] = recorder
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
     call_order: list[str] = []
@@ -614,7 +579,6 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
     coordinator.async_shutdown.assert_awaited_once_with()
     mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(entry, PLATFORMS)
     assert entry.runtime_data is None
-    assert EVENT_TYPE not in recorder.exclude_event_types
     assert call_order == ["prepare_unload", "unload_platforms", "shutdown"]
 
 
@@ -675,11 +639,11 @@ async def test_async_setup_entry_with_empty_data(
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_adds_event_exclusion_for_extended_attributes(
+async def test_async_setup_entry_preserves_recorder_event_exclusions_for_extended_attributes(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
-    """Setup should add `places_state_update` to recorder exclusions when extended mode is enabled."""
+    """Extended mode should not alter global Recorder event exclusions."""
     entry = MockConfigEntry(
         domain="places",
         data={
@@ -689,152 +653,14 @@ async def test_async_setup_entry_adds_event_exclusion_for_extended_attributes(
         },
     )
     recorder = MagicMock()
-    recorder.exclude_event_types = set()
+    recorder.exclude_event_types = {"external_event"}
     mock_hass.data[DATA_INSTANCE] = recorder
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
 
     await async_setup_entry(mock_hass, entry)
 
-    assert EVENT_TYPE in recorder.exclude_event_types
-
-
-@pytest.mark.asyncio
-async def test_async_unload_entry_uses_setup_state_when_extended_attr_turns_off(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
-) -> None:
-    """Unload should remove exclusion even if entry data was changed to false."""
-    entry = MockConfigEntry(
-        domain="places",
-        data={
-            "name": "TestSensor",
-            "devicetracker_id": "person.test",
-            CONF_EXTENDED_ATTR: True,
-        },
-    )
-    recorder = MagicMock()
-    recorder.exclude_event_types = set()
-    mock_hass.data[DATA_INSTANCE] = recorder
-    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
-    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
-
-    await async_setup_entry(mock_hass, entry)
-    unload_entry = MockConfigEntry(
-        domain="places",
-        entry_id=entry.entry_id,
-        data={
-            "name": "TestSensor",
-            "devicetracker_id": "person.test",
-            CONF_EXTENDED_ATTR: False,
-        },
-    )
-    unload_entry.runtime_data = entry.runtime_data
-    result = await async_unload_entry(mock_hass, unload_entry)
-
-    assert result is True
-    assert EVENT_TYPE not in recorder.exclude_event_types
-
-
-@pytest.mark.asyncio
-async def test_async_unload_entry_uses_setup_state_when_extended_attr_turns_on(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
-) -> None:
-    """Unload should keep exclusion untouched when a previously off entry is turned on."""
-    entry = MockConfigEntry(
-        domain="places",
-        data={
-            "name": "TestSensor",
-            "devicetracker_id": "person.test",
-            CONF_EXTENDED_ATTR: False,
-        },
-    )
-    recorder = MagicMock()
-    recorder.exclude_event_types = set()
-    mock_hass.data[DATA_INSTANCE] = recorder
-    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
-    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
-
-    await async_setup_entry(mock_hass, entry)
-    unload_entry = MockConfigEntry(
-        domain="places",
-        entry_id=entry.entry_id,
-        data={
-            "name": "TestSensor",
-            "devicetracker_id": "person.test",
-            CONF_EXTENDED_ATTR: True,
-        },
-    )
-    unload_entry.runtime_data = entry.runtime_data
-    result = await async_unload_entry(mock_hass, unload_entry)
-
-    assert result is True
-    assert EVENT_TYPE not in recorder.exclude_event_types
-
-
-@pytest.mark.asyncio
-async def test_async_unload_entry_keeps_and_clears_recorder_exclusion_by_active_extended_count(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
-) -> None:
-    """Unloading one extended entry should keep exclusions until the last extended entry is unloaded."""
-    entry_one = MockConfigEntry(
-        domain="places",
-        data={
-            "name": "TestSensor One",
-            "devicetracker_id": "person.one",
-            CONF_EXTENDED_ATTR: True,
-        },
-    )
-    entry_two = MockConfigEntry(
-        domain="places",
-        data={
-            "name": "TestSensor Two",
-            "devicetracker_id": "person.two",
-            CONF_EXTENDED_ATTR: True,
-        },
-    )
-    recorder = MagicMock()
-    recorder.exclude_event_types = set()
-    mock_hass.data[DATA_INSTANCE] = recorder
-    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
-    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
-
-    await async_setup_entry(mock_hass, entry_one)
-    await async_setup_entry(mock_hass, entry_two)
-    await async_unload_entry(mock_hass, entry_one)
-    assert EVENT_TYPE in recorder.exclude_event_types
-    await async_unload_entry(mock_hass, entry_two)
-
-    assert EVENT_TYPE not in recorder.exclude_event_types
-
-
-@pytest.mark.asyncio
-async def test_async_unload_entry_preserves_preexisting_event_exclusion(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
-) -> None:
-    """Unload should preserve an event exclusion owned outside Places."""
-    entry = MockConfigEntry(
-        domain="places",
-        data={
-            "name": "TestSensor",
-            "devicetracker_id": "person.test",
-            CONF_EXTENDED_ATTR: True,
-        },
-    )
-    recorder = MagicMock()
-    recorder.exclude_event_types = {EVENT_TYPE}
-    mock_hass.data[DATA_INSTANCE] = recorder
-    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
-    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
-
-    await async_setup_entry(mock_hass, entry)
-    result = await async_unload_entry(mock_hass, entry)
-
-    assert result is True
-    assert EVENT_TYPE in recorder.exclude_event_types
+    assert recorder.exclude_event_types == {"external_event"}
 
 
 @pytest.mark.asyncio
@@ -892,7 +718,8 @@ async def test_async_unload_entry_prepares_unload_before_platform_unload_and_shu
 
 
 @pytest.mark.asyncio
-async def test_async_unload_entry_clears_owned_state_when_shutdown_raises(
+async def test_async_unload_entry_completes_when_shutdown_raises(
+    caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
 ) -> None:
@@ -905,22 +732,21 @@ async def test_async_unload_entry_clears_owned_state_when_shutdown_raises(
             CONF_EXTENDED_ATTR: True,
         },
     )
-    recorder = MagicMock()
-    recorder.exclude_event_types = set()
-    mock_hass.data[DATA_INSTANCE] = recorder
     monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
     monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
     await async_setup_entry(mock_hass, entry)
     coordinator = entry.runtime_data
     coordinator.async_shutdown.side_effect = RuntimeError("shutdown boom")
 
-    with pytest.raises(RuntimeError, match="shutdown boom"):
-        await async_unload_entry(mock_hass, entry)
+    with caplog.at_level(logging.ERROR, logger="custom_components.places"):
+        result = await async_unload_entry(mock_hass, entry)
 
+    assert result is True
     mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(entry, PLATFORMS)
     coordinator.async_prepare_unload.assert_awaited_once_with()
     assert entry.runtime_data is None
-    assert EVENT_TYPE not in recorder.exclude_event_types
+    assert "shutdown failed" in caplog.text
+    assert entry.entry_id in caplog.text
 
 
 @pytest.mark.asyncio
@@ -1044,81 +870,6 @@ async def test_async_unload_entry_resume_failure_preserves_unload_result(
     assert mock_entry.runtime_data is coordinator
     assert "resume_after_failed_unload" in caplog.text
     assert "resume boom" in caplog.text
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("terminal_path", "expected_error", "expected_result"),
-    [
-        ("setup_refresh_exception", "refresh boom", None),
-        ("unload_shutdown_exception", "shutdown boom", None),
-        ("unload_success", None, True),
-    ],
-)
-async def test_recorder_release_failure_preserves_terminal_state(
-    caplog: pytest.LogCaptureFixture,
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
-    terminal_path: str,
-    expected_error: str | None,
-    expected_result: bool | None,
-) -> None:
-    """Recorder release failures should not mask setup or unload terminal state."""
-    entry = MockConfigEntry(
-        domain="places",
-        data={
-            "name": "TestSensor",
-            "devicetracker_id": "person.test",
-            CONF_EXTENDED_ATTR: True,
-        },
-    )
-    recorder = MagicMock()
-    recorder.exclude_event_types = set()
-    mock_hass.data[DATA_INSTANCE] = recorder
-    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
-    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
-
-    def fail_release(_hass: MagicMock) -> None:
-        raise RuntimeError("release boom")
-
-    if terminal_path == "setup_refresh_exception":
-        original_init = _FakeCoordinator.__init__
-
-        def init_with_failing_refresh(
-            self: _FakeCoordinator,
-            hass: object,
-            config_entry: MockConfigEntry,
-            imported_attributes: dict[str, object],
-            persistence: _FakeSetupPlacesStorage | MagicMock,
-        ) -> None:
-            """Install a failing initial refresh hook on the fake coordinator."""
-            original_init(self, hass, config_entry, imported_attributes, persistence)
-            self.async_request_refresh.side_effect = RuntimeError("refresh boom")
-
-        monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_failing_refresh)
-    else:
-        await async_setup_entry(mock_hass, entry)
-        if terminal_path == "unload_shutdown_exception":
-            entry.runtime_data.async_shutdown.side_effect = RuntimeError("shutdown boom")
-
-    monkeypatch.setattr("custom_components.places._decrement_extended_attr_ref", fail_release)
-
-    async def run_terminal_path() -> bool:
-        """Run the configured setup or unload terminal path."""
-        if terminal_path == "setup_refresh_exception":
-            return await async_setup_entry(mock_hass, entry)
-        return await async_unload_entry(mock_hass, entry)
-
-    with caplog.at_level(logging.ERROR, logger="custom_components.places"):
-        if expected_error is not None:
-            with pytest.raises(RuntimeError, match=expected_error):
-                await run_terminal_path()
-        else:
-            assert await run_terminal_path() is expected_result
-
-    assert entry.runtime_data is None
-    assert "release_extended_attr_ref" in caplog.text
-    assert "release boom" in caplog.text
 
 
 @pytest.mark.asyncio

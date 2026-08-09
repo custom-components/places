@@ -6,7 +6,6 @@ import logging
 import re
 
 import cachetools
-from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -14,12 +13,9 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import (
     CONF_DISPLAY_OPTIONS,
-    CONF_EXTENDED_ATTR,
     CONF_NAME,
     DEFAULT_DISPLAY_OPTIONS,
-    DEFAULT_EXTENDED_ATTR,
     DOMAIN,
-    EVENT_TYPE,
     OSM_CACHE,
     OSM_CACHE_MAX_AGE_HOURS,
     OSM_CACHE_MAX_SIZE,
@@ -31,9 +27,6 @@ from .migration import async_migrate_legacy_snapshot
 from .persistence import PlacesStorage
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
-_EXTENDED_ENTRY_COUNT_KEY = "_extended_attr_entry_count"
-_EXTENDED_EVENT_EXCLUSION_OWNED_KEY = "_extended_event_exclusion_owned"
-_EXTENDED_ENTRY_SETUP_STATE_KEY = "_extended_attr_entry_setup_state"
 
 CONFIG_SCHEMA: Callable[[dict], dict] = cv.empty_config_schema(DOMAIN)
 
@@ -200,15 +193,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.runtime_data = None
         raise
 
-    extended_attr_enabled = bool(entry.data.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR))
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-        hass_data = hass.data.setdefault(DOMAIN, {})
-        hass_data.setdefault(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})[entry.entry_id] = (
-            extended_attr_enabled
-        )
-        if extended_attr_enabled:
-            _increment_extended_attr_ref(hass)
         await coordinator.async_request_refresh()
     except Exception:
         # Keep entry teardown behavior deterministic before re-raising setup failures.
@@ -269,7 +255,6 @@ async def _async_cleanup_failed_setup(
         )
     finally:
         entry.runtime_data = None
-        _release_extended_attr_ref(hass, entry.entry_id)
 
 
 async def _async_resume_failed_unload(
@@ -341,78 +326,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         if coordinator is not None:
             await coordinator.async_shutdown()
+    except Exception:
+        # Platforms are already unloaded, so teardown is terminal even if
+        # coordinator cleanup fails. Do not leave HA in FAILED_UNLOAD with no
+        # entities or usable runtime data.
+        _LOGGER.exception(
+            "Places unload step shutdown failed for entry %s coordinator %r",
+            entry.entry_id,
+            coordinator,
+        )
     finally:
         entry.runtime_data = None
-        _release_extended_attr_ref(hass, entry.entry_id)
 
     return True
-
-
-def _release_extended_attr_ref(hass: HomeAssistant, entry_id: str) -> None:
-    """Release recorder exclusion state owned by one loaded entry.
-
-    Args:
-        hass: Home Assistant instance that owns recorder runtime data.
-        entry_id: Config-entry ID whose setup-owned extended state should be released.
-    """
-    try:
-        domain_data = hass.data.get(DOMAIN)
-        if not isinstance(domain_data, dict):
-            return
-        extended_entry_state = domain_data.get(_EXTENDED_ENTRY_SETUP_STATE_KEY, {})
-        if not isinstance(extended_entry_state, dict):
-            return
-        if extended_entry_state.pop(entry_id, False):
-            _decrement_extended_attr_ref(hass)
-    except Exception:
-        # Recorder cleanup must not mask the setup or unload terminal state.
-        _LOGGER.exception(
-            "Places cleanup step release_extended_attr_ref failed for entry %s",
-            entry_id,
-        )
-
-
-def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
-    """Track active extended-attributes entries and enable event exclusion.
-
-    Args:
-        hass: Home Assistant instance that owns recorder runtime data.
-    """
-    domain_data = hass.data.setdefault(DOMAIN, {})
-    count = int(domain_data.get(_EXTENDED_ENTRY_COUNT_KEY, 0)) + 1
-    domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
-    recorder = hass.data.get(DATA_INSTANCE)
-    if recorder is None:
-        _LOGGER.debug("Recorder is unavailable; Places event exclusion will not be installed")
-        return
-    if EVENT_TYPE not in recorder.exclude_event_types:
-        recorder.exclude_event_types.add(EVENT_TYPE)
-        domain_data[_EXTENDED_EVENT_EXCLUSION_OWNED_KEY] = True
-
-
-def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
-    """Release one active extended-attributes entry and clean up exclusion when last unloads.
-
-    Args:
-        hass: Home Assistant instance that owns recorder runtime data.
-    """
-    domain_data = hass.data.get(DOMAIN)
-    if not isinstance(domain_data, dict):
-        return
-    count = int(domain_data.get(_EXTENDED_ENTRY_COUNT_KEY, 0)) - 1
-    if count > 0:
-        domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
-        return
-    domain_data.pop(_EXTENDED_ENTRY_COUNT_KEY, None)
-    owns_event_exclusion = bool(domain_data.pop(_EXTENDED_EVENT_EXCLUSION_OWNED_KEY, False))
-    recorder = hass.data.get(DATA_INSTANCE)
-    if recorder is None:
-        if owns_event_exclusion:
-            _LOGGER.debug("Recorder is unavailable; Places event exclusion cannot be released")
-        return
-    if not owns_event_exclusion:
-        return
-    recorder.exclude_event_types.discard(EVENT_TYPE)
 
 
 async def async_remove_extended_entity(hass: HomeAssistant, entry: ConfigEntry) -> None:
