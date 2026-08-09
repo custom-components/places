@@ -17,7 +17,7 @@ from custom_components.places.const import (
     CONF_DISPLAY_OPTIONS,
     CONF_NAME,
 )
-from custom_components.places.sensor import Places
+from custom_components.places.coordinator import PlacesUpdateCoordinator
 
 # Snapshot of internal attributes after parse_osm_dict
 BASE_INTERNAL_ATTR = {
@@ -40,22 +40,19 @@ BASE_INTERNAL_ATTR = {
     "home_latitude": 40.824763,
     "home_longitude": -73.973675,
     "show_date": False,
-    "devicetracker_zone_name": "not_home",
-    "devicetracker_zone": "not_home",
+    "zone_name": "not_home",
+    "zone": "not_home",
     "direction_of_travel": "towards home",
-    "distance_from_home_km": 23.899,
-    "distance_from_home_m": 23898.658,
-    "distance_from_home_mi": 14.85,
-    "distance_traveled_m": 2378.348,
-    "distance_traveled_mi": 1.478,
+    "distance_from_home": 23898.658,
+    "distance_traveled": 2378.348,
     "gps_accuracy": 4.0,
     "last_changed": "2025-07-30 16:52:35-04:00",
     "last_place_name": "Riverside Drive",
     "last_updated": "2025-07-30 16:52:35-04:00",
     "previous_latitude": 40.83871498707779,
-    "current_latitude": 40.854733600095464,
+    "latitude": 40.854733600095464,
     "previous_longitude": -73.94654779701861,
-    "current_longitude": -73.96526768799811,
+    "longitude": -73.96526768799811,
     "native_value": "Secondary, Riverside Drive, New York, NY",  # Pre-existing state before re-render
     "attribution": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
     "display_options_list": ["formatted_place"],
@@ -103,9 +100,9 @@ BASE_INTERNAL_ATTR = {
     "street_number": "1",
     "street": "Bridge Plaza North",
     "city": "Fort Lee",
-    "neighbourhood": "Koreatown",
+    "neighborhood": "Koreatown",
     "city_clean": "Fort Lee",
-    "state_province": "New Jersey",
+    "state": "New Jersey",
     "state_abbr": "NJ",
     "county": "Bergen County",
     "country": "United States",
@@ -131,22 +128,39 @@ README_FORMATTED_PLACE_ADVANCED = (
 async def render_display_option(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch, display_option: str
 ) -> str | None:
-    """Render one display option using the integration test attribute snapshot."""
-    config_entry = MockConfigEntry(domain="places", data={CONF_NAME: "Test Place"})
-    config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
-    sensor = Places(mock_hass, config, config_entry, "Test Place", "unique-id-123", {})
-    sensor._internal_attr = copy.deepcopy(BASE_INTERNAL_ATTR)
-    sensor.clear_attr(ATTR_NATIVE_VALUE)
-    sensor._attr_native_value = None
-    sensor.set_attr(CONF_DISPLAY_OPTIONS, display_option)
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
-    monkeypatch.setattr(sensor, "in_zone", AsyncMock(return_value=False), raising=False)
-    monkeypatch.setattr(sensor, "get_driving_status", AsyncMock(return_value=None), raising=False)
+    """Render one display option using the coordinator attribute snapshot."""
+    mock_hass.states.get.return_value = None
+    config_entry = MockConfigEntry(
+        domain="places",
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test_iphone",
+        },
+    )
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    persistence.async_remove = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(
+        mock_hass,
+        config_entry,
+        copy.deepcopy(BASE_INTERNAL_ATTR),
+        persistence,
+    )
+    coordinator.clear_attr(ATTR_NATIVE_VALUE)
+    coordinator.set_attr(CONF_DISPLAY_OPTIONS, display_option)
+    coordinator.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
+    coordinator.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
+    monkeypatch.setattr(coordinator, "in_zone", AsyncMock(return_value=False), raising=False)
+    monkeypatch.setattr(
+        coordinator,
+        "get_driving_status",
+        AsyncMock(return_value=None),
+        raising=False,
+    )
 
-    await sensor.process_display_options()
+    await coordinator.process_display_options()
 
-    return sensor.get_attr(ATTR_NATIVE_VALUE)
+    return coordinator.get_attr(ATTR_NATIVE_VALUE)
 
 
 @pytest.mark.asyncio
@@ -155,9 +169,22 @@ async def render_display_option(
     ("display_option", "expected_state"),
     [
         ("zone_name", "not_home"),
-        ("zone, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
-        ("zone_name, place", "not_home, Roy Spiegel MSW, house, 1, Bridge Plaza North"),
+        (
+            "zone, place",
+            "not_home, Roy Spiegel MSW, house, Koreatown, 1, Bridge Plaza North",
+        ),
+        (
+            "zone_name, place",
+            "not_home, Roy Spiegel MSW, house, Koreatown, 1, Bridge Plaza North",
+        ),
         ("formatted_place", "Roy Spiegel MSW, Fort Lee, NJ"),
+        (
+            "osm_formatted_address",
+            (
+                "Roy Spiegel MSW, 1, Bridge Plaza North, Koreatown, Fort Lee, Bergen County, "
+                "New Jersey, 07024, United States"
+            ),
+        ),
         (
             README_PLACE_ADVANCED,
             "Roy Spiegel MSW, House, Koreatown, 1 Bridge Plaza North",
@@ -175,60 +202,21 @@ async def test_display_options_state_render(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Assert that a CONF_DISPLAY_OPTIONS value renders the expected state."""
-    # Minimal config / objects required for Places init
-    # Use shared mock_hass fixture for consistency
-    config_entry = MockConfigEntry(domain="places", data={CONF_NAME: "Test Place"})
-    config = {CONF_DEVICETRACKER_ID: "device_tracker.test_iphone"}
+    state = await render_display_option(mock_hass, monkeypatch, display_option)
 
-    hass = mock_hass
-    sensor = Places(hass, config, config_entry, "Test Place", "unique-id-123", {})
-
-    # Inject snapshot of attributes (simulate post-parse_osm_dict state)
-    sensor._internal_attr = copy.deepcopy(BASE_INTERNAL_ATTR)
-
-    # Ensure we start fresh wrt previously computed native value
-    sensor.clear_attr(ATTR_NATIVE_VALUE)
-    sensor._attr_native_value = None
-
-    # Apply parameterized display option
-    sensor.set_attr(CONF_DISPLAY_OPTIONS, display_option)
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS, display_option)
-    # Clear any stale list so process_display_options rebuilds it
-    sensor.set_attr(ATTR_DISPLAY_OPTIONS_LIST, [])
-
-    # Force out-of-zone behavior (devicetracker_zone_name is 'not_home')
-    # Temporarily patch the instance methods so they are restored after the block.
-    # Also patch get_driving_status to avoid I/O or time-dependent work during the test.
-    # Use monkeypatch to temporarily replace instance methods
-    monkeypatch.setattr(sensor, "in_zone", AsyncMock(return_value=False), raising=False)
-    monkeypatch.setattr(sensor, "get_driving_status", AsyncMock(return_value=None), raising=False)
-    await sensor.process_display_options()
-
-    assert sensor.get_attr(ATTR_NATIVE_VALUE) == expected_state, (
-        f"Display option '{display_option}' produced '{sensor.get_attr(ATTR_NATIVE_VALUE)}', "
-        f"expected '{expected_state}'."
-    )
+    assert state == expected_state
 
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("patch_entity_registry")
-async def test_readme_place_advanced_example_documents_current_output(
+async def test_basic_place_option_includes_neighborhood(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Document current behavior for README `place` example mismatch without changing logic.
-
-    This intentionally captures the non-equivalence between:
-    - basic `place`
-    - README's documented advanced `place` expression.
-    """
+    """Basic place options should retain neighborhood context."""
     basic_state = await render_display_option(mock_hass, monkeypatch, "place")
-    advanced_state = await render_display_option(mock_hass, monkeypatch, README_PLACE_ADVANCED)
 
     assert basic_state
-    assert advanced_state
-    assert basic_state != advanced_state
-    assert "Koreatown" in advanced_state
-    assert "Koreatown" not in basic_state
+    assert "Koreatown" in basic_state
 
 
 def test_readme_display_examples_are_documented() -> None:

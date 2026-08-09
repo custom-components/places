@@ -28,10 +28,63 @@
                 "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details",
                 "data_description": {
                     "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
-                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
                     "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
                   }
             }
+        }
+    },
+    "entity": {
+        "button": {
+            "force_update": {
+                "name": "Force Update"
+            }
+        },
+        "select": {
+            "map_provider": {
+                "name": "Map Provider"
+            }
+        },
+        "switch": {
+            "show_last_updated": {
+                "name": "Show Last Updated"
+            }
+        },
+        "text": {
+            "display_options": {
+                "name": "Display Options"
+            }
+        },
+        "sensor": {
+            "place_name": {"name": "Place Name"},
+            "zone_name": {"name": "Zone Name"},
+            "city": {"name": "City"},
+            "state": {"name": "State"},
+            "direction_of_travel": {"name": "Direction of Travel"},
+            "map_link": {"name": "Map Link"},
+            "distance_from_home": {"name": "Distance From Home"},
+            "distance_traveled": {"name": "Distance Traveled"},
+            "country": {"name": "Country"},
+            "country_code": {"name": "Country Code"},
+            "street_number": {"name": "Street Number"},
+            "street": {"name": "Street"},
+            "route_number": {"name": "Route Number"},
+            "neighborhood": {"name": "Neighborhood"},
+            "postal_town": {"name": "Postal Town"},
+            "postal_code": {"name": "Postal Code"},
+            "county": {"name": "County"},
+            "state_abbr": {"name": "State Abbr"},
+            "place_type": {"name": "Place Type"},
+            "place_category": {"name": "Place Category"},
+            "zone": {"name": "Zone"},
+            "latitude": {"name": "Latitude"},
+            "longitude": {"name": "Longitude"},
+            "gps_accuracy": {"name": "GPS Accuracy"},
+            "last_changed": {"name": "Last Changed"},
+            "last_updated": {"name": "Last Updated"},
+            "osm_id": {"name": "OSM ID"},
+            "osm_type": {"name": "Osm Type"},
+            "extended_data": {"name": "Extended Data"}
         }
     },
     "options": {
@@ -61,7 +114,7 @@
                 "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details",
                 "data_description": {
                     "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
-                    "extended_attr": "Show extended attributes: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (if they exist). Provides many additional attributes for advanced logic. Warning, this will make the attributes very long!",
+                    "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
                     "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
                   }
             }

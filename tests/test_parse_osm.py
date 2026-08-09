@@ -27,10 +27,10 @@ from custom_components.places.const import (
     ATTR_POSTAL_CODE,
     ATTR_POSTAL_TOWN,
     ATTR_REGION,
+    ATTR_ROUTE_NUMBER,
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
-    ATTR_STREET_REF,
     CONF_LANGUAGE,
     PLACE_NAME_DUPLICATE_LIST,
 )
@@ -49,12 +49,6 @@ class OSMParserFactory(Protocol):
 
     def __call__(self, attrs: Attrs | None = None) -> tuple[OSMParser, MockSensor]:
         """Create the parser and sensor."""
-
-
-@pytest.fixture
-def sensor() -> MockSensor:
-    """Shared sensor fixture returning a configured MockSensor instance."""
-    return mock_sensor()
 
 
 @pytest.fixture
@@ -353,31 +347,6 @@ async def test_set_city_details_variants(
 @pytest.mark.parametrize(
     ("address", "expected_attr", "expected_value"),
     [
-        ({"town": "Shelbyville"}, ATTR_CITY, "Shelbyville"),
-        ({"village": "Ogdenville"}, ATTR_CITY, "Ogdenville"),
-    ],
-)
-async def test_set_city_details_postal_town(
-    osm_parser: OSMParserFactory, address: Address, expected_attr: AttrName, expected_value: object
-) -> None:
-    """Test that set_city_details sets the correct city attribute for postal towns and villages.
-
-    Args:
-        osm_parser: Factory fixture for creating the parser and sensor.
-        address: The address dictionary containing town or village information.
-        expected_attr: The expected attribute to be set (e.g., ATTR_CITY).
-        expected_value: The expected value to be set for the attribute.
-
-    """
-    parser, sensor = osm_parser()
-    await parser.set_city_details(address)
-    assert sensor.attrs[expected_attr] == expected_value
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("address", "expected_attr", "expected_value"),
-    [
         ({"neighbourhood": "Downtown"}, ATTR_PLACE_NEIGHBOURHOOD, "Downtown"),
         ({"suburb": "Westside"}, ATTR_POSTAL_TOWN, "Westside"),
         ({"quarter": "East End"}, ATTR_PLACE_NEIGHBOURHOOD, "East End"),
@@ -472,13 +441,34 @@ async def test_set_region_details_sets_attrs(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_value", [None, 123, ["US", "CA"]])
+async def test_set_region_details_ignores_non_string_codes(
+    osm_parser: OSMParserFactory, invalid_value: object
+) -> None:
+    """Malformed external region codes do not abort parsing other fields."""
+    parser, sensor = osm_parser()
+
+    await parser.set_region_details(
+        {
+            "ISO3166-2-lvl4": invalid_value,
+            "country": "USA",
+            "country_code": invalid_value,
+        }
+    )
+
+    assert sensor.attrs[ATTR_COUNTRY] == "USA"
+    assert ATTR_STATE_ABBR not in sensor.attrs
+    assert ATTR_COUNTRY_CODE not in sensor.attrs
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("expected_attr", "expected_value"),
     [
         (ATTR_FORMATTED_ADDRESS, "123 Main St"),
         (ATTR_OSM_ID, "123456"),
         (ATTR_OSM_TYPE, "way"),
-        (ATTR_STREET_REF, "A1"),
+        (ATTR_ROUTE_NUMBER, "A1"),
     ],
 )
 async def test_parse_miscellaneous_sets_attrs(
@@ -525,7 +515,7 @@ async def test_parse_miscellaneous_ignores_invalid_street_ref(
     await parser.parse_miscellaneous(osm_dict)
 
     assert sensor.attrs[ATTR_FORMATTED_ADDRESS] == "123 Main St"
-    assert ATTR_STREET_REF not in sensor.attrs
+    assert ATTR_ROUTE_NUMBER not in sensor.attrs
 
 
 @pytest.mark.asyncio
@@ -545,13 +535,13 @@ async def test_parse_miscellaneous_clears_stale_street_ref_without_usable_ref(
         attrs={
             ATTR_PLACE_CATEGORY: "highway",
             ATTR_OSM_DICT: {"osm_id": 123456},
-            ATTR_STREET_REF: "A1",
+            ATTR_ROUTE_NUMBER: "A1",
         }
     )
 
     await parser.parse_miscellaneous(osm_dict)
 
-    assert ATTR_STREET_REF not in sensor.attrs
+    assert ATTR_ROUTE_NUMBER not in sensor.attrs
 
 
 @pytest.mark.asyncio
@@ -583,6 +573,17 @@ async def test_set_place_name_no_dupe_param(
         sensor._set_attr_mock.assert_any_call(ATTR_PLACE_NAME_NO_DUPE, current_name)
     else:
         sensor._set_attr_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_set_place_name_no_dupe_compares_safe_strings() -> None:
+    """Non-string place values use the same safe-string duplicate contract."""
+    sensor = mock_sensor(attrs={ATTR_PLACE_NAME: 123, ATTR_STREET: 123})
+    parser = OSMParser(sensor)
+
+    await parser.set_place_name_no_dupe()
+
+    sensor._set_attr_mock.assert_not_called()
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 """Pytest fixtures and mock classes for testing Home Assistant integrations."""
 
-from collections.abc import Callable, Iterator, Mapping, Sequence
+import asyncio
+from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, suppress
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -10,16 +11,16 @@ import homeassistant.helpers.entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.places.const import ATTR_NATIVE_VALUE, CONF_DEVICETRACKER_ID, CONF_NAME
+from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
 
-# Sentinel value that callers may use to indicate a previous attribute should be removed
-RESTORE_PREVIOUS_ATTR_REMOVE = object()
-
-type Attrs = dict[str, object]
+type Attrs = MutableMapping[str, object]
 type StubMock = AsyncMock | MagicMock
 type MethodSpec = tuple[str, dict[str, object]]
 type StubMapping = dict[str, StubMock]
+type CoordinatorFactory = Callable[[str], tuple[MockConfigEntry, PlacesUpdateCoordinator]]
 
 
 def mock_method(default_func: Callable[..., object]) -> Mock:
@@ -262,6 +263,8 @@ class MockSensor:
         self.set_native_value.assert_any_call = self._set_native_value_mock.assert_any_call
         self.async_cleanup_attributes = AsyncMock()
         self.restore_previous_attr = AsyncMock(side_effect=self._restore_previous_attr)
+        self.async_persist_attributes = AsyncMock()
+        self.publish_update = MagicMock()
         self.get_internal_attr = lambda: self.attrs
 
     def _set_attr(self, key: str, value: object) -> None:
@@ -286,57 +289,15 @@ class MockSensor:
         if key is not None and key in self.attrs:
             self.attrs.pop(key)
 
-    async def _restore_previous_attr(self, *args: object, **kwargs: object) -> None:
-        """Restore previous attribute values on this mock sensor.
+    async def _restore_previous_attr(self, previous_attr: MutableMapping[str, object]) -> None:
+        """Restore previous attributes on this mock sensor with full replacement.
 
-        This helper is used by tests to simulate restoring attribute state after an
-        update/rollback. It accepts either:
-
-        - A single mapping (e.g., a dict) as the first positional argument, and/or
-          keyword arguments: all key/value pairs from the mapping and kwargs will
-          be applied to ``self.attrs`` via ``update()``.
-
-        - A (key, previous_value) pair as two positional arguments: the sensor's
-          ``self.attrs[key]`` will be set to ``previous_value``. If
-          ``previous_value`` is the module-level sentinel
-          ``RESTORE_PREVIOUS_ATTR_REMOVE``, the key will instead be removed from
-          ``self.attrs``.
-
-        The method is async to match callers that ``await`` the mocked
-        ``restore_previous_attr`` (the public attribute is an ``AsyncMock`` whose
-        side_effect points here).
+        Args:
+            previous_attr: Attribute snapshot to restore as the complete replacement.
         """
-        # If a mapping-like first arg is provided, merge it into attrs.
-        if args:
-            first = args[0]
-            # Mapping case: update attrs with provided mapping
-            if isinstance(first, Mapping):
-                # Best-effort: try to convert and update; ignore expected bad mapping data.
-                with suppress(TypeError, ValueError, AttributeError):
-                    self.attrs.update(first)
-                # Also apply any kwargs
-                if kwargs:
-                    self.attrs.update(kwargs)
-                return
-
-            # Pair case: (key, previous_value)
-            if len(args) >= 2:
-                key, previous_value = args[0], args[1]
-                if not isinstance(key, str):
-                    return
-                if previous_value is RESTORE_PREVIOUS_ATTR_REMOVE:
-                    self.attrs.pop(key, None)
-                else:
-                    self.attrs[key] = previous_value
-                return
-
-        # If no positional args but kwargs provided, update attrs with kwargs
-        if kwargs:
-            self.attrs.update(kwargs)
-            return
-
-        # Nothing to do for other call shapes; keep as no-op.
-        return
+        self.attrs = previous_attr
+        native_value = self.attrs.get(ATTR_NATIVE_VALUE)
+        self.native_value = str(native_value) if native_value is not None else None
 
     async def in_zone(self) -> bool:
         """Return True if the sensor is in the configured zone, else False."""
@@ -373,6 +334,7 @@ def mock_hass() -> MagicMock:
     hass_instance.bus = MagicMock()
     hass_instance.states = MagicMock()
     hass_instance.data = {}
+    hass_instance.async_create_task = MagicMock(side_effect=asyncio.create_task)
     hass_instance.async_add_executor_job = AsyncMock()
     # Prevent entity registry lookups from expecting a full HA runtime in unit tests.
     # Tests should use the `patch_entity_registry` fixture or monkeypatch to scope
@@ -384,7 +346,10 @@ def mock_hass() -> MagicMock:
 @pytest.fixture
 def mock_config_entry() -> MockConfigEntry:
     """Provide a default Places config entry for unit tests."""
-    return MockConfigEntry(domain="places", data={"name": "Test Place"})
+    return MockConfigEntry(
+        domain="places",
+        data={CONF_NAME: "Test Place", CONF_DEVICETRACKER_ID: "person.test"},
+    )
 
 
 @pytest.fixture
@@ -395,15 +360,43 @@ def places_instance(
 ) -> Places:
     """Provide a real Places sensor instance with minimal configuration."""
     _ = patch_entity_registry
-    config = {"devicetracker_id": "device_tracker.test"}
-    return Places(
+    persistence = MagicMock()
+    persistence.async_save = AsyncMock()
+    persistence.async_remove = AsyncMock()
+    coordinator = PlacesUpdateCoordinator(
         mock_hass,
-        config,
         mock_config_entry,
-        "TestSensor",
-        "unique123",
         {},
+        persistence,
     )
+    mock_config_entry.runtime_data = coordinator
+    return Places(coordinator)
+
+
+@pytest.fixture
+def coordinator_factory(mock_hass: MagicMock) -> CoordinatorFactory:
+    """Create a config entry and real coordinator for entity-boundary tests."""
+
+    def create(name: str = "OldName") -> tuple[MockConfigEntry, PlacesUpdateCoordinator]:
+        """Create one coordinator with isolated persistence.
+
+        Args:
+            name: Configured Places entity name.
+
+        Returns:
+            The config entry and its initialized coordinator.
+        """
+        entry = MockConfigEntry(
+            domain="places",
+            data={CONF_NAME: name, CONF_DEVICETRACKER_ID: "device_tracker.test"},
+        )
+        persistence = MagicMock()
+        persistence.async_save = AsyncMock()
+        coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+        entry.runtime_data = coordinator
+        return entry, coordinator
+
+    return create
 
 
 class _DummyRegistry(er.EntityRegistry):
@@ -411,6 +404,9 @@ class _DummyRegistry(er.EntityRegistry):
 
     def __init__(self) -> None:
         """Avoid requiring a full Home Assistant instance for registry tests."""
+
+    def async_get(self, entity_id_or_uuid: str) -> None:
+        """Return no registry entry for isolated unit tests."""
 
     def async_get_entity_id(self, domain: str, platform: str, unique_id: str) -> None:
         """Return no entity ID for tests that only need registry lookup isolation."""
@@ -456,13 +452,6 @@ def assert_awaited_count(mock_obj: AsyncMock, expected: int) -> None:
 def sensor() -> MockSensor:
     """Provide a fresh MockSensor instance for tests via fixture."""
     return mock_sensor()
-
-
-@pytest.fixture
-def updater_instance(mock_hass: MagicMock) -> PlacesUpdater:
-    """Provide a PlacesUpdater instance wired to the shared `mock_hass` and a fresh sensor."""
-    sensor_obj = mock_sensor()
-    return PlacesUpdater(mock_hass, MockConfigEntry(domain="places", data={}), sensor_obj)
 
 
 @pytest.fixture

@@ -25,12 +25,6 @@ class AdvancedParserFactory(Protocol):
 
 
 @pytest.fixture
-def sensor() -> MockSensor:
-    """Shared sensor fixture returning a configured MockSensor instance."""
-    return mock_sensor()
-
-
-@pytest.fixture
 def advanced_parser() -> AdvancedParserFactory:
     """Factory fixture to create an AdvancedOptionsParser and its sensor.
 
@@ -79,7 +73,9 @@ async def test_do_brackets_and_parens_count_match(
 @pytest.mark.parametrize(
     ("key", "expected"),
     [
+        ("osm_formatted_address", "123 Any Street"),
         ("zone_name", "Home"),
+        ("province", "Virginia"),
         ("missing", None),
     ],
 )
@@ -88,9 +84,11 @@ async def test_get_option_state_basic(
 ) -> None:
     """Return the expected option state for a basic key lookup."""
     attrs = {
-        "devicetracker_zone_name": "Home",
+        "formatted_address": "123 Any Street",
+        "zone_name": "Home",
         "place_type": "Restaurant",
         "street": "Main St",
+        "state": "Virginia",
         "name": "Test",
     }
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
@@ -114,7 +112,7 @@ async def test_get_option_state_incl_excl(
     advanced_parser: AdvancedParserFactory,
 ) -> None:
     """Respect inclusion/exclusion lists when resolving option state."""
-    attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
+    attrs = {"zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state("zone_name", incl=incl, excl=excl)
     assert out == expected
@@ -136,10 +134,25 @@ async def test_get_option_state_incl_attr_excl_attr(
     advanced_parser: AdvancedParserFactory,
 ) -> None:
     """Apply attribute-based inclusion/exclusion filters when resolving option state."""
-    attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
+    attrs = {"zone_name": "Home", "place_type": "Restaurant", "name": "Test"}
     parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
     out = await parser.get_option_state("zone_name", incl_attr=incl_attr, excl_attr=excl_attr)
     assert out == expected
+
+
+@pytest.mark.asyncio
+async def test_get_option_state_numeric_values_are_stringified(
+    advanced_parser: AdvancedParserFactory,
+) -> None:
+    """Handle numeric display values by normalizing them before string operations."""
+    attrs = {
+        "latitude": 40.715,
+        "longitude": -74.006,
+        "name": "Test",
+    }
+    parser, _sensor = advanced_parser(attrs=attrs, in_zone=True)
+    out = await parser.get_option_state("latitude")
+    assert out == "40.715"
 
 
 @pytest.mark.asyncio
@@ -155,7 +168,7 @@ async def test_get_option_state_title_case(
 ) -> None:
     """Return title-cased option values when appropriate."""
     attrs = {
-        "devicetracker_zone_name": "home",
+        "zone_name": "home",
         "place_type": "restaurant",
         "place_category": "food",
         "name": "Test",
@@ -227,6 +240,7 @@ async def test_parse_parens_and_bracket(
         (["Home", "Restaurant"], None, None, "Home, Restaurant"),
         ([None, "Home", "", "Restaurant"], None, None, "Home, Restaurant"),
         (["Home", "123", "Main St"], 1, 1, "Home, 123, Main St"),
+        (["123", "Main St"], 1, 0, "123 Main St"),
     ],
 )
 async def test_compile_state_variants(
@@ -291,7 +305,7 @@ async def test_build_from_advanced_options_bracket_and_paren(sensor: MockSensor)
 @pytest.mark.asyncio
 async def test_build_next_option_only_traverses_comma_prefixed_suffix(sensor: MockSensor) -> None:
     """Do not process malformed non-comma suffix text after a bracket option."""
-    sensor.attrs = {"devicetracker_zone_name": "Home", "place_type": "Restaurant"}
+    sensor.attrs = {"zone_name": "Home", "place_type": "Restaurant"}
     parser = AdvancedOptionsParser(sensor, "zone_name[place_type]place_type")
     calls: list[str] = []
 
@@ -441,7 +455,7 @@ async def test_parse_bracket_variants(
 async def test_process_bracket_or_parens_comma_first_builds_states(sensor: MockSensor) -> None:
     """Process comma-separated options and append title-cased states."""
     attrs: dict[str, object] = {
-        "devicetracker_zone_name": "Home",
+        "zone_name": "Home",
         "place_type": "restaurant",
         "name": "Test",
     }
@@ -469,7 +483,7 @@ async def test_bracket_fallback_when_primary_option_none(sensor: MockSensor) -> 
 async def test_paren_then_bracket_fallback_exclusion(sensor: MockSensor) -> None:
     """Parenthesis filters can exclude primary option and fall back to bracket option."""
     attrs: dict[str, object] = {
-        "devicetracker_zone_name": "Home",
+        "zone_name": "Home",
         "place_type": "restaurant",
         "name": "Test",
     }
@@ -486,7 +500,7 @@ async def test_paren_then_bracket_fallback_exclusion(sensor: MockSensor) -> None
 async def test_get_option_state_incl_attr_blank_causes_exclusion(sensor: MockSensor) -> None:
     """Return None when included attribute filters reference missing/blank attributes."""
     attrs: dict[str, object] = {
-        "devicetracker_zone_name": "Home",
+        "zone_name": "Home",
         "name": "Test",
     }  # place_type missing -> blank
     sensor.attrs = attrs
@@ -494,20 +508,6 @@ async def test_get_option_state_incl_attr_blank_causes_exclusion(sensor: MockSen
     parser = AdvancedOptionsParser(sensor, "")
     out = await parser.get_option_state("zone_name", incl_attr={"place_type": ["restaurant"]})
     assert out is None
-
-
-@pytest.mark.asyncio
-async def test_compile_state_space_when_street_indices_match(sensor: MockSensor) -> None:
-    """Use a space separator when street indices align after increment."""
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "")
-    parser.state_list = ["123", "Main St"]
-    # Set indices so after increment _street_num_i becomes 0 and matches _street_i=0 for first element? Need both to match second element, so set before increment to 0 so becomes 1 then set _street_i=1
-    parser._street_num_i = 0  # will increment to 1 in compile_state
-    parser._street_i = 1
-    result = await parser.compile_state()
-    # Two items only; index 1 meets condition so space used
-    assert result == "123 Main St"
 
 
 @pytest.mark.asyncio

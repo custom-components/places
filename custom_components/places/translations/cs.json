@@ -28,10 +28,43 @@
                 "description": "Vytvořte nový senzor\nPodrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
-                    "extended_attr": "Zobrazit rozšířené atributy: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (pokud existují). Poskytuje mnoho dalších atributů pro pokročilou logiku. Upozornění: atributy budou velmi dlouhé!",
+                    "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
                     "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
                   }
             }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "place_name": {"name": "Název místa"},
+            "zone_name": {"name": "Název zóny"},
+            "city": {"name": "Město"},
+            "state": {"name": "Stát"},
+            "direction_of_travel": {"name": "Směr pohybu"},
+            "map_link": {"name": "Odkaz na mapu"},
+            "distance_from_home": {"name": "Vzdálenost od domova"},
+            "distance_traveled": {"name": "Ujetá vzdálenost"},
+            "country": {"name": "Země"},
+            "country_code": {"name": "Kód země"},
+            "street_number": {"name": "Číslo domu"},
+            "street": {"name": "Ulice"},
+            "route_number": {"name": "Číslo trasy"},
+            "neighborhood": {"name": "Čtvrť"},
+            "postal_town": {"name": "Poštovní město"},
+            "postal_code": {"name": "PSČ"},
+            "county": {"name": "Okres"},
+            "state_abbr": {"name": "Zkratka státu"},
+            "place_type": {"name": "Typ místa"},
+            "place_category": {"name": "Kategorie místa"},
+            "zone": {"name": "Zóna"},
+            "latitude": {"name": "Zeměpisná šířka"},
+            "longitude": {"name": "Zeměpisná délka"},
+            "gps_accuracy": {"name": "Přesnost GPS"},
+            "last_changed": {"name": "Poslední změna"},
+            "last_updated": {"name": "Poslední aktualizace"},
+            "osm_id": {"name": "ID OSM"},
+            "osm_type": {"name": "Typ OSM"},
+            "extended_data": {"name": "Rozšířená data"}
         }
     },
     "options": {
@@ -61,7 +94,7 @@
                 "description": "**Aktualizuje se senzor:&nbsp;{sensor_name}**\nPodrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
-                    "extended_attr": "Zobrazit rozšířené atributy: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (pokud existují). Poskytuje mnoho dalších atributů pro pokročilou logiku. Upozornění: atributy budou velmi dlouhé!",
+                    "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
                     "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
                   }
             }

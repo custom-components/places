@@ -27,10 +27,43 @@
                 "description": "Створити новий датчик\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
                 "data_description": {
                     "options": "Детальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
-                    "extended_attr": "Показувати розширені атрибути: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (якщо вони існують). Вони надають багато додаткових атрибутів для розширеної логіки. Увага: це зробить атрибути дуже довгими!",
+                    "extended_attr": "Створює діагностичний сенсор «Розширені дані» та отримує необроблені відомості OSM і дані Wikidata. Коли параметр вимкнено, сенсор видаляється, а додаткові запити пропускаються.",
                     "use_gps_accuracy": "Вимкніть цей параметр, якщо ваша відстежувана сутність має атрибут точності GPS (gps_accuracy), але він завжди показує 0, навіть якщо широта й довгота правильні."
                   }
             }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "place_name": {"name": "Назва місця"},
+            "zone_name": {"name": "Назва зони"},
+            "city": {"name": "Місто"},
+            "state": {"name": "Штат"},
+            "direction_of_travel": {"name": "Напрямок руху"},
+            "map_link": {"name": "Посилання на карту"},
+            "distance_from_home": {"name": "Відстань від дому"},
+            "distance_traveled": {"name": "Подолана відстань"},
+            "country": {"name": "Країна"},
+            "country_code": {"name": "Код країни"},
+            "street_number": {"name": "Номер будинку"},
+            "street": {"name": "Вулиця"},
+            "route_number": {"name": "Номер маршруту"},
+            "neighborhood": {"name": "Район"},
+            "postal_town": {"name": "Поштове місто"},
+            "postal_code": {"name": "Поштовий індекс"},
+            "county": {"name": "Округ"},
+            "state_abbr": {"name": "Скорочення штату"},
+            "place_type": {"name": "Тип місця"},
+            "place_category": {"name": "Категорія місця"},
+            "zone": {"name": "Зона"},
+            "latitude": {"name": "Широта"},
+            "longitude": {"name": "Довгота"},
+            "gps_accuracy": {"name": "Точність GPS"},
+            "last_changed": {"name": "Остання зміна"},
+            "last_updated": {"name": "Останнє оновлення"},
+            "osm_id": {"name": "ID OSM"},
+            "osm_type": {"name": "Тип OSM"},
+            "extended_data": {"name": "Розширені дані"}
         }
     },
     "options": {
@@ -59,7 +92,7 @@
                 "description": "**Оновлення датчика:&nbsp;{sensor_name}**\nДетальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
                 "data_description": {
                     "options": "Детальніше див. [Параметри конфігурації]({component_config_url}) на GitHub",
-                    "extended_attr": "Показувати розширені атрибути: wikidata_id, osm_dict, osm_details_dict, wikidata_dict (якщо вони існують). Вони надають багато додаткових атрибутів для розширеної логіки. Увага: це зробить атрибути дуже довгими!",
+                    "extended_attr": "Створює діагностичний сенсор «Розширені дані» та отримує необроблені відомості OSM і дані Wikidata. Коли параметр вимкнено, сенсор видаляється, а додаткові запити пропускаються.",
                     "use_gps_accuracy": "Вимкніть цей параметр, якщо ваша відстежувана сутність має атрибут точності GPS (gps_accuracy), але він завжди показує 0, навіть якщо широта й довгота правильні."
                   }
             }
