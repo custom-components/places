@@ -63,14 +63,6 @@ class OSMParser:
         """
         self.coordinator = coordinator
 
-    def current_osm_dict(self) -> MutableMapping[str, Any]:
-        """Return the current OSM response mapping from coordinator attributes.
-
-        Returns:
-            Current parsed OSM response mapping.
-        """
-        return self.coordinator.get_attr_safe_dict(ATTR_OSM_DICT)
-
     async def parse_osm_dict(self) -> None:
         """Parse the current OSM response stored on the coordinator.
 
@@ -290,8 +282,9 @@ class OSMParser:
                 ATTR_REGION,
                 address.get("state"),
             )
-        if "ISO3166-2-lvl4" in address:
-            iso_parts = address["ISO3166-2-lvl4"].split("-")
+        iso_code = address.get("ISO3166-2-lvl4")
+        if isinstance(iso_code, str):
+            iso_parts = iso_code.split("-")
             if len(iso_parts) >= 2:
                 self.coordinator.set_attr(
                     ATTR_STATE_ABBR,
@@ -307,10 +300,11 @@ class OSMParser:
                 ATTR_COUNTRY,
                 address.get("country"),
             )
-        if "country_code" in address:
+        country_code = address.get("country_code")
+        if isinstance(country_code, str):
             self.coordinator.set_attr(
                 ATTR_COUNTRY_CODE,
-                address["country_code"].upper(),
+                country_code.upper(),
             )
         if "postcode" in address:
             self.coordinator.set_attr(
@@ -385,7 +379,7 @@ class OSMParser:
         )
         if (
             not self.coordinator.is_attr_blank(ATTR_PLACE_NAME)
-            and self.coordinator.get_attr(ATTR_PLACE_NAME) not in dupe_attributes_check
+            and self.coordinator.get_attr_safe_str(ATTR_PLACE_NAME) not in dupe_attributes_check
         ):
             self.coordinator.set_attr(
                 ATTR_PLACE_NAME_NO_DUPE,

@@ -110,9 +110,15 @@ def test_snapshot_cleanup_stops_when_unlink_fails() -> None:
     [
         (FileNotFoundError(), False),
         (OSError(errno.ENOTEMPTY, "directory not empty"), False),
+        (OSError(errno.EEXIST, "directory exists"), False),
         (OSError(errno.EACCES, "permission denied"), True),
     ],
-    ids=["parent-missing", "parent-not-empty", "parent-remove-error"],
+    ids=[
+        "parent-missing",
+        "parent-not-empty",
+        "parent-exists",
+        "parent-remove-error",
+    ],
 )
 def test_snapshot_cleanup_handles_parent_directory_errors(
     parent_error: OSError, expected_warning: bool, caplog: pytest.LogCaptureFixture

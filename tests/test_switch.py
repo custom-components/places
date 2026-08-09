@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 from homeassistant.helpers.entity import EntityCategory
 
+from custom_components.places.const import CONF_SHOW_TIME
 from custom_components.places.switch import PlacesShowLastUpdatedSwitch, async_setup_entry
 
 
@@ -27,6 +28,6 @@ async def test_show_last_updated_switch_setup_and_update() -> None:
     await entity.async_turn_off()
 
     assert coordinator.async_update_setting.await_args_list == [
-        call("show_time", True),
-        call("show_time", False),
+        call(CONF_SHOW_TIME, value=True),
+        call(CONF_SHOW_TIME, value=False),
     ]

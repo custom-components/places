@@ -14,6 +14,10 @@ class CoordinatePair:
     latitude: float
     longitude: float
 
+    def __str__(self) -> str:
+        """Return the coordinate pair in the integration's storage format."""
+        return f"{self.latitude},{self.longitude}"
+
 
 @dataclass(slots=True)
 class LocationSnapshot:

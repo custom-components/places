@@ -483,7 +483,7 @@ class PlacesUpdater:
             if tracker_snapshot.longitude is not None:
                 self.coordinator.set_attr(ATTR_LONGITUDE, tracker_snapshot.longitude)
 
-    async def determine_update_criteria(self, force: bool = False) -> UpdateStatus:
+    async def determine_update_criteria(self, *, force: bool = False) -> UpdateStatus:
         """Run zone, distance, and optional movement checks for this update.
 
         Args:
@@ -690,18 +690,28 @@ class PlacesUpdater:
             now = await self.get_current_time()
             changed_at = now
             if not self.coordinator.is_attr_blank(ATTR_LAST_CHANGED):
+                stored_last_changed = self.coordinator.get_attr_safe_str(ATTR_LAST_CHANGED)
                 try:
-                    changed_at = datetime.fromisoformat(
-                        self.coordinator.get_attr_safe_str(ATTR_LAST_CHANGED)
-                    )
+                    changed_at = datetime.fromisoformat(stored_last_changed)
                 except ValueError:
-                    pass
+                    _LOGGER.debug(
+                        "(%s) Stored Last Changed timestamp is malformed: %s",
+                        self.coordinator.get_attr(CONF_NAME),
+                        stored_last_changed,
+                    )
                 else:
                     if changed_at.tzinfo is None:
                         changed_at = changed_at.replace(tzinfo=now.tzinfo or UTC)
                     elif now.tzinfo is not None:
                         changed_at = changed_at.astimezone(now.tzinfo)
-            if await self.get_seconds_from_last_change(now) >= 86399:
+            try:
+                elapsed_seconds = int((now - changed_at).total_seconds())
+            except (TypeError, OverflowError) as error:
+                _LOGGER.warning(
+                    "Error calculating the seconds between last change to now: %r", error
+                )
+                elapsed_seconds = 3600
+            if elapsed_seconds >= 86399:
                 self.coordinator.set_native_value(state)
                 await self.change_show_time_to_date()
                 return
@@ -972,7 +982,7 @@ class PlacesUpdater:
             )
             self.coordinator.set_attr(
                 ATTR_LOCATION_CURRENT,
-                f"{current.latitude},{current.longitude}",
+                str(current),
             )
         if not self.coordinator.is_attr_blank(
             ATTR_LATITUDE_OLD
@@ -983,7 +993,7 @@ class PlacesUpdater:
             )
             self.coordinator.set_attr(
                 ATTR_LOCATION_PREVIOUS,
-                f"{previous.latitude},{previous.longitude}",
+                str(previous),
             )
         if not self.coordinator.is_attr_blank(
             ATTR_HOME_LATITUDE
@@ -994,7 +1004,7 @@ class PlacesUpdater:
             )
             self.coordinator.set_attr(
                 ATTR_HOME_LOCATION,
-                f"{home.latitude},{home.longitude}",
+                str(home),
             )
 
     async def calculate_distances(self) -> None:
@@ -1100,7 +1110,8 @@ class PlacesUpdater:
         _LOGGER.info(
             "(%s) Distance from home [%s]: %s m",
             self.coordinator.get_attr(CONF_NAME),
-            self.coordinator.get_attr_safe_str(CONF_HOME_ZONE).split(".")[1],
+            self.coordinator.get_attr_safe_str(CONF_HOME_ZONE).partition(".")[2]
+            or self.coordinator.get_attr_safe_str(CONF_HOME_ZONE),
             self.coordinator.get_attr(ATTR_DISTANCE_FROM_HOME),
         )
         _LOGGER.info(

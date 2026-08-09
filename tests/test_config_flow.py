@@ -224,7 +224,7 @@ async def test_options_flow_handler_variants(
         (
             [],
             State("device_tracker.extra", "", {ATTR_FRIENDLY_NAME: "Extra"}),
-            lambda e: "Extra" in e["label"],
+            lambda e: e["label"] == "Extra (device_tracker.extra)",
             1,
         ),
         # current not present, no friendly name -> label equals entity_id, appears once

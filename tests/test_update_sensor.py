@@ -4,7 +4,9 @@ import asyncio
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
+from inspect import Parameter, signature
 import json
+import logging
 from typing import Protocol
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
@@ -67,10 +69,10 @@ from custom_components.places.const import (
     OSM_THROTTLE_INTERVAL_SECONDS,
     UpdateStatus,
 )
-from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
 from tests.conftest import (
+    CoordinatorFactory,
     MockSensor,
     assert_awaited_count,
     stub_in_zone,
@@ -314,7 +316,7 @@ async def test_do_update_runs_phases_in_expected_order(
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
+    async def determine_update_criteria(*, force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -433,7 +435,7 @@ async def test_do_update_rolls_back_and_finishes_on_phase_error(
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
+    async def determine_update_criteria(*, force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -524,7 +526,7 @@ async def test_do_update_skips_handle_and_finish_when_shutting_down_after_osm_up
         call_order.append("check_device_tracker_and_update_coords")
         return UpdateStatus.PROCEED
 
-    async def determine_update_criteria(force: bool = False) -> UpdateStatus:
+    async def determine_update_criteria(*, force: bool = False) -> UpdateStatus:
         call_order.append("determine_update_criteria")
         return UpdateStatus.PROCEED
 
@@ -960,6 +962,31 @@ async def test_async_apply_show_time_uses_last_changed_timestamp(
     assert sensor.native_value == "Library (since 08:30)"
 
 
+async def test_async_apply_show_time_logs_malformed_last_changed(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Malformed persisted timestamps should use the current time and be observable."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_SHOW_TIME] = True
+    sensor.attrs[ATTR_NATIVE_VALUE] = "Library"
+    sensor.attrs[ATTR_LAST_CHANGED] = "not-a-timestamp"
+    monkeypatch.setattr(
+        updater,
+        "get_current_time",
+        AsyncMock(return_value=datetime(2026, 7, 10, 14, 5, tzinfo=UTC)),
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="custom_components.places.update_sensor"):
+        await updater.async_apply_show_time()
+
+    assert sensor.native_value == "Library (since 14:05)"
+    assert "Stored Last Changed timestamp is malformed: not-a-timestamp" in caplog.text
+
+
 async def test_async_apply_show_time_preserves_aged_date_suffix(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
@@ -1004,23 +1031,12 @@ async def test_check_for_updated_entity_name_entity_id_new_name(
 async def test_check_for_updated_entity_name_with_real_coordinator_entity(
     mock_hass: MagicMock,
     patch_entity_registry: object,
+    coordinator_factory: CoordinatorFactory,
 ) -> None:
     """A real Places entity should sync its resolved entity ID into the coordinator."""
     _ = patch_entity_registry
     mock_hass.states.get.return_value = MagicMock(attributes={})
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={CONF_NAME: "OldName", CONF_DEVICETRACKER_ID: "device_tracker.test"},
-    )
-    persistence = MagicMock()
-    persistence.async_save = AsyncMock()
-    coordinator = PlacesUpdateCoordinator(
-        hass=mock_hass,
-        config_entry=entry,
-        imported_attributes={},
-        persistence=persistence,
-    )
-    entry.runtime_data = coordinator
+    entry, coordinator = coordinator_factory("OldName")
     entity = Places(coordinator)
     entity.entity_id = "sensor.oldname"
     await entity.async_added_to_hass()
@@ -1041,20 +1057,10 @@ async def test_check_for_updated_entity_name_with_real_coordinator_entity(
 @pytest.mark.asyncio
 async def test_check_for_updated_entity_name_uses_latest_coordinator_entity_id(
     mock_hass: MagicMock,
+    coordinator_factory: CoordinatorFactory,
 ) -> None:
     """Changed Places entity IDs should refresh coordinator.entity_id before name lookup."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={CONF_NAME: "OldName", CONF_DEVICETRACKER_ID: "device_tracker.test"},
-    )
-    persistence = MagicMock()
-    persistence.async_save = AsyncMock()
-    coordinator = PlacesUpdateCoordinator(
-        hass=mock_hass,
-        config_entry=entry,
-        imported_attributes={},
-        persistence=persistence,
-    )
+    entry, coordinator = coordinator_factory("OldName")
     coordinator.entity_id = "sensor.old_name"
     entity = Places(coordinator)
     entity.entity_id = "sensor.new_name"
@@ -1266,6 +1272,56 @@ async def test_determine_update_criteria_calls(
     mocks["get_zone_details"].assert_awaited_once()
     mocks["update_coordinates_and_distance"].assert_awaited_once()
     mocks["determine_if_update_needed"].assert_awaited_once()
+
+
+def test_determine_update_criteria_force_is_keyword_only() -> None:
+    """The force flag should not be accepted as an ambiguous positional argument."""
+    force_parameter = signature(PlacesUpdater.determine_update_criteria).parameters["force"]
+
+    assert force_parameter.kind is Parameter.KEYWORD_ONLY
+
+
+async def test_update_coordinates_and_distance_accepts_unqualified_home_zone(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Home-zone logging should tolerate a configured value without a domain."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.attrs[CONF_HOME_ZONE] = "home"
+    sensor.attrs[ATTR_DISTANCE_FROM_HOME] = 10.0
+    sensor.attrs[ATTR_DISTANCE_TRAVELED] = 0.0
+    with (
+        stubbed_updater(
+            updater,
+            [
+                ("update_location_attributes", {}),
+                ("calculate_distances", {}),
+                ("calculate_travel_distance", {}),
+                ("determine_direction_of_travel", {}),
+            ],
+        ),
+        caplog.at_level(logging.INFO, logger="custom_components.places.update_sensor"),
+    ):
+        result = await updater.update_coordinates_and_distance()
+
+    assert result == UpdateStatus.SKIP
+    assert "Distance from home [home]" in caplog.text
+
+
+async def test_mock_sensor_restore_previous_attr_replaces_mapping_and_native_value() -> None:
+    """MockSensor rollback should restore the exact snapshot and native value."""
+    sensor = MockSensor(attrs={"keep": "old", "remove": "old"})
+    original_attrs = sensor.get_internal_attr()
+    previous = {"restored": "state", ATTR_NATIVE_VALUE: "restored native value"}
+
+    await sensor.restore_previous_attr(previous)
+
+    assert sensor.get_internal_attr() is previous
+    assert sensor.get_internal_attr() is not original_attrs
+    assert sensor.native_value == "restored native value"
 
 
 @pytest.mark.asyncio
@@ -1875,10 +1931,18 @@ async def test_calculate_distance_methods(
     """Distance calculation methods should set their native meter attribute."""
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr_safe_float.side_effect = lambda k: 1000.0
+    coordinates = {
+        ATTR_LATITUDE: 40.001,
+        ATTR_LONGITUDE: -70.002,
+        ATTR_HOME_LATITUDE: 40.0,
+        ATTR_HOME_LONGITUDE: -70.0,
+        ATTR_LATITUDE_OLD: 40.0,
+        ATTR_LONGITUDE_OLD: -70.0,
+    }
+    sensor.get_attr_safe_float.side_effect = coordinates.__getitem__
     method = getattr(updater, method_name)
     await method()
-    assert sensor.attrs.get(expected_distance_attr) == 0
+    assert sensor.attrs.get(expected_distance_attr) == pytest.approx(203.707)
 
 
 @pytest.mark.asyncio

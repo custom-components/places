@@ -32,7 +32,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _normalize_legacy_keys(snapshot: dict[str, Any]) -> bool:
-    """Rename legacy snapshot keys to their current persisted names."""
+    """Rename legacy snapshot keys to their current persisted names.
+
+    Args:
+        snapshot: Mutable legacy snapshot to normalize in place.
+
+    Returns:
+        ``True`` when at least one legacy key was renamed.
+    """
     changed = False
     for legacy_key, current_key in (
         ("distance_from_home_m", ATTR_DISTANCE_FROM_HOME),
@@ -135,7 +142,7 @@ def _remove_legacy_snapshot(path: Path, name: str) -> None:
     except FileNotFoundError:
         pass
     except OSError as error:
-        if error.errno != errno.ENOTEMPTY:
+        if error.errno not in {errno.EEXIST, errno.ENOTEMPTY}:
             _LOGGER.warning(
                 "(%s) Could not remove legacy snapshot directory (%s): %s: %s",
                 name,

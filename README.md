@@ -58,17 +58,17 @@ Options for existing places entries can be changed by clicking the gear icon nex
 
 Key | Required | Default | Description |
 -- | -- | -- | --
-`Sensor Name` | `Yes` | | Friendly name of the places sensor
-`Tracked Entity ID` | `Yes` | | The location entity to track. **Must** have `latitude` and `longitude` as attributes. Supports these entities: `device_tracker`, `person`, `sensor`, `variable` & `zone`
-`Email Address` | `No` | | OpenStreetMap API key (your email address).
-`Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `osm_formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.**
-`Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel
-`Map Provider` | `No` | `apple` | `google`, `apple`, `osm`
-`Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20>
-`Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes)
-`Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updating when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.**
+`Sensor Name` | `Yes` | | Friendly name of the places sensor |
+`Tracked Entity ID` | `Yes` | | The location entity to track. **Must** have `latitude` and `longitude` as attributes. Supports these entities: `device_tracker`, `person`, `sensor`, `variable` & `zone` |
+`Email Address` | `No` | | OpenStreetMap API key (your email address). |
+`Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `osm_formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.** |
+`Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel |
+`Map Provider` | `No` | `apple` | `google`, `apple`, `osm` |
+`Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20> |
+`Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) |
+`Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updating when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.** |
 `Extended Attributes` | `No` | `False` | Create an enabled diagnostic `Extended data` sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped. The extended sensor's raw attributes are excluded from recorder. |
-`Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)`
+`Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)` |
 
 <details>
 <summary><h3>Advanced Display Options</h3></summary>

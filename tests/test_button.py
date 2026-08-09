@@ -3,15 +3,17 @@
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.button import PlacesForceUpdateButton, async_setup_entry
+from custom_components.places.const import DOMAIN
 
 
 async def test_force_update_button_setup_and_press(mock_hass: HomeAssistant) -> None:
     """The entry exposes one button that delegates to its coordinator."""
     coordinator = MagicMock()
     coordinator.async_force_update = AsyncMock()
-    entry = MagicMock()
+    entry = MockConfigEntry(domain=DOMAIN)
     entry.runtime_data = coordinator
     async_add_entities = MagicMock()
 

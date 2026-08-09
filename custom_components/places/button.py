@@ -15,12 +15,19 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Force Update button for one Places entry."""
-    async_add_entities([PlacesForceUpdateButton(config_entry.runtime_data)])
+    """Set up the Force Update button for one Places entry.
+
+    Args:
+        hass: Home Assistant instance.
+        config_entry: Config entry being set up.
+        async_add_entities: Callback used to register created entities.
+    """
+    coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
+    async_add_entities([PlacesForceUpdateButton(coordinator)])
 
 
 class PlacesForceUpdateButton(PlacesEntity, ButtonEntity):
-    """Clear persisted data and perform one fresh Places update."""
+    """Run one cache-bypassing Places update without clearing persisted data."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False

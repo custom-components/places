@@ -8,7 +8,12 @@ from homeassistant.helpers.entity import EntityCategory
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.places.const import DOMAIN
+from custom_components.places.const import (
+    CONF_DEVICETRACKER_ID,
+    CONF_DISPLAY_OPTIONS,
+    CONF_NAME,
+    DOMAIN,
+)
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.text import PlacesDisplayOptionsText, async_setup_entry
 
@@ -31,7 +36,9 @@ async def test_display_options_text_setup_and_update() -> None:
 
     await entity.async_set_value("formatted_place")
 
-    coordinator.async_update_setting.assert_awaited_once_with("options", "formatted_place")
+    coordinator.async_update_setting.assert_awaited_once_with(
+        CONF_DISPLAY_OPTIONS, "formatted_place"
+    )
 
 
 async def test_display_options_text_entity_enforces_max_length(mock_hass: MagicMock) -> None:
@@ -39,7 +46,7 @@ async def test_display_options_text_entity_enforces_max_length(mock_hass: MagicM
     entry = MockConfigEntry(
         domain=DOMAIN,
         entry_id="entry123",
-        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+        data={CONF_NAME: "TestSensor", CONF_DEVICETRACKER_ID: "person.test"},
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
     coordinator.process_display_options = AsyncMock()

@@ -162,9 +162,7 @@ class BasicOptionsParser:
                 formatted_place_array.append(self.coordinator.get_attr_safe_str("driving"))
             use_place_name = self.should_use_place_name(self._internal_attr, self.coordinator)
             if not use_place_name:
-                self.add_type_or_category(
-                    formatted_place_array, self._internal_attr, self.coordinator
-                )
+                self.add_type_or_category(formatted_place_array, self.coordinator)
                 self.add_street_info(formatted_place_array, self.coordinator)
                 self.add_neighbourhood_if_house(formatted_place_array, self.coordinator)
             else:
@@ -202,7 +200,7 @@ class BasicOptionsParser:
         ]
         if (
             coordinator.is_attr_blank("place_name")
-            or internal_attr.get("place_name") in sensor_attributes_values
+            or coordinator.get_attr_safe_str("place_name") in sensor_attributes_values
         ):
             use_place_name = False
         _LOGGER.debug("use_place_name: %s", use_place_name)
@@ -211,14 +209,12 @@ class BasicOptionsParser:
     def add_type_or_category(
         self,
         formatted_place_array: list[str],
-        internal_attr: MutableMapping[str, Any],
         coordinator: PlacesUpdateCoordinator,
     ) -> None:
         """Append a useful place type or category to a formatted-place list.
 
         Args:
             formatted_place_array: Mutable output list being assembled.
-            internal_attr: Current coordinator attribute mapping.
             coordinator: Places coordinator used for blank checks and safe value access.
         """
         if (

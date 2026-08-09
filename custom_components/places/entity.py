@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
@@ -119,7 +120,8 @@ class PlacesSensorEntity(PlacesEntity, SensorEntity):
         raise NotImplementedError
 
 
-class PlacesAttributeSensorEntityDescription(SensorEntityDescription, frozen_or_thawed=True):
+@dataclass(frozen=True, kw_only=True)
+class PlacesAttributeSensorEntityDescription(SensorEntityDescription):
     """Description for a Places child sensor backed by the parent attribute store."""
 
     value_fn: PlacesValueFn | None = None

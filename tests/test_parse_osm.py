@@ -441,6 +441,27 @@ async def test_set_region_details_sets_attrs(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_value", [None, 123, ["US", "CA"]])
+async def test_set_region_details_ignores_non_string_codes(
+    osm_parser: OSMParserFactory, invalid_value: object
+) -> None:
+    """Malformed external region codes do not abort parsing other fields."""
+    parser, sensor = osm_parser()
+
+    await parser.set_region_details(
+        {
+            "ISO3166-2-lvl4": invalid_value,
+            "country": "USA",
+            "country_code": invalid_value,
+        }
+    )
+
+    assert sensor.attrs[ATTR_COUNTRY] == "USA"
+    assert ATTR_STATE_ABBR not in sensor.attrs
+    assert ATTR_COUNTRY_CODE not in sensor.attrs
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("expected_attr", "expected_value"),
     [
@@ -552,6 +573,17 @@ async def test_set_place_name_no_dupe_param(
         sensor._set_attr_mock.assert_any_call(ATTR_PLACE_NAME_NO_DUPE, current_name)
     else:
         sensor._set_attr_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_set_place_name_no_dupe_compares_safe_strings() -> None:
+    """Non-string place values use the same safe-string duplicate contract."""
+    sensor = mock_sensor(attrs={ATTR_PLACE_NAME: 123, ATTR_STREET: 123})
+    parser = OSMParser(sensor)
+
+    await parser.set_place_name_no_dupe()
+
+    sensor._set_attr_mock.assert_not_called()
 
 
 @pytest.mark.asyncio

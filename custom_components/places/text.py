@@ -17,8 +17,15 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Display Options configuration entity."""
-    async_add_entities([PlacesDisplayOptionsText(config_entry.runtime_data)])
+    """Set up the Display Options configuration entity.
+
+    Args:
+        hass: Home Assistant instance.
+        config_entry: Config entry being set up.
+        async_add_entities: Callback used to register created entities.
+    """
+    coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
+    async_add_entities([PlacesDisplayOptionsText(coordinator)])
 
 
 class PlacesDisplayOptionsText(PlacesEntity, TextEntity):

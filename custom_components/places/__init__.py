@@ -383,6 +383,7 @@ def _increment_extended_attr_ref(hass: HomeAssistant) -> None:
     domain_data[_EXTENDED_ENTRY_COUNT_KEY] = count
     recorder = hass.data.get(DATA_INSTANCE)
     if recorder is None:
+        _LOGGER.debug("Recorder is unavailable; Places event exclusion will not be installed")
         return
     if EVENT_TYPE not in recorder.exclude_event_types:
         recorder.exclude_event_types.add(EVENT_TYPE)
@@ -405,7 +406,11 @@ def _decrement_extended_attr_ref(hass: HomeAssistant) -> None:
     domain_data.pop(_EXTENDED_ENTRY_COUNT_KEY, None)
     owns_event_exclusion = bool(domain_data.pop(_EXTENDED_EVENT_EXCLUSION_OWNED_KEY, False))
     recorder = hass.data.get(DATA_INSTANCE)
-    if recorder is None or not owns_event_exclusion:
+    if recorder is None:
+        if owns_event_exclusion:
+            _LOGGER.debug("Recorder is unavailable; Places event exclusion cannot be released")
+        return
+    if not owns_event_exclusion:
         return
     recorder.exclude_event_types.discard(EVENT_TYPE)
 

@@ -16,8 +16,15 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Show Last Updated configuration entity."""
-    async_add_entities([PlacesShowLastUpdatedSwitch(config_entry.runtime_data)])
+    """Set up the Show Last Updated configuration entity.
+
+    Args:
+        hass: Home Assistant instance.
+        config_entry: Config entry being set up.
+        async_add_entities: Callback used to register created entities.
+    """
+    coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
+    async_add_entities([PlacesShowLastUpdatedSwitch(coordinator)])
 
 
 class PlacesShowLastUpdatedSwitch(PlacesEntity, SwitchEntity):
@@ -38,8 +45,8 @@ class PlacesShowLastUpdatedSwitch(PlacesEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: object) -> None:
         """Enable the last-updated suffix."""
-        await self.coordinator.async_update_setting(CONF_SHOW_TIME, True)
+        await self.coordinator.async_update_setting(CONF_SHOW_TIME, value=True)
 
     async def async_turn_off(self, **kwargs: object) -> None:
         """Disable the last-updated suffix."""
-        await self.coordinator.async_update_setting(CONF_SHOW_TIME, False)
+        await self.coordinator.async_update_setting(CONF_SHOW_TIME, value=False)

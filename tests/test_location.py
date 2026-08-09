@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places.const import (
@@ -18,8 +19,14 @@ from custom_components.places.const import (
     ATTR_LONGITUDE,
     ATTR_LONGITUDE_OLD,
 )
+from custom_components.places.location import CoordinatePair
 from custom_components.places.update_sensor import PlacesUpdater
 from tests.conftest import MockSensor
+
+
+def test_coordinate_pair_formats_storage_value() -> None:
+    """CoordinatePair should own the integration's comma-separated format."""
+    assert str(CoordinatePair(40.1, -70.2)) == "40.1,-70.2"
 
 
 async def test_location_strings_are_current_format(
@@ -58,7 +65,7 @@ async def test_location_strings_are_current_format(
 async def test_distance_fields_are_populated(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Distance calculations populate meters, kilometers, and miles."""
+    """Distance calculation stores the current distance from home in meters."""
     sensor.attrs.update(
         {
             ATTR_LATITUDE: 40.1,
@@ -71,7 +78,7 @@ async def test_distance_fields_are_populated(
 
     await updater.calculate_distances()
 
-    assert sensor.attrs[ATTR_DISTANCE_FROM_HOME] > 0
+    assert sensor.attrs[ATTR_DISTANCE_FROM_HOME] == pytest.approx(20360.441)
 
 
 async def test_direction_of_travel_stationary_when_distance_unchanged(

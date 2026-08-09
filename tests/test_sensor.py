@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Coroutine
 from datetime import UTC, datetime
+import json
 import logging
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.components.zone import ATTR_PASSIVE
@@ -1423,22 +1425,61 @@ def test_attribute_sensor_reads_coordinator_attribute(
     assert isinstance(entity, PlacesEntity)
 
 
+def test_attribute_sensor_tolerates_missing_initial_coordinator_data(
+    mock_hass: MagicMock,
+) -> None:
+    """Child sensors should initialize before the coordinator's first refresh."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    object.__setattr__(coordinator, "data", None)
+
+    entity = PlacesAttributeSensor(coordinator, _description("place_name"))
+
+    assert entity.native_value is None
+
+
+def test_attribute_sensor_uses_value_fn_without_initial_coordinator_data(
+    mock_hass: MagicMock,
+) -> None:
+    """Value functions should still run and clamp strings before the first refresh."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    object.__setattr__(coordinator, "data", None)
+    description = PlacesAttributeSensorEntityDescription(
+        key="derived",
+        value_fn=lambda coordinator: "x" * (MAX_LENGTH_STATE_STATE + 1),
+    )
+
+    entity = PlacesAttributeSensor(coordinator, description)
+
+    assert entity.native_value == "x" * MAX_LENGTH_STATE_STATE
+
+
 @pytest.mark.parametrize(
-    ("key", "name"),
+    "key",
     [
-        ("place_name", "Place Name"),
-        ("zone_name", "Zone Name"),
-        ("zone", "Zone"),
-        ("neighborhood", "Neighborhood"),
-        ("state", "State"),
+        "place_name",
+        "zone_name",
+        "zone",
+        "neighborhood",
+        "state",
     ],
 )
-def test_attribute_sensor_has_usable_name(
+def test_attribute_sensor_uses_home_assistant_translation_key(
     mock_hass: MagicMock,
     key: str,
-    name: str,
 ) -> None:
-    """Child sensors should expose the requested readable entity names."""
+    """Child sensors should delegate their entity names to HA translations."""
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1448,7 +1489,19 @@ def test_attribute_sensor_has_usable_name(
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
     entity = PlacesAttributeSensor(coordinator, _description(key))
 
-    assert entity.name == name
+    assert entity.translation_key == key
+
+
+def test_sensor_translation_keys_exist_in_every_locale() -> None:
+    """Every Places sensor translation key should exist in each shipped locale."""
+    expected_keys = {description.key for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS} | {
+        "extended_data"
+    }
+    translation_dir = Path(__file__).parents[1] / "custom_components" / "places" / "translations"
+
+    for translation_file in translation_dir.glob("*.json"):
+        translations = json.loads(translation_file.read_text(encoding="utf-8"))
+        assert set(translations["entity"]["sensor"]) == expected_keys
 
 
 def test_distance_attribute_sensor_reads_meter_value(mock_hass: MagicMock) -> None:
@@ -1576,10 +1629,12 @@ def test_extended_data_sensor_exposes_raw_payload_and_is_unrecorded(
     write_state.assert_called_once_with()
 
 
-def test_places_sensor_marks_all_attributes_unrecorded_when_extended_attr_enabled(
+async def test_places_sensor_marks_all_attributes_unrecorded_when_extended_attr_enabled(
     mock_hass: MagicMock,
+    patch_entity_registry: object,
 ) -> None:
     """Main Places sensor should skip recorder storage of state attributes when extended mode is on."""
+    _ = patch_entity_registry
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1591,9 +1646,43 @@ def test_places_sensor_marks_all_attributes_unrecorded_when_extended_attr_enable
         },
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    entity = Places(coordinator)
+    entry.runtime_data = coordinator
+    async_add_entities = MagicMock()
+
+    await async_setup_entry(mock_hass, entry, async_add_entities)
+
+    entity = async_add_entities.call_args.args[0][0]
 
     assert entity._unrecorded_attributes == frozenset({MATCH_ALL})
+    assert MATCH_ALL in entity._Entity__combined_unrecorded_attributes  # type: ignore[attr-defined]
+
+
+async def test_places_sensor_records_attributes_when_extended_attr_disabled(
+    mock_hass: MagicMock,
+    patch_entity_registry: object,
+) -> None:
+    """Main Places sensor should retain default recorder metadata without extended mode."""
+    _ = patch_entity_registry
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={
+            "name": "TestSensor",
+            "devicetracker_id": "person.test",
+            CONF_EXTENDED_ATTR: False,
+        },
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    entry.runtime_data = coordinator
+    async_add_entities = MagicMock()
+
+    await async_setup_entry(mock_hass, entry, async_add_entities)
+
+    entity = async_add_entities.call_args.args[0][0]
+    assert entity.__class__ is Places
+    assert entity._unrecorded_attributes == frozenset()
+    assert MATCH_ALL not in entity._Entity__combined_unrecorded_attributes  # type: ignore[attr-defined]
 
 
 def test_extended_data_sensor_is_empty_without_payloads(mock_hass: MagicMock) -> None:

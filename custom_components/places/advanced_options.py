@@ -135,9 +135,10 @@ class AdvancedOptionsParser:
         _LOGGER.debug(
             "(%s) [get_option_state] Option: %s", self.coordinator.get_attr(CONF_NAME), opt
         )
-        out: str | None = self.coordinator.get_attr(DISPLAY_OPTIONS_MAP.get(opt))
+        mapped_opt: str | None = DISPLAY_OPTIONS_MAP.get(opt)
+        out: str | None = self.coordinator.get_attr(mapped_opt)
         if (
-            DISPLAY_OPTIONS_MAP.get(opt) in {ATTR_DEVICETRACKER_ZONE, ATTR_DEVICETRACKER_ZONE_NAME}
+            mapped_opt in {ATTR_DEVICETRACKER_ZONE, ATTR_DEVICETRACKER_ZONE_NAME}
             and not await self.coordinator.in_zone()
         ):
             out = None
@@ -207,24 +208,21 @@ class AdvancedOptionsParser:
             )
         if out:
             out = str(out)
-            if out == out.lower() and (
-                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_DEVICETRACKER_ZONE_NAME
-                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_TYPE
-                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_PLACE_CATEGORY
-            ):
+            if out == out.lower() and mapped_opt in {
+                ATTR_DEVICETRACKER_ZONE_NAME,
+                ATTR_PLACE_TYPE,
+                ATTR_PLACE_CATEGORY,
+            }:
                 out = out.title()
             out = out.strip()
-            if (
-                DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET
-                or DISPLAY_OPTIONS_MAP.get(opt) == ATTR_ROUTE_NUMBER
-            ):
+            if mapped_opt in {ATTR_STREET, ATTR_ROUTE_NUMBER}:
                 self._street_i = self._temp_i
                 # _LOGGER.debug(
                 #     "(%s) [get_option_state] street_i: %s",
                 #     self.coordinator.get_attr(CONF_NAME),
                 #     self._street_i,
                 # )
-            if DISPLAY_OPTIONS_MAP.get(opt) == ATTR_STREET_NUMBER:
+            if mapped_opt == ATTR_STREET_NUMBER:
                 self._street_num_i = self._temp_i
                 # _LOGGER.debug(
                 #     "(%s) [get_option_state] street_num_i: %s",

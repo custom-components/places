@@ -84,19 +84,19 @@ class _FakeStore:
 
     def __init__(
         self,
-        _hass: MagicMock,
+        hass: MagicMock,
         version: int,
-        store_key: str,
+        key: str,
         *,
         atomic_writes: bool,
         serialize_in_event_loop: bool = True,
     ) -> None:
         """Initialize fake Store without Home Assistant storage internals."""
-        self._hass = _hass
+        self._hass = hass
         self._version = version
-        self._store_key = store_key
-        self.path = str(_hass.config.path(".storage", store_key))
-        type(self).init_calls.append((version, store_key, atomic_writes, serialize_in_event_loop))
+        self._store_key = key
+        self.path = str(hass.config.path(".storage", key))
+        type(self).init_calls.append((version, key, atomic_writes, serialize_in_event_loop))
 
     async def async_load(self) -> object | None:
         """Return configured fake Store data."""
@@ -186,6 +186,40 @@ async def test_remove_deletes_store_data(tmp_path: Path, monkeypatch: pytest.Mon
     await storage.async_remove()
 
     assert _FakeStore.remove_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_save_normalizes_snapshot_before_store_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Save only normalized restorable values through the Store boundary."""
+    monkeypatch.setattr("custom_components.places.persistence.Store", _FakeStore)
+    hass = _hass_for_store_path(tmp_path)
+    storage = PlacesStorage(hass, "entry-save", "Test")
+
+    await storage.async_save(
+        {
+            ATTR_CITY: "New York",
+            ATTR_NATIVE_VALUE: "Koreatown",
+            ATTR_LAST_UPDATED: datetime(2026, 8, 8, 12, 0, tzinfo=UTC),
+            "unknown": "ignored",
+        }
+    )
+
+    assert _FakeStore.last_saved == {
+        ATTR_CITY: "New York",
+        ATTR_NATIVE_VALUE: "Koreatown",
+    }
+    persisted_path = tmp_path / ".storage" / "places.sensor_entry_save"
+    assert json.loads(persisted_path.read_text()) == {
+        "version": 1,
+        "minor_version": 1,
+        "key": "places.sensor_entry_save",
+        "data": {
+            ATTR_CITY: "New York",
+            ATTR_NATIVE_VALUE: "Koreatown",
+        },
+    }
 
 
 def test_store_key_is_slugified_per_entry() -> None:

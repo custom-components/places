@@ -39,7 +39,12 @@ async def async_setup_entry(
         async_add_entities: Callback used to register created entities.
     """
     coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
-    entities: list[SensorEntity] = [Places(coordinator)]
+    places_class = (
+        _PlacesWithUnrecordedAttributes
+        if coordinator.config.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR)
+        else Places
+    )
+    entities: list[SensorEntity] = [places_class(coordinator)]
     entities.extend(
         PlacesAttributeSensor(coordinator, description)
         for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS
@@ -64,8 +69,6 @@ class Places(PlacesSensorEntity):
         """
         super().__init__(coordinator, unique_suffix=None)
         self._attr_icon = DEFAULT_ICON
-        if coordinator.config.get(CONF_EXTENDED_ATTR, DEFAULT_EXTENDED_ATTR):
-            self._unrecorded_attributes = frozenset({MATCH_ALL})
         self._attr_extra_state_attributes = coordinator.main_state_attributes
         self._update_from_coordinator()
 
@@ -82,6 +85,12 @@ class Places(PlacesSensorEntity):
         """Record the HA-assigned entity ID on the coordinator."""
         await super().async_added_to_hass()
         self.coordinator.entity_id = self.entity_id
+
+
+class _PlacesWithUnrecordedAttributes(Places):
+    """Main Places sensor that excludes extended attributes from recording."""
+
+    _unrecorded_attributes = frozenset({MATCH_ALL})
 
 
 class PlacesAttributeSensor(PlacesSensorEntity):
@@ -102,7 +111,7 @@ class PlacesAttributeSensor(PlacesSensorEntity):
         """
         super().__init__(coordinator, unique_suffix=entity_description.key)
         self.entity_description = entity_description
-        self._attr_name = entity_description.key.replace("_", " ").title()
+        self._attr_translation_key = entity_description.key
         self._attr_entity_registry_enabled_default = (
             entity_description.entity_registry_enabled_default
         )
@@ -117,7 +126,11 @@ class PlacesAttributeSensor(PlacesSensorEntity):
             else:
                 self._attr_native_value = value
             return
-        value = self.coordinator.data.attributes.get(self.entity_description.key)
+        value = (
+            self.coordinator.data.attributes.get(self.entity_description.key)
+            if self.coordinator.data is not None
+            else None
+        )
         if isinstance(value, str):
             self._attr_native_value = value[:MAX_LENGTH_STATE_STATE]
         else:
@@ -127,7 +140,7 @@ class PlacesAttributeSensor(PlacesSensorEntity):
 class PlacesExtendedDataSensor(PlacesSensorEntity):
     """Diagnostic sensor that exposes raw extended Places payloads."""
 
-    _attr_name = "Extended data"
+    _attr_translation_key = "extended_data"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _unrecorded_attributes = frozenset({MATCH_ALL})
 

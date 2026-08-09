@@ -81,6 +81,7 @@ from .const import (
     MAIN_STATE_ATTRIBUTE_LIST,
 )
 from .helpers import is_float
+from .location import CoordinatePair
 from .update_sensor import PlacesUpdater
 
 if TYPE_CHECKING:
@@ -297,7 +298,12 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
                     ):
                         self.set_attr(
                             ATTR_LOCATION_CURRENT,
-                            f"{self.get_attr_safe_float(ATTR_LATITUDE)},{self.get_attr_safe_float(ATTR_LONGITUDE)}",
+                            str(
+                                CoordinatePair(
+                                    self.get_attr_safe_float(ATTR_LATITUDE),
+                                    self.get_attr_safe_float(ATTR_LONGITUDE),
+                                )
+                            ),
                         )
                     self.config[key] = value
                     self.set_attr(key, value)

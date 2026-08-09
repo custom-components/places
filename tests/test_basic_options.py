@@ -169,7 +169,7 @@ def test_add_type_or_category(
     """Test that `add_type_or_category` adds the correct capitalized type or category to the list."""
     parser, sensor = basic_parser(attrs=attrs)
     arr: list[str] = []
-    parser.add_type_or_category(arr, attrs, sensor)
+    parser.add_type_or_category(arr, sensor)
     assert expected in arr
 
 
@@ -231,6 +231,7 @@ def test_add_city_county_state(
         ({"place_name": "Park"}, [], True),
         ({"place_name": ""}, [], False),
         ({"place_name": "Dup", "city": "Dup"}, ["city"], False),
+        ({"place_name": 123, "city": 123}, ["city"], False),
     ],
 )
 def test_should_use_place_name(

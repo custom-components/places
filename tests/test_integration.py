@@ -11,7 +11,10 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.places import (
+    _EXTENDED_ENTRY_COUNT_KEY,
+    _decrement_extended_attr_ref,
     _ensure_osm_runtime_state,
+    _increment_extended_attr_ref,
     async_migrate_entry,
     async_remove_entry,
     async_remove_extended_entity,
@@ -30,7 +33,35 @@ from custom_components.places.const import (
     OSM_THROTTLE,
     PLATFORMS,
 )
-from tests.conftest import MockSensor, assert_awaited_count
+from tests.conftest import assert_awaited_count
+
+
+def test_recorder_unavailable_is_observable_without_changing_ref_counts(
+    caplog: pytest.LogCaptureFixture,
+    mock_hass: MagicMock,
+) -> None:
+    """Missing recorder runtime should be observable while ref counts stay authoritative."""
+    with caplog.at_level(logging.DEBUG, logger="custom_components.places"):
+        _increment_extended_attr_ref(mock_hass)
+
+    assert mock_hass.data[DOMAIN][_EXTENDED_ENTRY_COUNT_KEY] == 1
+    assert "Recorder is unavailable" in caplog.text
+
+    recorder = MagicMock()
+    recorder.exclude_event_types = set()
+    mock_hass.data[DATA_INSTANCE] = recorder
+    _increment_extended_attr_ref(mock_hass)
+    assert EVENT_TYPE in recorder.exclude_event_types
+
+    mock_hass.data.pop(DATA_INSTANCE)
+    _decrement_extended_attr_ref(mock_hass)
+    assert mock_hass.data[DOMAIN][_EXTENDED_ENTRY_COUNT_KEY] == 1
+
+    with caplog.at_level(logging.DEBUG, logger="custom_components.places"):
+        _decrement_extended_attr_ref(mock_hass)
+
+    assert _EXTENDED_ENTRY_COUNT_KEY not in mock_hass.data[DOMAIN]
+    assert "cannot be released" in caplog.text
 
 
 @pytest.fixture
@@ -174,14 +205,20 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
             "do_not_reorder, formatted_place, driving",
             {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place, driving"},
         ),
-        (
+        # A top-level option is renamed, while a filter argument remains literal data.
+        pytest.param(
             "formatted_address, city",
             {
                 CONF_NAME: "Test Place",
                 CONF_DISPLAY_OPTIONS: "osm_formatted_address, city",
             },
+            id="top-level-formatted-address",
         ),
-        ("type(formatted_address)[city]", None),
+        pytest.param(
+            "type(formatted_address)[city]",
+            None,
+            id="filter-value-formatted-address",
+        ),
         (
             "formatted_address[city]",
             {
@@ -1082,19 +1119,6 @@ async def test_recorder_release_failure_preserves_terminal_state(
     assert entry.runtime_data is None
     assert "release_extended_attr_ref" in caplog.text
     assert "release boom" in caplog.text
-
-
-@pytest.mark.asyncio
-async def test_mock_sensor_restore_previous_attr_replaces_internal_mapping() -> None:
-    """MockSensor should replace attrs entirely instead of merging during restore."""
-    sensor = MockSensor(attrs={"keep": "old", "remove": "old"})
-    original_attrs = sensor.get_internal_attr()
-    previous = {"restored": "state"}
-
-    await sensor.restore_previous_attr(previous)
-
-    assert sensor.get_internal_attr() == previous
-    assert sensor.get_internal_attr() is not original_attrs
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 """Pytest fixtures and mock classes for testing Home Assistant integrations."""
 
 import asyncio
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, suppress
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -11,15 +11,16 @@ import homeassistant.helpers.entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.places.const import CONF_DEVICETRACKER_ID, CONF_NAME
+from custom_components.places.const import ATTR_NATIVE_VALUE, CONF_DEVICETRACKER_ID, CONF_NAME
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
 
-type Attrs = dict[str, object]
+type Attrs = MutableMapping[str, object]
 type StubMock = AsyncMock | MagicMock
 type MethodSpec = tuple[str, dict[str, object]]
 type StubMapping = dict[str, StubMock]
+type CoordinatorFactory = Callable[[str], tuple[MockConfigEntry, PlacesUpdateCoordinator]]
 
 
 def mock_method(default_func: Callable[..., object]) -> Mock:
@@ -288,14 +289,15 @@ class MockSensor:
         if key is not None and key in self.attrs:
             self.attrs.pop(key)
 
-    async def _restore_previous_attr(self, previous_attr: Mapping[str, object]) -> None:
+    async def _restore_previous_attr(self, previous_attr: MutableMapping[str, object]) -> None:
         """Restore previous attributes on this mock sensor with full replacement.
 
         Args:
             previous_attr: Attribute snapshot to restore as the complete replacement.
         """
-        with suppress(TypeError, ValueError, AttributeError):
-            self.attrs = dict(previous_attr)
+        self.attrs = previous_attr
+        native_value = self.attrs.get(ATTR_NATIVE_VALUE)
+        self.native_value = str(native_value) if native_value is not None else None
 
     async def in_zone(self) -> bool:
         """Return True if the sensor is in the configured zone, else False."""
@@ -369,6 +371,32 @@ def places_instance(
     )
     mock_config_entry.runtime_data = coordinator
     return Places(coordinator)
+
+
+@pytest.fixture
+def coordinator_factory(mock_hass: MagicMock) -> CoordinatorFactory:
+    """Create a config entry and real coordinator for entity-boundary tests."""
+
+    def create(name: str = "OldName") -> tuple[MockConfigEntry, PlacesUpdateCoordinator]:
+        """Create one coordinator with isolated persistence.
+
+        Args:
+            name: Configured Places entity name.
+
+        Returns:
+            The config entry and its initialized coordinator.
+        """
+        entry = MockConfigEntry(
+            domain="places",
+            data={CONF_NAME: name, CONF_DEVICETRACKER_ID: "device_tracker.test"},
+        )
+        persistence = MagicMock()
+        persistence.async_save = AsyncMock()
+        coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, persistence)
+        entry.runtime_data = coordinator
+        return entry, coordinator
+
+    return create
 
 
 class _DummyRegistry(er.EntityRegistry):

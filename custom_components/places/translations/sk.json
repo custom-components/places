@@ -34,6 +34,39 @@
             }
         }
     },
+    "entity": {
+        "sensor": {
+            "place_name": {"name": "Place Name"},
+            "zone_name": {"name": "Zone Name"},
+            "city": {"name": "City"},
+            "state": {"name": "State"},
+            "direction_of_travel": {"name": "Direction Of Travel"},
+            "map_link": {"name": "Map Link"},
+            "distance_from_home": {"name": "Distance From Home"},
+            "distance_traveled": {"name": "Distance Traveled"},
+            "country": {"name": "Country"},
+            "country_code": {"name": "Country Code"},
+            "street_number": {"name": "Street Number"},
+            "street": {"name": "Street"},
+            "route_number": {"name": "Route Number"},
+            "neighborhood": {"name": "Neighborhood"},
+            "postal_town": {"name": "Postal Town"},
+            "postal_code": {"name": "Postal Code"},
+            "county": {"name": "County"},
+            "state_abbr": {"name": "State Abbr"},
+            "place_type": {"name": "Place Type"},
+            "place_category": {"name": "Place Category"},
+            "zone": {"name": "Zone"},
+            "latitude": {"name": "Latitude"},
+            "longitude": {"name": "Longitude"},
+            "gps_accuracy": {"name": "Gps Accuracy"},
+            "last_changed": {"name": "Last Changed"},
+            "last_updated": {"name": "Last Updated"},
+            "osm_id": {"name": "Osm Id"},
+            "osm_type": {"name": "Osm Type"},
+            "extended_data": {"name": "Extended data"}
+        }
+    },
     "options": {
         "error": {
             "unknown": "Neočakávaná chyba",

@@ -167,7 +167,7 @@ class PlacesAttributes:
         """Populate runtime attributes from persisted snapshot data.
 
         This performs the existing persisted-import filtering contract used by
-        ``Places.import_persisted_attributes``.
+        ``PlacesAttributes.import_persisted_attributes``.
 
         Args:
             persisted_attr: Mutable mapping loaded from a persisted snapshot.
