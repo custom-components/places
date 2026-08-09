@@ -1006,6 +1006,55 @@ async def test_coordinator_scan_update_failure_does_not_set_throttle_marker(
         assert call_tracker["constructors"] == expected_calls
 
 
+async def test_coordinator_scan_update_serializes_throttle_and_records_completion(
+    mock_hass: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concurrent scans should run once and throttle from completion time."""
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    update_started = asyncio.Event()
+    release_update = asyncio.Event()
+    update_calls = 0
+
+    class _BlockingUpdater:
+        """Block the first update while a concurrent scan is scheduled."""
+
+        def __init__(self, **kwargs: object) -> None:
+            """Accept production updater constructor arguments."""
+            _ = kwargs
+
+        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+            """Record and block the update until the test releases it."""
+            nonlocal update_calls
+            _ = reason, previous_attr
+            update_calls += 1
+            update_started.set()
+            await release_update.wait()
+
+    monotonic_values = iter((1000.0, 1100.0, 1100.0))
+    monkeypatch.setattr(
+        "custom_components.places.coordinator.monotonic",
+        lambda: next(monotonic_values),
+    )
+    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _BlockingUpdater)
+
+    first_scan = asyncio.create_task(coordinator.async_scan_update())
+    await update_started.wait()
+    second_scan = asyncio.create_task(coordinator.async_scan_update())
+    await asyncio.sleep(0)
+    release_update.set()
+    await asyncio.gather(first_scan, second_scan)
+
+    assert update_calls == 1
+    assert coordinator._last_scan_update == 1100.0
+
+
 async def test_coordinator_scan_update_throttles_repeated_refreshes(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
@@ -1457,7 +1506,7 @@ def test_attribute_sensor_uses_value_fn_without_initial_coordinator_data(
     object.__setattr__(coordinator, "data", None)
     description = PlacesAttributeSensorEntityDescription(
         key="derived",
-        value_fn=lambda coordinator: "x" * (MAX_LENGTH_STATE_STATE + 1),
+        value_fn=lambda _coordinator: "x" * (MAX_LENGTH_STATE_STATE + 1),
     )
 
     entity = PlacesAttributeSensor(coordinator, description)

@@ -60,7 +60,7 @@
             "zone_name": {"name": "Zone Name"},
             "city": {"name": "City"},
             "state": {"name": "State"},
-            "direction_of_travel": {"name": "Direction Of Travel"},
+            "direction_of_travel": {"name": "Direction of Travel"},
             "map_link": {"name": "Map Link"},
             "distance_from_home": {"name": "Distance From Home"},
             "distance_traveled": {"name": "Distance Traveled"},
@@ -79,12 +79,12 @@
             "zone": {"name": "Zone"},
             "latitude": {"name": "Latitude"},
             "longitude": {"name": "Longitude"},
-            "gps_accuracy": {"name": "Gps Accuracy"},
+            "gps_accuracy": {"name": "GPS Accuracy"},
             "last_changed": {"name": "Last Changed"},
             "last_updated": {"name": "Last Updated"},
-            "osm_id": {"name": "Osm Id"},
+            "osm_id": {"name": "OSM ID"},
             "osm_type": {"name": "Osm Type"},
-            "extended_data": {"name": "Extended data"}
+            "extended_data": {"name": "Extended Data"}
         }
     },
     "options": {

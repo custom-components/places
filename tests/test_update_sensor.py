@@ -1225,6 +1225,33 @@ async def test_get_gps_accuracy_variants(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tracker_attrs",
+    [{}, {ATTR_GPS_ACCURACY: None}, {ATTR_GPS_ACCURACY: "invalid"}],
+    ids=["absent", "none", "non-numeric"],
+)
+async def test_get_gps_accuracy_clears_stale_zero(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    tracker_attrs: dict[str, object],
+) -> None:
+    """Invalid current accuracy should clear a stale zero and proceed."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    tracker_state = MagicMock()
+    tracker_state.attributes = tracker_attrs
+    mock_hass.states.get.return_value = tracker_state
+    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
+    sensor.attrs[CONF_USE_GPS] = True
+    sensor.attrs[ATTR_GPS_ACCURACY] = 0.0
+
+    result = await updater.get_gps_accuracy()
+
+    assert result == UpdateStatus.PROCEED
+    assert ATTR_GPS_ACCURACY not in sensor.attrs
+
+
+@pytest.mark.asyncio
 async def test_update_coordinates_variants_present_and_missing(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,

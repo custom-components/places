@@ -180,8 +180,10 @@ async def render_display_option(
         ("formatted_place", "Roy Spiegel MSW, Fort Lee, NJ"),
         (
             "osm_formatted_address",
-            "Roy Spiegel MSW, 1, Bridge Plaza North, Koreatown, Fort Lee, Bergen County, "
-            "New Jersey, 07024, United States",
+            (
+                "Roy Spiegel MSW, 1, Bridge Plaza North, Koreatown, Fort Lee, Bergen County, "
+                "New Jersey, 07024, United States"
+            ),
         ),
         (
             README_PLACE_ADVANCED,

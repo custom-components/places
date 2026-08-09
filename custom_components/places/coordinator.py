@@ -560,15 +560,20 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         Returns:
             Current coordinator data after the scan update path completes.
         """
-        now = monotonic()
-        if (
-            self._last_scan_update is not None
-            and now - self._last_scan_update < THROTTLE_INTERVAL.total_seconds()
-        ):
+        if self._is_shutting_down:
             return self.snapshot()
+        async with self._update_lock:
+            if self._is_shutting_down:
+                return self.snapshot()
+            now = monotonic()
+            if (
+                self._last_scan_update is not None
+                and now - self._last_scan_update < THROTTLE_INTERVAL.total_seconds()
+            ):
+                return self.snapshot()
 
-        await self._run_update("Scan Interval")
-        self._last_scan_update = now
+            await self._run_update_locked("Scan Interval")
+            self._last_scan_update = monotonic()
         return self.snapshot()
 
     async def _run_update(self, reason: str) -> None:

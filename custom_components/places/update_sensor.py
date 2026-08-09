@@ -437,6 +437,7 @@ class PlacesUpdater:
                 float(tracker_state.attributes.get(ATTR_GPS_ACCURACY)),
             )
         else:
+            self.coordinator.clear_attr(ATTR_GPS_ACCURACY)
             _LOGGER.debug(
                 "(%s) GPS Accuracy attribute not found in: %s",
                 self.coordinator.get_attr(CONF_NAME),
