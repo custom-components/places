@@ -1,6 +1,6 @@
 # places
 <picture>
-  <img alt="places Logo" src="https://github.com/custom-components/places/raw/master/logo/icon.png">
+  <img alt="places Logo" src="https://github.com/custom-components/places/raw/main/custom_components/places/brand/icon.png">
 </picture>
 
 [![Integration Usage][integration-usage-shield]][releases]

@@ -31,7 +31,7 @@ body:
     id: logs
     attributes:
       label: Relevant logs
-      description: Please copy and paste any relevant logs. This will be automatically formatted into code, so no need for backticks. [How to enable debug logging.](https://github.com/custom-components/places/blob/master/CONTRIBUTING.md#enable-debug-logging-in-home-assistant)
+      description: Please copy and paste any relevant logs. This will be automatically formatted into code, so no need for backticks. [How to enable debug logging.](https://github.com/custom-components/places/blob/main/CONTRIBUTING.md#enable-debug-logging-in-home-assistant)
       render: shell
   - type: textarea
     id: additional-details
