@@ -50,11 +50,14 @@ def select_schema(
     """Create a dropdown select selector for Places config flows.
 
     Args:
-        options: Selector option values or option dictionaries.
-        custom_value: Whether users can enter values not listed in ``options``.
+        options (list[str] | list[selector.SelectOptionDict]):
+            Selector option values or option dictionaries.
+        custom_value (bool):
+            Whether users can enter values not listed in ``options``.
 
     Returns:
-        A dropdown-style select selector configured for single selection.
+        selector.SelectSelector:
+            A dropdown-style select selector configured for single selection.
     """
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
@@ -73,11 +76,14 @@ def user_schema(
     """Build the schema used by ``PlacesConfigFlow.async_step_user``.
 
     Args:
-        devicetracker_options: Selectable devicetracker entities.
-        zone_options: Selectable zone entities.
+        devicetracker_options (list[selector.SelectOptionDict]):
+            Selectable devicetracker entities.
+        zone_options (list[selector.SelectOptionDict]):
+            Selectable zone entities.
 
     Returns:
-        The user config flow schema with matching defaults and selectors.
+        vol.Schema:
+            The user config flow schema with matching defaults and selectors.
     """
     return vol.Schema(
         {

@@ -1,7 +1,7 @@
 """Pytest fixtures and mock classes for testing Home Assistant integrations."""
 
 import asyncio
-from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, suppress
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -28,6 +28,14 @@ def mock_method(default_func: Callable[..., object]) -> Mock:
 
     This preserves previous tests' ability to set `.side_effect` or `.return_value` while
     defaulting to calling `default_func` when neither is provided.
+
+    Args:
+        default_func (Callable[..., object]):
+            Fallback callable used by the mock.
+
+    Returns:
+        Mock:
+            Mock callable that delegates to the fallback implementation.
     """
     m = Mock()
     # Use a unique sentinel so tests can explicitly set `m.return_value = None`
@@ -45,12 +53,15 @@ def mock_method(default_func: Callable[..., object]) -> Mock:
         """Dispatch to an explicit mock return value or the default implementation.
 
         Args:
-            *args: Positional arguments passed to the mock.
-            **kwargs: Keyword arguments passed to the mock.
+            args (object):
+                Positional arguments passed to the mock.
+            kwargs (object):
+                Keyword arguments passed to the mock.
 
         Returns:
-            The mock's configured return value, or ``default_func`` evaluated
-            with the same arguments.
+            object:
+                The mock's configured return value, or ``default_func`` evaluated
+                with the same arguments.
         """
         # If the test explicitly set a return_value (including None), return it.
         # If return_value is still the sentinel, call the provided default func.
@@ -73,9 +84,20 @@ class MockSensor:
         blank_attrs: set[str] | None = None,
         in_zone: bool = False,
     ) -> None:
-        """Create a MockSensor with optional attrs, display options, blank attrs, and zone flag."""
+        """Create a MockSensor with optional attrs, display options, blank attrs, and zone flag.
+
+        Args:
+            attrs (Attrs | None):
+                Places attribute mapping used by the test.
+            display_options_list (Sequence[str] | None):
+                Display-option tokens available to the parser.
+            blank_attrs (set[str] | None):
+                Attribute names treated as blank.
+            in_zone (bool):
+                Whether the tracker is inside the selected zone.
+        """
         self.attrs = attrs or {}
-        self.display_options_list = display_options_list or []
+        self.display_options_list: Sequence[str] = display_options_list or []
         self.blank_attrs = blank_attrs or set()
         self._in_zone = in_zone
         self.native_value = None
@@ -87,10 +109,12 @@ class MockSensor:
             """Return the stored test attribute for a key.
 
             Args:
-                key: Attribute name requested by production code.
+                key (str):
+                    Attribute name requested by production code.
 
             Returns:
-                Stored attribute value, or ``None`` when it has not been set.
+                object:
+                    Stored attribute value, or ``None`` when it has not been set.
             """
             return self.attrs.get(key)
 
@@ -101,11 +125,13 @@ class MockSensor:
             """Apply the mock sensor's blank-value rules for an attribute.
 
             Args:
-                attr: Attribute name to inspect.
+                attr (str):
+                    Attribute name to inspect.
 
             Returns:
-                ``True`` when the attribute is explicitly blanked, missing,
-                ``None``, or an empty string.
+                bool:
+                    ``True`` when the attribute is explicitly blanked, missing,
+                    ``None``, or an empty string.
             """
             if hasattr(self, "blank_attrs") and attr in self.blank_attrs:
                 return True
@@ -121,12 +147,15 @@ class MockSensor:
             """Coerce a stored mock attribute to the string form used by the sensor.
 
             Args:
-                attr: Attribute name to read.
-                default: Value to use when the attribute is missing or ``None``.
+                attr (str):
+                    Attribute name to read.
+                default (object):
+                    Value to use when the attribute is missing or ``None``.
 
             Returns:
-                String representation of the stored value or default, with
-                MagicMock placeholders treated as blank values.
+                str:
+                    String representation of the stored value or default, with
+                    MagicMock placeholders treated as blank values.
             """
             val = self.attrs.get(attr, default)
             # If val is a MagicMock, return default or empty string
@@ -149,68 +178,73 @@ class MockSensor:
             """Coerce a stored mock attribute to a float like the real helper.
 
             Args:
-                attr: Attribute name to read.
-                default: Fallback value when conversion cannot use the stored
-                    value.
+                attr (str):
+                    Attribute name to read.
+                default (object):
+                    Value used only when the attribute is absent.
 
             Returns:
-                Converted float value, or ``0.0`` when neither the stored value
-                nor the fallback can be converted.
+                float:
+                    Converted stored value, or ``0.0`` for invalid stored
+                    input.
             """
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
-                if isinstance(default, MagicMock):
-                    return 0.0
-                return float(default) if isinstance(default, int | float | str) else 0.0
+                val = default
+            if isinstance(val, MagicMock):
+                return 0.0
             try:
                 return float(val)
             except TypeError, ValueError:
-                if isinstance(default, MagicMock):
-                    return 0.0
-                return float(default) if isinstance(default, int | float | str) else 0.0
+                return 0.0
 
         self.get_attr_safe_float = mock_method(_get_attr_safe_float_default)
 
         # Custom get_attr_safe_dict: mock_method
         def _get_attr_safe_dict_default(
-            attr: str, default: Mapping[str, object] | None = None
-        ) -> Mapping[str, object]:
+            attr: str, default: MutableMapping[str, object] | None = None
+        ) -> MutableMapping[str, object]:
             """Return a stored mapping attribute with production-like fallback behavior.
 
             Args:
-                attr: Attribute name to read.
-                default: Fallback mapping when the stored value is not a dict.
+                attr (str):
+                    Attribute name to read.
+                default (MutableMapping[str, object] | None):
+                    Fallback mapping when the attribute is missing.
 
             Returns:
-                Stored mapping value, a dict fallback, or an empty dict.
+                MutableMapping[str, object]:
+                    Stored mutable mapping, a mutable mapping fallback, or an
+                    empty dict.
             """
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
-                return {} if not isinstance(default, dict) else default
-            return val if isinstance(val, dict) else (default if isinstance(default, dict) else {})
+                return {}
+            return val if isinstance(val, MutableMapping) else {}
 
         self.get_attr_safe_dict = mock_method(_get_attr_safe_dict_default)
 
         # Custom get_attr_safe_list: mock_method
-        def _get_attr_safe_list_default(
-            attr: str, default: Sequence[object] | None = None
-        ) -> Sequence[object]:
-            """Return a stored sequence attribute with display-options handling.
+        def _get_attr_safe_list_default(attr: str, default: object | None = None) -> list[object]:
+            """Return a stored list attribute with display-options handling.
 
             Args:
-                attr: Attribute name to read.
-                default: Fallback sequence when the stored value is not a list.
+                attr (str):
+                    Attribute name to read.
+                default (object | None):
+                    Fallback value when the attribute is missing.
 
             Returns:
-                The configured display options, a stored list, a list fallback,
-                or an empty list.
+                list[object]:
+                    The configured display options, a stored list, a list
+                    fallback, or an empty list.
             """
             if attr == "display_options_list":
-                return self.display_options_list
+                return list[object](self.display_options_list)
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):
-                return [] if not isinstance(default, list) else default
-            return val if isinstance(val, list) else (default if isinstance(default, list) else [])
+                return []
+            return val if isinstance(val, list) else []
 
         self.get_attr_safe_list = mock_method(_get_attr_safe_list_default)
         # Custom set_attr: updates attrs and records calls
@@ -220,8 +254,10 @@ class MockSensor:
             """Store an attribute value and record the call for assertions.
 
             Args:
-                key: Attribute name to set.
-                value: Value to store on the mock sensor.
+                key (str):
+                    Attribute name to set.
+                value (object):
+                    Value to store on the mock sensor.
             """
             self.attrs[key] = value
             self._set_attr_mock(key, value)
@@ -237,7 +273,8 @@ class MockSensor:
             """Remove an attribute value and record the call for assertions.
 
             Args:
-                key: Attribute name to remove from the mock sensor.
+                key (str):
+                    Attribute name to remove from the mock sensor.
             """
             self.attrs.pop(key, None)
             self._clear_attr_mock(key)
@@ -253,7 +290,8 @@ class MockSensor:
             """Store the mock sensor's native value and record the call.
 
             Args:
-                value: Native value to expose from the mock sensor.
+                value (object):
+                    Native value to expose from the mock sensor.
             """
             self.native_value = value
             self._set_native_value_mock(value)
@@ -271,8 +309,10 @@ class MockSensor:
         """Set an attribute directly without recording a MagicMock call.
 
         Args:
-            key: Attribute name to set.
-            value: Value to store on the mock sensor.
+            key (str):
+                Attribute name to set.
+            value (object):
+                Value to store on the mock sensor.
         """
         self.attrs[key] = value
 
@@ -280,12 +320,18 @@ class MockSensor:
         """Set the native value directly without recording a MagicMock call.
 
         Args:
-            value: Native value to store on the mock sensor.
+            value (object):
+                Native value to store on the mock sensor.
         """
         self.native_value = value
 
     def _clear_attr(self, key: str | None = None) -> None:
-        """Remove the specified key from attrs if present."""
+        """Remove the specified key from attrs if present.
+
+        Args:
+            key (str | None):
+                Configuration or attribute key being accessed.
+        """
         if key is not None and key in self.attrs:
             self.attrs.pop(key)
 
@@ -293,20 +339,31 @@ class MockSensor:
         """Restore previous attributes on this mock sensor with full replacement.
 
         Args:
-            previous_attr: Attribute snapshot to restore as the complete replacement.
+            previous_attr (MutableMapping[str, object]):
+                Attribute snapshot to restore as the complete replacement.
         """
         self.attrs = previous_attr
         native_value = self.attrs.get(ATTR_NATIVE_VALUE)
         self.native_value = str(native_value) if native_value is not None else None
 
     async def in_zone(self) -> bool:
-        """Return True if the sensor is in the configured zone, else False."""
+        """Return True if the sensor is in the configured zone, else False.
+
+        Returns:
+            bool:
+                Zone-membership result returned by the stub.
+        """
         return self._in_zone
 
 
 @pytest.fixture(name="mock_hass")
 def mock_hass() -> MagicMock:
-    """Provide a mock Home Assistant instance configured with common attributes."""
+    """Provide a mock Home Assistant instance configured with common attributes.
+
+    Returns:
+        MagicMock:
+            Home Assistant instance configured for integration tests.
+    """
     hass_instance = MagicMock()
     # Config entries
     hass_instance.config_entries = MagicMock()
@@ -345,7 +402,12 @@ def mock_hass() -> MagicMock:
 
 @pytest.fixture
 def mock_config_entry() -> MockConfigEntry:
-    """Provide a default Places config entry for unit tests."""
+    """Provide a default Places config entry for unit tests.
+
+    Returns:
+        MockConfigEntry:
+            Places configuration entry installed for the test.
+    """
     return MockConfigEntry(
         domain="places",
         data={CONF_NAME: "Test Place", CONF_DEVICETRACKER_ID: "person.test"},
@@ -358,7 +420,20 @@ def places_instance(
     patch_entity_registry: object,
     mock_config_entry: MockConfigEntry,
 ) -> Places:
-    """Provide a real Places sensor instance with minimal configuration."""
+    """Provide a real Places sensor instance with minimal configuration.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        patch_entity_registry (object):
+            Isolated entity-registry fixture.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+
+    Returns:
+        Places:
+            Initialized Places API object for the test entry.
+    """
     _ = patch_entity_registry
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
@@ -375,16 +450,27 @@ def places_instance(
 
 @pytest.fixture
 def coordinator_factory(mock_hass: MagicMock) -> CoordinatorFactory:
-    """Create a config entry and real coordinator for entity-boundary tests."""
+    """Create a config entry and real coordinator for entity-boundary tests.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+
+    Returns:
+        CoordinatorFactory:
+            Factory that creates coordinators with controlled dependencies.
+    """
 
     def create(name: str = "OldName") -> tuple[MockConfigEntry, PlacesUpdateCoordinator]:
         """Create one coordinator with isolated persistence.
 
         Args:
-            name: Configured Places entity name.
+            name (str):
+                Configured Places entity name.
 
         Returns:
-            The config entry and its initialized coordinator.
+            tuple[MockConfigEntry, PlacesUpdateCoordinator]:
+                The config entry and its initialized coordinator.
         """
         entry = MockConfigEntry(
             domain="places",
@@ -406,15 +492,38 @@ class _DummyRegistry(er.EntityRegistry):
         """Avoid requiring a full Home Assistant instance for registry tests."""
 
     def async_get(self, entity_id_or_uuid: str) -> None:
-        """Return no registry entry for isolated unit tests."""
+        """Return no registry entry for isolated unit tests.
+
+        Args:
+            entity_id_or_uuid (str):
+                Entity ID or registry UUID to resolve.
+        """
 
     def async_get_entity_id(self, domain: str, platform: str, unique_id: str) -> None:
-        """Return no entity ID for tests that only need registry lookup isolation."""
+        """Return no entity ID for tests that only need registry lookup isolation.
+
+        Args:
+            domain (str):
+                Entity domain used for the registry lookup.
+            platform (str):
+                Integration platform used for the registry lookup.
+            unique_id (str):
+                Unique ID used for the entity-registry lookup.
+        """
         return
 
 
 def _async_get_entity_registry(hass: HomeAssistant) -> er.EntityRegistry:
-    """Return a minimal, typed dummy EntityRegistry for tests."""
+    """Return a minimal, typed dummy EntityRegistry for tests.
+
+    Args:
+        hass (HomeAssistant):
+            Mocked Home Assistant runtime.
+
+    Returns:
+        er.EntityRegistry:
+            Entity registry backing the current test.
+    """
     return _DummyRegistry()
 
 
@@ -425,6 +534,20 @@ def mock_sensor(
     in_zone: bool = False,
 ) -> MockSensor:
     """Factory function that returns a configured MockSensor.
+
+    Args:
+        attrs (Attrs | None):
+            Places attribute mapping used by the test.
+        display_options_list (Sequence[str] | None):
+            Display-option tokens available to the parser.
+        blank_attrs (set[str] | None):
+            Attribute names treated as blank.
+        in_zone (bool):
+            Whether the tracker is inside the selected zone.
+
+    Returns:
+        MockSensor:
+            Configured sensor double with the supplied attributes.
 
     Usage in tests:
         sensor = mock_sensor()
@@ -443,6 +566,12 @@ def assert_awaited_count(mock_obj: AsyncMock, expected: int) -> None:
 
     This helper centralizes a readable assertion for await counts and produces a
     clearer failure message than direct integer comparisons in tests.
+
+    Args:
+        mock_obj (AsyncMock):
+            Mock whose awaited calls are asserted.
+        expected (int):
+            Expected result for this parametrized case.
     """
     actual = getattr(mock_obj, "await_count", None)
     assert actual == expected, f"Expected await_count == {expected}, got {actual} for {mock_obj}"
@@ -450,7 +579,12 @@ def assert_awaited_count(mock_obj: AsyncMock, expected: int) -> None:
 
 @pytest.fixture
 def sensor() -> MockSensor:
-    """Provide a fresh MockSensor instance for tests via fixture."""
+    """Provide a fresh MockSensor instance for tests via fixture.
+
+    Returns:
+        MockSensor:
+            Sensor double configured for the parser test.
+    """
     return mock_sensor()
 
 
@@ -459,6 +593,14 @@ def updater(mock_hass: MagicMock) -> PlacesUpdater:
     """Provide a PlacesUpdater instance using the shared `mock_hass` and a fresh mock_sensor.
 
     Returns a PlacesUpdater constructed with a fresh mock_sensor.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+
+    Returns:
+        PlacesUpdater:
+            Updater configured with the default test dependencies.
     """
     sensor = mock_sensor()
     return PlacesUpdater(mock_hass, MockConfigEntry(domain="places", data={}), sensor)
@@ -471,6 +613,14 @@ def prepared_updater(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     The fixture returns the MagicMock instance. The fixture attaches an `_init_calls` list
     to the mock where each instantiation call's (args, kwargs) is appended. Tests can
     assert on `_init_calls` to verify instantiation parameters.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+
+    Returns:
+        MagicMock:
+            Updater initialized with persisted and tracker state.
     """
     mock_updater = MagicMock()
     init_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
@@ -479,11 +629,14 @@ def prepared_updater(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
         """Record constructor arguments and return the prepared updater mock.
 
         Args:
-            *args: Positional constructor arguments passed by production code.
-            **kwargs: Keyword constructor arguments passed by production code.
+            args (object):
+                Positional constructor arguments passed by production code.
+            kwargs (object):
+                Keyword constructor arguments passed by production code.
 
         Returns:
-            The shared updater mock used by the test.
+            MagicMock:
+                The shared updater mock used by the test.
         """
         init_calls.append((args, kwargs))
         return mock_updater
@@ -501,6 +654,10 @@ def patch_entity_registry() -> Iterator[Callable[[HomeAssistant], er.EntityRegis
 
     This fixture temporarily replaces the entity registry getter so tests that rely on a
     patched registry can run without requiring a full Home Assistant runtime.
+
+    Yields:
+        Callable[[HomeAssistant], er.EntityRegistry]:
+            Patched entity-registry getter that returns the isolated registry.
     """
     original = er.async_get
     er.async_get = _async_get_entity_registry
@@ -512,6 +669,16 @@ def patch_entity_registry() -> Iterator[Callable[[HomeAssistant], er.EntityRegis
 
 def stub_in_zone(obj: object, return_value: bool) -> AbstractContextManager[StubMock]:
     """Return a context manager that temporarily stubs an object's async `in_zone` method.
+
+    Args:
+        obj (object):
+            Object whose method is temporarily replaced.
+        return_value (bool):
+            Result returned by the stubbed method.
+
+    Returns:
+        AbstractContextManager[StubMock]:
+            Context manager that yields the replacement zone-membership mock.
 
     Usage:
         with stub_in_zone(sensor, False):
@@ -534,17 +701,27 @@ def stub_method(
 ) -> AbstractContextManager[StubMock]:
     """Return a context manager that temporarily stubs an object's method.
 
-    Parameters:
-        obj: target object
-        method_name: attribute name to patch
-        return_value: value to return from the stub
-        side_effect: callable to use as side_effect
-        async_method: whether to patch with AsyncMock (True) or MagicMock (False)
+    Args:
+        obj (object):
+            target object
+        method_name (str):
+            attribute name to patch
+        return_value (object):
+            value to return from the stub
+        side_effect (object):
+            callable to use as side_effect
+        async_method (bool):
+            whether to patch with AsyncMock (True) or MagicMock (False)
+        restore_original (bool):
+            Whether the original method is restored on exit.
+
+    Returns:
+        AbstractContextManager[StubMock]:
+            Context manager that yields the configured method double.
 
     Usage:
         with stub_method(parser, "parse_type", return_value=None):
             await parser.parse_osm_dict()
-
     """
     # Create the appropriate mock object and assign it to the target attribute.
     if async_method:
@@ -566,7 +743,8 @@ def stub_method(
         """Temporarily replace a method on an object with a mock.
 
         Yields:
-            The mock assigned to the target object.
+            StubMock:
+                The mock assigned to the target object.
         """
         # Save original state
         sentinel = object()
@@ -595,6 +773,10 @@ def stubbed_updater() -> Callable[
 ]:
     """Provide a helper that returns a context manager for stubbing multiple updater methods.
 
+    Returns:
+        Callable[[object, Sequence[MethodSpec]], AbstractContextManager[StubMapping]]:
+            Callable factory that creates context managers for updater method stubs.
+
     Usage:
         with stubbed_updater(updater, [
             ("get_current_time", {"return_value": dt}),
@@ -611,12 +793,15 @@ def stubbed_updater() -> Callable[
         """Build a context manager that stubs several updater methods.
 
         Args:
-            updater: Object whose methods should be patched.
-            methods: Method names and stub configuration passed to
+            updater (object):
+                Object whose methods should be patched.
+            methods (Sequence[MethodSpec]):
+                Method names and stub configuration passed to
                 ``stub_method``.
 
         Returns:
-            Context manager yielding method names mapped to their mocks.
+            AbstractContextManager[StubMapping]:
+                Context manager yielding method names mapped to their mocks.
         """
         # Create context managers for each requested stub. Helpers now default to
         # restoring originals, so do not opt-out here; tests should capture the
@@ -628,7 +813,8 @@ def stubbed_updater() -> Callable[
             """Enter all updater method stubs and restore them on exit.
 
             Yields:
-                Mapping from updater method name to its mock.
+                StubMapping:
+                    Mapping from updater method name to its mock.
             """
             # Enter all context managers and yield a mapping of method_name->mock
             entered = [cm.__enter__() for cm in cms]
@@ -651,6 +837,16 @@ def stubbed_parser(
 ) -> AbstractContextManager[StubMapping]:
     """Return a context manager for stubbing multiple parser methods.
 
+    Args:
+        parser (object):
+            Parser whose methods are replaced by stubs.
+        methods (Sequence[MethodSpec]):
+            Method names replaced on the parser or sensor double.
+
+    Returns:
+        AbstractContextManager[StubMapping]:
+            Context manager that yields parser method names mapped to their mocks.
+
     Usage:
         with stubbed_parser(parser, [("parse_type", {}), ("set_attribution", {})]):
             await parser.parse_osm_dict()
@@ -662,7 +858,8 @@ def stubbed_parser(
         """Enter all parser method stubs and restore them on exit.
 
         Yields:
-            Mapping from parser method name to its mock.
+            StubMapping:
+                Mapping from parser method name to its mock.
         """
         entered = [cm.__enter__() for cm in cms]
         mapping = {method_name: entered[i] for i, (method_name, _) in enumerate(methods)}
@@ -681,6 +878,16 @@ def stubbed_sensor(
 ) -> AbstractContextManager[StubMapping]:
     """Return a context manager for stubbing multiple sensor methods.
 
+    Args:
+        sensor_obj (object):
+            Places sensor whose methods are replaced by stubs.
+        methods (Sequence[MethodSpec]):
+            Method names replaced on the parser or sensor double.
+
+    Returns:
+        AbstractContextManager[StubMapping]:
+            Context manager that yields sensor method names mapped to their mocks.
+
     Usage:
         with stubbed_sensor(sensor, [("process_display_options", {})]):
             await Places.process_display_options(sensor)
@@ -692,7 +899,8 @@ def stubbed_sensor(
         """Enter all sensor method stubs and restore them on exit.
 
         Yields:
-            Mapping from sensor method name to its mock.
+            StubMapping:
+                Mapping from sensor method name to its mock.
         """
         entered = [cm.__enter__() for cm in cms]
         mapping = {method_name: entered[i] for i, (method_name, _) in enumerate(methods)}

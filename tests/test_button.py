@@ -10,7 +10,12 @@ from custom_components.places.const import DOMAIN
 
 
 async def test_force_update_button_setup_and_press(mock_hass: HomeAssistant) -> None:
-    """The entry exposes one button that delegates to its coordinator."""
+    """The entry exposes one button that delegates to its coordinator.
+
+    Args:
+        mock_hass (HomeAssistant):
+            Mocked Home Assistant runtime.
+    """
     coordinator = MagicMock()
     coordinator.async_force_update = AsyncMock()
     entry = MockConfigEntry(domain=DOMAIN)

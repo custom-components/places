@@ -18,9 +18,12 @@ async def async_setup_entry(
     """Set up the Force Update button for one Places entry.
 
     Args:
-        hass: Home Assistant instance.
-        config_entry: Config entry being set up.
-        async_add_entities: Callback used to register created entities.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        config_entry (ConfigEntry):
+            Config entry being set up.
+        async_add_entities (AddEntitiesCallback):
+            Callback used to register created entities.
     """
     coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
     async_add_entities([PlacesForceUpdateButton(coordinator)])
@@ -34,7 +37,12 @@ class PlacesForceUpdateButton(PlacesEntity, ButtonEntity):
     _attr_translation_key = "force_update"
 
     def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
-        """Initialize the Force Update button."""
+        """Initialize the Force Update button.
+
+        Args:
+            coordinator (PlacesUpdateCoordinator):
+                Places update coordinator used by the entity or test.
+        """
         super().__init__(coordinator, unique_suffix="force_update")
 
     async def async_press(self) -> None:

@@ -17,7 +17,14 @@ from custom_components.places.helpers import clear_since_from_state, safe_trunca
     ],
 )
 def test_clear_since_from_state_removes_pattern(input_str: str, expected: str) -> None:
-    """Test that clear_since_from_state removes '(since ...)' patterns from strings."""
+    """Test that clear_since_from_state removes '(since ...)' patterns from strings.
+
+    Args:
+        input_str (str):
+            State string from which a ``(since ...)`` suffix is removed.
+        expected (str):
+            Expected result for this parametrized case.
+    """
     assert clear_since_from_state(input_str) == expected
 
 
@@ -31,7 +38,16 @@ def test_clear_since_from_state_removes_pattern(input_str: str, expected: str) -
     ],
 )
 def test_safe_truncate(input_str: str | None, max_len: int, expected: str) -> None:
-    """Test that safe_truncate returns the correct truncated string for various inputs."""
+    """Test that safe_truncate returns the correct truncated string for various inputs.
+
+    Args:
+        input_str (str | None):
+            Text to truncate safely.
+        max_len (int):
+            Maximum output length enforced by truncation.
+        expected (str):
+            Expected result for this parametrized case.
+    """
     assert safe_truncate(input_str, max_len) == expected
 
 
@@ -54,5 +70,12 @@ def test_safe_truncate(input_str: str | None, max_len: int, expected: str) -> No
     ],
 )
 def test_is_float_param(value: object, expected: bool) -> None:
-    """is_float returns expected boolean for a variety of inputs."""
+    """is_float returns expected boolean for a variety of inputs.
+
+    Args:
+        value (object):
+            Candidate input checked for float compatibility.
+        expected (bool):
+            Expected result for this parametrized case.
+    """
     assert helpers.is_float(value) is expected

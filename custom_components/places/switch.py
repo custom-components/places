@@ -19,9 +19,12 @@ async def async_setup_entry(
     """Set up the Show Last Updated configuration entity.
 
     Args:
-        hass: Home Assistant instance.
-        config_entry: Config entry being set up.
-        async_add_entities: Callback used to register created entities.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        config_entry (ConfigEntry):
+            Config entry being set up.
+        async_add_entities (AddEntitiesCallback):
+            Callback used to register created entities.
     """
     coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
     async_add_entities([PlacesShowLastUpdatedSwitch(coordinator)])
@@ -35,18 +38,38 @@ class PlacesShowLastUpdatedSwitch(PlacesEntity, SwitchEntity):
     _attr_translation_key = "show_last_updated"
 
     def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
-        """Initialize the Show Last Updated switch entity."""
+        """Initialize the Show Last Updated switch entity.
+
+        Args:
+            coordinator (PlacesUpdateCoordinator):
+                Places update coordinator used by the entity or test.
+        """
         super().__init__(coordinator, unique_suffix=CONF_SHOW_TIME)
 
     @property
     def is_on(self) -> bool:
-        """Return whether the suffix is enabled."""
+        """Return whether the suffix is enabled.
+
+        Returns:
+            bool:
+                Whether the represented Places option is enabled.
+        """
         return bool(self.coordinator.get_attr(CONF_SHOW_TIME))
 
     async def async_turn_on(self, **kwargs: object) -> None:
-        """Enable the last-updated suffix."""
+        """Enable the last-updated suffix.
+
+        Args:
+            kwargs (object):
+                Optional keyword arguments supplied by Home Assistant.
+        """
         await self.coordinator.async_update_setting(CONF_SHOW_TIME, value=True)
 
     async def async_turn_off(self, **kwargs: object) -> None:
-        """Disable the last-updated suffix."""
+        """Disable the last-updated suffix.
+
+        Args:
+            kwargs (object):
+                Optional keyword arguments supplied by Home Assistant.
+        """
         await self.coordinator.async_update_setting(CONF_SHOW_TIME, value=False)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
+from math import isfinite
 from typing import Any, cast
 
 from homeassistant.const import (
@@ -23,8 +24,32 @@ from .helpers import is_float
 
 
 def _float_or_none(value: Any) -> float | None:
-    """Convert a float-compatible value, returning ``None`` for invalid values."""
+    """Convert a float-compatible value, returning ``None`` for invalid values.
+
+    Args:
+        value (Any):
+            Candidate value converted to a float when possible.
+
+    Returns:
+        float | None:
+            Converted value, or ``None`` when conversion fails.
+    """
     return float(value) if is_float(value) else None
+
+
+def _finite_float_or_none(value: Any) -> float | None:
+    """Convert a float-compatible value only when its result is finite.
+
+    Args:
+        value (Any):
+            Candidate coordinate converted to a finite float when possible.
+
+    Returns:
+        float | None:
+            Converted finite coordinate, or ``None`` for an invalid result.
+    """
+    converted_value = _float_or_none(value)
+    return converted_value if converted_value is not None and isfinite(converted_value) else None
 
 
 class TrackerStatus(Enum):
@@ -57,11 +82,14 @@ class TrackerSnapshot:
         """Build a tracker snapshot from ``hass.states.get``.
 
         Args:
-            hass: Home Assistant instance used to fetch tracker state.
-            entity_id: Tracker entity ID to look up in HA state registry.
+            hass (HomeAssistant):
+                Home Assistant instance used to fetch tracker state.
+            entity_id (str | None):
+                Tracker entity ID to look up in HA state registry.
 
         Returns:
-            Snapshot describing tracker availability, state, and location data.
+            TrackerSnapshot:
+                Snapshot describing tracker availability, state, and location data.
         """
         if not entity_id:
             return cls(
@@ -166,13 +194,13 @@ class TrackerSnapshot:
             gps_accuracy_value = get_attr(ATTR_GPS_ACCURACY)
 
         status = TrackerStatus.OK
+        latitude = _finite_float_or_none(latitude_value)
+        longitude = _finite_float_or_none(longitude_value)
+        gps_accuracy = _float_or_none(gps_accuracy_value)
         if not has_latitude or not has_longitude:
             status = TrackerStatus.MISSING_COORDINATES
-        elif not is_float(latitude_value) or not is_float(longitude_value):
+        elif latitude is None or longitude is None:
             status = TrackerStatus.INVALID_COORDINATES
-        latitude = _float_or_none(latitude_value)
-        longitude = _float_or_none(longitude_value)
-        gps_accuracy = _float_or_none(gps_accuracy_value)
 
         return cls(
             entity_id=entity_id,
@@ -188,5 +216,10 @@ class TrackerSnapshot:
 
     @property
     def has_valid_coordinates(self) -> bool:
-        """Return whether both coordinate values are parseable."""
+        """Return whether both coordinate values are parseable.
+
+        Returns:
+            bool:
+                Whether both coordinates are present and finite.
+        """
         return self.status == TrackerStatus.OK

@@ -27,10 +27,12 @@ def store_key(entry_id: str) -> str:
     """Return the per-config-entry Store key.
 
     Args:
-        entry_id: Home Assistant config entry ID.
+        entry_id (str):
+            Home Assistant config entry ID.
 
     Returns:
-        Stable Store key for this config entry.
+        str:
+            Stable Store key for this config entry.
     """
     return f"{DOMAIN}.sensor_{slugify(entry_id)}"
 
@@ -39,10 +41,12 @@ def normalize_snapshot(attributes: Mapping[str, Any]) -> Snapshot:
     """Prepare sensor attributes for persistence.
 
     Args:
-        attributes: Runtime sensor attribute mapping.
+        attributes (Mapping[str, Any]):
+            Runtime sensor attribute mapping.
 
     Returns:
-        JSON-compatible snapshot containing only restorable Places attributes.
+        Snapshot:
+            JSON-compatible snapshot containing only restorable Places attributes.
     """
     allowed = set(PERSISTED_ATTRIBUTE_LIST)
     allowed.add(ATTR_NATIVE_VALUE)
@@ -66,9 +70,12 @@ class PlacesStorage:
         """Initialize Store persistence for one Places config entry.
 
         Args:
-            hass: Home Assistant instance.
-            entry_id: Config entry ID used for Store naming.
-            name: Sensor name used for contextual logging.
+            hass (HomeAssistant):
+                Home Assistant instance.
+            entry_id (str):
+                Config entry ID used for Store naming.
+            name (str):
+                Sensor name used for contextual logging.
         """
         self._hass = hass
         self._entry_id = entry_id
@@ -85,8 +92,9 @@ class PlacesStorage:
         """Load a persisted snapshot.
 
         Returns:
-            Persisted attribute mapping, or an empty mapping when no valid
-            snapshot exists.
+            MutableMapping[str, Any]:
+                Persisted attribute mapping, or an empty mapping when no valid
+                snapshot exists.
         """
         store_data = await self._store.async_load()
         if store_data is not None:
@@ -115,7 +123,8 @@ class PlacesStorage:
         """Persist the current sensor attributes immediately.
 
         Args:
-            attributes: Runtime sensor attribute mapping to save.
+            attributes (Mapping[str, Any]):
+                Runtime sensor attribute mapping to save.
         """
         await self._store.async_save(normalize_snapshot(attributes))
 

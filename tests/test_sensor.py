@@ -68,7 +68,16 @@ from custom_components.places.update_sensor import PlacesUpdater
 
 
 def _description(key: str) -> PlacesAttributeSensorEntityDescription:
-    """Return one Places child sensor description by key."""
+    """Return one Places child sensor description by key.
+
+    Args:
+        key (str):
+            Configuration or attribute key being accessed.
+
+    Returns:
+        PlacesAttributeSensorEntityDescription:
+            Entity description configured for the requested sensor key.
+    """
     return next(
         description
         for description in PLACES_ATTRIBUTE_SENSOR_DESCRIPTIONS
@@ -86,7 +95,12 @@ def test_places_data_copies_attributes() -> None:
 
 
 def test_places_entity_device_info_uses_config_entry(mock_hass: MagicMock) -> None:
-    """All Places entities for one entry should group under one HA Device."""
+    """All Places entities for one entry should group under one HA Device.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -107,7 +121,12 @@ def test_places_entity_device_info_uses_config_entry(mock_hass: MagicMock) -> No
 def test_coordinator_main_attributes_are_location_context_only(
     mock_hass: MagicMock,
 ) -> None:
-    """The display sensor should expose only location-context attributes."""
+    """The display sensor should expose only location-context attributes.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -137,7 +156,16 @@ def test_coordinator_publish_update_respects_shutdown_state(
     shutting_down: bool,
     expected_value: str | None,
 ) -> None:
-    """Coordinator publishing should notify listeners only while the entry is active."""
+    """Coordinator publishing should notify listeners only while the entry is active.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        shutting_down (bool):
+            Whether coordinator shutdown has begun.
+        expected_value (str | None):
+            Attribute content expected for this parametrized case.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -159,7 +187,16 @@ async def test_coordinator_persist_attributes_respects_shutdown_state(
     shutting_down: bool,
     expect_save: bool,
 ) -> None:
-    """Coordinator persistence should write only while the entry is active."""
+    """Coordinator persistence should write only while the entry is active.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        shutting_down (bool):
+            Whether coordinator shutdown has begun.
+        expect_save (bool):
+            Whether persistence is expected to save the payload.
+    """
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
     entry = MockConfigEntry(
@@ -193,7 +230,18 @@ async def test_coordinator_updates_setting_locally(
     value: str | bool,
     expected_attr: str,
 ) -> None:
-    """Settings persist and recalculate state without requesting a refresh."""
+    """Settings persist and recalculate state without requesting a refresh.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        key (str):
+            Configuration or attribute key being accessed.
+        value (str | bool):
+            Setting content written to coordinator data.
+        expected_attr (str):
+            Expected resulting setting value.
+    """
     mock_hass.config.time_zone = "UTC"
     mock_hass.states.get.return_value = None
     persistence = MagicMock()
@@ -235,7 +283,12 @@ async def test_coordinator_updates_setting_locally(
 
 
 async def test_coordinator_normalizes_and_validates_map_provider(mock_hass: MagicMock) -> None:
-    """Direct setting updates normalize valid providers and reject unsupported ones."""
+    """Direct setting updates normalize valid providers and reject unsupported ones.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
@@ -274,7 +327,14 @@ async def test_coordinator_normalizes_and_validates_map_provider(mock_hass: Magi
 async def test_coordinator_rejects_invalid_display_options(
     mock_hass: MagicMock, display_options: str
 ) -> None:
-    """Invalid display options do not alter persisted or runtime settings."""
+    """Invalid display options do not alter persisted or runtime settings.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        display_options (str):
+            Display options applied to state rendering.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -305,7 +365,18 @@ async def test_coordinator_updates_setting_rollback_on_display_option_recompute_
     expected_exception: type[BaseException],
     match: str,
 ) -> None:
-    """Recompute failures for display options must restore config and runtime state."""
+    """Recompute failures for display options must restore config and runtime state.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        failure (BaseException):
+            Failure injected to enter the error path.
+        expected_exception (type[BaseException]):
+            Exception type expected from the failure path.
+        match (str):
+            Error-message pattern used by the exception assertion.
+    """
     mock_hass.states.get.return_value = None
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
@@ -337,7 +408,14 @@ async def test_coordinator_updates_setting_logs_context_on_unexpected_error(
     caplog: pytest.LogCaptureFixture,
     mock_hass: MagicMock,
 ) -> None:
-    """Unexpected display-option failures should log coordinator context before rollback."""
+    """Unexpected display-option failures should log coordinator context before rollback.
+
+    Args:
+        caplog (pytest.LogCaptureFixture):
+            Captured log records used for message assertions.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
@@ -364,7 +442,14 @@ async def test_coordinator_stale_suffix_is_not_persisted_before_setting_commit(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A failed settings commit must not persist its dated rendered state."""
+    """A failed settings commit must not persist its dated rendered state.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     mock_hass.config_entries.async_update_entry.side_effect = RuntimeError("commit failure")
     persistence = MagicMock()
@@ -401,7 +486,12 @@ async def test_coordinator_stale_suffix_is_not_persisted_before_setting_commit(
 async def test_coordinator_display_options_render_stale_native_state_as_blank(
     mock_hass: MagicMock,
 ) -> None:
-    """Stale rendered state is cleared when the new display format emits an empty value."""
+    """Stale rendered state is cleared when the new display format emits an empty value.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -426,7 +516,14 @@ async def test_coordinator_updates_display_options_with_normalized_and_formatted
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Display-options updates are normalized and re-rendered with final state formatting."""
+    """Display-options updates are normalized and re-rendered with final state formatting.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
@@ -465,7 +562,14 @@ async def test_coordinator_map_provider_update_rebuilds_current_location(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Map provider updates should rebuild current location from coordinates when needed."""
+    """Map provider updates should rebuild current location from coordinates when needed.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -483,7 +587,12 @@ async def test_coordinator_map_provider_update_rebuilds_current_location(
     captured: dict[str, str] = {}
 
     async def capture_map_link(self: PlacesUpdater) -> None:
-        """Record the resolved current-location string used by link generation."""
+        """Record the resolved current-location string used by link generation.
+
+        Args:
+            self (PlacesUpdater):
+                Places updater passed to the patched map-link helper.
+        """
         captured["location_current"] = str(self.coordinator.get_attr(ATTR_LOCATION_CURRENT))
 
     monkeypatch.setattr(
@@ -501,7 +610,14 @@ async def test_coordinator_map_provider_update_skips_map_link_without_location(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Map-provider updates clear stale map links when no location context exists."""
+    """Map-provider updates clear stale map links when no location context exists.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -536,7 +652,14 @@ async def test_async_update_setting_serialized_with_scan_updates(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Settings changes should wait on the update lock and avoid rollback overwrite."""
+    """Settings changes should wait on the update lock and avoid rollback overwrite.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -554,7 +677,20 @@ async def test_async_update_setting_serialized_with_scan_updates(
         previous_attr: dict[str, object],
         **_kwargs: object,
     ) -> None:
-        """Keep the scan path open long enough to exercise lock contention."""
+        """Keep the scan path open long enough to exercise lock contention.
+
+        Args:
+            reason (str):
+                Reason recorded for the coordinator refresh.
+            previous_attr (dict[str, object]):
+                Previous attribute content used for comparison.
+            _kwargs (object):
+                Optional update arguments accepted by the test double.
+
+        Raises:
+            RuntimeError:
+                Propagated when the operation fails.
+        """
         run_started.set()
         await release_run.wait()
         raise RuntimeError("forced scan failure")
@@ -589,7 +725,14 @@ async def test_async_update_setting_serialized_with_scan_updates(
 async def test_coordinator_enables_show_time_from_existing_state(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Enabling Show Last Updated adds the current local time without a refresh."""
+    """Enabling Show Last Updated adds the current local time without a refresh.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     persistence = MagicMock()
     persistence.async_save = AsyncMock()
@@ -614,7 +757,14 @@ async def test_coordinator_tsc_update_schedules_updater_with_snapshot(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Tracker state changes should schedule one updater task with copied attrs."""
+    """Tracker state changes should schedule one updater task with copied attrs.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -629,18 +779,39 @@ async def test_coordinator_tsc_update_schedules_updater_with_snapshot(
         """Capture coordinator update scheduling arguments."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Store constructor arguments for assertions."""
+            """Store constructor arguments for assertions.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
             captured.update(kwargs)
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Capture scheduled update arguments."""
+            """Capture scheduled update arguments.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+            """
             captured["reason"] = reason
             captured["previous_attr"] = previous_attr
 
     tasks: list[asyncio.Task[None]] = []
 
     def _create_task(coro: Coroutine[object, object, None]) -> asyncio.Task[None]:
-        """Schedule the coroutine on the active event loop for the test."""
+        """Schedule the coroutine on the active event loop for the test.
+
+        Args:
+            coro (Coroutine[object, object, None]):
+                Coroutine scheduled by the task helper.
+
+        Returns:
+            asyncio.Task[None]:
+                Scheduled task double used to observe background work.
+        """
         task: asyncio.Task[None] = asyncio.create_task(coro)
         tasks.append(task)
         return task
@@ -667,7 +838,14 @@ async def test_coordinator_tsc_update_cancelled_on_shutdown(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Tracker updates should be cancelled and awaited when the coordinator shuts down."""
+    """Tracker updates should be cancelled and awaited when the coordinator shuts down.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -685,11 +863,27 @@ async def test_coordinator_tsc_update_cancelled_on_shutdown(
         """Tracker updater that verifies construction and cancellation."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Record updater construction."""
+            """Record updater construction.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
             updater_state["constructed"] = True
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Wait long enough for coordinator shutdown to cancel the running task."""
+            """Wait long enough for coordinator shutdown to cancel the running task.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+
+            Raises:
+                asyncio.CancelledError:
+                    Propagated when the operation fails.
+            """
             updater_state["entered"] = True
             try:
                 await asyncio.sleep(0.2)
@@ -714,7 +908,14 @@ async def test_coordinator_resume_after_failed_unload_resubscribes(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Failed unload recovery should restart tracker listening and refresh state."""
+    """Failed unload recovery should restart tracker listening and refresh state.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -729,7 +930,20 @@ async def test_coordinator_resume_after_failed_unload_resubscribes(
     captured: dict[str, object] = {}
 
     def track_state_change(hass: object, entity_ids: list[str], callback: object) -> MagicMock:
-        """Record tracker subscription arguments."""
+        """Record tracker subscription arguments.
+
+        Args:
+            hass (object):
+                Mocked Home Assistant runtime.
+            entity_ids (list[str]):
+                Entity IDs included in the registry operation.
+            callback (object):
+                Listener callback invoked by the helper.
+
+        Returns:
+            MagicMock:
+                Unsubscribe callback registered for the state listener.
+        """
         captured["hass"] = hass
         captured["entity_ids"] = entity_ids
         captured["callback"] = callback
@@ -758,7 +972,14 @@ async def test_coordinator_resume_after_failed_unload_continues_when_resubscribe
     caplog: pytest.LogCaptureFixture,
     mock_hass: MagicMock,
 ) -> None:
-    """Failed unload recovery should force refresh even if tracker resubscribe fails."""
+    """Failed unload recovery should force refresh even if tracker resubscribe fails.
+
+    Args:
+        caplog (pytest.LogCaptureFixture):
+            Captured log records used for message assertions.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -786,7 +1007,14 @@ async def test_coordinator_resume_after_failed_unload_forces_refresh(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Failed unload recovery should refresh even inside the scan throttle window."""
+    """Failed unload recovery should refresh even inside the scan throttle window.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -803,10 +1031,22 @@ async def test_coordinator_resume_after_failed_unload_forces_refresh(
         """Updater that records recovery refresh execution."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Accept production updater constructor kwargs."""
+            """Accept production updater constructor kwargs.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Record the refresh reason."""
+            """Record the refresh reason.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+            """
             update_calls.append(reason)
 
     monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1001.0)
@@ -825,7 +1065,14 @@ async def test_coordinator_prepare_unload_waits_for_active_update(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Unload preparation should wait for any active coordinator update."""
+    """Unload preparation should wait for any active coordinator update.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -840,10 +1087,22 @@ async def test_coordinator_prepare_unload_waits_for_active_update(
         """Updater that keeps the coordinator update lock occupied."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Accept production updater constructor kwargs."""
+            """Accept production updater constructor kwargs.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Block until the test releases the active update."""
+            """Block until the test releases the active update.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+            """
             update_started.set()
             await release_update.wait()
 
@@ -866,7 +1125,16 @@ async def test_coordinator_prepare_unload_continues_cleanup_when_unsubscribe_rai
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Unload preparation should drain owned work even if unsubscribe raises."""
+    """Unload preparation should drain owned work even if unsubscribe raises.
+
+    Args:
+        caplog (pytest.LogCaptureFixture):
+            Captured log records used for message assertions.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -883,15 +1151,32 @@ async def test_coordinator_prepare_unload_continues_cleanup_when_unsubscribe_rai
         """Updater that keeps the coordinator update lock occupied."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Accept production updater constructor kwargs."""
+            """Accept production updater constructor kwargs.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Block until the test releases the active update."""
+            """Block until the test releases the active update.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+            """
             update_started.set()
             await release_update.wait()
 
     async def tracked_update() -> None:
-        """Wait until unload cancellation reaches tracker-owned update tasks."""
+        """Wait until unload cancellation reaches tracker-owned update tasks.
+
+        Raises:
+            asyncio.CancelledError:
+                Propagated when the operation fails.
+        """
         try:
             await tracker_wait.wait()
         except asyncio.CancelledError:
@@ -928,7 +1213,14 @@ async def test_coordinator_scan_update_runs_updater_with_snapshot(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scan interval refreshes should run the updater with copied attrs."""
+    """Scan interval refreshes should run the updater with copied attrs.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -943,11 +1235,23 @@ async def test_coordinator_scan_update_runs_updater_with_snapshot(
         """Capture scan update arguments and mutate coordinator state."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Store constructor arguments for assertions."""
+            """Store constructor arguments for assertions.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
             captured.update(kwargs)
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Capture scheduled update arguments and publish a new value."""
+            """Capture scheduled update arguments and publish a new value.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+            """
             captured["reason"] = reason
             captured["previous_attr"] = previous_attr
             coordinator.set_native_value("Updated")
@@ -973,7 +1277,14 @@ async def test_coordinator_scan_update_failure_does_not_set_throttle_marker(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scan failures should not throttle the next retry."""
+    """Scan failures should not throttle the next retry.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -987,12 +1298,28 @@ async def test_coordinator_scan_update_failure_does_not_set_throttle_marker(
         """Updater that always fails for scan attempts."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Track updater instantiation for throttle assertions."""
+            """Track updater instantiation for throttle assertions.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
             call_tracker["constructors"] += 1
             _ = kwargs
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Raise a deterministic failure."""
+            """Raise a deterministic failure.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+
+            Raises:
+                RuntimeError:
+                    Propagated when the operation fails.
+            """
             raise RuntimeError("scan failed")
 
     monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
@@ -1010,7 +1337,14 @@ async def test_coordinator_scan_update_serializes_throttle_and_records_completio
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Concurrent scans should run once and throttle from completion time."""
+    """Concurrent scans should run once and throttle from completion time.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1026,11 +1360,23 @@ async def test_coordinator_scan_update_serializes_throttle_and_records_completio
         """Block the first update while a concurrent scan is scheduled."""
 
         def __init__(self, **kwargs: object) -> None:
-            """Accept production updater constructor arguments."""
+            """Accept production updater constructor arguments.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
             _ = kwargs
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Record and block the update until the test releases it."""
+            """Record and block the update until the test releases it.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+            """
             nonlocal update_calls
             _ = reason, previous_attr
             update_calls += 1
@@ -1059,7 +1405,14 @@ async def test_coordinator_scan_update_throttles_repeated_refreshes(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scan interval refreshes inside the throttle window should reuse data."""
+    """Scan interval refreshes inside the throttle window should reuse data.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1082,7 +1435,14 @@ async def test_coordinator_scan_update_throttles_repeated_refreshes(
 async def test_coordinator_force_update_preserves_store_and_bypasses_scan_timer(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Force update preserves rollback data and runs despite a recent scan."""
+    """Force update preserves rollback data and runs despite a recent scan.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         entry_id="entry123",
@@ -1108,7 +1468,14 @@ async def test_coordinator_force_update_preserves_store_and_bypasses_scan_timer(
 async def test_coordinator_force_update_does_nothing_while_shutting_down(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A button press racing unload must not remove persisted data."""
+    """A button press racing unload must not remove persisted data.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         entry_id="entry123",
@@ -1132,7 +1499,14 @@ async def test_coordinator_force_update_does_nothing_while_shutting_down(
 async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
     mock_hass: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Shutting down should block queued _run_update executions behind the lock."""
+    """Shutting down should block queued _run_update executions behind the lock.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1149,7 +1523,12 @@ async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
         """Update stub that blocks the first call to create a lock queue."""
 
         def __init__(self, **_kwargs: object) -> None:
-            """Track constructor calls by sequence number."""
+            """Track constructor calls by sequence number.
+
+            Args:
+                _kwargs (object):
+                    Constructor options recorded by the test double.
+            """
             construct_calls.append(len(construct_calls) + 1)
             self._index = len(construct_calls)
 
@@ -1159,7 +1538,16 @@ async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
             _previous_attr: dict[str, object] | None = None,
             **_kwargs: object,
         ) -> None:
-            """Block first run and let any later run flag itself."""
+            """Block first run and let any later run flag itself.
+
+            Args:
+                _reason (str):
+                    Reason recorded for the coordinator refresh.
+                _previous_attr (dict[str, object] | None):
+                    Previous attribute content used for comparison.
+                _kwargs (object):
+                    Optional update arguments accepted by the test double.
+            """
             if self._index == 1:
                 first_started.set()
                 await release_first.wait()
@@ -1186,7 +1574,14 @@ async def test_coordinator_updates_are_serialized_between_scan_and_tracker_event
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Serialized update path should prevent concurrent mutation races."""
+    """Serialized update path should prevent concurrent mutation races.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1203,10 +1598,22 @@ async def test_coordinator_updates_are_serialized_between_scan_and_tracker_event
         max_active_count = 0
 
         def __init__(self, **kwargs: object) -> None:
-            """Capture constructor kwargs for parity with the production path."""
+            """Capture constructor kwargs for parity with the production path.
+
+            Args:
+                kwargs (object):
+                    Constructor options recorded by the test double.
+            """
 
         async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Record concurrent overlap while the update is in-flight."""
+            """Record concurrent overlap while the update is in-flight.
+
+            Args:
+                reason (str):
+                    Reason recorded for the coordinator refresh.
+                previous_attr (dict[str, object]):
+                    Previous attribute content used for comparison.
+            """
             FakeUpdater.active_count += 1
             FakeUpdater.max_active_count = max(
                 FakeUpdater.max_active_count, FakeUpdater.active_count
@@ -1215,7 +1622,16 @@ async def test_coordinator_updates_are_serialized_between_scan_and_tracker_event
             FakeUpdater.active_count -= 1
 
     def _create_task(coro: Coroutine[object, object, None]) -> asyncio.Task[None]:
-        """Capture scheduler-created update tasks."""
+        """Capture scheduler-created update tasks.
+
+        Args:
+            coro (Coroutine[object, object, None]):
+                Coroutine scheduled by the task helper.
+
+        Returns:
+            asyncio.Task[None]:
+                Scheduled task double used to observe background work.
+        """
         task = asyncio.create_task(coro)
         created_tasks.append(task)
         return task
@@ -1236,7 +1652,14 @@ async def test_coordinator_tsc_update_ignores_blankish_tracker_states(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Tracker events with unavailable-like states should not schedule updates."""
+    """Tracker events with unavailable-like states should not schedule updates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1259,7 +1682,12 @@ async def test_coordinator_tsc_update_ignores_blankish_tracker_states(
 async def test_coordinator_in_zone_variants(
     mock_hass: MagicMock,
 ) -> None:
-    """Zone classification should reject non-real, passive, and zone-backed states."""
+    """Zone classification should reject non-real, passive, and zone-backed states.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1292,7 +1720,14 @@ async def test_coordinator_get_driving_status_variants(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Driving status should depend on zone state, direction, and road classification."""
+    """Driving status should depend on zone state, direction, and road classification.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1410,7 +1845,14 @@ def test_attribute_sensor_descriptions_match_clean_contract() -> None:
     ],
 )
 def test_attribute_sensor_icons(key: str, icon: str) -> None:
-    """Child descriptions should expose the requested icons."""
+    """Child descriptions should expose the requested icons.
+
+    Args:
+        key (str):
+            Configuration or attribute key being accessed.
+        icon (str):
+            Icon assigned by the entity description.
+    """
     assert _description(key).icon == icon
 
 
@@ -1425,7 +1867,12 @@ def test_attribute_sensor_description_keys_are_unique() -> None:
 def test_places_entity_refreshes_device_info_after_coordinator_name_change(
     mock_hass: MagicMock,
 ) -> None:
-    """Existing entities should reflect renamed coordinator device_info on updates."""
+    """Existing entities should reflect renamed coordinator device_info on updates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1456,7 +1903,16 @@ def test_attribute_sensor_reads_coordinator_attribute(
     key: str,
     value: str | float,
 ) -> None:
-    """Child sensors should update their native value from coordinator data."""
+    """Child sensors should update their native value from coordinator data.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        key (str):
+            Configuration or attribute key being accessed.
+        value (str | float):
+            Coordinator attribute content exposed by the child sensor.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1477,7 +1933,12 @@ def test_attribute_sensor_reads_coordinator_attribute(
 def test_attribute_sensor_tolerates_missing_initial_coordinator_data(
     mock_hass: MagicMock,
 ) -> None:
-    """Child sensors should initialize before the coordinator's first refresh."""
+    """Child sensors should initialize before the coordinator's first refresh.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1495,7 +1956,12 @@ def test_attribute_sensor_tolerates_missing_initial_coordinator_data(
 def test_attribute_sensor_uses_value_fn_without_initial_coordinator_data(
     mock_hass: MagicMock,
 ) -> None:
-    """Value functions should still run and clamp strings before the first refresh."""
+    """Value functions should still run and clamp strings before the first refresh.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1528,7 +1994,14 @@ def test_attribute_sensor_uses_home_assistant_translation_key(
     mock_hass: MagicMock,
     key: str,
 ) -> None:
-    """Child sensors should delegate their entity names to HA translations."""
+    """Child sensors should delegate their entity names to HA translations.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        key (str):
+            Configuration or attribute key being accessed.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1554,7 +2027,12 @@ def test_sensor_translation_keys_exist_in_every_locale() -> None:
 
 
 def test_distance_attribute_sensor_reads_meter_value(mock_hass: MagicMock) -> None:
-    """Distance sensors should expose one native meter value instead of km/mi/m variants."""
+    """Distance sensors should expose one native meter value instead of km/mi/m variants.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1571,7 +2049,12 @@ def test_distance_attribute_sensor_reads_meter_value(mock_hass: MagicMock) -> No
 
 
 def test_attribute_sensor_clamps_long_state_to_ha_limit(mock_hass: MagicMock) -> None:
-    """Very long child sensor states should be clamped to Home Assistant limits."""
+    """Very long child sensor states should be clamped to Home Assistant limits.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1587,7 +2070,12 @@ def test_attribute_sensor_clamps_long_state_to_ha_limit(mock_hass: MagicMock) ->
 
 
 def test_main_places_sensor_uses_coordinator_state(mock_hass: MagicMock) -> None:
-    """The main display sensor should copy coordinator state into _attr fields."""
+    """The main display sensor should copy coordinator state into _attr fields.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1615,7 +2103,12 @@ def test_main_places_sensor_uses_coordinator_state(mock_hass: MagicMock) -> None
 def test_attribute_sensor_handle_coordinator_update_writes_state(
     mock_hass: MagicMock,
 ) -> None:
-    """Attribute child sensors should refresh _attr_native_value in coordinator updates."""
+    """Attribute child sensors should refresh _attr_native_value in coordinator updates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1639,7 +2132,12 @@ def test_attribute_sensor_handle_coordinator_update_writes_state(
 def test_extended_data_sensor_exposes_raw_payload_and_is_unrecorded(
     mock_hass: MagicMock,
 ) -> None:
-    """Extended data sensor should expose raw payload dictionaries unchanged."""
+    """Extended data sensor should expose raw payload dictionaries unchanged.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1682,7 +2180,14 @@ async def test_places_sensor_marks_all_attributes_unrecorded_when_extended_attr_
     mock_hass: MagicMock,
     patch_entity_registry: object,
 ) -> None:
-    """Main Places sensor should skip recorder storage of state attributes when extended mode is on."""
+    """Main Places sensor should skip recorder storage of state attributes when extended mode is on.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        patch_entity_registry (object):
+            Isolated entity-registry fixture.
+    """
     _ = patch_entity_registry
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
@@ -1710,7 +2215,14 @@ async def test_places_sensor_records_attributes_when_extended_attr_disabled(
     mock_hass: MagicMock,
     patch_entity_registry: object,
 ) -> None:
-    """Main Places sensor should retain default recorder metadata without extended mode."""
+    """Main Places sensor should retain default recorder metadata without extended mode.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        patch_entity_registry (object):
+            Isolated entity-registry fixture.
+    """
     _ = patch_entity_registry
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
@@ -1735,7 +2247,12 @@ async def test_places_sensor_records_attributes_when_extended_attr_disabled(
 
 
 def test_extended_data_sensor_is_empty_without_payloads(mock_hass: MagicMock) -> None:
-    """Extended data sensor should be unavailable until raw payloads exist."""
+    """Extended data sensor should be unavailable until raw payloads exist.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1754,7 +2271,14 @@ async def test_async_setup_entry_adds_main_and_child_sensors(
     mock_hass: MagicMock,
     patch_entity_registry: object,
 ) -> None:
-    """Setup should add one main entity and one child entity per description."""
+    """Setup should add one main entity and one child entity per description.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        patch_entity_registry (object):
+            Isolated entity-registry fixture.
+    """
     _ = patch_entity_registry
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
@@ -1767,7 +2291,14 @@ async def test_async_setup_entry_adds_main_and_child_sensors(
     added: dict[str, object] = {}
 
     def _add_entities(entities: list[object], **kwargs: object) -> None:
-        """Capture entities added during setup."""
+        """Capture entities added during setup.
+
+        Args:
+            entities (list[object]):
+                Entities captured from the platform setup callback.
+            kwargs (object):
+                Optional entity-registration arguments captured by the callback.
+        """
         added["entities"] = entities
         added["kwargs"] = kwargs
 
@@ -1797,7 +2328,14 @@ async def test_async_setup_entry_removes_extended_sensor_when_disabled(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Setup should remove stale extended-data registry entry when option is disabled."""
+    """Setup should remove stale extended-data registry entry when option is disabled.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1824,7 +2362,12 @@ async def test_async_setup_entry_removes_extended_sensor_when_disabled(
 async def test_async_setup_entry_adds_extended_sensor_when_enabled(
     mock_hass: MagicMock,
 ) -> None:
-    """Setup should append the extended-data sensor when the option is enabled."""
+    """Setup should append the extended-data sensor when the option is enabled.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     mock_hass.states.get.return_value = None
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -1840,7 +2383,14 @@ async def test_async_setup_entry_adds_extended_sensor_when_enabled(
     added: dict[str, object] = {}
 
     def _add_entities(entities: list[object], **kwargs: object) -> None:
-        """Capture entities added during setup."""
+        """Capture entities added during setup.
+
+        Args:
+            entities (list[object]):
+                Entities captured from the platform setup callback.
+            kwargs (object):
+                Optional entity-registration arguments captured by the callback.
+        """
         added["entities"] = entities
         added["kwargs"] = kwargs
 

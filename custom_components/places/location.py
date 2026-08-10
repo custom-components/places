@@ -15,7 +15,12 @@ class CoordinatePair:
     longitude: float
 
     def __str__(self) -> str:
-        """Return the coordinate pair in the integration's storage format."""
+        """Return the coordinate pair in the integration's storage format.
+
+        Returns:
+            str:
+                Human-readable latitude and longitude pair.
+        """
         return f"{self.latitude},{self.longitude}"
 
 
@@ -53,11 +58,14 @@ def direction_of_travel(
     """Compare home-distance snapshots and return a user-facing direction string.
 
     Args:
-        previous_distance_from_home: Prior distance from home.
-        distance_from_home: New distance from home.
+        previous_distance_from_home (float | None):
+            Prior distance from home.
+        distance_from_home (float | None):
+            New distance from home.
 
     Returns:
-        ``towards home``, ``away from home``, or ``stationary``.
+        str:
+            ``towards home``, ``away from home``, or ``stationary``.
     """
     if previous_distance_from_home is None or distance_from_home is None:
         return "stationary"

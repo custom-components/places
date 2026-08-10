@@ -58,7 +58,8 @@ class OSMParser:
         """Initialize the parser for a Places coordinator.
 
         Args:
-            coordinator: Places coordinator whose internal attributes receive parsed OSM
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator whose internal attributes receive parsed OSM
                 values.
         """
         self.coordinator = coordinator
@@ -90,7 +91,8 @@ class OSMParser:
         """Store OSM licence text when the response provides it.
 
         Args:
-            osm_dict: Parsed Nominatim response payload.
+            osm_dict (MutableMapping[str, Any]):
+                Parsed Nominatim response payload.
         """
         if "licence" not in osm_dict:
             return
@@ -102,7 +104,8 @@ class OSMParser:
         """Resolve the most specific OSM place type for display decisions.
 
         Args:
-            osm_dict: Parsed Nominatim response payload.
+            osm_dict (MutableMapping[str, Any]):
+                Parsed Nominatim response payload.
         """
         if "type" not in osm_dict:
             return
@@ -124,7 +127,8 @@ class OSMParser:
         """Store the broad OSM category and matching address-derived name.
 
         Args:
-            osm_dict: Parsed Nominatim response payload.
+            osm_dict (MutableMapping[str, Any]):
+                Parsed Nominatim response payload.
         """
         if "category" not in osm_dict:
             return
@@ -149,7 +153,8 @@ class OSMParser:
         names are checked in order and may replace it.
 
         Args:
-            osm_dict: Parsed Nominatim response payload.
+            osm_dict (MutableMapping[str, Any]):
+                Parsed Nominatim response payload.
         """
         namedetails: MutableMapping[str, Any] | None = osm_dict.get("namedetails")
         if not namedetails:
@@ -172,7 +177,8 @@ class OSMParser:
         """Parse address components when the OSM response includes them.
 
         Args:
-            osm_dict: Parsed Nominatim response payload.
+            osm_dict (MutableMapping[str, Any]):
+                Parsed Nominatim response payload.
         """
         address: MutableMapping[str, Any] | None = osm_dict.get("address")
         if not address:
@@ -186,7 +192,8 @@ class OSMParser:
         """Store street-level address fields and retail fallback place names.
 
         Args:
-            address: Nominatim ``address`` mapping from the current response.
+            address (MutableMapping[str, Any]):
+                Nominatim ``address`` mapping from the current response.
         """
         if "house_number" in address:
             self.coordinator.set_attr(
@@ -222,7 +229,8 @@ class OSMParser:
         """Store the first matching city, postal town, and neighbourhood fields.
 
         Args:
-            address: Nominatim ``address`` mapping from the current response.
+            address (MutableMapping[str, Any]):
+                Nominatim ``address`` mapping from the current response.
         """
         city_types_to_skip: list[str] = []
         for city_type in CITY_LIST:
@@ -275,7 +283,8 @@ class OSMParser:
         """Store regional and country-level address fields.
 
         Args:
-            address: Nominatim ``address`` mapping from the current response.
+            address (MutableMapping[str, Any]):
+                Nominatim ``address`` mapping from the current response.
         """
         if "state" in address:
             self.coordinator.set_attr(
@@ -316,7 +325,8 @@ class OSMParser:
         """Store display address, OSM identifiers, and highway reference numbers.
 
         Args:
-            osm_dict: Parsed Nominatim response payload.
+            osm_dict (MutableMapping[str, Any]):
+                Parsed Nominatim response payload.
         """
         if "display_name" in osm_dict:
             self.coordinator.set_attr(
@@ -390,7 +400,8 @@ class OSMParser:
         """Preserve the useful previous place name after a successful parse.
 
         Args:
-            prev_last_place_name: Last known place name captured before this
+            prev_last_place_name (str):
+                Last known place name captured before this
                 update began.
         """
         if self.coordinator.get_attr(ATTR_INITIAL_UPDATE):
@@ -429,11 +440,14 @@ def _without_prioritized_types(types: list[str], prioritized_types: list[str]) -
     """Return address types not already claimed by a higher-priority group.
 
     Args:
-        types: Candidate address types for the current group.
-        prioritized_types: Address types already considered by earlier groups.
+        types (list[str]):
+            Candidate address types for the current group.
+        prioritized_types (list[str]):
+            Address types already considered by earlier groups.
 
     Returns:
-        Candidate address types preserving original order and excluding higher-priority types.
+        list[str]:
+            Candidate address types preserving original order and excluding higher-priority types.
     """
     prioritized = set(prioritized_types)
     return [address_type for address_type in types if address_type not in prioritized]
@@ -443,10 +457,13 @@ def _prioritized_types_through_match(types: list[str], matched_type: str) -> lis
     """Return candidate types through the matched type, preserving precedence order.
 
     Args:
-        types: Candidate address types in precedence order.
-        matched_type: Address type selected from the candidate list.
+        types (list[str]):
+            Candidate address types in precedence order.
+        matched_type (str):
+            Address type selected from the candidate list.
 
     Returns:
-        Address types at or above the selected type in the precedence order.
+        list[str]:
+            Address types at or above the selected type in the precedence order.
     """
     return types[: types.index(matched_type) + 1]

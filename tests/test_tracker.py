@@ -28,11 +28,27 @@ class _TrackerAttributeMapping:
     """Minimal duck-typed mapping used by tracker attributes tests."""
 
     def __init__(self, values: dict[str, object]) -> None:
-        """Store an internal mapping for ``get`` access."""
+        """Store an internal mapping for ``get`` access.
+
+        Args:
+            values (dict[str, object]):
+                Tracker attributes returned by the fake state object.
+        """
         self._values = values
 
     def get(self, key: str, default: object | None = None) -> object | None:
-        """Return a value from the stored attributes."""
+        """Return a value from the stored attributes.
+
+        Args:
+            key (str):
+                Configuration or attribute key being accessed.
+            default (object | None):
+                Fallback returned when the requested tracker attribute is absent.
+
+        Returns:
+            object | None:
+                State or attribute selected by the test double for the requested key.
+        """
         return self._values.get(key, default)
 
 
@@ -40,11 +56,25 @@ class _TrackerAttributesWithoutDefault:
     """Duck-typed attributes object whose ``get`` does not accept a default."""
 
     def __init__(self, values: dict[str, object]) -> None:
-        """Store an internal mapping for single-argument ``get`` access."""
+        """Store an internal mapping for single-argument ``get`` access.
+
+        Args:
+            values (dict[str, object]):
+                Tracker attributes returned by the fake state object.
+        """
         self._values = values
 
     def get(self, key: str) -> object | None:
-        """Return a value from the stored attributes."""
+        """Return a value from the stored attributes.
+
+        Args:
+            key (str):
+                Configuration or attribute key being accessed.
+
+        Returns:
+            object | None:
+                State or attribute selected by the test double for the requested key.
+        """
         return self._values.get(key)
 
 
@@ -63,7 +93,20 @@ async def test_tracker_missing_or_blank_id_skips_update(
     tracker_id: str | None,
     expect_state_lookup: bool,
 ) -> None:
-    """Missing entities and blank tracked entity IDs skip updates."""
+    """Missing entities and blank tracked entity IDs skip updates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        tracker_id (str | None):
+            Entity ID of the source tracker.
+        expect_state_lookup (bool):
+            Whether a source-state lookup is expected.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = tracker_id
     mock_hass.states.get.return_value = None
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
@@ -80,7 +123,16 @@ async def test_tracker_missing_or_blank_id_skips_update(
 async def test_tracker_invalid_coordinates_skip_update(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Non-numeric coordinates skip updates."""
+    """Non-numeric coordinates skip updates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.attributes = {CONF_LATITUDE: "north", CONF_LONGITUDE: "-70.0"}
@@ -94,10 +146,63 @@ async def test_tracker_invalid_coordinates_skip_update(
     assert gate_result is UpdateStatus.SKIP
 
 
+@pytest.mark.parametrize(
+    ("latitude", "longitude", "expected_latitude", "expected_longitude"),
+    [
+        ("nan", "-70.0", None, -70.0),
+        ("42.0", "inf", 42.0, None),
+        ("-inf", "-70.0", None, -70.0),
+    ],
+)
+async def test_tracker_non_finite_coordinates_are_invalid(
+    mock_hass: MagicMock,
+    latitude: str,
+    longitude: str,
+    expected_latitude: float | None,
+    expected_longitude: float | None,
+) -> None:
+    """Non-finite coordinates are invalid and omitted from the snapshot.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        latitude (str):
+            Latitude attribute exposed by the tracker.
+        longitude (str):
+            Longitude attribute exposed by the tracker.
+        expected_latitude (float | None):
+            Sanitized latitude expected in the snapshot.
+        expected_longitude (float | None):
+            Sanitized longitude expected in the snapshot.
+    """
+    tracker = MagicMock()
+    tracker.attributes = {
+        CONF_LATITUDE: latitude,
+        CONF_LONGITUDE: longitude,
+    }
+    mock_hass.states.get.return_value = tracker
+
+    snapshot = TrackerSnapshot.from_hass(mock_hass, "device_tracker.person")
+
+    assert snapshot.status is TrackerStatus.INVALID_COORDINATES
+    assert snapshot.latitude == expected_latitude
+    assert snapshot.longitude == expected_longitude
+    assert snapshot.has_valid_coordinates is False
+
+
 async def test_tracker_attributes_with_get_only_preserves_ok_path(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Non-Mapping attribute objects with `.get` preserve tracker coordinate flow."""
+    """Non-Mapping attribute objects with `.get` preserve tracker coordinate flow.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.attributes = _TrackerAttributeMapping(
@@ -116,7 +221,16 @@ async def test_tracker_attributes_with_get_only_preserves_ok_path(
 async def test_tracker_float_like_coordinates_are_converted(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Float-compatible non-primitive values update tracker coordinates."""
+    """Float-compatible non-primitive values update tracker coordinates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.attributes = {
@@ -140,7 +254,12 @@ async def test_tracker_float_like_coordinates_are_converted(
 async def test_tracker_get_without_default_treats_none_coordinates_as_missing(
     mock_hass: MagicMock,
 ) -> None:
-    """Fallback ``get`` calls treat returned ``None`` coordinates as missing."""
+    """Fallback ``get`` calls treat returned ``None`` coordinates as missing.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     tracker = MagicMock()
     tracker.entity_id = "device_tracker.person"
     tracker.state = "home"
@@ -162,7 +281,18 @@ async def _assert_tracker_state_can_proceed_with_coordinates(
     sensor: MockSensor,
     tracker_state: str,
 ) -> None:
-    """Return PROCEED when state-like tracker has usable coordinates."""
+    """Assert a state-like tracker with usable coordinates can proceed.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        tracker_state (str):
+            State exposed by the source tracker.
+    """
     sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.person"
     tracker = MagicMock()
     tracker.state = tracker_state
@@ -182,7 +312,18 @@ async def test_tracker_state_object_with_coordinates_can_proceed(
     sensor: MockSensor,
     tracker_state: str,
 ) -> None:
-    """HA state-like objects with unknown/unavailable state still use coordinates."""
+    """HA state-like objects with unknown/unavailable state still use coordinates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        tracker_state (str):
+            State exposed by the source tracker.
+    """
     await _assert_tracker_state_can_proceed_with_coordinates(
         mock_hass, mock_config_entry, sensor, tracker_state
     )

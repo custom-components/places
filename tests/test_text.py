@@ -42,7 +42,12 @@ async def test_display_options_text_setup_and_update() -> None:
 
 
 async def test_display_options_text_entity_enforces_max_length(mock_hass: MagicMock) -> None:
-    """Display-options text entity should use shared validation for 255-char limits."""
+    """Display-options text entity should use shared validation for 255-char limits.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
     entry = MockConfigEntry(
         domain=DOMAIN,
         entry_id="entry123",

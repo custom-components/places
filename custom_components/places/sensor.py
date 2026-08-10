@@ -34,9 +34,12 @@ async def async_setup_entry(
     """Set up Places sensor entities for one config entry.
 
     Args:
-        hass: Home Assistant instance.
-        config_entry: Config entry being set up.
-        async_add_entities: Callback used to register created entities.
+        hass (HomeAssistant):
+            Home Assistant instance.
+        config_entry (ConfigEntry):
+            Config entry being set up.
+        async_add_entities (AddEntitiesCallback):
+            Callback used to register created entities.
     """
     coordinator: PlacesUpdateCoordinator = config_entry.runtime_data
     places_class = (
@@ -65,7 +68,8 @@ class Places(PlacesSensorEntity):
         """Initialize the main Places display sensor.
 
         Args:
-            coordinator: Places coordinator that owns parsed state.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator that owns parsed state.
         """
         super().__init__(coordinator, unique_suffix=None)
         self._attr_icon = DEFAULT_ICON
@@ -106,8 +110,10 @@ class PlacesAttributeSensor(PlacesSensorEntity):
         """Initialize a Places child sensor.
 
         Args:
-            coordinator: Places coordinator that owns parsed state.
-            entity_description: Child sensor description.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator that owns parsed state.
+            entity_description (PlacesAttributeSensorEntityDescription):
+                Child sensor description.
         """
         super().__init__(coordinator, unique_suffix=entity_description.key)
         self.entity_description = entity_description
@@ -148,7 +154,8 @@ class PlacesExtendedDataSensor(PlacesSensorEntity):
         """Initialize the optional extended-data sensor.
 
         Args:
-            coordinator: Places coordinator that owns extended attributes.
+            coordinator (PlacesUpdateCoordinator):
+                Places coordinator that owns extended attributes.
         """
         super().__init__(coordinator, unique_suffix="extended_data")
         self._attr_extra_state_attributes = {}
