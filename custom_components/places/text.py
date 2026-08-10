@@ -53,7 +53,8 @@ class PlacesDisplayOptionsText(PlacesEntity, TextEntity):
 
         Returns:
             str | None:
-                Current text value exposed to Home Assistant.
+                Configured display-options value, or ``None`` when it exceeds
+                ``MAX_LENGTH_STATE_STATE``.
         """
         value = self.coordinator.get_attr_safe_str(CONF_DISPLAY_OPTIONS)
         return value if len(value) <= MAX_LENGTH_STATE_STATE else None

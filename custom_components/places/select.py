@@ -54,7 +54,7 @@ class PlacesMapProviderSelect(PlacesEntity, SelectEntity):
 
         Returns:
             str | None:
-                Currently selected display option.
+                Currently selected map provider.
         """
         return self.coordinator.get_attr_safe_str(CONF_MAP_PROVIDER) or None
 
@@ -63,6 +63,6 @@ class PlacesMapProviderSelect(PlacesEntity, SelectEntity):
 
         Args:
             option (str):
-                Map provider or display option selected by the user.
+                Map provider selected by the user.
         """
         await self.coordinator.async_update_setting(CONF_MAP_PROVIDER, option)

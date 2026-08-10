@@ -2208,7 +2208,7 @@ async def test_rollback_update_zone_attrs_preserve_policy(
         previous_attr (dict):
             Previous attribute content used for comparison.
         proceed_with_update (UpdateStatus):
-            Whether the location update should proceed.
+            Update status supplied to rollback_update.
         preserve_zone_attrs (bool):
             Whether rollback should retain current zone attributes.
         expected_zone (str):

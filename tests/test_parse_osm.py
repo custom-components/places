@@ -112,11 +112,12 @@ async def test_set_attribution(
         osm_dict (OsmDict):
             OpenStreetMap response fields supplied to the parser.
         expected_attr (AttrName):
-            Attribute name whose resulting content is asserted.
+            Attribute expected to be set when attribution is present.
         expected_value (object):
-            Attribute content expected for this parametrized case.
+            Attribution value expected when the attribute is set.
         should_call (bool):
-            Whether the mocked method is expected to be called.
+            Whether set_attr is expected to be called; otherwise, no attribute
+            update is expected.
     """
     parser, sensor = osm_parser()
     await parser.set_attribution(osm_dict)

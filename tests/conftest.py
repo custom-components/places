@@ -181,13 +181,12 @@ class MockSensor:
                 attr (str):
                     Attribute name to read.
                 default (object):
-                    Fallback value when conversion cannot use the stored
-                    value.
+                    Value used only when the attribute is absent.
 
             Returns:
                 float:
-                    Converted float value, or ``0.0`` when conversion is not
-                    possible.
+                    Converted stored value, or ``0.0`` for invalid stored
+                    input.
             """
             val = self.attrs.get(attr, default)
             if isinstance(val, MagicMock):

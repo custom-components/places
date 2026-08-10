@@ -146,6 +146,50 @@ async def test_tracker_invalid_coordinates_skip_update(
     assert gate_result is UpdateStatus.SKIP
 
 
+@pytest.mark.parametrize(
+    ("latitude", "longitude", "expected_latitude", "expected_longitude"),
+    [
+        ("nan", "-70.0", None, -70.0),
+        ("42.0", "inf", 42.0, None),
+        ("-inf", "-70.0", None, -70.0),
+    ],
+)
+async def test_tracker_non_finite_coordinates_are_invalid(
+    mock_hass: MagicMock,
+    latitude: str,
+    longitude: str,
+    expected_latitude: float | None,
+    expected_longitude: float | None,
+) -> None:
+    """Non-finite coordinates are invalid and omitted from the snapshot.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        latitude (str):
+            Latitude attribute exposed by the tracker.
+        longitude (str):
+            Longitude attribute exposed by the tracker.
+        expected_latitude (float | None):
+            Sanitized latitude expected in the snapshot.
+        expected_longitude (float | None):
+            Sanitized longitude expected in the snapshot.
+    """
+    tracker = MagicMock()
+    tracker.attributes = {
+        CONF_LATITUDE: latitude,
+        CONF_LONGITUDE: longitude,
+    }
+    mock_hass.states.get.return_value = tracker
+
+    snapshot = TrackerSnapshot.from_hass(mock_hass, "device_tracker.person")
+
+    assert snapshot.status is TrackerStatus.INVALID_COORDINATES
+    assert snapshot.latitude == expected_latitude
+    assert snapshot.longitude == expected_longitude
+    assert snapshot.has_valid_coordinates is False
+
+
 async def test_tracker_attributes_with_get_only_preserves_ok_path(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:

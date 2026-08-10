@@ -827,11 +827,10 @@ class PlacesUpdater:
             preserve_zone_attrs (bool):
                 If True, keep the freshly resolved
                 devicetracker_zone and devicetracker_zone_name across
-                restore_previous_attr(). Set on the non-exception paths where
-                get_zone_details() has run this cycle (stationary skip,
-                bad-coords skip, no-state-change); leave False on the exception
-                path, which may carry a half-applied zone pair that must not
-                survive.
+                restore_previous_attr(). Set for non-exception skip paths,
+                including tracker-validation skips before get_zone_details(),
+                and paths with freshly resolved zone attributes. Leave False
+                for exception paths, which may carry a half-applied zone pair.
         """
         zone = zone_name = None
         if preserve_zone_attrs:
@@ -1198,7 +1197,8 @@ class PlacesUpdater:
         Returns:
             int:
                 Elapsed seconds, or ``3600`` when the saved timestamp is missing or
-                cannot be parsed.
+                cannot be parsed, or elapsed-time calculation raises
+                ``TypeError`` or ``OverflowError``.
         """
         if self.coordinator.is_attr_blank(ATTR_LAST_CHANGED):
             return 3600

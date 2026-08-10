@@ -190,7 +190,8 @@ async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
         version (int):
             Storage or configuration schema version.
         update_calls (int):
-            Coordinator update calls expected during migration.
+            Expected legacy snapshot migration and configuration-entry update
+            call count.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
