@@ -59,6 +59,7 @@ name = "mypy"
 language = "system"
 entry = "uv run --group dev mypy --config-file=pyproject.toml"
 types = ["python"]
+require_serial = true
 
 [[repos]]
 repo = "https://github.com/jsh9/pydoclint"
