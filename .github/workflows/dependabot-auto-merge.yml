@@ -1,0 +1,64 @@
+name: Dependabot uv lock auto-merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: dependabot-uv-lock-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify-locked-dependencies:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify that only uv.lock changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          changed_files="$(gh api --paginate \
+            "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+            --jq '.[].filename')"
+          if [[ "${changed_files}" != "uv.lock" ]]; then
+            echo "Refusing auto-merge; changed files were:"
+            echo "${changed_files}"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Run pytest from the lock
+        run: uv run --locked --group pytest pytest
+
+      - name: Run prek from the lock
+        run: uv run --locked --group dev prek run -a
+
+  enable-auto-merge:
+    needs: verify-locked-dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "${PR_URL}"
