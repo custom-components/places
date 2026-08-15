@@ -27,8 +27,9 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.14"
-          enable-cache: false
+          enable-cache: true
           cache-dependency-glob: uv.lock
+          ignore-nothing-to-cache: true
 
       - id: review
         uses: Snuffy2/prek-autofix/review@v1
