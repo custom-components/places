@@ -36,14 +36,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Python 3
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
         with:
+          python-version: "3.14"
           enable-cache: true
           cache-dependency-glob: uv.lock
 
