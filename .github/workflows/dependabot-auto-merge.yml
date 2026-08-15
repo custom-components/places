@@ -48,6 +48,8 @@ jobs:
         run: uv run --locked --group pytest pytest
 
       - name: Run prek from the lock
+        env:
+          UV_LOCKED: "1"
         run: uv run --locked --group dev prek run -a
 
   enable-auto-merge:

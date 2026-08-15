@@ -2437,6 +2437,8 @@ dev = [
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-setuptools" },
+    { name = "uv", version = "0.9.26", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14.2'" },
+    { name = "uv", version = "0.11.31", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14.2'" },
 ]
 lint = [
     { name = "homeassistant-stubs", version = "2026.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14.2'" },
@@ -2453,6 +2455,8 @@ lint = [
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-setuptools" },
+    { name = "uv", version = "0.9.26", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14.2'" },
+    { name = "uv", version = "0.11.31", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14.2'" },
 ]
 pytest = [
     { name = "pytest", version = "9.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14.2'" },
@@ -2492,6 +2496,7 @@ dev = [
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-setuptools" },
+    { name = "uv" },
 ]
 lint = [
     { name = "homeassistant-stubs" },
@@ -2507,6 +2512,7 @@ lint = [
     { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-setuptools" },
+    { name = "uv" },
 ]
 pytest = [
     { name = "pytest" },
