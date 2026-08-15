@@ -23,5 +23,12 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
       - id: review
         uses: Snuffy2/prek-autofix/review@v1
