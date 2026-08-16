@@ -1,7 +1,7 @@
 name: Dependabot dependency auto-merge
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
 
 concurrency:
@@ -63,7 +63,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Setup uv (with caching)
