@@ -33,3 +33,5 @@ jobs:
 
       - id: review
         uses: Snuffy2/prek-autofix/review@v1
+        env:
+          UV_LOCKED: "1"

@@ -57,6 +57,8 @@ repo = "local"
 id = "mypy"
 name = "mypy"
 language = "system"
+# Keep the hook itself unlocked so a local `prek run -a` can create `.venv`
+# and refresh a missing or stale lockfile. CI sets `UV_LOCKED=1` externally.
 entry = "uv run --group dev mypy --config-file=pyproject.toml"
 types = ["python"]
 require_serial = true

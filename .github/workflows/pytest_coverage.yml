@@ -24,22 +24,19 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
-
-      - name: Setup Python 3 (with caching)
-        uses: actions/setup-python@v7
         with:
-          python-version: 3.14
-          cache: 'pip'
-          cache-dependency-path: |
-            pyproject.toml
+          persist-credentials: false
 
-      - name: Install pytest Requirements
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --group pytest -e .
+      - name: Setup uv (with caching)
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          ignore-nothing-to-cache: true
+          cache-dependency-glob: uv.lock
 
-      - name: Run pytest with coverage (pytest-cov)
-        run: pytest
+      - name: Run pytest with coverage from the lock
+        run: uv run --locked --group pytest pytest
 
       - name: 'Generate coverage Comment (and possibly Post to PR)'
         if: github.event_name != 'workflow_dispatch'
