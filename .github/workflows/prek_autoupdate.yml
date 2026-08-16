@@ -30,4 +30,6 @@ jobs:
         id: prek-autoupdate
         uses: Snuffy2/prek-autoupdate@v2
         with:
+          token: ${{ secrets.PREK_AUTOUPDATE_TOKEN }}
+          author-login: prek-autoupdate-bot
           update-day: "3"
