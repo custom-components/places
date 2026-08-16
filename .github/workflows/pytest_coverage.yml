@@ -10,7 +10,11 @@ on:
 jobs:
   tests:
     name: pytest and coverage report
-    if: ${{ !(github.event_name == 'pull_request' && ( contains(github.event.pull_request.labels.*.name, 'dependencies') || github.event.pull_request.user.type == 'Bot' )) }}
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.user.login == 'prek-autoupdate-bot' ||
+      !(contains(github.event.pull_request.labels.*.name, 'dependencies') ||
+      github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     permissions:
       # Gives the action the necessary permissions for publishing new
@@ -39,7 +43,10 @@ jobs:
         run: uv run --locked --group pytest pytest
 
       - name: 'Generate coverage Comment (and possibly Post to PR)'
-        if: github.event_name != 'workflow_dispatch'
+        if: >-
+          github.event_name != 'workflow_dispatch' &&
+          (github.event_name != 'pull_request' ||
+          github.event.pull_request.user.login != 'prek-autoupdate-bot')
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
