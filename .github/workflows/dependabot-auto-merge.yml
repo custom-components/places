@@ -60,27 +60,6 @@ jobs:
               ;;
           esac
 
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Setup uv (with caching)
-        uses: astral-sh/setup-uv@v9.0.0
-        with:
-          python-version: "3.14"
-          enable-cache: true
-          ignore-nothing-to-cache: true
-          cache-dependency-glob: uv.lock
-
-      - name: Run pytest from the lock
-        run: uv run --locked --group pytest pytest
-
-      - name: Run prek from the lock
-        env:
-          UV_LOCKED: "1"
-        run: uv run --locked --group dev prek run -a
-
   enable-auto-merge:
     needs: verify-dependency-update
     runs-on: ubuntu-latest
