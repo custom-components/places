@@ -18,7 +18,7 @@ include = ["custom_components*"]
 
 [dependency-groups]
 lint = [
-  "homeassistant-stubs",
+  "homeassistant-stubs>=2026.2.3",
   "mypy",
   "prek",
   "ruff",
@@ -34,10 +34,10 @@ lint = [
   "uv",
 ]
 pytest = [
-  "pytest",
+  "pytest>=9",
   "pytest-asyncio",
   "pytest-cov",
-  "pytest-homeassistant-custom-component",
+  "pytest-homeassistant-custom-component>=0.13.316",
   "pytest-timeout",
 ]
 dev = [
