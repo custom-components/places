@@ -31,6 +31,7 @@ lint = [
   "types-PyYAML",
   "types-requests",
   "types-setuptools",
+  "uv",
 ]
 pytest = [
   "pytest",

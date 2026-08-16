@@ -18,6 +18,7 @@ id = "check-toml"
 
 [[repos.hooks]]
 id = "check-added-large-files"
+exclude = "^uv\\.lock$"
 
 [[repos]]
 repo = "https://github.com/rhysd/actionlint"
@@ -50,30 +51,17 @@ additional_dependencies = [
 ]
 
 [[repos]]
-repo = "https://github.com/pre-commit/mirrors-mypy"
-rev = "v2.3.0"
+repo = "local"
 
 [[repos.hooks]]
 id = "mypy"
-language_version = "python3.14"
-args = ["--config-file=pyproject.toml"]
-additional_dependencies = [
-  "aiohttp",
-  "homeassistant-stubs",
-  "pytest-asyncio",
-  "pytest-cov",
-  "pytest-homeassistant-custom-component",
-  "pytest",
-  "types-cachetools",
-  "types-cffi",
-  "types-greenlet",
-  "types-PyMySQL",
-  "types-pyRFC3339",
-  "types-python-dateutil",
-  "types-PyYAML",
-  "types-requests",
-  "types-setuptools",
-]
+name = "mypy"
+language = "system"
+# Keep the hook itself unlocked so a local `prek run -a` can create `.venv`
+# and refresh a missing or stale lockfile. CI sets `UV_LOCKED=1` externally.
+entry = "uv run --group dev mypy --config-file=pyproject.toml"
+types = ["python"]
+require_serial = true
 
 [[repos]]
 repo = "https://github.com/jsh9/pydoclint"
