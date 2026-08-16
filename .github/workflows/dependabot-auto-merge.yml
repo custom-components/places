@@ -67,7 +67,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup uv (with caching)
-        uses: astral-sh/setup-uv@v9
+        uses: astral-sh/setup-uv@v9.0.0
         with:
           python-version: "3.14"
           enable-cache: true
