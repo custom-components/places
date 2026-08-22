@@ -83,11 +83,9 @@ async def test_get_json_uses_existing_cache_without_network(
         expect_copy (bool):
             Whether the cached payload is copied before return.
     """
-    mock_hass.data = {
-        DOMAIN: {
-            OSM_CACHE: {url: cached_payload},
-            OSM_THROTTLE: {"lock": None, "last_query": 0.0},
-        }
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {url: cached_payload},
+        OSM_THROTTLE: {"lock": None, "last_query": 0.0},
     }
 
     client_session_getter = AsyncMock()
@@ -120,11 +118,9 @@ async def test_get_json_bypasses_existing_cache_once(
     url = "https://example.test/osm"
     cached_payload = {"place_id": 123}
     fresh_payload = {"place_id": 456}
-    mock_hass.data = {
-        DOMAIN: {
-            OSM_CACHE: {url: cached_payload},
-            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0.0},
-        }
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {url: cached_payload},
+        OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0.0},
     }
     aioclient_mock.get(url, text=json.dumps(fresh_payload))
 
@@ -176,11 +172,9 @@ async def test_get_json_flattens_one_item_error_list_payload(
             Mocked HTTP client used for deterministic responses.
     """
     url = "https://example.test/osm"
-    mock_hass.data = {
-        DOMAIN: {
-            OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
-        }
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {},
+        OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
     }
     aioclient_mock.get(url, text='[{"error_message": "bad"}]')
     client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
@@ -204,11 +198,9 @@ async def test_get_json_caches_non_mapping_payload(
             Mocked HTTP client used for deterministic responses.
     """
     url = "https://example.test/osm"
-    mock_hass.data = {
-        DOMAIN: {
-            OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
-        }
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {},
+        OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
     }
     expected: list[object] = []
     aioclient_mock.get(url, text="[]")
@@ -236,11 +228,9 @@ async def test_get_json_returns_none_for_error_status_without_caching(
             HTTP status returned by the mocked response.
     """
     url = f"https://example.test/osm-{status}"
-    mock_hass.data = {
-        DOMAIN: {
-            OSM_CACHE: {},
-            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
-        }
+    mock_hass.data[DOMAIN] = {
+        OSM_CACHE: {},
+        OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0},
     }
     aioclient_mock.get(url, status=status, text='{"error": "temporarily unavailable"}')
     client = OSMClient(hass=mock_hass, sensor_name="TestSensor")
