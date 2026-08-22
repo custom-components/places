@@ -2,55 +2,88 @@ name: Release
 on:
   workflow_dispatch:
   release:
-    types: [published, edited]
+    types: [published]
 
 jobs:
   update_version_and_create_zip:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - name: Validate published release metadata
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TARGET: ${{ github.event.release.target_commitish }}
+        run: |
+          set -euo pipefail
+
+          # Supports established stable, prerelease, four-component, and bN tags.
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+(\.[0-9]+){1,3}(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?([A-Za-z]+[0-9]+)?$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          if [[ "$RELEASE_TARGET" =~ ^[0-9A-Fa-f]{40}$ ]]; then
+            echo "Release target must be a branch, not a commit SHA." >&2
+            exit 1
+          fi
+
+          if ! git check-ref-format --branch "$RELEASE_TARGET" >/dev/null; then
+            echo "Invalid release branch: $RELEASE_TARGET" >&2
+            exit 1
+          fi
+
+          if ! git ls-remote --exit-code --heads "https://github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${RELEASE_TARGET}" >/dev/null; then
+            echo "Release target is not an existing remote branch: $RELEASE_TARGET" >&2
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Debug Variables
-        run: |
-          echo "github.event_name: ${{ github.event_name }}"
-          echo "github.ref_name: ${{ github.ref_name }}"
-          echo "github.event.release.tag_name: ${{ github.event.release.tag_name }}"
-          echo "github.event.repository.default_branch: ${{ github.event.repository.default_branch }}"
-          echo "github.event.release.target_commitish: ${{ github.event.release.target_commitish }}"
-          echo "github.event.release.prerelease: ${{ github.event.release.prerelease }}"
-          echo "github.event.release.draft: ${{ github.event.release.draft }}"
+        with:
+          # Release branches are verified before this PAT-authenticated checkout.
+          ref: ${{ github.event_name == 'release' && github.event.release.target_commitish || github.ref }}
+          token: ${{ secrets.RELEASE_TOKEN }}
+          # Value already defaults to true, but `persist-credentials` is required to push new commits to the repository.
+          persist-credentials: true
 
       - name: Update Version in Manifest
-        if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          sed -i 's/\"version\"\s*\:\s*\".*\"/\"version\"\:\"${{ github.event.release.tag_name }}\"/g' ./custom_components/places/manifest.json
+          sed -i 's/\"version\"\s*\:\s*\".*\"/\"version\"\:\"'"$RELEASE_TAG"'\"/g' ./custom_components/places/manifest.json
 
       - name: Update Version in const.py
-        if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          sed -i 's/^VERSION \= \".*\"/VERSION \= \"${{ github.event.release.tag_name }}\"/' ./custom_components/places/const.py
+          sed -i 's/^VERSION \= \".*\"/VERSION \= \"'"$RELEASE_TAG"'\"/' ./custom_components/places/const.py
 
       - name: Commit & Push Version Changes
-        if: ${{ github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false  }}
+        if: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
           branch: ${{ github.event.release.target_commitish }}
           commit_message: 'Updating to version ${{ github.event.release.tag_name }} [skip ci]'
 
       - name: Update Release with Version Changes Commit
-        if: ${{ github.event_name == 'release' && github.event.release.draft == false && github.event.release.prerelease == false  }}
+        if: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          git tag -f ${{ github.event.release.tag_name }}
-          git push -f origin ${{ github.event.release.tag_name }}
+          git tag -f "$RELEASE_TAG"
+          git push -f origin "$RELEASE_TAG"
 
       - name: Create Zip
         run: |
-          cd ${{ github.workspace }}/custom_components/places
+          cd "$GITHUB_WORKSPACE/custom_components/places"
           zip places.zip -r ./
 
       - name: Upload Zip to Release
-        if: ${{ github.event_name == 'release' && github.event.release.draft == false }}
+        if: ${{ github.event_name == 'release' }}
         uses: softprops/action-gh-release@v3
         with:
           files: ./custom_components/places/places.zip
