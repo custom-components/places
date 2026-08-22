@@ -784,6 +784,115 @@ async def test_async_setup_entry_unloads_platforms_when_initial_refresh_fails(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("failure_point", ["forward", "refresh"])
+async def test_async_setup_entry_cleans_up_when_setup_is_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
+    failure_point: str,
+) -> None:
+    """Cancellation after subscription should clean up before propagating.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        failure_point (str):
+            Setup operation that raises cancellation.
+    """
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+    call_order: list[str] = []
+
+    async def raise_setup_cancellation(*_args: object, **_kwargs: object) -> None:
+        """Cancel the setup operation under test.
+
+        Args:
+            *_args (object):
+                Positional arguments supplied by the operation under test.
+            **_kwargs (object):
+                Keyword arguments supplied by the operation under test.
+
+        Raises:
+            asyncio.CancelledError:
+                Always raised to emulate setup cancellation.
+        """
+        raise asyncio.CancelledError("setup cancelled")
+
+    async def mark_prepare_unload() -> None:
+        """Record coordinator preparation for failed setup cleanup."""
+        call_order.append("prepare_unload")
+
+    async def mark_unload(_entry: MockConfigEntry, _platforms: list[str]) -> bool:
+        """Record platform unloading during failed setup cleanup.
+
+        Args:
+            _entry (MockConfigEntry):
+                Configuration entry whose platforms are unloaded.
+            _platforms (list[str]):
+                Platform names being unloaded.
+
+        Returns:
+            bool:
+                ``True`` to indicate the platforms were unloaded.
+        """
+        call_order.append("unload_platforms")
+        return True
+
+    async def mark_shutdown() -> None:
+        """Record coordinator shutdown during failed setup cleanup."""
+        call_order.append("shutdown")
+
+    original_init = _FakeCoordinator.__init__
+
+    def init_with_cleanup_recording(
+        self: _FakeCoordinator,
+        hass: object,
+        config_entry: MockConfigEntry,
+        imported_attributes: dict[str, object],
+        persistence: _FakeSetupPlacesStorage | MagicMock,
+    ) -> None:
+        """Install cleanup hooks and an optional refresh cancellation hook.
+
+        Args:
+            self (_FakeCoordinator):
+                Fake coordinator receiving the configured hooks.
+            hass (object):
+                Mocked Home Assistant runtime.
+            config_entry (MockConfigEntry):
+                Places configuration entry used by the test.
+            imported_attributes (dict[str, object]):
+                Persisted attributes imported at startup.
+            persistence (_FakeSetupPlacesStorage | MagicMock):
+                Places persistence manager used by the test.
+        """
+        original_init(self, hass, config_entry, imported_attributes, persistence)
+        self.async_prepare_unload.side_effect = mark_prepare_unload
+        self.async_shutdown.side_effect = mark_shutdown
+        if failure_point == "refresh":
+            self.async_request_refresh.side_effect = raise_setup_cancellation
+
+    monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_cleanup_recording)
+    mock_hass.config_entries.async_unload_platforms.side_effect = mark_unload
+    if failure_point == "forward":
+        mock_hass.config_entries.async_forward_entry_setups.side_effect = raise_setup_cancellation
+
+    with pytest.raises(asyncio.CancelledError, match="setup cancelled"):
+        await async_setup_entry(mock_hass, mock_entry)
+
+    coordinator = _FakeCoordinator.instances[0]
+    coordinator.async_added_to_hass.assert_awaited_once_with()
+    coordinator.async_prepare_unload.assert_awaited_once_with()
+    mock_hass.config_entries.async_unload_platforms.assert_awaited_once_with(mock_entry, PLATFORMS)
+    coordinator.async_shutdown.assert_awaited_once_with()
+    assert call_order == ["prepare_unload", "unload_platforms", "shutdown"]
+    assert mock_entry.runtime_data is None
+
+
+@pytest.mark.asyncio
 async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
@@ -840,6 +949,72 @@ async def test_async_setup_entry_shuts_down_when_subscription_step_fails(
     monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_failing_subscription)
 
     with pytest.raises(RuntimeError, match="subscribe boom"):
+        await async_setup_entry(mock_hass, mock_entry)
+
+    coordinator = _FakeCoordinator.instances[0]
+    coordinator.async_added_to_hass.assert_awaited_once_with()
+    coordinator.async_shutdown.assert_awaited_once_with()
+    mock_hass.config_entries.async_unload_platforms.assert_not_awaited()
+    assert mock_entry.runtime_data is None
+
+
+@pytest.mark.asyncio
+async def test_async_setup_entry_shuts_down_when_subscription_is_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    mock_entry: MockConfigEntry,
+) -> None:
+    """Subscription cancellation should shut down without unloading platforms.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+    """
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr("custom_components.places.PlacesUpdateCoordinator", _FakeCoordinator)
+
+    async def raise_subscription_cancellation() -> None:
+        """Cancel tracker subscription setup.
+
+        Raises:
+            asyncio.CancelledError:
+                Always raised to emulate subscription cancellation.
+        """
+        raise asyncio.CancelledError("subscription cancelled")
+
+    original_init = _FakeCoordinator.__init__
+
+    def init_with_cancelled_subscription(
+        self: _FakeCoordinator,
+        hass: object,
+        config_entry: MockConfigEntry,
+        imported_attributes: dict[str, object],
+        persistence: _FakeSetupPlacesStorage | MagicMock,
+    ) -> None:
+        """Install a cancelled ``async_added_to_hass`` hook.
+
+        Args:
+            self (_FakeCoordinator):
+                Fake coordinator receiving the subscription hook.
+            hass (object):
+                Mocked Home Assistant runtime.
+            config_entry (MockConfigEntry):
+                Places configuration entry used by the test.
+            imported_attributes (dict[str, object]):
+                Persisted attributes imported at startup.
+            persistence (_FakeSetupPlacesStorage | MagicMock):
+                Places persistence manager used by the test.
+        """
+        original_init(self, hass, config_entry, imported_attributes, persistence)
+        self.async_added_to_hass.side_effect = raise_subscription_cancellation
+
+    monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_cancelled_subscription)
+
+    with pytest.raises(asyncio.CancelledError, match="subscription cancelled"):
         await async_setup_entry(mock_hass, mock_entry)
 
     coordinator = _FakeCoordinator.instances[0]

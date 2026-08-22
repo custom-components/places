@@ -181,6 +181,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ``True`` when setup completes successfully.
 
     Raises:
+        asyncio.CancelledError:
+            Re-raised after failed-setup cleanup completes.
         Exception:
             Propagated when the operation fails.
     """
@@ -197,6 +199,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await coordinator.async_added_to_hass()
+    except asyncio.CancelledError:
+        try:
+            await coordinator.async_shutdown()
+        except Exception:
+            _LOGGER.exception("Cleanup failed after subscription cancellation for %s", name)
+        finally:
+            entry.runtime_data = None
+        raise
     except Exception:
         # Keep setup failure paths observable while ensuring listener cleanup always runs.
         _LOGGER.exception("Unable to subscribe to tracker updates for %s", name)
@@ -211,6 +221,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         await coordinator.async_request_refresh()
+    except asyncio.CancelledError:
+        await _async_cleanup_failed_setup(hass, entry, coordinator)
+        raise
     except Exception:
         # Keep entry teardown behavior deterministic before re-raising setup failures.
         _LOGGER.exception("Entry setup failed for %s", name)
