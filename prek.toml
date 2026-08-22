@@ -58,8 +58,9 @@ id = "mypy"
 name = "mypy"
 language = "system"
 # Keep the hook itself unlocked so a local `prek run -a` can create `.venv`
-# and refresh a missing or stale lockfile. CI sets `UV_LOCKED=1` externally.
-entry = "uv run --group dev mypy --config-file=pyproject.toml"
+# and refresh a missing or stale lockfile. An exact sync prevents leftover
+# packages from changing the types mypy checks. CI sets `UV_LOCKED=1` externally.
+entry = "uv run --exact --group dev mypy --config-file=pyproject.toml"
 types = ["python"]
 require_serial = true
 
