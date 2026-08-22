@@ -1225,18 +1225,6 @@ wheels = [
 ]
 
 [[package]]
-name = "homeassistant-stubs"
-version = "2026.8.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "homeassistant" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/b2/aa18dedc50cddf08c53c4779990ddc8968b2dd680d0d5fb230cd79a2c8f8/homeassistant_stubs-2026.8.2.tar.gz", hash = "sha256:3b267b1f50c994ce232010a4dd82d5f049a52895af4da07db52a707253ae7c70", size = 1436112, upload-time = "2026-08-15T01:53:24.893Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/b3/67552732538186f9f258bfdbb545c45ef0d96e6581102b218145505b0ae1/homeassistant_stubs-2026.8.2-py3-none-any.whl", hash = "sha256:ff10c6da8079329c80107dad77e62afe30a340c64615d170a0d86b1b76e59e6b", size = 4081282, upload-time = "2026-08-15T01:53:22.855Z" },
-]
-
-[[package]]
 name = "httpcore"
 version = "1.0.9"
 source = { registry = "https://pypi.org/simple" }
@@ -1754,7 +1742,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "homeassistant-stubs" },
+    { name = "homeassistant" },
     { name = "mypy" },
     { name = "prek" },
     { name = "pytest" },
@@ -1774,8 +1762,11 @@ dev = [
     { name = "types-setuptools" },
     { name = "uv" },
 ]
+ha = [
+    { name = "homeassistant" },
+]
 lint = [
-    { name = "homeassistant-stubs" },
+    { name = "homeassistant" },
     { name = "mypy" },
     { name = "prek" },
     { name = "ruff" },
@@ -1791,6 +1782,7 @@ lint = [
     { name = "uv" },
 ]
 pytest = [
+    { name = "homeassistant" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -1806,13 +1798,13 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "homeassistant-stubs", specifier = ">=2026.2.3" },
+    { name = "homeassistant", specifier = ">=2026.3" },
     { name = "mypy" },
     { name = "prek" },
     { name = "pytest", specifier = ">=9" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-homeassistant-custom-component", specifier = ">=0.13.316" },
+    { name = "pytest-homeassistant-custom-component", specifier = ">=0.13.317" },
     { name = "pytest-timeout" },
     { name = "ruff" },
     { name = "types-cachetools" },
@@ -1826,8 +1818,9 @@ dev = [
     { name = "types-setuptools" },
     { name = "uv" },
 ]
+ha = [{ name = "homeassistant", specifier = ">=2026.3" }]
 lint = [
-    { name = "homeassistant-stubs", specifier = ">=2026.2.3" },
+    { name = "homeassistant", specifier = ">=2026.3" },
     { name = "mypy" },
     { name = "prek" },
     { name = "ruff" },
@@ -1843,10 +1836,11 @@ lint = [
     { name = "uv" },
 ]
 pytest = [
+    { name = "homeassistant", specifier = ">=2026.3" },
     { name = "pytest", specifier = ">=9" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-homeassistant-custom-component", specifier = ">=0.13.316" },
+    { name = "pytest-homeassistant-custom-component", specifier = ">=0.13.317" },
     { name = "pytest-timeout" },
 ]
 
