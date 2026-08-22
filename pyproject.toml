@@ -3,7 +3,7 @@ name = "places"
 dynamic = ["version"]
 description = "Places Home Assistant integration"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.14.2"
 dependencies = [
   "aiohttp",
   "cachetools",
@@ -17,8 +17,11 @@ where = ["."]
 include = ["custom_components*"]
 
 [dependency-groups]
+ha = [
+    "homeassistant>=2026.3",
+]
 lint = [
-  "homeassistant-stubs>=2026.2.3",
+  { include-group = "ha" },
   "mypy",
   "prek",
   "ruff",
@@ -34,16 +37,20 @@ lint = [
   "uv",
 ]
 pytest = [
+  { include-group = "ha" },
   "pytest>=9",
   "pytest-asyncio",
   "pytest-cov",
-  "pytest-homeassistant-custom-component>=0.13.316",
+  "pytest-homeassistant-custom-component>=0.13.317",
   "pytest-timeout",
 ]
 dev = [
     { include-group = "lint" },
     { include-group = "pytest" },
 ]
+
+[tool.uv]
+required-version = ">=0.11.0"
 
 [tool.pytest.ini_options]
 addopts = """

@@ -85,8 +85,7 @@ def get_devicetracker_id_entities(
             if registry_entry is not None and registry_entry.platform == DOMAIN:
                 continue
             if dom not in TRACKING_DOMAINS_NEED_LATLONG or (
-                CONF_LATITUDE in hass.states.get(ent.entity_id).attributes
-                and CONF_LONGITUDE in hass.states.get(ent.entity_id).attributes
+                CONF_LATITUDE in ent.attributes and CONF_LONGITUDE in ent.attributes
             ):
                 # _LOGGER.debug("Entity: %s", ent)
                 dt_list.extend(
@@ -102,18 +101,14 @@ def get_devicetracker_id_entities(
         # _LOGGER.debug("current_entity: %s", current_entity)
         dt_list_entities: list[str] = [d["value"] for d in dt_list]
         registry_entry = entity_registry.async_get(current_entity)
+        current_state = hass.states.get(current_entity)
         if (
             current_entity not in dt_list_entities
-            and hass.states.get(current_entity) is not None
+            and current_state is not None
             and (registry_entry is None or registry_entry.platform != DOMAIN)
         ):
-            if (
-                ATTR_FRIENDLY_NAME in hass.states.get(current_entity).attributes
-                and hass.states.get(current_entity).attributes.get(ATTR_FRIENDLY_NAME) is not None
-            ):
-                current_name: str = hass.states.get(current_entity).attributes.get(
-                    ATTR_FRIENDLY_NAME
-                )
+            current_name = current_state.attributes.get(ATTR_FRIENDLY_NAME)
+            if current_name is not None:
                 # _LOGGER.debug("current_name: %s", current_name)
                 dt_list.append(
                     selector.SelectOptionDict(

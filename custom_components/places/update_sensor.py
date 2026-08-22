@@ -444,18 +444,15 @@ class PlacesUpdater:
                 ``SKIP`` when GPS mode is enabled and accuracy is zero, otherwise
                 ``PROCEED``.
         """
-        tracker_state = self._hass.states.get(self.coordinator.get_attr(CONF_DEVICETRACKER_ID))
-        if (
-            tracker_state
-            and hasattr(tracker_state, "attributes")
-            and tracker_state.attributes
-            and ATTR_GPS_ACCURACY in tracker_state.attributes
-            and tracker_state.attributes.get(ATTR_GPS_ACCURACY) is not None
-            and is_float(tracker_state.attributes.get(ATTR_GPS_ACCURACY))
-        ):
+        tracker_id = self.coordinator.get_attr_safe_str(CONF_DEVICETRACKER_ID)
+        tracker_state = self._hass.states.get(tracker_id)
+        gps_accuracy = (
+            tracker_state.attributes.get(ATTR_GPS_ACCURACY) if tracker_state is not None else None
+        )
+        if gps_accuracy is not None and is_float(gps_accuracy):
             self.coordinator.set_attr(
                 ATTR_GPS_ACCURACY,
-                float(tracker_state.attributes.get(ATTR_GPS_ACCURACY)),
+                float(gps_accuracy),
             )
         else:
             self.coordinator.clear_attr(ATTR_GPS_ACCURACY)
@@ -584,22 +581,19 @@ class PlacesUpdater:
 
     async def get_zone_details(self) -> None:
         """Store the tracked entity's zone state and friendly zone name."""
-        if self.coordinator.get_attr_safe_str(CONF_DEVICETRACKER_ID).split(".")[0] != CONF_ZONE:
+        tracker_id = self.coordinator.get_attr_safe_str(CONF_DEVICETRACKER_ID)
+        tracker_state = self._hass.states.get(tracker_id)
+        if tracker_id.split(".")[0] != CONF_ZONE:
             self.coordinator.set_attr(
                 ATTR_DEVICETRACKER_ZONE,
-                (
-                    self._hass.states.get(self.coordinator.get_attr(CONF_DEVICETRACKER_ID)).state
-                    if self._hass.states.get(self.coordinator.get_attr(CONF_DEVICETRACKER_ID))
-                    is not None
-                    else STATE_UNKNOWN
-                ),
+                (tracker_state.state if tracker_state is not None else STATE_UNKNOWN),
             )
         if await self.coordinator.in_zone():
             devicetracker_zone_name_state = None
-            state = self._hass.states.get(self.coordinator.get_attr(CONF_DEVICETRACKER_ID))
+            tracker_state = self._hass.states.get(tracker_id)
             devicetracker_zone_id: str | None = None
-            if state is not None:
-                devicetracker_zone_id = state.attributes.get(CONF_ZONE)
+            if tracker_state is not None:
+                devicetracker_zone_id = tracker_state.attributes.get(CONF_ZONE)
             if not devicetracker_zone_id and not self.coordinator.is_attr_blank(
                 ATTR_DEVICETRACKER_ZONE
             ):
@@ -1348,7 +1342,7 @@ class PlacesUpdater:
 
     async def log_coordinate_issue(self) -> None:
         """Log missing or invalid tracker coordinates with tracker details."""
-        tracker_id = self.coordinator.get_attr(CONF_DEVICETRACKER_ID)
+        tracker_id = self.coordinator.get_attr_safe_str(CONF_DEVICETRACKER_ID)
         message = (
             f"({self.coordinator.get_attr(CONF_NAME)}) Tracked Entity ({tracker_id}) "
             "Latitude/Longitude is not set or is not a number. "

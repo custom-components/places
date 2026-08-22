@@ -358,6 +358,42 @@ def test_get_devicetracker_id_entities_excludes_places_sensors(
     assert get_devicetracker_id_entities(mock_hass, places_state.entity_id) == []
 
 
+def test_get_devicetracker_id_entities_uses_scanned_state_when_lookup_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+) -> None:
+    """Trackers returned by the domain scan remain selectable if a later lookup misses.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing config-flow dependencies.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
+    tracker_state = State(
+        "sensor.gps_tracker",
+        "Home",
+        {ATTR_FRIENDLY_NAME: "GPS Tracker", CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0},
+    )
+    registry = MagicMock()
+    registry.async_get.return_value = None
+    registry_module = MagicMock()
+    registry_module.async_get.return_value = registry
+    monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", ["sensor"])
+    monkeypatch.setattr(
+        "custom_components.places.config_flow.TRACKING_DOMAINS_NEED_LATLONG", ["sensor"]
+    )
+    monkeypatch.setattr("custom_components.places.config_flow.er", registry_module, raising=False)
+    mock_hass.states.async_all.return_value = [tracker_state]
+    mock_hass.states.get.return_value = None
+
+    entities = get_devicetracker_id_entities(mock_hass)
+
+    assert entities == [
+        {"value": tracker_state.entity_id, "label": "GPS Tracker (sensor.gps_tracker)"}
+    ]
+
+
 def test_get_home_zone_entities_builds_zone_list(
     monkeypatch: pytest.MonkeyPatch, mock_hass: MagicMock
 ) -> None:
