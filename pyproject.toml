@@ -49,6 +49,9 @@ dev = [
     { include-group = "pytest" },
 ]
 
+[tool.uv]
+required-version = ">=0.11.0"
+
 [tool.pytest.ini_options]
 addopts = """
   --quiet
