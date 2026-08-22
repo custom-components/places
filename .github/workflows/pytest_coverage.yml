@@ -17,20 +17,20 @@ jobs:
       github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     permissions:
-      # Gives the action the necessary permissions for publishing new
-      # comments in pull requests.
+      # Lets the action post or update coverage comments directly on trusted
+      # same-repository PRs. Fork PR comments use the workflow_run publisher.
       pull-requests: write
-      # Gives the action the necessary permissions for pushing data to the
-      # python-coverage-comment-action branch, and for editing existing
-      # comments (to avoid publishing multiple comments in the same PR)
+      # Lets trusted main pushes update python-coverage-comment-action-data.
+      # PR checkouts do not persist this write-capable Git credential.
       contents: write
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
-          # Only trusted main pushes update the coverage data branch. PR test
-          # code must not run with a persisted write credential.
+          # Git authentication is needed only when a trusted main push updates
+          # the data branch. PR comment API authentication comes from the
+          # GITHUB_TOKEN passed directly to the coverage action below.
           persist-credentials: ${{ github.event_name == 'push' }}
 
       - name: Setup uv (with caching)

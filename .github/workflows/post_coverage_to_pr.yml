@@ -12,15 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
     permissions:
-      # Gives the action the necessary permissions for publishing new
-      # comments in pull requests.
+      # Posts or updates the artifact-generated coverage comment when the PR
+      # workflow could not comment directly, such as for a fork PR.
       pull-requests: write
-      # Gives the action the necessary permissions for editing existing
-      # comments (to avoid publishing multiple comments in the same PR)
+      # Required by the coverage action when updating an existing comment.
       contents: write
-      # Gives the action the necessary permissions for looking up the
-      # workflow that launched this workflow, and download the related
-      # artifact that contains the comment to be published
+      # Reads the triggering workflow run and downloads its comment artifact.
       actions: read
     steps:
       # DO NOT run actions/checkout here, for security reasons
