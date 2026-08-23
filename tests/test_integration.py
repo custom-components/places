@@ -655,6 +655,7 @@ async def test_async_setup_entry_renders_current_options_from_persisted_location
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
     display_options: str,
+    *,
     show_time: bool,
     persisted_native_value: str,
     last_changed: str | None,
