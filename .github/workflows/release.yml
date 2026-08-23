@@ -32,8 +32,10 @@ jobs:
           fetch-depth: 0
 
       - name: Validate release request
+        id: validate_release_request
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITHUB_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_REF: ${{ github.ref_name }}
           RELEASE_TAG: ${{ inputs.tag }}
@@ -47,17 +49,45 @@ jobs:
 
           python3 .github/scripts/prepare_release.py --check-only "$RELEASE_TAG"
 
-          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Release tag already exists: $RELEASE_TAG" >&2
+          release_view_error="$RUNNER_TEMP/release-view-error.txt"
+          if release_is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>"$release_view_error")"; then
+            if [[ "$release_is_draft" != "true" ]]; then
+              echo "Published GitHub release already exists: $RELEASE_TAG" >&2
+              exit 1
+            fi
+          elif ! grep -Eq "HTTP 404|release not found" "$release_view_error"; then
+            cat "$release_view_error" >&2
             exit 1
           fi
 
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "GitHub release already exists: $RELEASE_TAG" >&2
+          tag_commit="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG^{}" | awk 'NF == 2 { print $1 }')"
+          if [[ -n "$tag_commit" ]]; then
+            git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            parent_line="$(git rev-list --parents -n 1 "$tag_commit")"
+            read -r release_commit parent_commit extra_parent <<<"$parent_line"
+            release_subject="$(git log -1 --format=%s "$tag_commit")"
+            if [[ "$release_commit" != "$tag_commit" || -z "$parent_commit" || -n "$extra_parent" || "$parent_commit" != "$GITHUB_SHA" || "$release_subject" != "Release $RELEASE_TAG" ]]; then
+              echo "Existing release tag $RELEASE_TAG is not a release commit directly based on this dispatch revision." >&2
+              exit 1
+            fi
+
+            git checkout --detach "$tag_commit"
+            python3 .github/scripts/prepare_release.py "$RELEASE_TAG"
+            if ! git diff --quiet -- custom_components/places/manifest.json custom_components/places/const.py; then
+              echo "Existing release tag $RELEASE_TAG does not contain matching version files." >&2
+              exit 1
+            fi
+
+            echo "resume_tag=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Existing release tag $RELEASE_TAG is not an annotated tag with a peeled commit." >&2
             exit 1
+          else
+            echo "resume_tag=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create versioned release commit
+        if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
@@ -82,17 +112,32 @@ jobs:
           unzip -t "$RUNNER_TEMP/places.zip"
 
       - name: Push release tag
+        if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: git push origin "refs/tags/$RELEASE_TAG"
 
-      - name: Create draft release with HACS archive
+      - name: Create or resume draft release with HACS archive
         env:
           GH_TOKEN: ${{ github.token }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
+
+          release_view_error="$RUNNER_TEMP/release-view-error.txt"
+          if release_is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>"$release_view_error")"; then
+            if [[ "$release_is_draft" != "true" ]]; then
+              echo "Published GitHub release already exists: $RELEASE_TAG" >&2
+              exit 1
+            fi
+
+            gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/places.zip#places.zip" --clobber
+            exit 0
+          elif ! grep -Eq "HTTP 404|release not found" "$release_view_error"; then
+            cat "$release_view_error" >&2
+            exit 1
+          fi
 
           release_args=(
             "$RELEASE_TAG"
