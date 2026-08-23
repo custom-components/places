@@ -1,6 +1,7 @@
 """Integration tests for the custom_components.places module."""
 
 import asyncio
+from datetime import UTC, datetime
 import logging
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
@@ -19,16 +20,24 @@ from custom_components.places import (
     async_unload_entry,
 )
 from custom_components.places.const import (
+    ATTR_CITY,
+    ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_NAME,
+    ATTR_LAST_CHANGED,
+    ATTR_NATIVE_VALUE,
     CONF_API_KEY,
+    CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
     CONF_NAME,
+    CONF_SHOW_TIME,
     DEFAULT_DISPLAY_OPTIONS,
     DOMAIN,
     OSM_CACHE,
     OSM_THROTTLE,
     PLATFORMS,
 )
+from custom_components.places.coordinator import PlacesUpdateCoordinator
 from tests.conftest import assert_awaited_count
 
 
@@ -154,6 +163,8 @@ class _FakeCoordinator:
         self.imported_attributes = imported_attributes
         self.persistence = persistence
         self.async_added_to_hass = AsyncMock()
+        self.async_render_display_state = AsyncMock()
+        self.publish_update = MagicMock()
         self.async_request_refresh = AsyncMock()
         self.async_prepare_unload = AsyncMock()
         self.async_resume_after_failed_unload = AsyncMock()
@@ -599,11 +610,89 @@ async def test_async_setup_entry_calls_forward_setups(
     assert mock_entry.runtime_data.imported_attributes == {"native_value": "Restored"}
     assert mock_entry.runtime_data.persistence is _FakeSetupPlacesStorage.instances[0]
     mock_entry.runtime_data.async_added_to_hass.assert_awaited_once_with()
+    mock_entry.runtime_data.async_render_display_state.assert_awaited_once_with()
+    mock_entry.runtime_data.publish_update.assert_called_once_with()
     mock_entry.runtime_data.async_request_refresh.assert_awaited_once_with()
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )
     assert call_order == ["subscribe", "forward"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("show_time", "persisted_native_value", "last_changed", "expected_state"),
+    [
+        (False, "Home", None, "Sample City"),
+        (
+            True,
+            "Home (since 11:00)",
+            "2026-08-23 12:00:00+00:00",
+            "Sample City (since 12:00)",
+        ),
+    ],
+    ids=("advanced-options", "show-time"),
+)
+async def test_async_setup_entry_renders_current_options_from_persisted_location(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    show_time: bool,
+    persisted_native_value: str,
+    last_changed: str | None,
+    expected_state: str,
+) -> None:
+    """Setup should rerender restored data without waiting for tracker movement.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing setup dependencies.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        show_time (bool):
+            Whether the rendered state should include last-change time.
+        persisted_native_value (str):
+            Stale display state restored from Store.
+        last_changed (str | None):
+            Persisted timestamp used by show-time formatting when configured.
+        expected_state (str):
+            Display state expected from current config and restored location data.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "person.test",
+            CONF_DISPLAY_OPTIONS: "city[]",
+            CONF_SHOW_TIME: show_time,
+        },
+    )
+    _FakeSetupPlacesStorage.load_result = {
+        ATTR_NATIVE_VALUE: persisted_native_value,
+        ATTR_CITY: "Sample City",
+        ATTR_DEVICETRACKER_ZONE: "home",
+        ATTR_DEVICETRACKER_ZONE_NAME: "Home",
+    }
+    if last_changed is not None:
+        _FakeSetupPlacesStorage.load_result[ATTR_LAST_CHANGED] = last_changed
+    monkeypatch.setattr("custom_components.places.PlacesStorage", _FakeSetupPlacesStorage)
+    monkeypatch.setattr(
+        PlacesUpdateCoordinator,
+        "async_added_to_hass",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        PlacesUpdateCoordinator,
+        "async_request_refresh",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(return_value=datetime(2026, 8, 23, 13, 0, tzinfo=UTC)),
+    )
+
+    await async_setup_entry(mock_hass, entry)
+
+    assert entry.runtime_data.data.native_value == expected_state
 
 
 def test_ensure_osm_runtime_state_preserves_existing_state(mock_hass: MagicMock) -> None:
