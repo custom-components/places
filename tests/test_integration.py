@@ -621,21 +621,30 @@ async def test_async_setup_entry_calls_forward_setups(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("show_time", "persisted_native_value", "last_changed", "expected_state"),
+    (
+        "display_options",
+        "show_time",
+        "persisted_native_value",
+        "last_changed",
+        "expected_state",
+    ),
     [
-        (False, "Home", None, "Sample City"),
+        ("city[]", False, "Home", None, "Sample City"),
         (
+            "city[]",
             True,
             "Home (since 11:00)",
             "2026-08-23 12:00:00+00:00",
             "Sample City (since 12:00)",
         ),
+        ("zone_name", False, "Stale Home", None, "Home"),
     ],
-    ids=("advanced-options", "show-time"),
+    ids=("advanced-options", "show-time", "zone-name-fallback"),
 )
 async def test_async_setup_entry_renders_current_options_from_persisted_location(
     monkeypatch: pytest.MonkeyPatch,
     mock_hass: MagicMock,
+    display_options: str,
     show_time: bool,
     persisted_native_value: str,
     last_changed: str | None,
@@ -648,6 +657,8 @@ async def test_async_setup_entry_renders_current_options_from_persisted_location
             Pytest fixture for replacing setup dependencies.
         mock_hass (MagicMock):
             Mocked Home Assistant runtime.
+        display_options (str):
+            Current display options used to rerender restored location data.
         show_time (bool):
             Whether the rendered state should include last-change time.
         persisted_native_value (str):
@@ -662,7 +673,7 @@ async def test_async_setup_entry_renders_current_options_from_persisted_location
         data={
             CONF_NAME: "Test Place",
             CONF_DEVICETRACKER_ID: "person.test",
-            CONF_DISPLAY_OPTIONS: "city[]",
+            CONF_DISPLAY_OPTIONS: display_options,
             CONF_SHOW_TIME: show_time,
         },
     )
