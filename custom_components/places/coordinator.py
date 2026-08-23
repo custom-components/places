@@ -301,7 +301,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
                     self.config[key] = value
                     self.set_attr(key, value)
                     self.set_attr(ATTR_DISPLAY_OPTIONS, value)
-                    await self.async_render_display_state()
+                    await self._async_render_display_state_locked()
                 elif key == CONF_MAP_PROVIDER:
                     value_str = str(value).strip().lower()
                     if value_str not in MAP_PROVIDER_OPTIONS:
@@ -791,6 +791,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
 
     async def async_render_display_state(self) -> None:
         """Render configured display options and apply state time formatting."""
+        async with self._update_lock:
+            await self._async_render_display_state_locked()
+
+    async def _async_render_display_state_locked(self) -> None:
+        """Render display state while the caller holds ``_update_lock``."""
         await self.process_display_options()
         updater = PlacesUpdater(self.hass, self.config_entry, self)
         await updater.async_apply_show_time()

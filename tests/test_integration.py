@@ -557,6 +557,14 @@ async def test_async_setup_entry_calls_forward_setups(
         """Record coordinator subscription before platform forwarding."""
         call_order.append("subscribe")
 
+    async def record_render() -> None:
+        """Record restored display-state rendering before platform forwarding."""
+        call_order.append("render")
+
+    def record_publish() -> None:
+        """Record restored-state publication before platform forwarding."""
+        call_order.append("publish")
+
     async def record_forward(*_args: object, **_kwargs: object) -> None:
         """Record platform forwarding after subscription.
 
@@ -593,6 +601,8 @@ async def test_async_setup_entry_calls_forward_setups(
         """
         original_init(self, hass, config_entry, imported_attributes, persistence)
         self.async_added_to_hass.side_effect = record_subscription
+        self.async_render_display_state.side_effect = record_render
+        self.publish_update.side_effect = record_publish
 
     monkeypatch.setattr(_FakeCoordinator, "__init__", init_with_recorded_subscription)
     mock_hass.config_entries.async_forward_entry_setups.side_effect = record_forward
@@ -616,7 +626,7 @@ async def test_async_setup_entry_calls_forward_setups(
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )
-    assert call_order == ["subscribe", "forward"]
+    assert call_order == ["subscribe", "render", "publish", "forward"]
 
 
 @pytest.mark.asyncio
