@@ -9,8 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: prek-autoupdate-${{ github.repository }}
@@ -31,5 +30,5 @@ jobs:
         uses: Snuffy2/prek-autoupdate@v2
         with:
           token: ${{ secrets.PREK_AUTOUPDATE_TOKEN }}
-          author-login: prek-autoupdate-bot
+          auto-merge: true
           update-day: "3"
