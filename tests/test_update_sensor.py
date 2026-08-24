@@ -63,7 +63,6 @@ from custom_components.places.const import (
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     DOMAIN,
-    EVENT_ATTRIBUTE_MAP,
     OSM_CACHE,
     OSM_THROTTLE,
     OSM_THROTTLE_INTERVAL_SECONDS,
@@ -3807,86 +3806,6 @@ async def test_log_tracker_issue_initial_update(
 
 
 @pytest.mark.asyncio
-async def test_fire_event_data_includes_core_attributes(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
-) -> None:
-    """Build and fire an event with expected core keys.
-
-    Args:
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
-        mock_config_entry (MockConfigEntry):
-            Places configuration entry used by the test.
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-
-    # Make sensor report values for several keys so event_data is populated
-    sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr.side_effect = lambda k: (
-        "TestName"
-        if k == CONF_NAME
-        else "Prev"
-        if k == ATTR_PREVIOUS_STATE
-        else "Now"
-        if k == ATTR_NATIVE_VALUE
-        else "LP"
-        if k == ATTR_LAST_PLACE_NAME
-        else "ext"
-    )
-
-    await updater.fire_event_data(prev_last_place_name="Other")
-
-    # Ensure an event was fired with expected structure
-    mock_hass.bus.fire.assert_called_once()
-    called_event = mock_hass.bus.fire.call_args[0]
-    assert called_event[0] == "places_state_update"
-    assert isinstance(called_event[1], dict)
-    # Check that core keys are present
-    assert "entity" in called_event[1]
-    assert "from_state" in called_event[1]
-    assert "to_state" in called_event[1]
-
-
-def test_event_attribute_map_matches_public_schema() -> None:
-    """Keep the flat event-field mapping aligned with its documented contract."""
-    assert EVENT_ATTRIBUTE_MAP == {
-        "driving": "driving",
-        "place_name": "place_name",
-        "place_name_no_dupe": "place_name_no_dupe",
-        "place_type": "place_type",
-        "place_category": "place_category",
-        "street_number": "street_number",
-        "street": "street",
-        "route_number": "route_number",
-        "neighborhood": "neighborhood",
-        "city": "city",
-        "city_clean": "city_clean",
-        "postal_town": "postal_town",
-        "state": "state",
-        "state_abbr": "state_abbr",
-        "county": "county",
-        "country": "country",
-        "country_code": "country_code",
-        "postal_code": "postal_code",
-        "latitude": "latitude",
-        "longitude": "longitude",
-        "zone": "zone",
-        "zone_name": "zone_name",
-        "last_changed": "last_changed",
-        "distance_from_home": "distance_from_home",
-        "distance_traveled": "distance_traveled",
-        "direction_of_travel": "direction_of_travel",
-        "previous_latitude": "previous_latitude",
-        "previous_longitude": "previous_longitude",
-        "map_link": "map_link",
-        "osm_id": "osm_id",
-        "osm_type": "osm_type",
-    }
-
-
-@pytest.mark.asyncio
 async def test_fire_event_data_matches_exact_public_schema(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
@@ -3900,75 +3819,64 @@ async def test_fire_event_data_matches_exact_public_schema(
         sensor (MockSensor):
             Places sensor fixture whose state is asserted.
     """
-    sensor.attrs = {
-        source_attr: f"value_for_{event_field}"
-        for event_field, source_attr in EVENT_ATTRIBUTE_MAP.items()
+    event_field_values: dict[str, object] = {
+        "driving": "Driving",
+        "place_name": "Landmark",
+        "place_name_no_dupe": "Unique Landmark",
+        "place_type": "Cafe",
+        "place_category": "Amenity",
+        "street_number": "10",
+        "street": "Main Street",
+        "route_number": "R1",
+        "neighborhood": "Downtown",
+        "city": "Metro City",
+        "city_clean": "Metro",
+        "postal_town": "Postal Town",
+        "state": "State",
+        "state_abbr": "ST",
+        "county": "County",
+        "country": "Country",
+        "country_code": "CC",
+        "postal_code": "12345",
+        "latitude": 1.1,
+        "longitude": 2.2,
+        "zone": "not_home",
+        "zone_name": "Not Home",
+        "last_changed": "2026-08-23 12:00:00",
+        "distance_from_home": 100.0,
+        "distance_traveled": 10.0,
+        "direction_of_travel": "north",
+        "previous_latitude": 1.0,
+        "previous_longitude": 2.0,
+        "map_link": "https://example.com/map",
+        "osm_id": 123,
+        "osm_type": "node",
     }
-    sensor.attrs.update(
-        {
-            CONF_NAME: "Test Device",
-            ATTR_PREVIOUS_STATE: "Previous state",
-            ATTR_NATIVE_VALUE: "Current state",
-            ATTR_LAST_PLACE_NAME: "Previous location",
-            "driving": "Driving",
-            "place_name": "Landmark",
-            "place_name_no_dupe": "Landmark",
-            "place_category": "Amenity",
-            "place_type": "Cafe",
-            "neighborhood": "Downtown",
-            "street_number": "10",
-            "street": "Main Street",
-            "city_clean": "Metro",
-            "state_abbr": "ST",
-        }
-    )
+    sensor.attrs = {
+        **event_field_values,
+        CONF_NAME: "Test Device",
+        ATTR_PREVIOUS_STATE: "Previous state",
+        ATTR_NATIVE_VALUE: "Current state",
+        ATTR_LAST_PLACE_NAME: "Previous location",
+    }
     sensor.display_options_list = ["formatted_place", "driving"]
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
     await updater.fire_event_data(prev_last_place_name="Older location")
 
+    mock_hass.bus.fire.assert_called_once_with(
+        "places_state_update",
+        {
+            "entity": "Test Device",
+            "from_state": "Previous state",
+            "to_state": "Current state",
+            **event_field_values,
+            "last_place_name": "Previous location",
+            "place": "Landmark, Amenity, Cafe, Downtown, 10, Main Street",
+            "formatted_place": "Driving, Landmark, Metro, ST",
+        },
+    )
     event_data = mock_hass.bus.fire.call_args.args[1]
-    assert set(event_data) == {
-        "entity",
-        "from_state",
-        "to_state",
-        "driving",
-        "place_name",
-        "place_name_no_dupe",
-        "place_type",
-        "place_category",
-        "street_number",
-        "street",
-        "route_number",
-        "neighborhood",
-        "city",
-        "city_clean",
-        "postal_town",
-        "state",
-        "state_abbr",
-        "county",
-        "country",
-        "country_code",
-        "postal_code",
-        "latitude",
-        "longitude",
-        "zone",
-        "zone_name",
-        "last_changed",
-        "last_place_name",
-        "distance_from_home",
-        "distance_traveled",
-        "direction_of_travel",
-        "previous_latitude",
-        "previous_longitude",
-        "map_link",
-        "osm_id",
-        "osm_type",
-        "place",
-        "formatted_place",
-    }
-    assert event_data["place"] == ("Landmark, Amenity, Cafe, Downtown, 10, Main Street")
-    assert event_data["formatted_place"] == "Driving, Landmark, Metro, ST"
     assert {"name", "name_no_dupe", "type", "category", "zip_code"}.isdisjoint(event_data)
 
 
