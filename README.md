@@ -216,8 +216,6 @@ Field | Description |
 
 </details>
 
-The event never includes raw OpenStreetMap details or Wikidata payloads from the optional Extended data sensor. `osm_formatted_address` is also not part of the event schema.
-
 Example automation:
 
 ```yaml
