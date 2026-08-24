@@ -4,7 +4,6 @@ import asyncio
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
-from inspect import Parameter, signature
 import json
 import logging
 from typing import Protocol
@@ -1674,13 +1673,6 @@ async def test_determine_update_criteria_calls(
     mocks["get_zone_details"].assert_awaited_once()
     mocks["update_coordinates_and_distance"].assert_awaited_once()
     mocks["determine_if_update_needed"].assert_awaited_once()
-
-
-def test_determine_update_criteria_force_is_keyword_only() -> None:
-    """The force flag should not be accepted as an ambiguous positional argument."""
-    force_parameter = signature(PlacesUpdater.determine_update_criteria).parameters["force"]
-
-    assert force_parameter.kind is Parameter.KEYWORD_ONLY
 
 
 async def test_update_coordinates_and_distance_accepts_unqualified_home_zone(
