@@ -189,10 +189,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _ensure_osm_runtime_state(hass)
     name = entry.data.get(CONF_NAME, entry.entry_id)
     persistence = PlacesStorage(hass=hass, entry_id=entry.entry_id, name=name)
+    imported_attributes = await persistence.async_load()
+    has_restored_attributes = bool(imported_attributes)
     coordinator = PlacesUpdateCoordinator(
         hass=hass,
         config_entry=entry,
-        imported_attributes=await persistence.async_load(),
+        imported_attributes=imported_attributes,
         persistence=persistence,
     )
     entry.runtime_data = coordinator
@@ -219,6 +221,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise
 
     try:
+        if has_restored_attributes:
+            await coordinator.async_render_display_state()
+            coordinator.publish_update()
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         await coordinator.async_request_refresh()
     except asyncio.CancelledError:

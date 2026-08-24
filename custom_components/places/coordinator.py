@@ -301,9 +301,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
                     self.config[key] = value
                     self.set_attr(key, value)
                     self.set_attr(ATTR_DISPLAY_OPTIONS, value)
-                    updater = PlacesUpdater(self.hass, self.config_entry, self)
-                    await self.process_display_options()
-                    await updater.async_apply_show_time()
+                    await self._async_render_display_state_locked()
                 elif key == CONF_MAP_PROVIDER:
                     value_str = str(value).strip().lower()
                     if value_str not in MAP_PROVIDER_OPTIONS:
@@ -790,6 +788,17 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE_NAME):
             self.set_attr(ATTR_NATIVE_VALUE, self.get_attr(ATTR_DEVICETRACKER_ZONE_NAME))
             self._native_value = self.get_attr_safe_str(ATTR_NATIVE_VALUE) or None
+
+    async def async_render_display_state(self) -> None:
+        """Render configured display options and apply state time formatting."""
+        async with self._update_lock:
+            await self._async_render_display_state_locked()
+
+    async def _async_render_display_state_locked(self) -> None:
+        """Render display state while the caller holds ``_update_lock``."""
+        await self.process_display_options()
+        updater = PlacesUpdater(self.hass, self.config_entry, self)
+        await updater.async_apply_show_time()
 
     async def restore_previous_attr(self, previous_attr: MutableMapping[str, Any]) -> None:
         """Restore a prior runtime attribute snapshot after rollback.

@@ -282,6 +282,34 @@ async def test_coordinator_updates_setting_locally(
     coordinator.async_request_refresh.assert_not_awaited()
 
 
+async def test_coordinator_render_display_state_waits_for_update_lock(
+    mock_hass: MagicMock,
+) -> None:
+    """Public display rendering must serialize with coordinator updates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+    """
+    mock_hass.states.get.return_value = None
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry123",
+        data={"name": "TestSensor", "devicetracker_id": "person.test"},
+    )
+    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
+    coordinator.process_display_options = AsyncMock()
+
+    async with coordinator._update_lock:
+        render_task = asyncio.create_task(coordinator.async_render_display_state())
+        await asyncio.sleep(0)
+        coordinator.process_display_options.assert_not_awaited()
+
+    await render_task
+
+    coordinator.process_display_options.assert_awaited_once_with()
+
+
 async def test_coordinator_normalizes_and_validates_map_provider(mock_hass: MagicMock) -> None:
     """Direct setting updates normalize valid providers and reject unsupported ones.
 
