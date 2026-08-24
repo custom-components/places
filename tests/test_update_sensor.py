@@ -1124,7 +1124,7 @@ async def test_check_for_updated_entity_name_uses_latest_coordinator_entity_id(
 
     await updater.check_for_updated_entity_name()
 
-    assert mock_hass.states.get.call_args_list[-1][0][0] == "sensor.new_name"
+    mock_hass.states.get.assert_called_with("sensor.new_name")
     assert coordinator.get_attr(CONF_NAME) == "NewName"
 
 
@@ -1760,28 +1760,27 @@ async def test_process_osm_update_calls(
     mocks["query_osm_and_finalize"].assert_awaited_once()
 
 
-def assert_map_link_set(sensor: MockSensor) -> None:
-    """Assert that set_attr was called with ATTR_MAP_LINK and a string value.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    found = False
-    for call in sensor.set_attr.call_args_list:
-        if call[0][0] == ATTR_MAP_LINK and isinstance(call[0][1], str):
-            found = True
-            break
-    assert found
-
-
-# `osm` provider covered in parametrized `test_get_map_link_providers_all` below.
-
-
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider", ["google", "apple", "osm"])
+@pytest.mark.parametrize(
+    ("provider", "expected"),
+    [
+        ("google", "https://maps.google.com/?q=loc&ll=loc&z=10"),
+        ("apple", "https://maps.apple.com/?q=loc&z=10"),
+        (
+            "osm",
+            (
+                "https://www.openstreetmap.org/?mlat=1.23456789&mlon=9.87654321"
+                "#map=10/1.234567/9.8765432"
+            ),
+        ),
+    ],
+)
 async def test_get_map_link_providers_all(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, provider: str
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    provider: str,
+    expected: str,
 ) -> None:
     """Parametrized: verify map link generation for multiple providers including OSM.
 
@@ -1794,6 +1793,8 @@ async def test_get_map_link_providers_all(
             Places sensor fixture whose state is asserted.
         provider (str):
             Map provider selected for link generation.
+        expected (str):
+            Exact public map URL expected for the provider.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if provider == "osm":
@@ -1807,7 +1808,7 @@ async def test_get_map_link_providers_all(
             provider if k == CONF_MAP_PROVIDER else "loc" if k == ATTR_LOCATION_CURRENT else 10
         )
     await updater.get_map_link()
-    assert_map_link_set(sensor)
+    assert sensor.attrs[ATTR_MAP_LINK] == expected
 
 
 @pytest.mark.asyncio
