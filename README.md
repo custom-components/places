@@ -169,8 +169,6 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 
 Places fires `places_state_update` after each successful state change. The event data is a flat snapshot of the location details available for that update. Blank or unavailable values are omitted, so automations should allow for optional fields.
 
-Fields corresponding to Advanced Display Options use the child entity key when one exists. The remaining fields use their primary Advanced name, except `place_name_no_dupe`, which follows the standard `place_name` naming. Only one event field is emitted for each Advanced field: alternative parser aliases are not duplicated, and the primary spellings `name`, `type`, `category`, and `zip_code` are not emitted where the selected event name differs.
-
 <details>
 <summary>Event data fields</summary>
 
