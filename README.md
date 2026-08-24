@@ -171,6 +171,9 @@ Places fires `places_state_update` after each successful state change. The event
 
 Fields corresponding to Advanced Display Options use the child entity key when one exists. The remaining fields use their primary Advanced name, except `place_name_no_dupe`, which follows the standard `place_name` naming. Only one event field is emitted for each Advanced field: alternative parser aliases are not duplicated, and the primary spellings `name`, `type`, `category`, and `zip_code` are not emitted where the selected event name differs.
 
+<details>
+<summary>Event data fields</summary>
+
 Field | Description |
 -- | -- |
 `entity` | Configured Places sensor name. |
@@ -210,6 +213,8 @@ Field | Description |
 `map_link` | Link to the current location using the configured map provider. |
 `osm_id` | OpenStreetMap object ID. |
 `osm_type` | OpenStreetMap object type. |
+
+</details>
 
 The event never includes raw OpenStreetMap details or Wikidata payloads from the optional Extended data sensor. `osm_formatted_address` is also not part of the event schema.
 
