@@ -165,55 +165,77 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 -------
 </details>
 
-<details>
-<summary>Sample generic `automations.yaml` snippet to send an iOS notify on any device state change</summary>
+## `places_state_update` Event
 
-(the only difference is the second one uses a condition to only trigger for a specific user)
+Places fires `places_state_update` after each successful state change. The event data is a flat snapshot of the location details available for that update. Blank or unavailable values are omitted, so automations should allow for optional fields.
+
+Fields corresponding to Advanced Display Options use the child entity key when one exists. The remaining fields use their primary Advanced name, except `place_name_no_dupe`, which follows the standard `place_name` naming. Only one event field is emitted for each Advanced field: alternative parser aliases are not duplicated, and the primary spellings `name`, `type`, `category`, and `zip_code` are not emitted where the selected event name differs.
+
+Field | Description |
+-- | -- |
+`entity` | Configured Places sensor name. |
+`from_state` | Previous rendered Places sensor state. |
+`to_state` | New rendered Places sensor state. |
+`driving` | Driving indicator used by the display options. |
+`place_name` | OpenStreetMap place name; corresponds to the Advanced `name` field. |
+`place_name_no_dupe` | Place name when it does not duplicate another location field; corresponds to Advanced `name_no_dupe`. |
+`place_type` | OpenStreetMap place type; corresponds to Advanced `type`. |
+`place_category` | OpenStreetMap place category; corresponds to Advanced `category`. |
+`street_number` | Street or house number. |
+`street` | Street name. |
+`route_number` | Route or road reference number. |
+`neighborhood` | Neighborhood name. |
+`city` | City name. |
+`city_clean` | Normalized city name used by Advanced Display Options. |
+`postal_town` | Postal town, borough, or suburb. |
+`state` | State, province, or region. |
+`state_abbr` | Abbreviated state or region. |
+`county` | County name. |
+`country` | Country name. |
+`country_code` | Country code. |
+`postal_code` | Postal or ZIP code; corresponds to Advanced `zip_code`. |
+`latitude` | Current latitude. |
+`longitude` | Current longitude. |
+`zone` | Current Home Assistant zone state. |
+`zone_name` | Friendly name of the current Home Assistant zone. |
+`place` | Standard `place` composition of place name, category, type, neighborhood, street number, and street. It is independent of zone status. |
+`formatted_place` | Standard `formatted_place` composition. It resolves to the zone name while in a zone and includes `driving` outside a zone when `driving` is configured as a display option. |
+`last_changed` | Time of the Places state change. |
+`last_place_name` | Previous useful place or zone name. Unlike other populated fields, it is emitted only when its value changes during the update. |
+`distance_from_home` | Distance from the configured home zone, in meters. |
+`distance_traveled` | Distance traveled since the previous coordinates, in meters. |
+`direction_of_travel` | Calculated direction of travel. |
+`previous_latitude` | Latitude captured before the current update. |
+`previous_longitude` | Longitude captured before the current update. |
+`map_link` | Link to the current location using the configured map provider. |
+`osm_id` | OpenStreetMap object ID. |
+`osm_type` | OpenStreetMap object type. |
+
+The event never includes raw OpenStreetMap details or Wikidata payloads from the optional Extended data sensor. `osm_formatted_address` is also not part of the event schema.
+
+Example automation:
 
 ```yaml
-- alias: ReverseLocateEveryone
-  initial_state: 'on'
-  trigger:
-    platform: event
-    event_type: places_state_update
-  action:
-  - service: notify.ios_jim_iphone8
-    data_template:
-      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }}) {{ trigger.event.data.place_name }}'
-      message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }})
-        {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
+- alias: Notify on a Places state update
+  triggers:
+    - trigger: event
+      event_type: places_state_update
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.event.data.entity == 'Fred' }}"
+  actions:
+    - action: notify.mobile_app_phone
       data:
-        attachment:
-          url: '{{ trigger.event.data.map_link }}'
-          hide_thumbnail: false
-
-- alias: ReverseLocateFred
-  initial_state: 'on'
-  trigger:
-    platform: event
-    event_type: places_state_update
-  condition:
-    condition: template
-    value_template: '{{ trigger.event.data.entity == "fred" }}'
-  action:
-  - service: notify.ios_jim_iphone8
-    data_template:
-      title: 'ReverseLocate: {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }}) {{ trigger.event.data.place_name }}'
-      message: |-
-        {{ trigger.event.data.entity }} ({{ trigger.event.data.zone }})
-        {{ trigger.event.data.place_name }}
-        {{ trigger.event.data.distance_from_home }} m from home and traveling {{ trigger.event.data.direction_of_travel }}
-        {{ trigger.event.data.to_state }} ({{ trigger.event.data.last_changed }})
-      data:
-        attachment:
-          url: '{{ trigger.event.data.map_link }}'
-          hide_thumbnail: false
+        title: >-
+          {{ trigger.event.data.entity }}:
+          {{ trigger.event.data.get('formatted_place',
+             trigger.event.data.get('to_state', 'Unknown')) }}
+        message: >-
+          {{ trigger.event.data.get('distance_from_home', 'Unknown') }} m from home,
+          traveling {{ trigger.event.data.get('direction_of_travel', 'unknown') }}
+        data:
+          url: "{{ trigger.event.data.get('map_link', '') }}"
 ```
-
-</details>
 
 ## Notes
 

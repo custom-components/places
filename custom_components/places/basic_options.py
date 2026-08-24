@@ -9,9 +9,14 @@ from typing import TYPE_CHECKING, Any
 from .const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
+    ATTR_PLACE_CATEGORY,
+    ATTR_PLACE_NAME,
     ATTR_PLACE_NEIGHBOURHOOD,
+    ATTR_PLACE_TYPE,
     ATTR_REGION,
     ATTR_ROUTE_NUMBER,
+    ATTR_STREET,
+    ATTR_STREET_NUMBER,
     PLACE_NAME_DUPLICATE_LIST,
 )
 
@@ -75,6 +80,60 @@ class BasicOptionsParser:
         ):
             user_display.append(self.coordinator.get_attr_safe_str(attr_key))
 
+    def _add_place_to_display(self, user_display: list[str]) -> None:
+        """Append the standard ``place`` components to a display list.
+
+        Args:
+            user_display (list[str]):
+                Mutable list to which the composed place fields are appended.
+        """
+        self._add_to_display(
+            user_display,
+            attr_key=ATTR_PLACE_NAME,
+            condition=self._internal_attr.get(ATTR_PLACE_NAME)
+            != self._internal_attr.get(ATTR_STREET),
+            require_in_display_options=False,
+        )
+        self._add_to_display(
+            user_display,
+            attr_key=ATTR_PLACE_CATEGORY,
+            condition=self.coordinator.get_attr_safe_str(ATTR_PLACE_CATEGORY).lower() != "place",
+            require_in_display_options=False,
+        )
+        self._add_to_display(
+            user_display,
+            attr_key=ATTR_PLACE_TYPE,
+            condition=self.coordinator.get_attr_safe_str(ATTR_PLACE_TYPE).lower() != "yes",
+            require_in_display_options=False,
+        )
+        self._add_to_display(
+            user_display,
+            attr_key=ATTR_PLACE_NEIGHBOURHOOD,
+            require_in_display_options=False,
+        )
+        self._add_to_display(
+            user_display,
+            attr_key=ATTR_STREET_NUMBER,
+            require_in_display_options=False,
+        )
+        self._add_to_display(
+            user_display,
+            attr_key=ATTR_STREET,
+            require_in_display_options=False,
+        )
+
+    def build_place(self) -> str:
+        """Build the standalone standard ``place`` display value.
+
+        Returns:
+            str:
+                Composed place name, classification, neighborhood, and street
+                fields, independent of zone status.
+        """
+        place_display: list[str] = []
+        self._add_place_to_display(place_display)
+        return ", ".join(place_display)
+
     async def build_display(self) -> str:
         """Build a comma-separated state string from basic display options.
 
@@ -104,40 +163,7 @@ class BasicOptionsParser:
 
         # Handle "place" and its sub-options
         if "place" in self.display_options:
-            self._add_to_display(
-                user_display,
-                attr_key="place_name",
-                condition=self._internal_attr.get("place_name")
-                != self._internal_attr.get("street"),
-                require_in_display_options=False,
-            )
-            self._add_to_display(
-                user_display,
-                attr_key="place_category",
-                condition=self.coordinator.get_attr_safe_str("place_category").lower() != "place",
-                require_in_display_options=False,
-            )
-            self._add_to_display(
-                user_display,
-                attr_key="place_type",
-                condition=self.coordinator.get_attr_safe_str("place_type").lower() != "yes",
-                require_in_display_options=False,
-            )
-            self._add_to_display(
-                user_display,
-                attr_key=ATTR_PLACE_NEIGHBOURHOOD,
-                require_in_display_options=False,
-            )
-            self._add_to_display(
-                user_display,
-                attr_key="street_number",
-                require_in_display_options=False,
-            )
-            self._add_to_display(
-                user_display,
-                attr_key="street",
-                require_in_display_options=False,
-            )
+            self._add_place_to_display(user_display)
         else:
             self._add_to_display(user_display, "street_number", option_key="street_number")
             self._add_to_display(user_display, "street", option_key="street")
@@ -166,9 +192,7 @@ class BasicOptionsParser:
         """
         formatted_place_array: list[str] = []
         if not await self.coordinator.in_zone():
-            if not self.coordinator.is_attr_blank(
-                "driving"
-            ) and "driving" in self.coordinator.get_attr_safe_list("display_options_list"):
+            if not self.coordinator.is_attr_blank("driving") and "driving" in self.display_options:
                 formatted_place_array.append(self.coordinator.get_attr_safe_str("driving"))
             use_place_name = self.should_use_place_name(self._internal_attr, self.coordinator)
             if not use_place_name:

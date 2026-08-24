@@ -64,6 +64,7 @@ from custom_components.places.const import (
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     DOMAIN,
+    EVENT_ATTRIBUTE_MAP,
     OSM_CACHE,
     OSM_THROTTLE,
     OSM_THROTTLE_INTERVAL_SECONDS,
@@ -3854,6 +3855,240 @@ async def test_fire_event_data_includes_core_attributes(
     assert "entity" in called_event[1]
     assert "from_state" in called_event[1]
     assert "to_state" in called_event[1]
+
+
+def test_event_attribute_map_matches_public_schema() -> None:
+    """Keep the flat event-field mapping aligned with its documented contract."""
+    assert EVENT_ATTRIBUTE_MAP == {
+        "driving": "driving",
+        "place_name": "place_name",
+        "place_name_no_dupe": "place_name_no_dupe",
+        "place_type": "place_type",
+        "place_category": "place_category",
+        "street_number": "street_number",
+        "street": "street",
+        "route_number": "route_number",
+        "neighborhood": "neighborhood",
+        "city": "city",
+        "city_clean": "city_clean",
+        "postal_town": "postal_town",
+        "state": "state",
+        "state_abbr": "state_abbr",
+        "county": "county",
+        "country": "country",
+        "country_code": "country_code",
+        "postal_code": "postal_code",
+        "latitude": "latitude",
+        "longitude": "longitude",
+        "zone": "zone",
+        "zone_name": "zone_name",
+        "last_changed": "last_changed",
+        "distance_from_home": "distance_from_home",
+        "distance_traveled": "distance_traveled",
+        "direction_of_travel": "direction_of_travel",
+        "previous_latitude": "previous_latitude",
+        "previous_longitude": "previous_longitude",
+        "map_link": "map_link",
+        "osm_id": "osm_id",
+        "osm_type": "osm_type",
+    }
+
+
+@pytest.mark.asyncio
+async def test_fire_event_data_matches_exact_public_schema(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """Emit every populated public field once without Advanced aliases.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+    """
+    sensor.attrs = {
+        source_attr: f"value_for_{event_field}"
+        for event_field, source_attr in EVENT_ATTRIBUTE_MAP.items()
+    }
+    sensor.attrs.update(
+        {
+            CONF_NAME: "Test Device",
+            ATTR_PREVIOUS_STATE: "Previous state",
+            ATTR_NATIVE_VALUE: "Current state",
+            ATTR_LAST_PLACE_NAME: "Previous location",
+            "driving": "Driving",
+            "place_name": "Landmark",
+            "place_name_no_dupe": "Landmark",
+            "place_category": "Amenity",
+            "place_type": "Cafe",
+            "neighborhood": "Downtown",
+            "street_number": "10",
+            "street": "Main Street",
+            "city_clean": "Metro",
+            "state_abbr": "ST",
+        }
+    )
+    sensor.display_options_list = ["formatted_place", "driving"]
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    await updater.fire_event_data(prev_last_place_name="Older location")
+
+    event_data = mock_hass.bus.fire.call_args.args[1]
+    assert set(event_data) == {
+        "entity",
+        "from_state",
+        "to_state",
+        "driving",
+        "place_name",
+        "place_name_no_dupe",
+        "place_type",
+        "place_category",
+        "street_number",
+        "street",
+        "route_number",
+        "neighborhood",
+        "city",
+        "city_clean",
+        "postal_town",
+        "state",
+        "state_abbr",
+        "county",
+        "country",
+        "country_code",
+        "postal_code",
+        "latitude",
+        "longitude",
+        "zone",
+        "zone_name",
+        "last_changed",
+        "last_place_name",
+        "distance_from_home",
+        "distance_traveled",
+        "direction_of_travel",
+        "previous_latitude",
+        "previous_longitude",
+        "map_link",
+        "osm_id",
+        "osm_type",
+        "place",
+        "formatted_place",
+    }
+    assert event_data["place"] == ("Landmark, Amenity, Cafe, Downtown, 10, Main Street")
+    assert event_data["formatted_place"] == "Driving, Landmark, Metro, ST"
+    assert {"name", "name_no_dupe", "type", "category", "zip_code"}.isdisjoint(event_data)
+
+
+@pytest.mark.asyncio
+async def test_fire_event_data_omits_blank_fields(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """Omit unavailable fields and empty composite values from event data.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+    """
+    sensor.attrs = {
+        CONF_NAME: "Test Device",
+        ATTR_PREVIOUS_STATE: "Previous state",
+        ATTR_NATIVE_VALUE: "Current state",
+    }
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    await updater.fire_event_data(prev_last_place_name="")
+
+    assert mock_hass.bus.fire.call_args.args[1] == {
+        "entity": "Test Device",
+        "from_state": "Previous state",
+        "to_state": "Current state",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("previous_value", "expected"), [("Current", False), ("Older", True)])
+async def test_fire_event_data_preserves_last_place_name_change_filter(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    previous_value: str,
+    expected: bool,
+) -> None:
+    """Emit ``last_place_name`` only when the update changed its value.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        previous_value (str):
+            Value captured before the update.
+        expected (bool):
+            Whether the event should contain ``last_place_name``.
+    """
+    sensor.attrs = {ATTR_LAST_PLACE_NAME: "Current"}
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    await updater.fire_event_data(prev_last_place_name=previous_value)
+
+    event_data = mock_hass.bus.fire.call_args.args[1]
+    assert (ATTR_LAST_PLACE_NAME in event_data) is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("in_zone", "expected_formatted_place"),
+    [(False, "Driving, Landmark, Metro, ST"), (True, "Home")],
+)
+async def test_fire_event_data_composite_place_semantics(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    in_zone: bool,
+    expected_formatted_place: str,
+) -> None:
+    """Keep ``place`` zone-independent while formatting zones conventionally.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        in_zone (bool):
+            Whether the tracked location is inside a Home Assistant zone.
+        expected_formatted_place (str):
+            Standard formatted-place value expected for the zone state.
+    """
+    sensor.attrs = {
+        "driving": "Driving",
+        "place_name": "Landmark",
+        "place_category": "Amenity",
+        "place_type": "Cafe",
+        "neighborhood": "Downtown",
+        "street_number": "10",
+        "street": "Main Street",
+        "city_clean": "Metro",
+        "state_abbr": "ST",
+        "zone_name": "Home",
+    }
+    sensor.display_options_list = ["formatted_place", "driving"]
+    sensor._in_zone = in_zone
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    await updater.fire_event_data(prev_last_place_name="")
+
+    event_data = mock_hass.bus.fire.call_args.args[1]
+    assert event_data["place"] == ("Landmark, Amenity, Cafe, Downtown, 10, Main Street")
+    assert event_data["formatted_place"] == expected_formatted_place
 
 
 @pytest.mark.asyncio
