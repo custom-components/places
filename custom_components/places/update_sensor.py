@@ -24,10 +24,12 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.util import slugify
 
+from .basic_options import BasicOptionsParser
 from .const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
+    ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_DISTANCE_FROM_HOME,
     ATTR_DISTANCE_TRAVELED,
     ATTR_HOME_LATITUDE,
@@ -64,7 +66,7 @@ from .const import (
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     DOMAIN,
-    EVENT_ATTRIBUTE_LIST,
+    EVENT_ATTRIBUTE_MAP,
     EVENT_TYPE,
     OSM_CACHE,
     RESET_ATTRIBUTE_LIST,
@@ -293,7 +295,7 @@ class PlacesUpdater:
         self.coordinator.set_attr(ATTR_INITIAL_UPDATE, False)
 
     async def fire_event_data(self, prev_last_place_name: str) -> None:
-        """Fire the Places state-update event with changed display attributes.
+        """Fire the Places state-update event with one atomic display snapshot.
 
         Args:
             prev_last_place_name (str):
@@ -310,17 +312,26 @@ class PlacesUpdater:
         if not self.coordinator.is_attr_blank(ATTR_NATIVE_VALUE):
             event_data.update({"to_state": self.coordinator.get_attr(ATTR_NATIVE_VALUE)})
 
-        for attr in EVENT_ATTRIBUTE_LIST:
+        for event_field, attr in EVENT_ATTRIBUTE_MAP.items():
             if not self.coordinator.is_attr_blank(attr):
-                event_data.update({attr: self.coordinator.get_attr(attr)})
+                event_data[event_field] = self.coordinator.get_attr(attr)
 
         if (
             not self.coordinator.is_attr_blank(ATTR_LAST_PLACE_NAME)
             and self.coordinator.get_attr(ATTR_LAST_PLACE_NAME) != prev_last_place_name
         ):
-            event_data.update(
-                {ATTR_LAST_PLACE_NAME: self.coordinator.get_attr(ATTR_LAST_PLACE_NAME)}
-            )
+            event_data[ATTR_LAST_PLACE_NAME] = self.coordinator.get_attr(ATTR_LAST_PLACE_NAME)
+
+        display_parser = BasicOptionsParser(
+            coordinator=self.coordinator,
+            internal_attr=self.coordinator.get_internal_attr(),
+            display_options=self.coordinator.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
+        )
+        composite_values = {
+            "place": display_parser.build_place(),
+            "formatted_place": await display_parser.build_formatted_place(),
+        }
+        event_data.update({key: value for key, value in composite_values.items() if value})
 
         self._hass.bus.fire(EVENT_TYPE, event_data)
         _LOGGER.debug(

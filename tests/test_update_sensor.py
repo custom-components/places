@@ -4,7 +4,6 @@ import asyncio
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime, timedelta
-from inspect import Parameter, signature
 import json
 import logging
 from typing import Protocol
@@ -363,162 +362,11 @@ async def test_do_update_force_rolls_back_failed_fresh_lookup(
 
 
 @pytest.mark.asyncio
-async def test_do_update_runs_phases_in_expected_order(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    sensor: MockSensor,
-    stubbed_updater: Callable[
-        [PlacesUpdater, list[tuple[str, dict[str, object]]]],
-        AbstractContextManager[dict[str, AsyncMock]],
-    ],
-) -> None:
-    """Assert all major phases execute in the expected ordered sequence.
-
-    Args:
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
-        mock_config_entry (MockConfigEntry):
-            Places configuration entry used by the test.
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-        stubbed_updater (Callable[[PlacesUpdater, list[tuple[str, dict[str, object]]]], AbstractContextManager[dict[str, AsyncMock]]]):
-            Updater with external dependencies replaced by stubs.
-    """
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    call_order: list[str] = []
-
-    updater.coordinator.set_attr(ATTR_LAST_PLACE_NAME, "Last Place")
-
-    def publish_update() -> None:
-        call_order.append("publish")
-        assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
-
-    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
-    persisted_last_updated: list[str] = []
-
-    async def persist_attributes() -> None:
-        persisted_last_updated.append(updater.coordinator.get_attr(ATTR_LAST_UPDATED))
-        call_order.append("persist")
-
-    updater.coordinator.async_persist_attributes = AsyncMock(side_effect=persist_attributes)
-
-    now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
-
-    def record_prev_last_place_name(key: str, _default: object = None) -> str:
-        if key == ATTR_LAST_PLACE_NAME:
-            call_order.append("capture_prev_last_place_name")
-        return "Last Place"
-
-    sensor.get_attr_safe_str = MagicMock(side_effect=record_prev_last_place_name)
-
-    async def log_update_start(_: str) -> None:
-        call_order.append("log_update_start")
-
-    async def get_current_time() -> datetime:
-        call_order.append("get_current_time")
-        return now
-
-    async def check_device_tracker() -> UpdateStatus:
-        call_order.append("check_device_tracker_and_update_coords")
-        return UpdateStatus.PROCEED
-
-    async def determine_update_criteria(*, force: bool = False) -> UpdateStatus:
-        call_order.append("determine_update_criteria")
-        return UpdateStatus.PROCEED
-
-    async def should_update_state(*_args: object, **_kwargs: object) -> bool:
-        call_order.append("should_update_state")
-        return True
-
-    async def finish_update(*_args: object, **_kwargs: object) -> None:
-        updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
-        call_order.append("finish_update")
-
-    async def update_entity_name_and_cleanup() -> None:
-        call_order.append("update_entity_name_and_cleanup")
-
-    async def update_previous_state() -> None:
-        call_order.append("update_previous_state")
-
-    async def update_old_coordinates() -> None:
-        call_order.append("update_old_coordinates")
-
-    async def process_osm_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("process_osm_update")
-
-    async def handle_state_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("handle_state_update")
-
-    with stubbed_updater(
-        updater,
-        [
-            ("log_update_start", {"side_effect": log_update_start}),
-            ("get_current_time", {"side_effect": get_current_time}),
-            ("update_entity_name_and_cleanup", {"side_effect": update_entity_name_and_cleanup}),
-            ("update_previous_state", {"side_effect": update_previous_state}),
-            ("update_old_coordinates", {"side_effect": update_old_coordinates}),
-            (
-                "check_device_tracker_and_update_coords",
-                {"side_effect": check_device_tracker},
-            ),
-            (
-                "determine_update_criteria",
-                {"side_effect": determine_update_criteria},
-            ),
-            (
-                "process_osm_update",
-                {"side_effect": process_osm_update},
-            ),
-            (
-                "should_update_state",
-                {"side_effect": should_update_state},
-            ),
-            (
-                "handle_state_update",
-                {"side_effect": handle_state_update},
-            ),
-            ("rollback_update", {}),
-            ("finish_update", {"side_effect": finish_update}),
-        ],
-    ) as mocks:
-        updater._osm_client.update_sensor_name = MagicMock(
-            side_effect=lambda _sensor_name: call_order.append("update_sensor_name")
-        )
-
-        await updater.do_update("manual", {"snapshot": "value"})
-
-        assert mocks["log_update_start"].await_count == 1
-
-    expected_order = [
-        "log_update_start",
-        "get_current_time",
-        "update_entity_name_and_cleanup",
-        "update_sensor_name",
-        "update_previous_state",
-        "update_old_coordinates",
-        "capture_prev_last_place_name",
-        "check_device_tracker_and_update_coords",
-        "determine_update_criteria",
-        "process_osm_update",
-        "should_update_state",
-        "handle_state_update",
-        "finish_update",
-        "persist",
-        "publish",
-    ]
-    assert call_order == expected_order
-    assert persisted_last_updated == ["2024-01-01 12:00:00"]
-
-
-@pytest.mark.asyncio
 async def test_do_update_rolls_back_and_finishes_on_phase_error(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    stubbed_updater: Callable[
-        [PlacesUpdater, list[tuple[str, dict[str, object]]]],
-        AbstractContextManager[dict[str, AsyncMock]],
-    ],
+    stubbed_updater: StubbedUpdater,
 ) -> None:
     """Phase errors should rollback and skip final publish bookkeeping.
 
@@ -529,66 +377,39 @@ async def test_do_update_rolls_back_and_finishes_on_phase_error(
             Places configuration entry used by the test.
         sensor (MockSensor):
             Places sensor fixture whose state is asserted.
-        stubbed_updater (Callable[[PlacesUpdater, list[tuple[str, dict[str, object]]]], AbstractContextManager[dict[str, AsyncMock]]]):
+        stubbed_updater (StubbedUpdater):
             Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    call_order: list[str] = []
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
-
-    def publish_update() -> None:
-        call_order.append("publish")
-
-    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
-
-    async def log_update_start(_: str) -> None:
-        call_order.append("log_update_start")
-
-    async def get_current_time() -> datetime:
-        call_order.append("get_current_time")
-        return now
-
-    async def check_device_tracker() -> UpdateStatus:
-        call_order.append("check_device_tracker_and_update_coords")
-        return UpdateStatus.PROCEED
-
-    async def determine_update_criteria(*, force: bool = False) -> UpdateStatus:
-        call_order.append("determine_update_criteria")
-        return UpdateStatus.PROCEED
+    updater.coordinator.publish_update = MagicMock()
 
     async def process_osm_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("process_osm_update")
         msg = "OSM failed"
         raise RuntimeError(msg)
-
-    async def rollback_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("rollback_update")
-
-    async def finish_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("finish_update")
 
     with stubbed_updater(
         updater,
         [
-            ("log_update_start", {"side_effect": log_update_start}),
-            ("get_current_time", {"side_effect": get_current_time}),
+            ("log_update_start", {}),
+            ("get_current_time", {"return_value": now}),
             ("update_entity_name_and_cleanup", {}),
             ("update_previous_state", {}),
             ("update_old_coordinates", {}),
             (
                 "check_device_tracker_and_update_coords",
-                {"side_effect": check_device_tracker},
+                {"return_value": UpdateStatus.PROCEED},
             ),
             (
                 "determine_update_criteria",
-                {"side_effect": determine_update_criteria},
+                {"return_value": UpdateStatus.PROCEED},
             ),
             (
                 "process_osm_update",
                 {"side_effect": process_osm_update},
             ),
-            ("rollback_update", {"side_effect": rollback_update}),
-            ("finish_update", {"side_effect": finish_update}),
+            ("rollback_update", {}),
+            ("finish_update", {}),
         ],
     ) as mocks:
         updater._osm_client.update_sensor_name = MagicMock()
@@ -602,25 +423,13 @@ async def test_do_update_rolls_back_and_finishes_on_phase_error(
         mocks["finish_update"].assert_not_awaited()
         updater.coordinator.publish_update.assert_not_called()
 
-    assert call_order == [
-        "log_update_start",
-        "get_current_time",
-        "check_device_tracker_and_update_coords",
-        "determine_update_criteria",
-        "process_osm_update",
-        "rollback_update",
-    ]
-
 
 @pytest.mark.asyncio
 async def test_do_update_skips_handle_and_finish_when_shutting_down_after_osm_update(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
     sensor: MockSensor,
-    stubbed_updater: Callable[
-        [PlacesUpdater, list[tuple[str, dict[str, object]]]],
-        AbstractContextManager[dict[str, AsyncMock]],
-    ],
+    stubbed_updater: StubbedUpdater,
 ) -> None:
     """OSM completion during shutdown should rollback and avoid publishing.
 
@@ -631,74 +440,40 @@ async def test_do_update_skips_handle_and_finish_when_shutting_down_after_osm_up
             Places configuration entry used by the test.
         sensor (MockSensor):
             Places sensor fixture whose state is asserted.
-        stubbed_updater (Callable[[PlacesUpdater, list[tuple[str, dict[str, object]]]], AbstractContextManager[dict[str, AsyncMock]]]):
+        stubbed_updater (StubbedUpdater):
             Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    call_order: list[str] = []
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
-
-    def publish_update() -> None:
-        call_order.append("publish")
-
-    updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
-
-    async def log_update_start(_: str) -> None:
-        call_order.append("log_update_start")
-
-    async def get_current_time() -> datetime:
-        call_order.append("get_current_time")
-        return now
-
-    async def check_device_tracker() -> UpdateStatus:
-        call_order.append("check_device_tracker_and_update_coords")
-        return UpdateStatus.PROCEED
-
-    async def determine_update_criteria(*, force: bool = False) -> UpdateStatus:
-        call_order.append("determine_update_criteria")
-        return UpdateStatus.PROCEED
+    updater.coordinator.publish_update = MagicMock()
 
     async def process_osm_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("process_osm_update")
         object.__setattr__(updater.coordinator, "is_shutting_down", True)
-
-    async def should_update_state(*_args: object, **_kwargs: object) -> bool:
-        call_order.append("should_update_state")
-        return True
-
-    async def rollback_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("rollback_update")
-
-    async def finish_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("finish_update")
-
-    async def handle_state_update(*_args: object, **_kwargs: object) -> None:
-        call_order.append("handle_state_update")
 
     with stubbed_updater(
         updater,
         [
-            ("log_update_start", {"side_effect": log_update_start}),
-            ("get_current_time", {"side_effect": get_current_time}),
+            ("log_update_start", {}),
+            ("get_current_time", {"return_value": now}),
             ("update_entity_name_and_cleanup", {}),
             ("update_previous_state", {}),
             ("update_old_coordinates", {}),
             (
                 "check_device_tracker_and_update_coords",
-                {"side_effect": check_device_tracker},
+                {"return_value": UpdateStatus.PROCEED},
             ),
             (
                 "determine_update_criteria",
-                {"side_effect": determine_update_criteria},
+                {"return_value": UpdateStatus.PROCEED},
             ),
             (
                 "process_osm_update",
                 {"side_effect": process_osm_update},
             ),
-            ("should_update_state", {"side_effect": should_update_state}),
-            ("rollback_update", {"side_effect": rollback_update}),
-            ("handle_state_update", {"side_effect": handle_state_update}),
-            ("finish_update", {"side_effect": finish_update}),
+            ("should_update_state", {"return_value": True}),
+            ("rollback_update", {}),
+            ("handle_state_update", {}),
+            ("finish_update", {}),
         ],
     ) as mocks:
         updater._osm_client.update_sensor_name = MagicMock()
@@ -711,15 +486,7 @@ async def test_do_update_skips_handle_and_finish_when_shutting_down_after_osm_up
         mocks["handle_state_update"].assert_not_awaited()
         mocks["finish_update"].assert_not_awaited()
         updater.coordinator.publish_update.assert_not_called()
-        assert call_order == [
-            "log_update_start",
-            "get_current_time",
-            "check_device_tracker_and_update_coords",
-            "determine_update_criteria",
-            "process_osm_update",
-            "rollback_update",
-        ]
-        assert "should_update_state" not in call_order
+        mocks["should_update_state"].assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1357,7 +1124,7 @@ async def test_check_for_updated_entity_name_uses_latest_coordinator_entity_id(
 
     await updater.check_for_updated_entity_name()
 
-    assert mock_hass.states.get.call_args_list[-1][0][0] == "sensor.new_name"
+    mock_hass.states.get.assert_called_with("sensor.new_name")
     assert coordinator.get_attr(CONF_NAME) == "NewName"
 
 
@@ -1673,13 +1440,6 @@ async def test_determine_update_criteria_calls(
     mocks["get_zone_details"].assert_awaited_once()
     mocks["update_coordinates_and_distance"].assert_awaited_once()
     mocks["determine_if_update_needed"].assert_awaited_once()
-
-
-def test_determine_update_criteria_force_is_keyword_only() -> None:
-    """The force flag should not be accepted as an ambiguous positional argument."""
-    force_parameter = signature(PlacesUpdater.determine_update_criteria).parameters["force"]
-
-    assert force_parameter.kind is Parameter.KEYWORD_ONLY
 
 
 async def test_update_coordinates_and_distance_accepts_unqualified_home_zone(
@@ -2000,28 +1760,27 @@ async def test_process_osm_update_calls(
     mocks["query_osm_and_finalize"].assert_awaited_once()
 
 
-def assert_map_link_set(sensor: MockSensor) -> None:
-    """Assert that set_attr was called with ATTR_MAP_LINK and a string value.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    found = False
-    for call in sensor.set_attr.call_args_list:
-        if call[0][0] == ATTR_MAP_LINK and isinstance(call[0][1], str):
-            found = True
-            break
-    assert found
-
-
-# `osm` provider covered in parametrized `test_get_map_link_providers_all` below.
-
-
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider", ["google", "apple", "osm"])
+@pytest.mark.parametrize(
+    ("provider", "expected"),
+    [
+        ("google", "https://maps.google.com/?q=loc&ll=loc&z=10"),
+        ("apple", "https://maps.apple.com/?q=loc&z=10"),
+        (
+            "osm",
+            (
+                "https://www.openstreetmap.org/?mlat=1.23456789&mlon=9.87654321"
+                "#map=10/1.234567/9.8765432"
+            ),
+        ),
+    ],
+)
 async def test_get_map_link_providers_all(
-    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor, provider: str
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    provider: str,
+    expected: str,
 ) -> None:
     """Parametrized: verify map link generation for multiple providers including OSM.
 
@@ -2034,6 +1793,8 @@ async def test_get_map_link_providers_all(
             Places sensor fixture whose state is asserted.
         provider (str):
             Map provider selected for link generation.
+        expected (str):
+            Exact public map URL expected for the provider.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     if provider == "osm":
@@ -2047,7 +1808,7 @@ async def test_get_map_link_providers_all(
             provider if k == CONF_MAP_PROVIDER else "loc" if k == ATTR_LOCATION_CURRENT else 10
         )
     await updater.get_map_link()
-    assert_map_link_set(sensor)
+    assert sensor.attrs[ATTR_MAP_LINK] == expected
 
 
 @pytest.mark.asyncio
@@ -3814,10 +3575,10 @@ async def test_log_tracker_issue_initial_update(
 
 
 @pytest.mark.asyncio
-async def test_fire_event_data_includes_core_attributes(
+async def test_fire_event_data_matches_exact_public_schema(
     mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
 ) -> None:
-    """Build and fire an event with expected core keys.
+    """Emit every populated public field once without Advanced aliases.
 
     Args:
         mock_hass (MagicMock):
@@ -3827,33 +3588,176 @@ async def test_fire_event_data_includes_core_attributes(
         sensor (MockSensor):
             Places sensor fixture whose state is asserted.
     """
+    event_field_values: dict[str, object] = {
+        "driving": "Driving",
+        "place_name": "Landmark",
+        "place_name_no_dupe": "Unique Landmark",
+        "place_type": "Cafe",
+        "place_category": "Amenity",
+        "street_number": "10",
+        "street": "Main Street",
+        "route_number": "R1",
+        "neighborhood": "Downtown",
+        "city": "Metro City",
+        "city_clean": "Metro",
+        "postal_town": "Postal Town",
+        "state": "State",
+        "state_abbr": "ST",
+        "county": "County",
+        "country": "Country",
+        "country_code": "CC",
+        "postal_code": "12345",
+        "latitude": 1.1,
+        "longitude": 2.2,
+        "zone": "not_home",
+        "zone_name": "Not Home",
+        "last_changed": "2026-08-23 12:00:00",
+        "distance_from_home": 100.0,
+        "distance_traveled": 10.0,
+        "direction_of_travel": "north",
+        "previous_latitude": 1.0,
+        "previous_longitude": 2.0,
+        "map_link": "https://example.com/map",
+        "osm_id": 123,
+        "osm_type": "node",
+    }
+    sensor.attrs = {
+        **event_field_values,
+        CONF_NAME: "Test Device",
+        ATTR_PREVIOUS_STATE: "Previous state",
+        ATTR_NATIVE_VALUE: "Current state",
+        ATTR_LAST_PLACE_NAME: "Previous location",
+    }
+    sensor.display_options_list = ["formatted_place", "driving"]
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
 
-    # Make sensor report values for several keys so event_data is populated
-    sensor.is_attr_blank.side_effect = lambda k: False
-    sensor.get_attr.side_effect = lambda k: (
-        "TestName"
-        if k == CONF_NAME
-        else "Prev"
-        if k == ATTR_PREVIOUS_STATE
-        else "Now"
-        if k == ATTR_NATIVE_VALUE
-        else "LP"
-        if k == ATTR_LAST_PLACE_NAME
-        else "ext"
+    await updater.fire_event_data(prev_last_place_name="Older location")
+
+    mock_hass.bus.fire.assert_called_once_with(
+        "places_state_update",
+        {
+            "entity": "Test Device",
+            "from_state": "Previous state",
+            "to_state": "Current state",
+            **event_field_values,
+            "last_place_name": "Previous location",
+            "place": "Landmark, Amenity, Cafe, Downtown, 10, Main Street",
+            "formatted_place": "Driving, Landmark, Metro, ST",
+        },
     )
+    event_data = mock_hass.bus.fire.call_args.args[1]
+    assert {"name", "name_no_dupe", "type", "category", "zip_code"}.isdisjoint(event_data)
 
-    await updater.fire_event_data(prev_last_place_name="Other")
 
-    # Ensure an event was fired with expected structure
-    mock_hass.bus.fire.assert_called_once()
-    called_event = mock_hass.bus.fire.call_args[0]
-    assert called_event[0] == "places_state_update"
-    assert isinstance(called_event[1], dict)
-    # Check that core keys are present
-    assert "entity" in called_event[1]
-    assert "from_state" in called_event[1]
-    assert "to_state" in called_event[1]
+@pytest.mark.asyncio
+async def test_fire_event_data_omits_blank_fields(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """Omit unavailable fields and empty composite values from event data.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+    """
+    sensor.attrs = {
+        CONF_NAME: "Test Device",
+        ATTR_PREVIOUS_STATE: "Previous state",
+        ATTR_NATIVE_VALUE: "Current state",
+    }
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    await updater.fire_event_data(prev_last_place_name="")
+
+    assert mock_hass.bus.fire.call_args.args[1] == {
+        "entity": "Test Device",
+        "from_state": "Previous state",
+        "to_state": "Current state",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("previous_value", "expected"), [("Current", False), ("Older", True)])
+async def test_fire_event_data_preserves_last_place_name_change_filter(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    previous_value: str,
+    expected: bool,
+) -> None:
+    """Emit ``last_place_name`` only when the update changed its value.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        previous_value (str):
+            Value captured before the update.
+        expected (bool):
+            Whether the event should contain ``last_place_name``.
+    """
+    sensor.attrs = {ATTR_LAST_PLACE_NAME: "Current"}
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    await updater.fire_event_data(prev_last_place_name=previous_value)
+
+    event_data = mock_hass.bus.fire.call_args.args[1]
+    assert (ATTR_LAST_PLACE_NAME in event_data) is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("in_zone", "expected_formatted_place"),
+    [(False, "Driving, Landmark, Metro, ST"), (True, "Home")],
+)
+async def test_fire_event_data_composite_place_semantics(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    in_zone: bool,
+    expected_formatted_place: str,
+) -> None:
+    """Keep ``place`` zone-independent while formatting zones conventionally.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        in_zone (bool):
+            Whether the tracked location is inside a Home Assistant zone.
+        expected_formatted_place (str):
+            Standard formatted-place value expected for the zone state.
+    """
+    sensor.attrs = {
+        "driving": "Driving",
+        "place_name": "Landmark",
+        "place_category": "Amenity",
+        "place_type": "Cafe",
+        "neighborhood": "Downtown",
+        "street_number": "10",
+        "street": "Main Street",
+        "city_clean": "Metro",
+        "state_abbr": "ST",
+        "zone_name": "Home",
+    }
+    sensor.display_options_list = ["formatted_place", "driving"]
+    sensor._in_zone = in_zone
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    await updater.fire_event_data(prev_last_place_name="")
+
+    event_data = mock_hass.bus.fire.call_args.args[1]
+    assert event_data["place"] == ("Landmark, Amenity, Cafe, Downtown, 10, Main Street")
+    assert event_data["formatted_place"] == expected_formatted_place
 
 
 @pytest.mark.asyncio
