@@ -167,7 +167,7 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 
 ## `places_state_update` Event
 
-Places fires `places_state_update` after each successful state change. The event data is a flat snapshot of the location details available for that update. Blank or unavailable values are omitted, so automations should allow for optional fields.
+Places fires `places_state_update` after each successful state update that publishes a state. The event data is a flat snapshot of the location details available for that update. Blank or unavailable values are omitted, so automations should allow for optional fields.
 
 <details>
 <summary>Event data fields</summary>
