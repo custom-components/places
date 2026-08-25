@@ -45,22 +45,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Restore automatic release tag
-        if: inputs.tag == '' && inputs.prerelease == false && github.run_attempt != 1
-        uses: actions/download-artifact@v8
-        with:
-          github-token: ${{ github.token }}
-          name: release-resolution-${{ github.run_id }}
-          path: ${{ runner.temp }}/release-resolution
-          repository: ${{ github.repository }}
-          run-id: ${{ github.run_id }}
-
       - name: Resolve release tag
         id: release_tag
         env:
+          ARTIFACT_NAME: release-resolution-${{ github.run_id }}
           BUMP_TYPE: ${{ inputs.bump }}
           EXPLICIT_TAG: ${{ inputs.tag }}
           GH_TOKEN: ${{ github.token }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
           PERSISTED_TAG_PATH: ${{ runner.temp }}/release-resolution/release-tag
           REQUIRE_PERSISTED_TAG: ${{ github.run_attempt != 1 }}

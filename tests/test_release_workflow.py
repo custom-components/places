@@ -119,6 +119,109 @@ def test_explicit_tag_rerun_does_not_require_automatic_state(tmp_path: Path) -> 
     assert output.read_text(encoding="utf-8") == "release-tag=v3.1.0-beta.2\n"
 
 
+def _automatic_retry_environment(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
+    """Build command paths and environment for an automatic release retry.
+
+    Args:
+        tmp_path (Path): Temporary command, state, and output directory.
+
+    Returns:
+        tuple[Path, Path, dict[str, str]]: Fake GitHub CLI path, workflow output
+            path, and retry environment.
+    """
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    gh = bin_directory / "gh"
+    output = tmp_path / "output"
+    environment = {
+        **os.environ,
+        "ARTIFACT_NAME": "release-resolution-123",
+        "BUMP_TYPE": "patch",
+        "EXPLICIT_TAG": "",
+        "GITHUB_OUTPUT": str(output),
+        "GITHUB_REPOSITORY": "example/places",
+        "GITHUB_RUN_ID": "123",
+        "IS_PRERELEASE": "false",
+        "PATH": f"{bin_directory}{os.pathsep}{os.environ['PATH']}",
+        "PERSISTED_TAG_PATH": str(tmp_path / "release-resolution" / "release-tag"),
+        "REQUIRE_PERSISTED_TAG": "true",
+    }
+    return gh, output, environment
+
+
+def test_missing_retry_artifact_recomputes_automatic_tag(tmp_path: Path) -> None:
+    """Recompute safely when attempt one failed before persisting its tag.
+
+    Args:
+        tmp_path (Path): Temporary command, state, and output directory.
+    """
+    gh, output, environment = _automatic_retry_environment(tmp_path)
+    gh.write_text(
+        """#!/usr/bin/env python3
+import json
+import sys
+
+if sys.argv[1:3] == ["api", "--paginate"]:
+    print(json.dumps([[
+        {
+            "draft": False,
+            "prerelease": False,
+            "published_at": "2026-08-24T00:00:00Z",
+            "tag_name": "v3.0.0",
+        }
+    ]]))
+elif sys.argv[1] == "api":
+    print(json.dumps({"artifacts": []}))
+else:
+    raise SystemExit(f"Unexpected gh arguments: {sys.argv[1:]}")
+""",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(SCRIPTS / "resolve_release_tag.py")],
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert output.read_text(encoding="utf-8") == "release-tag=v3.0.1\n"
+
+
+def test_retry_artifact_api_failure_does_not_recompute_tag(tmp_path: Path) -> None:
+    """Fail closed when retry identity cannot be checked reliably.
+
+    Args:
+        tmp_path (Path): Temporary command, state, and output directory.
+    """
+    gh, output, environment = _automatic_retry_environment(tmp_path)
+    gh.write_text(
+        """#!/usr/bin/env python3
+import sys
+
+sys.stderr.write("GitHub artifact API unavailable\\n")
+raise SystemExit(1)
+""",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(SCRIPTS / "resolve_release_tag.py")],
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "returned non-zero exit status" in result.stderr
+    assert not output.exists()
+
+
 def _git(repository: Path, *arguments: str) -> str:
     """Run Git in a temporary repository.
 

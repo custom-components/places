@@ -108,6 +108,73 @@ def _github_releases(repository: str) -> list[dict[str, Any]]:
     return [release for page in pages for release in page if isinstance(release, dict)]
 
 
+def _restore_persisted_tag(path: Path) -> bool:
+    """Restore a prior attempt's tag artifact when one exists.
+
+    Args:
+        path (Path): Destination path for the persisted release tag.
+
+    Returns:
+        bool: Whether a matching artifact existed and was restored.
+
+    Raises:
+        TypeError: If GitHub returns malformed artifact metadata.
+        ValueError: If the artifact is expired, ambiguous, or missing its tag file.
+        subprocess.CalledProcessError: If GitHub artifact access fails.
+    """
+    repository = _required_environment("GITHUB_REPOSITORY")
+    run_id = _required_environment("GITHUB_RUN_ID")
+    artifact_name = _required_environment("ARTIFACT_NAME")
+    result = subprocess.run(  # noqa: S603
+        [  # noqa: S607
+            "gh",
+            "api",
+            f"repos/{repository}/actions/runs/{run_id}/artifacts?name={artifact_name}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload: object = json.loads(result.stdout)
+    if not isinstance(payload, dict) or not isinstance(payload.get("artifacts"), list):
+        msg = "GitHub artifacts response has an unexpected shape"
+        raise TypeError(msg)
+    artifacts = [
+        artifact
+        for artifact in payload["artifacts"]
+        if isinstance(artifact, dict) and artifact.get("name") == artifact_name
+    ]
+    if not artifacts:
+        return False
+    if len(artifacts) != 1:
+        msg = "GitHub returned multiple matching release-resolution artifacts"
+        raise ValueError(msg)
+    if artifacts[0].get("expired") is True:
+        msg = "Persisted automatic release tag artifact is expired"
+        raise ValueError(msg)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(  # noqa: S603
+        [  # noqa: S607
+            "gh",
+            "run",
+            "download",
+            run_id,
+            "--repo",
+            repository,
+            "--name",
+            artifact_name,
+            "--dir",
+            str(path.parent),
+        ],
+        check=True,
+    )
+    if not path.is_file():
+        msg = "Persisted automatic release tag artifact is missing its tag file"
+        raise ValueError(msg)
+    return True
+
+
 def main() -> int:
     """Resolve and write the release tag as a workflow output."""
     explicit_tag = os.environ.get("EXPLICIT_TAG", "")
@@ -129,8 +196,14 @@ def main() -> int:
         if persisted_path is not None:
             tag = _read_persisted_tag(persisted_path)
         if tag is None and require_persisted == "true":
-            msg = "Persisted automatic release tag is missing"
-            raise ValueError(msg)
+            if persisted_path is None:
+                msg = "PERSISTED_TAG_PATH is required for automatic release retries"
+                raise ValueError(msg)
+            if _restore_persisted_tag(persisted_path):
+                tag = _read_persisted_tag(persisted_path)
+                if tag is None:
+                    msg = "Persisted automatic release tag is missing"
+                    raise ValueError(msg)
     if tag is None:
         releases = []
         if automatic_release and bump_type != "none":
@@ -154,6 +227,12 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, ValueError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
+    except (
+        OSError,
+        TypeError,
+        ValueError,
+        subprocess.CalledProcessError,
+        json.JSONDecodeError,
+    ) as error:
         sys.stderr.write(f"{error}\n")
         raise SystemExit(1) from error
