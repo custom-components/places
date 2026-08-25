@@ -1,13 +1,24 @@
 name: Release
 
-run-name: Release ${{ inputs.tag }}
+run-name: Release ${{ inputs.tag || inputs.bump }}
 
 on:
   workflow_dispatch:
     inputs:
+      bump:
+        description: Stable version bump when tag is blank
+        required: true
+        default: none
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
       tag:
         description: Release tag (for example, v3.0.1 or v3.1.0-beta.1)
-        required: true
+        required: false
+        default: ""
         type: string
       prerelease:
         description: Publish as a prerelease
@@ -16,7 +27,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release
@@ -24,12 +35,44 @@ concurrency:
 
 jobs:
   release:
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout selected revision
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Restore automatic release tag
+        if: inputs.tag == '' && inputs.prerelease == false && github.run_attempt != 1
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          name: release-resolution-${{ github.run_id }}
+          path: ${{ runner.temp }}/release-resolution
+          repository: ${{ github.repository }}
+          run-id: ${{ github.run_id }}
+
+      - name: Resolve release tag
+        id: release_tag
+        env:
+          BUMP_TYPE: ${{ inputs.bump }}
+          EXPLICIT_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
+          PERSISTED_TAG_PATH: ${{ runner.temp }}/release-resolution/release-tag
+          REQUIRE_PERSISTED_TAG: ${{ github.run_attempt != 1 }}
+        run: python3 .github/scripts/resolve_release_tag.py
+
+      - name: Persist automatic release tag
+        if: inputs.tag == '' && inputs.prerelease == false && github.run_attempt == 1
+        uses: actions/upload-artifact@v7
+        with:
+          if-no-files-found: error
+          name: release-resolution-${{ github.run_id }}
+          path: ${{ runner.temp }}/release-resolution/release-tag
 
       - name: Validate release request
         id: validate_release_request
@@ -38,7 +81,8 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_REF: ${{ github.ref_name }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
 
@@ -49,27 +93,13 @@ jobs:
 
           python3 .github/scripts/prepare_release.py --check-only "$RELEASE_TAG"
 
-          release_view_error="$RUNNER_TEMP/release-view-error.txt"
-          if release_is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>"$release_view_error")"; then
-            if [[ "$release_is_draft" != "true" ]]; then
-              echo "Published GitHub release already exists: $RELEASE_TAG" >&2
-              exit 1
-            fi
-          elif ! grep -Eq "HTTP 404|release not found" "$release_view_error"; then
-            cat "$release_view_error" >&2
-            exit 1
-          fi
+          bash .github/scripts/publish_release.sh check
 
           tag_commit="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG^{}" | awk 'NF == 2 { print $1 }')"
           if [[ -n "$tag_commit" ]]; then
             git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-            parent_line="$(git rev-list --parents -n 1 "$tag_commit")"
-            read -r release_commit parent_commit extra_parent <<<"$parent_line"
-            release_subject="$(git log -1 --format=%s "$tag_commit")"
-            if [[ "$release_commit" != "$tag_commit" || -z "$parent_commit" || -n "$extra_parent" || "$parent_commit" != "$GITHUB_SHA" || "$release_subject" != "Release $RELEASE_TAG" ]]; then
-              echo "Existing release tag $RELEASE_TAG is not a release commit directly based on this dispatch revision." >&2
-              exit 1
-            fi
+            python3 .github/scripts/validate_release_commit.py \
+              "$GITHUB_SHA" "$tag_commit" "$RELEASE_TAG"
 
             git checkout --detach "$tag_commit"
             python3 .github/scripts/prepare_release.py "$RELEASE_TAG"
@@ -89,7 +119,7 @@ jobs:
       - name: Create versioned release commit
         if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
 
@@ -114,48 +144,13 @@ jobs:
       - name: Push release tag
         if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: git push origin "refs/tags/$RELEASE_TAG"
 
-      - name: Create or resume draft release with HACS archive
+      - name: Create or resume and publish release with HACS archive
         env:
           GH_TOKEN: ${{ github.token }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          set -euo pipefail
-
-          release_view_error="$RUNNER_TEMP/release-view-error.txt"
-          if release_is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>"$release_view_error")"; then
-            if [[ "$release_is_draft" != "true" ]]; then
-              echo "Published GitHub release already exists: $RELEASE_TAG" >&2
-              exit 1
-            fi
-
-            gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/places.zip#places.zip" --clobber
-            exit 0
-          elif ! grep -Eq "HTTP 404|release not found" "$release_view_error"; then
-            cat "$release_view_error" >&2
-            exit 1
-          fi
-
-          release_args=(
-            "$RELEASE_TAG"
-            "$RUNNER_TEMP/places.zip#places.zip"
-            --draft
-            --generate-notes
-            --title "$RELEASE_TAG"
-            --verify-tag
-          )
-
-          if [[ "$IS_PRERELEASE" == "true" ]]; then
-            release_args+=(--prerelease)
-          fi
-
-          gh release create "${release_args[@]}"
-
-      - name: Publish completed release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: gh release edit "$RELEASE_TAG" --draft=false
+          RELEASE_ARCHIVE: ${{ runner.temp }}/places.zip
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
+        run: bash .github/scripts/publish_release.sh publish
