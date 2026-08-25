@@ -39,6 +39,19 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
+      - name: Validate dispatch ref
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$RELEASE_REF" != "$DEFAULT_BRANCH" ]]; then
+            echo "Release workflow must be dispatched from $DEFAULT_BRANCH," >&2
+            echo "not $RELEASE_REF." >&2
+            exit 1
+          fi
+
       - name: Checkout selected revision
         uses: actions/checkout@v7
         with:
@@ -81,17 +94,9 @@ jobs:
 
       - name: Validate release request
         env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          RELEASE_REF: ${{ github.ref_name }}
           RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
-
-          if [[ "$RELEASE_REF" != "$DEFAULT_BRANCH" ]]; then
-            echo "Release workflow must be dispatched from $DEFAULT_BRANCH," >&2
-            echo "not $RELEASE_REF." >&2
-            exit 1
-          fi
 
           python3 .github/scripts/prepare_release.py --check-only "$RELEASE_TAG"
 
