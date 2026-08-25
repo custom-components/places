@@ -15,7 +15,7 @@ from homeassistant.const import (
 )
 
 DOMAIN = "places"
-VERSION = "v2.9.4"
+VERSION = "v3.0.1"
 EVENT_TYPE = DOMAIN + "_state_update"
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
