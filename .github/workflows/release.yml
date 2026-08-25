@@ -1,13 +1,24 @@
 name: Release
 
-run-name: Release ${{ inputs.tag }}
+run-name: Release ${{ inputs.tag || inputs.bump }}
 
 on:
   workflow_dispatch:
     inputs:
+      bump:
+        description: Stable version bump when tag is blank
+        required: true
+        default: none
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
       tag:
         description: Release tag (for example, v3.0.1 or v3.1.0-beta.1)
-        required: true
+        required: false
+        default: ""
         type: string
       prerelease:
         description: Publish as a prerelease
@@ -16,7 +27,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release
@@ -24,138 +35,159 @@ concurrency:
 
 jobs:
   release:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
+      - name: Validate dispatch ref
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$RELEASE_REF" != "$DEFAULT_BRANCH" ]]; then
+            echo "Release workflow must be dispatched from $DEFAULT_BRANCH," >&2
+            echo "not $RELEASE_REF." >&2
+            exit 1
+          fi
+
       - name: Checkout selected revision
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Validate release request
-        id: validate_release_request
+      - name: Resolve release tag
+        id: release_tag
         env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GITHUB_SHA: ${{ github.sha }}
+          BUMP_TYPE: ${{ inputs.bump }}
+          EXPLICIT_TAG: ${{ inputs.tag }}
           GH_TOKEN: ${{ github.token }}
-          RELEASE_REF: ${{ github.ref_name }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
         run: |
           set -euo pipefail
 
-          if [[ "$RELEASE_REF" != "$DEFAULT_BRANCH" ]]; then
-            echo "Release workflow must be dispatched from $DEFAULT_BRANCH, not $RELEASE_REF." >&2
+          if [[ -n "$EXPLICIT_TAG" ]]; then
+            if [[ "$BUMP_TYPE" != "none" ]]; then
+              echo "An explicit tag requires bump=none." >&2
+              exit 1
+            fi
+            echo "release-tag=$EXPLICIT_TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            echo "Prereleases require an explicit tag." >&2
             exit 1
           fi
+          if [[ "$BUMP_TYPE" == "none" ]]; then
+            echo "Provide an explicit tag or select a stable version bump." >&2
+            exit 1
+          fi
+
+          release_tags="$(gh release list --exclude-drafts \
+            --exclude-pre-releases --limit 1000 --json tagName \
+            --jq '.[].tagName')"
+          release_tag="$(printf '%s\n' "$release_tags" | \
+            python3 .github/scripts/prepare_release.py --next-tag "$BUMP_TYPE")"
+          echo "release-tag=$release_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release request
+        env:
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
+        run: |
+          set -euo pipefail
 
           python3 .github/scripts/prepare_release.py --check-only "$RELEASE_TAG"
 
-          release_view_error="$RUNNER_TEMP/release-view-error.txt"
-          if release_is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>"$release_view_error")"; then
-            if [[ "$release_is_draft" != "true" ]]; then
-              echo "Published GitHub release already exists: $RELEASE_TAG" >&2
-              exit 1
-            fi
-          elif ! grep -Eq "HTTP 404|release not found" "$release_view_error"; then
-            cat "$release_view_error" >&2
-            exit 1
-          fi
-
-          tag_commit="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG^{}" | awk 'NF == 2 { print $1 }')"
-          if [[ -n "$tag_commit" ]]; then
-            git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-            parent_line="$(git rev-list --parents -n 1 "$tag_commit")"
-            read -r release_commit parent_commit extra_parent <<<"$parent_line"
-            release_subject="$(git log -1 --format=%s "$tag_commit")"
-            if [[ "$release_commit" != "$tag_commit" || -z "$parent_commit" || -n "$extra_parent" || "$parent_commit" != "$GITHUB_SHA" || "$release_subject" != "Release $RELEASE_TAG" ]]; then
-              echo "Existing release tag $RELEASE_TAG is not a release commit directly based on this dispatch revision." >&2
-              exit 1
-            fi
-
-            git checkout --detach "$tag_commit"
-            python3 .github/scripts/prepare_release.py "$RELEASE_TAG"
-            if ! git diff --quiet -- custom_components/places/manifest.json custom_components/places/const.py; then
-              echo "Existing release tag $RELEASE_TAG does not contain matching version files." >&2
-              exit 1
-            fi
-
-            echo "resume_tag=true" >> "$GITHUB_OUTPUT"
-          elif git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Existing release tag $RELEASE_TAG is not an annotated tag with a peeled commit." >&2
-            exit 1
-          else
-            echo "resume_tag=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create versioned release commit
-        if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
+      - name: Require unused tag and release
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
+        run: |
+          set -euo pipefail
+
+          set +e
+          tag_output="$(git ls-remote --exit-code --tags origin \
+            "refs/tags/$RELEASE_TAG" 2>&1)"
+          tag_status=$?
+          set -e
+          case "$tag_status" in
+            0)
+              echo "Remote tag already exists: $RELEASE_TAG" >&2
+              exit 1
+              ;;
+            2) ;;
+            *)
+              echo "Unable to verify whether remote tag exists:" >&2
+              echo "$RELEASE_TAG" >&2
+              printf '%s\n' "$tag_output" >&2
+              exit 1
+              ;;
+          esac
+
+          set +e
+          release_output="$(gh api --include \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" 2>&1)"
+          release_status=$?
+          set -e
+          if [[ "$release_status" -eq 0 ]]; then
+            echo "GitHub release already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          if ! printf '%s\n' "$release_output" | \
+            grep -Eq '^HTTP/[0-9.]+ 404 '; then
+            echo "Unable to verify whether GitHub release exists:" >&2
+            echo "$RELEASE_TAG" >&2
+            printf '%s\n' "$release_output" >&2
+            exit 1
+          fi
+
+      - name: Create versioned release commit and annotated tag
+        env:
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
 
           python3 .github/scripts/prepare_release.py "$RELEASE_TAG"
-
           git diff --check
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add custom_components/places/manifest.json custom_components/places/const.py
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/places/manifest.json \
+            custom_components/places/const.py
           git commit -m "Release $RELEASE_TAG"
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
 
-      - name: Build HACS archive from release commit
+      - name: Build and test HACS archive from release tag
+        env:
+          RELEASE_ARCHIVE: ${{ runner.temp }}/places.zip
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
-          git archive \
-            --format=zip \
-            --output="$RUNNER_TEMP/places.zip" \
-            HEAD:custom_components/places
-          unzip -t "$RUNNER_TEMP/places.zip"
+
+          git archive --format=zip --output="$RELEASE_ARCHIVE" \
+            "$RELEASE_TAG:custom_components/places"
+          unzip -t "$RELEASE_ARCHIVE"
 
       - name: Push release tag
-        if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: git push origin "refs/tags/$RELEASE_TAG"
 
-      - name: Create or resume draft release with HACS archive
+      - name: Create GitHub release with HACS archive
         env:
           GH_TOKEN: ${{ github.token }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_ARCHIVE: ${{ runner.temp }}/places.zip
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
 
-          release_view_error="$RUNNER_TEMP/release-view-error.txt"
-          if release_is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>"$release_view_error")"; then
-            if [[ "$release_is_draft" != "true" ]]; then
-              echo "Published GitHub release already exists: $RELEASE_TAG" >&2
-              exit 1
-            fi
-
-            gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/places.zip#places.zip" --clobber
-            exit 0
-          elif ! grep -Eq "HTTP 404|release not found" "$release_view_error"; then
-            cat "$release_view_error" >&2
-            exit 1
-          fi
-
-          release_args=(
-            "$RELEASE_TAG"
-            "$RUNNER_TEMP/places.zip#places.zip"
-            --draft
-            --generate-notes
-            --title "$RELEASE_TAG"
-            --verify-tag
-          )
-
+          release_asset="$RELEASE_ARCHIVE#places.zip"
+          arguments=(release create "$RELEASE_TAG" "$release_asset")
+          arguments+=(--generate-notes --title "$RELEASE_TAG" --verify-tag)
           if [[ "$IS_PRERELEASE" == "true" ]]; then
-            release_args+=(--prerelease)
+            arguments+=(--prerelease)
           fi
-
-          gh release create "${release_args[@]}"
-
-      - name: Publish completed release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: gh release edit "$RELEASE_TAG" --draft=false
+          gh "${arguments[@]}"
