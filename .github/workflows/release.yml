@@ -93,7 +93,7 @@ jobs:
 
           python3 .github/scripts/prepare_release.py --check-only "$RELEASE_TAG"
 
-          bash .github/scripts/publish_release.sh check
+          python3 .github/scripts/publish_release.py check
 
           tag_commit="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG^{}" | awk 'NF == 2 { print $1 }')"
           if [[ -n "$tag_commit" ]]; then
@@ -153,4 +153,4 @@ jobs:
           IS_PRERELEASE: ${{ inputs.prerelease }}
           RELEASE_ARCHIVE: ${{ runner.temp }}/places.zip
           RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
-        run: bash .github/scripts/publish_release.sh publish
+        run: python3 .github/scripts/publish_release.py publish

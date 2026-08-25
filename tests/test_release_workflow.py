@@ -242,7 +242,7 @@ def test_draft_prerelease_mismatch_stops_before_upload(tmp_path: Path) -> None:
 set -euo pipefail
 printf '%s\\n' "$*" >> "$CALLS_FILE"
 if [[ "$*" == "release view"* ]]; then
-  printf 'true\\tfalse\\n'
+  printf '{"isDraft":true,"isPrerelease":false}\\n'
 fi
 """,
         encoding="utf-8",
@@ -261,7 +261,7 @@ fi
     }
 
     result = subprocess.run(  # noqa: S603
-        ["bash", str(SCRIPTS / "publish_release.sh"), "publish"],  # noqa: S607
+        [sys.executable, str(SCRIPTS / "publish_release.py"), "publish"],
         env=environment,
         check=False,
         capture_output=True,
