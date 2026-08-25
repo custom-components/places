@@ -36,7 +36,6 @@ concurrency:
 jobs:
   release:
     permissions:
-      actions: read
       contents: write
     runs-on: ubuntu-latest
     steps:
@@ -48,101 +47,142 @@ jobs:
       - name: Resolve release tag
         id: release_tag
         env:
-          ARTIFACT_NAME: release-resolution-${{ github.run_id }}
           BUMP_TYPE: ${{ inputs.bump }}
           EXPLICIT_TAG: ${{ inputs.tag }}
           GH_TOKEN: ${{ github.token }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
-          PERSISTED_TAG_PATH: ${{ runner.temp }}/release-resolution/release-tag
-          REQUIRE_PERSISTED_TAG: ${{ github.run_attempt != 1 }}
-        run: python3 .github/scripts/resolve_release_tag.py
+        run: |
+          set -euo pipefail
 
-      - name: Persist automatic release tag
-        if: inputs.tag == '' && inputs.prerelease == false && github.run_attempt == 1
-        uses: actions/upload-artifact@v7
-        with:
-          if-no-files-found: error
-          name: release-resolution-${{ github.run_id }}
-          path: ${{ runner.temp }}/release-resolution/release-tag
+          if [[ -n "$EXPLICIT_TAG" ]]; then
+            if [[ "$BUMP_TYPE" != "none" ]]; then
+              echo "An explicit tag requires bump=none." >&2
+              exit 1
+            fi
+            echo "release-tag=$EXPLICIT_TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            echo "Prereleases require an explicit tag." >&2
+            exit 1
+          fi
+          if [[ "$BUMP_TYPE" == "none" ]]; then
+            echo "Provide an explicit tag or select a stable version bump." >&2
+            exit 1
+          fi
+
+          release_tags="$(gh release list --exclude-drafts \
+            --exclude-pre-releases --limit 1000 --json tagName \
+            --jq '.[].tagName')"
+          release_tag="$(printf '%s\n' "$release_tags" | \
+            python3 .github/scripts/prepare_release.py --next-tag "$BUMP_TYPE")"
+          echo "release-tag=$release_tag" >> "$GITHUB_OUTPUT"
 
       - name: Validate release request
-        id: validate_release_request
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          GITHUB_SHA: ${{ github.sha }}
-          GH_TOKEN: ${{ github.token }}
           RELEASE_REF: ${{ github.ref_name }}
-          IS_PRERELEASE: ${{ inputs.prerelease }}
           RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
 
           if [[ "$RELEASE_REF" != "$DEFAULT_BRANCH" ]]; then
-            echo "Release workflow must be dispatched from $DEFAULT_BRANCH, not $RELEASE_REF." >&2
+            echo "Release workflow must be dispatched from $DEFAULT_BRANCH," >&2
+            echo "not $RELEASE_REF." >&2
             exit 1
           fi
 
           python3 .github/scripts/prepare_release.py --check-only "$RELEASE_TAG"
 
-          python3 .github/scripts/publish_release.py check
+      - name: Require unused tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
+        run: |
+          set -euo pipefail
 
-          tag_commit="$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG^{}" | awk 'NF == 2 { print $1 }')"
-          if [[ -n "$tag_commit" ]]; then
-            git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-            python3 .github/scripts/validate_release_commit.py \
-              "$GITHUB_SHA" "$tag_commit" "$RELEASE_TAG"
-
-            git checkout --detach "$tag_commit"
-            python3 .github/scripts/prepare_release.py "$RELEASE_TAG"
-            if ! git diff --quiet -- custom_components/places/manifest.json custom_components/places/const.py; then
-              echo "Existing release tag $RELEASE_TAG does not contain matching version files." >&2
+          set +e
+          tag_output="$(git ls-remote --exit-code --tags origin \
+            "refs/tags/$RELEASE_TAG" 2>&1)"
+          tag_status=$?
+          set -e
+          case "$tag_status" in
+            0)
+              echo "Remote tag already exists: $RELEASE_TAG" >&2
               exit 1
-            fi
+              ;;
+            2) ;;
+            *)
+              echo "Unable to verify whether remote tag exists:" >&2
+              echo "$RELEASE_TAG" >&2
+              printf '%s\n' "$tag_output" >&2
+              exit 1
+              ;;
+          esac
 
-            echo "resume_tag=true" >> "$GITHUB_OUTPUT"
-          elif git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Existing release tag $RELEASE_TAG is not an annotated tag with a peeled commit." >&2
+          set +e
+          release_output="$(gh api --include \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" 2>&1)"
+          release_status=$?
+          set -e
+          if [[ "$release_status" -eq 0 ]]; then
+            echo "GitHub release already exists: $RELEASE_TAG" >&2
             exit 1
-          else
-            echo "resume_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+          if ! printf '%s\n' "$release_output" | \
+            grep -Eq '^HTTP/[0-9.]+ 404 '; then
+            echo "Unable to verify whether GitHub release exists:" >&2
+            echo "$RELEASE_TAG" >&2
+            printf '%s\n' "$release_output" >&2
+            exit 1
           fi
 
-      - name: Create versioned release commit
-        if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
+      - name: Create versioned release commit and annotated tag
         env:
           RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
 
           python3 .github/scripts/prepare_release.py "$RELEASE_TAG"
-
           git diff --check
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add custom_components/places/manifest.json custom_components/places/const.py
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/places/manifest.json \
+            custom_components/places/const.py
           git commit -m "Release $RELEASE_TAG"
           git tag -a "$RELEASE_TAG" -m "Release $RELEASE_TAG"
 
-      - name: Build HACS archive from release commit
+      - name: Build and test HACS archive from release tag
+        env:
+          RELEASE_ARCHIVE: ${{ runner.temp }}/places.zip
+          RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
           set -euo pipefail
-          git archive \
-            --format=zip \
-            --output="$RUNNER_TEMP/places.zip" \
-            HEAD:custom_components/places
-          unzip -t "$RUNNER_TEMP/places.zip"
+
+          git archive --format=zip --output="$RELEASE_ARCHIVE" \
+            "$RELEASE_TAG:custom_components/places"
+          unzip -t "$RELEASE_ARCHIVE"
 
       - name: Push release tag
-        if: ${{ steps.validate_release_request.outputs.resume_tag != 'true' }}
         env:
           RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: git push origin "refs/tags/$RELEASE_TAG"
 
-      - name: Create or resume and publish release with HACS archive
+      - name: Create GitHub release with HACS archive
         env:
           GH_TOKEN: ${{ github.token }}
           IS_PRERELEASE: ${{ inputs.prerelease }}
           RELEASE_ARCHIVE: ${{ runner.temp }}/places.zip
           RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
-        run: python3 .github/scripts/publish_release.py publish
+        run: |
+          set -euo pipefail
+
+          release_asset="$RELEASE_ARCHIVE#places.zip"
+          arguments=(release create "$RELEASE_TAG" "$release_asset")
+          arguments+=(--generate-notes --title "$RELEASE_TAG" --verify-tag)
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            arguments+=(--prerelease)
+          fi
+          gh "${arguments[@]}"

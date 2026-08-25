@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 import json
 from pathlib import Path
 import re
+import sys
 
 TAG_PATTERN = re.compile(
     r"^v[0-9]+(?:\.[0-9]+){1,3}(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?(?:[A-Za-z]+[0-9]+)?$"
 )
 MANIFEST_VERSION_PATTERN = re.compile(r'("version"\s*:\s*)"[^"]*"')
 CONST_VERSION_PATTERN = re.compile(r'^(VERSION\s*=\s*)"[^"]*"', re.MULTILINE)
+STABLE_TAG_PATTERN = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
 
 def validate_release_tag(tag: str) -> None:
@@ -27,6 +30,45 @@ def validate_release_tag(tag: str) -> None:
     if TAG_PATTERN.fullmatch(tag) is None:
         msg = f"Invalid release tag: {tag}"
         raise ValueError(msg)
+
+
+def next_stable_release_tag(tags: Iterable[str], bump_type: str) -> str:
+    """Return the next stable tag after the highest released stable version.
+
+    Args:
+        tags (Iterable[str]): Candidate tag names from the release repository.
+        bump_type (str): Requested stable version increment.
+
+    Returns:
+        str: The next stable release tag.
+
+    Raises:
+        ValueError: If the bump type is unsupported or no stable tag is found.
+    """
+    if bump_type not in {"patch", "minor", "major"}:
+        msg = f"Unsupported bump type: {bump_type}"
+        raise ValueError(msg)
+
+    versions = [
+        tuple(int(component) for component in match.groups())
+        for tag in tags
+        if (match := STABLE_TAG_PATTERN.fullmatch(tag)) is not None
+    ]
+    if not versions:
+        msg = "No stable released tag found."
+        raise ValueError(msg)
+
+    major, minor, patch = max(versions)
+    if bump_type == "patch":
+        patch += 1
+    elif bump_type == "minor":
+        minor += 1
+        patch = 0
+    else:
+        major += 1
+        minor = 0
+        patch = 0
+    return f"v{major}.{minor}.{patch}"
 
 
 def _replace_version(
@@ -107,7 +149,12 @@ def main() -> int:
         int: Zero when validation or version preparation succeeds.
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tag", help="Release tag, such as v3.0.1")
+    parser.add_argument("tag", nargs="?", help="Release tag, such as v3.0.1")
+    parser.add_argument(
+        "--next-tag",
+        metavar="BUMP_TYPE",
+        help="Print the next stable tag for patch, minor, or major",
+    )
     parser.add_argument(
         "--check-only",
         action="store_true",
@@ -116,7 +163,17 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        if args.check_only:
+        if (args.tag is None) == (args.next_tag is None):
+            msg = "Provide exactly one release tag or --next-tag BUMP_TYPE."
+            raise ValueError(msg)
+        if args.next_tag is not None:
+            if args.check_only:
+                msg = "--check-only cannot be used with --next-tag."
+                raise ValueError(msg)
+            sys.stdout.write(
+                f"{next_stable_release_tag(sys.stdin.read().splitlines(), args.next_tag)}\n"
+            )
+        elif args.check_only:
             validate_release_tag(args.tag)
         else:
             update_release_versions(Path.cwd(), args.tag)
