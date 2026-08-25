@@ -171,6 +171,62 @@ def test_existing_release_commit_rejects_unexpected_changes(
         validate_release_commit.validate_release_commit(source_sha, release_sha, "v3.0.1")
 
 
+@pytest.mark.parametrize(
+    ("path", "content"),
+    [
+        (
+            "custom_components/places/const.py",
+            'VERSION = "v3.0.1"\nSAFE = False\n',
+        ),
+        (
+            "custom_components/places/manifest.json",
+            '{"version":"v3.0.1","requirements":["unexpected==1.0"]}\n',
+        ),
+    ],
+)
+def test_existing_release_commit_rejects_unexpected_allowed_file_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    content: str,
+) -> None:
+    """Reject unrelated changes hidden inside an allowed release file.
+
+    Args:
+        tmp_path (Path): Temporary repository directory.
+        monkeypatch (pytest.MonkeyPatch): Working-directory test fixture.
+        path (str): Allowed release file containing an unrelated mutation.
+        content (str): Mutated release file contents.
+    """
+    _git(tmp_path, "init", "--initial-branch=main")
+    _git(tmp_path, "config", "user.name", "Release Test")
+    _git(tmp_path, "config", "user.email", "release@example.com")
+    integration = tmp_path / "custom_components" / "places"
+    integration.mkdir(parents=True)
+    (integration / "manifest.json").write_text('{"version":"v3.0.0"}\n', encoding="utf-8")
+    (integration / "const.py").write_text('VERSION = "v3.0.0"\n', encoding="utf-8")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-m", "Source")
+    source_sha = _git(tmp_path, "rev-parse", "HEAD")
+
+    (tmp_path / path).write_text(content, encoding="utf-8")
+    other_path = {
+        "custom_components/places/const.py",
+        "custom_components/places/manifest.json",
+    }.difference({path}).pop()
+    other_content = (
+        'VERSION = "v3.0.1"\n' if other_path.endswith("const.py") else '{"version":"v3.0.1"}\n'
+    )
+    (tmp_path / other_path).write_text(other_content, encoding="utf-8")
+    _git(tmp_path, "add", ".")
+    _git(tmp_path, "commit", "-m", "Release v3.0.1")
+    release_sha = _git(tmp_path, "rev-parse", "HEAD")
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(ValueError, match="contains unexpected content"):
+        validate_release_commit.validate_release_commit(source_sha, release_sha, "v3.0.1")
+
+
 def test_draft_prerelease_mismatch_stops_before_upload(tmp_path: Path) -> None:
     """Do not upload or publish when an existing draft has different prerelease state.
 
