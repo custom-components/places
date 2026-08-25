@@ -15,7 +15,14 @@ BUMP_TYPES = {"none", "patch", "minor", "major"}
 
 
 def _stable_versions(releases: list[dict[str, Any]]) -> list[tuple[int, int, int]]:
-    """Return published stable semantic versions from GitHub release data."""
+    """Return published stable semantic versions from GitHub release data.
+
+    Args:
+        releases (list[dict[str, Any]]): Release objects returned by GitHub.
+
+    Returns:
+        list[tuple[int, int, int]]: Parsed stable versions from published releases.
+    """
     versions: list[tuple[int, int, int]] = []
     for release in releases:
         if release.get("draft") is not False or release.get("prerelease") is not False:
@@ -35,7 +42,20 @@ def resolve_release_tag(
     bump_type: str,
     releases: list[dict[str, Any]],
 ) -> str:
-    """Resolve the requested tag while reserving automatic bumps for stable releases."""
+    """Resolve the requested tag while reserving automatic bumps for stable releases.
+
+    Args:
+        explicit_tag (str): Optional tag supplied by the dispatch request.
+        is_prerelease (bool): Whether the requested release is a prerelease.
+        bump_type (str): Requested automatic stable-version bump type.
+        releases (list[dict[str, Any]]): GitHub releases used for automatic bumps.
+
+    Returns:
+        str: The explicit or automatically calculated release tag.
+
+    Raises:
+        ValueError: If the request cannot resolve to a valid release tag.
+    """
     explicit_tag = explicit_tag.strip()
     if bump_type not in BUMP_TYPES:
         msg = "Bump type must be none, patch, minor, or major"
@@ -67,7 +87,17 @@ def resolve_release_tag(
 
 
 def _required_environment(name: str) -> str:
-    """Read a required non-empty environment variable."""
+    """Read a required non-empty environment variable.
+
+    Args:
+        name (str): Environment variable name.
+
+    Returns:
+        str: Trimmed environment variable value.
+
+    Raises:
+        ValueError: If the environment variable is empty or missing.
+    """
     value = os.environ.get(name, "").strip()
     if not value:
         msg = f"{name} is required"
@@ -76,7 +106,17 @@ def _required_environment(name: str) -> str:
 
 
 def _read_persisted_tag(path: Path) -> str | None:
-    """Read and validate a tag persisted by an earlier run attempt."""
+    """Read and validate a tag persisted by an earlier run attempt.
+
+    Args:
+        path (Path): Persisted release-tag file path.
+
+    Returns:
+        str | None: The validated tag, or ``None`` when the file is absent.
+
+    Raises:
+        ValueError: If the persisted tag is not a stable semantic version.
+    """
     try:
         tag = path.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
@@ -88,7 +128,18 @@ def _read_persisted_tag(path: Path) -> str | None:
 
 
 def _github_releases(repository: str) -> list[dict[str, Any]]:
-    """Load every GitHub release page for the repository."""
+    """Load every GitHub release page for the repository.
+
+    Args:
+        repository (str): GitHub ``owner/repository`` identifier.
+
+    Returns:
+        list[dict[str, Any]]: Release objects from all returned API pages.
+
+    Raises:
+        ValueError: If GitHub returns an unexpected response shape.
+        subprocess.CalledProcessError: If the GitHub CLI request fails.
+    """
     result = subprocess.run(  # noqa: S603
         [  # noqa: S607
             "gh",
@@ -176,7 +227,18 @@ def _restore_persisted_tag(path: Path) -> bool:
 
 
 def main() -> int:
-    """Resolve and write the release tag as a workflow output."""
+    """Resolve and write the release tag as a workflow output.
+
+    Returns:
+        int: Zero after the resolved tag is written to ``GITHUB_OUTPUT``.
+
+    Raises:
+        OSError: If release state or the workflow output cannot be read or written.
+        TypeError: If the persisted artifact response has an unexpected shape.
+        ValueError: If the release request or persisted tag is invalid.
+        subprocess.CalledProcessError: If a required GitHub CLI command fails.
+        json.JSONDecodeError: If a GitHub CLI response is not valid JSON.
+    """
     explicit_tag = os.environ.get("EXPLICIT_TAG", "")
     prerelease_value = os.environ.get("IS_PRERELEASE", "")
     bump_type = os.environ.get("BUMP_TYPE", "none").strip()

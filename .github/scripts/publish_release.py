@@ -80,6 +80,9 @@ def _run_gh(*arguments: str) -> None:
 
     Args:
         *arguments (str): GitHub CLI arguments.
+
+    Raises:
+        subprocess.CalledProcessError: If the GitHub CLI command fails.
     """
     subprocess.run(["gh", *arguments], check=True)  # noqa: S603, S607
 

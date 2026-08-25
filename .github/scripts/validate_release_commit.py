@@ -14,7 +14,17 @@ RELEASE_PATHS = {
 
 
 def _git(*arguments: str) -> str:
-    """Run Git and return trimmed standard output."""
+    """Run Git and return trimmed standard output.
+
+    Args:
+        *arguments (str): Arguments passed to Git.
+
+    Returns:
+        str: Git standard output without leading or trailing whitespace.
+
+    Raises:
+        subprocess.CalledProcessError: If Git returns a non-zero exit status.
+    """
     return subprocess.run(  # noqa: S603
         ["git", *arguments],  # noqa: S607
         check=True,
@@ -32,6 +42,9 @@ def _git_blob(revision: str, path: str) -> bytes:
 
     Returns:
         bytes: Exact blob contents.
+
+    Raises:
+        subprocess.CalledProcessError: If Git cannot read the requested blob.
     """
     return subprocess.run(  # noqa: S603
         ["git", "show", f"{revision}:{path}"],  # noqa: S607
@@ -49,8 +62,12 @@ def _expected_release_blobs(source_sha: str, release_tag: str) -> dict[str, byte
 
     Returns:
         dict[str, bytes]: Expected blob contents keyed by repository path.
+
+    Raises:
+        OSError: If the temporary repository or prepare script cannot be accessed.
+        subprocess.CalledProcessError: If Git or the prepare script fails.
     """
-    prepare_script = Path(__file__).with_name("prepare_release.py")
+    prepare_script = Path(__file__).resolve().with_name("prepare_release.py")
     with tempfile.TemporaryDirectory() as temporary_directory:
         repository = Path(temporary_directory)
         for path in RELEASE_PATHS:
@@ -66,7 +83,17 @@ def _expected_release_blobs(source_sha: str, release_tag: str) -> dict[str, byte
 
 
 def validate_release_commit(source_sha: str, release_sha: str, release_tag: str) -> None:
-    """Require a direct release-only child of the dispatched source revision."""
+    """Require a direct release-only child of the dispatched source revision.
+
+    Args:
+        source_sha (str): Dispatched source commit SHA.
+        release_sha (str): Commit SHA referenced by the existing release tag.
+        release_tag (str): Requested release tag.
+
+    Raises:
+        ValueError: If the release commit is not an exact expected child commit.
+        subprocess.CalledProcessError: If required Git data cannot be read.
+    """
     ancestry = _git("rev-list", "--parents", "-n", "1", release_sha).split()
     expected_subject = f"Release {release_tag}"
     if (
@@ -102,7 +129,16 @@ def validate_release_commit(source_sha: str, release_sha: str, release_tag: str)
 
 
 def main() -> int:
-    """Validate command-line release commit arguments."""
+    """Validate command-line release commit arguments.
+
+    Returns:
+        int: Zero when validation succeeds, or two when arguments are malformed.
+
+    Raises:
+        OSError: If the temporary repository or prepare script cannot be accessed.
+        ValueError: If the release commit does not match the requested release.
+        subprocess.CalledProcessError: If Git or the prepare script fails.
+    """
     if len(sys.argv) != 4:
         sys.stderr.write(f"Usage: {sys.argv[0]} SOURCE_SHA RELEASE_SHA RELEASE_TAG\n")
         return 2
