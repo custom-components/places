@@ -6,7 +6,9 @@
 2. From that branch, run the **Release** workflow with one of these inputs:
 
    - To release an explicit tag (including every prerelease), provide an unused,
-     valid `v`-prefixed tag and leave **bump** set to `none`.
+     valid `v`-prefixed tag, leave **bump** set to `none`, and set
+     **prerelease** to match the tag. Tags with a suffix are prereleases; tags
+     containing only numeric components are stable.
    - To make a stable automatic bump, leave **tag** blank, set **prerelease** to
      false, and choose `patch`, `minor`, or `major`. The workflow derives the
      next tag from the published stable releases.
