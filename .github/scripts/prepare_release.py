@@ -14,7 +14,10 @@ TAG_PATTERN = re.compile(
 )
 MANIFEST_VERSION_PATTERN = re.compile(r'("version"\s*:\s*)"[^"]*"')
 CONST_VERSION_PATTERN = re.compile(r'^(VERSION\s*=\s*)"[^"]*"', re.MULTILINE)
-STABLE_TAG_PATTERN = re.compile(r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+STABLE_TAG_PATTERN = re.compile(
+    r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\.(0|[1-9][0-9]*))?$"
+)
+NUMERIC_TAG_PATTERN = re.compile(r"^v[0-9]+(?:\.[0-9]+){1,3}$")
 
 
 def validate_release_tag(tag: str) -> None:
@@ -29,6 +32,25 @@ def validate_release_tag(tag: str) -> None:
     """
     if TAG_PATTERN.fullmatch(tag) is None:
         msg = f"Invalid release tag: {tag}"
+        raise ValueError(msg)
+
+
+def validate_release_request(tag: str, prerelease: bool) -> None:
+    """Validate that a release tag agrees with the prerelease selection.
+
+    Args:
+        tag (str): Candidate release tag.
+        prerelease (bool): Whether the release should be treated as a prerelease.
+
+    Raises:
+        ValueError: If the tag format and prerelease selection disagree.
+    """
+    validate_release_tag(tag)
+    tag_is_prerelease = NUMERIC_TAG_PATTERN.fullmatch(tag) is None
+    if tag_is_prerelease != prerelease:
+        tag_kind = "Prerelease" if tag_is_prerelease else "Stable"
+        required_value = str(tag_is_prerelease).lower()
+        msg = f"{tag_kind} tag {tag} requires prerelease={required_value}."
         raise ValueError(msg)
 
 
@@ -50,7 +72,7 @@ def next_stable_release_tag(tags: Iterable[str], bump_type: str) -> str:
         raise ValueError(msg)
 
     versions = [
-        tuple(int(component) for component in match.groups())
+        tuple(int(component or 0) for component in match.groups())
         for tag in tags
         if (match := STABLE_TAG_PATTERN.fullmatch(tag)) is not None
     ]
@@ -58,7 +80,7 @@ def next_stable_release_tag(tags: Iterable[str], bump_type: str) -> str:
         msg = "No stable released tag found."
         raise ValueError(msg)
 
-    major, minor, patch = max(versions)
+    major, minor, patch, _build = max(versions)
     if bump_type == "patch":
         patch += 1
     elif bump_type == "minor":
@@ -160,6 +182,11 @@ def main() -> int:
         action="store_true",
         help="Validate the tag without updating version files",
     )
+    parser.add_argument(
+        "--expected-prerelease",
+        choices=("true", "false"),
+        help="Require the tag to match the workflow prerelease selection",
+    )
     args = parser.parse_args()
 
     try:
@@ -167,15 +194,21 @@ def main() -> int:
             msg = "Provide exactly one release tag or --next-tag BUMP_TYPE."
             raise ValueError(msg)
         if args.next_tag is not None:
-            if args.check_only:
-                msg = "--check-only cannot be used with --next-tag."
+            if args.check_only or args.expected_prerelease is not None:
+                msg = "Validation options cannot be used with --next-tag."
                 raise ValueError(msg)
             sys.stdout.write(
                 f"{next_stable_release_tag(sys.stdin.read().splitlines(), args.next_tag)}\n"
             )
         elif args.check_only:
-            validate_release_tag(args.tag)
+            if args.expected_prerelease is None:
+                validate_release_tag(args.tag)
+            else:
+                validate_release_request(args.tag, args.expected_prerelease == "true")
         else:
+            if args.expected_prerelease is not None:
+                msg = "--expected-prerelease requires --check-only."
+                raise ValueError(msg)
             update_release_versions(Path.cwd(), args.tag)
     except (OSError, ValueError) as error:
         parser.error(str(error))

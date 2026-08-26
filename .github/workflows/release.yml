@@ -72,6 +72,8 @@ jobs:
               echo "An explicit tag requires bump=none." >&2
               exit 1
             fi
+            python3 .github/scripts/prepare_release.py --check-only \
+              --expected-prerelease "$IS_PRERELEASE" "$EXPLICIT_TAG"
             echo "release-tag=$EXPLICIT_TAG" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -94,11 +96,11 @@ jobs:
 
       - name: Validate release request
         env:
+          IS_PRERELEASE: ${{ inputs.prerelease }}
           RELEASE_TAG: ${{ steps.release_tag.outputs.release-tag }}
         run: |
-          set -euo pipefail
-
-          python3 .github/scripts/prepare_release.py --check-only "$RELEASE_TAG"
+          python3 .github/scripts/prepare_release.py --check-only \
+            --expected-prerelease "$IS_PRERELEASE" "$RELEASE_TAG"
 
       - name: Require unused tag and release
         env:
