@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 from types import SimpleNamespace
 from typing import Any
 
@@ -36,18 +35,24 @@ def test_dispatch_workflow_sends_ref_and_expected_sha(
     """
     calls: list[list[str]] = []
 
-    def fake_api(arguments: Sequence[str]) -> dict[str, Any]:
+    def fake_api(arguments: Sequence[str], expected_status: int | None = None) -> dict[str, Any]:
         calls.append(list(arguments))
-        return {}
+        assert expected_status == 200
+        return {"workflow_run_id": 42}
 
     monkeypatch.setattr(verify, "github_api", fake_api)
 
-    verify.dispatch_workflow(REPOSITORY, "validate.yml", REF, SHA)
+    assert verify.dispatch_workflow(REPOSITORY, "validate.yml", REF, SHA) == 42
 
     assert calls == [
         [
+            "--include",
             "--method",
             "POST",
+            "-H",
+            "Accept: application/vnd.github+json",
+            "-H",
+            "X-GitHub-Api-Version: 2026-03-10",
             f"repos/{REPOSITORY}/actions/workflows/validate.yml/dispatches",
             "-f",
             f"ref={REF}",
@@ -57,90 +62,60 @@ def test_dispatch_workflow_sends_ref_and_expected_sha(
     ]
 
 
-def test_matching_run_requires_workflow_event_ref_and_sha(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    "response",
+    [
+        {},
+        {"workflow_run_id": None},
+        {"workflow_run_id": 0},
+        {"workflow_run_id": -1},
+        {"workflow_run_id": True},
+        {"workflow_run_id": "42"},
+    ],
+)
+def test_dispatch_workflow_rejects_invalid_authoritative_run_id(
+    monkeypatch: pytest.MonkeyPatch, response: dict[str, Any]
 ) -> None:
-    """Select only a run whose identity matches every dispatch invariant.
+    """Fail closed when dispatch omits or corrupts the authoritative run ID.
 
     Args:
         monkeypatch (pytest.MonkeyPatch): Fixture for replacing the API helper.
-    """
-    selected = {"id": 42, "workflow_id": 7, "event": "workflow_dispatch"}
-    payload = {
-        "workflow_runs": [
-            {**selected, "workflow_id": 8, "head_branch": REF, "head_sha": SHA},
-            {**selected, "event": "push", "head_branch": REF, "head_sha": SHA},
-            {**selected, "head_branch": "main", "head_sha": SHA},
-            {**selected, "head_branch": REF, "head_sha": "b" * 40},
-            {
-                **selected,
-                "head_branch": REF,
-                "head_sha": SHA,
-            },
-        ]
-    }
-    requests: list[list[str]] = []
-
-    def fake_api(arguments: Sequence[str]) -> dict[str, Any]:
-        requests.append(list(arguments))
-        return payload
-
-    monkeypatch.setattr(verify, "github_api", fake_api)
-
-    assert verify.matching_runs(REPOSITORY, "validate.yml", 7, REF, SHA) == [
-        payload["workflow_runs"][-1]
-    ]
-    assert requests == [
-        [
-            (
-                f"repos/{REPOSITORY}/actions/workflows/validate.yml/runs?"
-                f"event=workflow_dispatch&branch={REF}&per_page=100"
-            )
-        ]
-    ]
-
-
-def test_matching_run_returns_none_when_no_run_has_exact_identity(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Keep polling when GitHub has not returned the dispatched run yet.
-
-    Args:
-        monkeypatch (pytest.MonkeyPatch): Fixture for replacing the API helper.
+        response (dict[str, Any]): Invalid dispatch response fixture.
     """
     monkeypatch.setattr(
         verify,
         "github_api",
-        lambda _arguments: {
-            "workflow_runs": [
-                {
-                    "id": 41,
-                    "workflow_id": 7,
-                    "event": "workflow_dispatch",
-                    "head_branch": REF,
-                    "head_sha": "b" * 40,
-                }
-            ]
-        },
+        lambda _arguments, expected_status=None: response,
     )
 
-    assert verify.matching_runs(REPOSITORY, "validate.yml", 7, REF, SHA) == []
+    with pytest.raises(verify.GitHubCommandError, match="valid workflow_run_id"):
+        verify.dispatch_workflow(REPOSITORY, "validate.yml", REF, SHA)
 
 
-@pytest.mark.parametrize("payload", [{"workflow_runs": {}}, {"workflow_runs": "invalid"}])
-def test_matching_run_rejects_malformed_run_list(
-    monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any]
+@pytest.mark.parametrize(("status", "body"), [(204, ""), (200, ""), (200, "not-json")])
+def test_dispatch_workflow_rejects_non_authoritative_http_responses(
+    monkeypatch: pytest.MonkeyPatch, status: int, body: str
 ) -> None:
-    """Fail closed when the workflow-runs API shape is not a list.
+    """Reject 204, empty, and malformed dispatch API responses.
 
     Args:
-        monkeypatch (pytest.MonkeyPatch): Fixture for replacing the API helper.
-        payload (dict[str, Any]): Malformed workflow-runs response fixture.
+        monkeypatch (pytest.MonkeyPatch): Fixture for replacing CLI execution.
+        status (int): HTTP status returned by the fixture.
+        body (str): Response body returned by the fixture.
     """
-    monkeypatch.setattr(verify, "github_api", lambda _arguments: payload)
+    monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/gh")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout=f"HTTP/2 {status} status\n\n{body}",
+            stderr="",
+        ),
+    )
 
-    with pytest.raises(verify.GitHubCommandError, match="run list"):
-        verify.matching_runs(REPOSITORY, "validate.yml", 7, REF, SHA)
+    with pytest.raises((verify.GitHubCommandError, json.JSONDecodeError)):
+        verify.dispatch_workflow(REPOSITORY, "validate.yml", REF, SHA)
 
 
 def test_wait_for_workflow_returns_completed_run_id_after_pending_state(
@@ -151,18 +126,25 @@ def test_wait_for_workflow_returns_completed_run_id_after_pending_state(
     Args:
         monkeypatch (pytest.MonkeyPatch): Fixture for replacing clock and checks.
     """
-    runs = iter(
+    responses = iter(
         [
+            {"id": 7},
             {
-                "id": 41,
+                "id": 42,
+                "workflow_id": 7,
+                "event": "workflow_dispatch",
+                "head_branch": REF,
+                "head_sha": SHA,
                 "status": "in_progress",
-                "created_at": "2026-08-27T12:00:00Z",
             },
             {
                 "id": 42,
+                "workflow_id": 7,
+                "event": "workflow_dispatch",
+                "head_branch": REF,
+                "head_sha": SHA,
                 "status": "completed",
                 "conclusion": "success",
-                "created_at": "2026-08-27T12:00:01Z",
             },
         ]
     )
@@ -171,9 +153,7 @@ def test_wait_for_workflow_returns_completed_run_id_after_pending_state(
     job_calls: list[tuple[int, set[str]]] = []
     clock = iter([0.0, 0.1])
 
-    monkeypatch.setattr(verify, "github_api", lambda _arguments: {"id": 7})
-    monkeypatch.setattr(verify, "matching_runs", lambda *_args: [next(runs)])
-    monkeypatch.setattr(verify, "run_created_at", lambda _run: 1.0)
+    monkeypatch.setattr(verify, "github_api", lambda _arguments: next(responses))
     monkeypatch.setattr(verify.time, "monotonic", lambda: next(clock, 1.0))
     monkeypatch.setattr(verify.time, "sleep", sleeps.append)
     monkeypatch.setattr(
@@ -195,8 +175,7 @@ def test_wait_for_workflow_returns_completed_run_id_after_pending_state(
             SHA,
             {"HACS Validation"},
             deadline=1.0,
-            expected_run_id=None,
-            dispatch_started=1.0,
+            expected_run_id=42,
         )
         == 42
     )
@@ -205,9 +184,12 @@ def test_wait_for_workflow_returns_completed_run_id_after_pending_state(
         (
             {
                 "id": 42,
+                "workflow_id": 7,
+                "event": "workflow_dispatch",
+                "head_branch": REF,
+                "head_sha": SHA,
                 "status": "completed",
                 "conclusion": "success",
-                "created_at": "2026-08-27T12:00:01Z",
             },
             SHA,
         )
@@ -225,20 +207,21 @@ def test_wait_for_workflow_rejects_unsuccessful_conclusion(
         monkeypatch (pytest.MonkeyPatch): Fixture for replacing workflow polling.
         conclusion (str): Unsuccessful conclusion under test.
     """
-    monkeypatch.setattr(verify, "github_api", lambda _arguments: {"id": 7})
-    monkeypatch.setattr(
-        verify,
-        "matching_runs",
-        lambda *_args: [
+    responses = iter(
+        [
+            {"id": 7},
             {
                 "id": 42,
+                "workflow_id": 7,
+                "event": "workflow_dispatch",
+                "head_branch": REF,
+                "head_sha": SHA,
                 "status": "completed",
                 "conclusion": conclusion,
-                "created_at": "2026-08-27T12:00:00Z",
-            }
-        ],
+            },
+        ]
     )
-    monkeypatch.setattr(verify, "run_created_at", lambda _run: 1.0)
+    monkeypatch.setattr(verify, "github_api", lambda _arguments: next(responses))
     monkeypatch.setattr(verify.time, "monotonic", lambda: 0.0)
 
     with pytest.raises(verify.GitHubCommandError, match=f"{conclusion!r}"):
@@ -249,8 +232,7 @@ def test_wait_for_workflow_rejects_unsuccessful_conclusion(
             SHA,
             set(),
             deadline=1.0,
-            expected_run_id=None,
-            dispatch_started=1.0,
+            expected_run_id=42,
         )
 
 
@@ -264,8 +246,15 @@ def test_wait_for_workflow_times_out_with_bounded_polling(
     """
     sleeps: list[float] = []
     clock = iter([0.0, 1.0])
-    monkeypatch.setattr(verify, "github_api", lambda _arguments: {"id": 7})
-    monkeypatch.setattr(verify, "matching_runs", lambda *_args: [])
+    responses = iter([{"id": 7}, verify.GitHubCommandError("404 Not Found")])
+
+    def fake_api(_arguments: Sequence[str]) -> dict[str, Any]:
+        response = next(responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(verify, "github_api", fake_api)
     monkeypatch.setattr(verify.time, "monotonic", lambda: next(clock, 1.0))
     monkeypatch.setattr(verify.time, "sleep", sleeps.append)
 
@@ -277,102 +266,38 @@ def test_wait_for_workflow_times_out_with_bounded_polling(
             SHA,
             set(),
             deadline=1.0,
-            expected_run_id=None,
-            dispatch_started=1.0,
+            expected_run_id=42,
         )
 
     assert sleeps == [5]
 
 
-def test_wait_for_workflow_rejects_missing_run_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Reject a matching workflow response that cannot identify its run.
+def test_wait_for_workflow_rejects_mismatched_authoritative_run_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Reject a response whose ID does not equal the authoritative dispatch ID.
 
     Args:
         monkeypatch (pytest.MonkeyPatch): Fixture for replacing workflow polling.
     """
-    monkeypatch.setattr(verify, "github_api", lambda _arguments: {"id": 7})
-    monkeypatch.setattr(
-        verify,
-        "matching_runs",
-        lambda *_args: [
+    responses = iter(
+        [
+            {"id": 7},
             {
+                "id": 41,
+                "workflow_id": 7,
+                "event": "workflow_dispatch",
+                "head_branch": REF,
+                "head_sha": SHA,
                 "status": "completed",
                 "conclusion": "success",
-                "created_at": "2026-08-27T12:00:00Z",
-            }
-        ],
+            },
+        ]
     )
-    monkeypatch.setattr(verify, "run_created_at", lambda _run: 1.0)
+    monkeypatch.setattr(verify, "github_api", lambda _arguments: next(responses))
     monkeypatch.setattr(verify.time, "monotonic", lambda: 0.0)
 
-    with pytest.raises(verify.GitHubCommandError, match="numeric ID"):
-        verify.wait_for_workflow(
-            REPOSITORY,
-            "validate.yml",
-            REF,
-            SHA,
-            set(),
-            deadline=1.0,
-            expected_run_id=None,
-            dispatch_started=1.0,
-        )
-
-
-def test_wait_for_workflow_rejects_ambiguous_matching_runs(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Fail closed when more than one recent run has the exact dispatch identity.
-
-    Args:
-        monkeypatch (pytest.MonkeyPatch): Fixture for replacing workflow polling.
-    """
-    matching = [
-        {"id": 41, "created_at": "2026-08-27T12:00:00Z"},
-        {"id": 42, "created_at": "2026-08-27T12:00:01Z"},
-    ]
-    monkeypatch.setattr(verify, "github_api", lambda _arguments: {"id": 7})
-    monkeypatch.setattr(verify, "matching_runs", lambda *_args: matching)
-    monkeypatch.setattr(verify, "run_created_at", lambda _run: 1.0)
-    monkeypatch.setattr(verify.time, "monotonic", lambda: 0.0)
-
-    with pytest.raises(verify.GitHubCommandError, match="Ambiguous"):
-        verify.wait_for_workflow(
-            REPOSITORY,
-            "validate.yml",
-            REF,
-            SHA,
-            set(),
-            deadline=1.0,
-            expected_run_id=None,
-            dispatch_started=1.0,
-        )
-
-
-def test_wait_for_workflow_uses_dispatch_returned_run_id(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Use the dispatch response ID to disambiguate otherwise matching runs.
-
-    Args:
-        monkeypatch (pytest.MonkeyPatch): Fixture for replacing workflow polling.
-    """
-    matching = [
-        {"id": 41, "created_at": "2026-08-27T12:00:00Z"},
-        {
-            "id": 42,
-            "status": "completed",
-            "conclusion": "success",
-            "created_at": "2026-08-27T12:00:01Z",
-        },
-    ]
-    monkeypatch.setattr(verify, "github_api", lambda _arguments: {"id": 7})
-    monkeypatch.setattr(verify, "matching_runs", lambda *_args: matching)
-    monkeypatch.setattr(verify, "run_created_at", lambda _run: 1.0)
-    monkeypatch.setattr(verify.time, "monotonic", lambda: 0.0)
-    monkeypatch.setattr(verify, "verify_check_suite", lambda *_args: None)
-    monkeypatch.setattr(verify, "verify_jobs", lambda *_args: None)
-
-    assert (
+    with pytest.raises(verify.GitHubCommandError, match="does not match"):
         verify.wait_for_workflow(
             REPOSITORY,
             "validate.yml",
@@ -381,116 +306,7 @@ def test_wait_for_workflow_uses_dispatch_returned_run_id(
             set(),
             deadline=1.0,
             expected_run_id=42,
-            dispatch_started=1.0,
         )
-        == 42
-    )
-
-
-@pytest.mark.parametrize(
-    ("created_at", "expected"),
-    [("2026-08-27T12:34:56Z", 1787834096.0), ("2026-08-27T12:34:56+00:00", 1787834096.0)],
-)
-def test_run_created_at_parses_github_timestamp(created_at: str, expected: float) -> None:
-    """Convert GitHub's UTC creation timestamp into a comparable epoch value.
-
-    Args:
-        created_at (str): GitHub workflow-run timestamp.
-        expected (float): Expected UTC epoch timestamp.
-    """
-    assert verify.run_created_at({"created_at": created_at}) == expected
-
-
-@pytest.mark.parametrize("created_at", [None, "not-a-timestamp"])
-def test_run_created_at_rejects_malformed_timestamp(created_at: object) -> None:
-    """Reject missing or malformed timestamps used for dispatch correlation.
-
-    Args:
-        created_at (object): Malformed timestamp fixture.
-    """
-    with pytest.raises(verify.GitHubCommandError, match="timestamp"):
-        verify.run_created_at({"created_at": created_at})
-
-
-def test_main_accepts_dispatch_response_without_run_id(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Continue with timestamp correlation when dispatch returns no run ID.
-
-    Args:
-        monkeypatch (pytest.MonkeyPatch): Fixture for replacing CLI and timing.
-        capsys (pytest.CaptureFixture[str]): Fixture for capturing CLI output.
-    """
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            str(SCRIPT_PATH),
-            "--repository",
-            REPOSITORY,
-            "--ref",
-            REF,
-            "--sha",
-            SHA,
-            "--workflow",
-            "validate.yml",
-            "--required-check",
-            "validate.yml::HACS Validation",
-            "--timeout-seconds",
-            "1",
-        ],
-    )
-    monkeypatch.setattr(verify, "dispatch_workflow", lambda *_args: {})
-    captured: list[tuple[int | None, float]] = []
-    monkeypatch.setattr(verify.time, "time", lambda: 123.0)
-    monkeypatch.setattr(verify.time, "monotonic", lambda: 100.0)
-
-    def fake_wait(*args: Any, **kwargs: Any) -> int:
-        del kwargs
-        captured.append((args[-2], args[-1]))
-        return 42
-
-    monkeypatch.setattr(verify, "wait_for_workflow", fake_wait)
-
-    assert verify.main() == 0
-    assert captured == [(None, 123.0)]
-    assert f"Verified validate.yml run 42 for {SHA}." in capsys.readouterr().out
-
-
-def test_main_rejects_invalid_dispatch_response_run_id(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Reject a non-numeric run ID instead of silently falling back to polling.
-
-    Args:
-        monkeypatch (pytest.MonkeyPatch): Fixture for replacing CLI inputs.
-        capsys (pytest.CaptureFixture[str]): Fixture for capturing CLI errors.
-    """
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            str(SCRIPT_PATH),
-            "--repository",
-            REPOSITORY,
-            "--ref",
-            REF,
-            "--sha",
-            SHA,
-            "--workflow",
-            "validate.yml",
-            "--required-check",
-            "validate.yml::HACS Validation",
-        ],
-    )
-    monkeypatch.setattr(
-        verify,
-        "dispatch_workflow",
-        lambda *_args: {"workflow_run": {"id": "42"}},
-    )
-
-    assert verify.main() == 1
-    assert "invalid run ID" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
