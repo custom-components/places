@@ -34,7 +34,7 @@ jobs:
           persist-credentials: ${{ github.event_name == 'push' }}
 
       - name: Setup uv (with caching)
-        uses: astral-sh/setup-uv@v10.0.0
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           python-version: "3.14"
           enable-cache: true
