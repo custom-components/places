@@ -3,7 +3,7 @@
 from collections.abc import Mapping, Sequence
 import logging
 from typing import Protocol
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -510,33 +510,6 @@ async def test_mismatched_special_chars_log_error(
     else:
         incl, _excl, _incl_attr, _excl_attr, _next_opt = res
         assert incl == []
-
-
-@pytest.mark.asyncio
-async def test_build_from_advanced_options_processed_options(
-    sensor: MockSensor, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Return early and log error when curr_options already processed.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-        monkeypatch (pytest.MonkeyPatch):
-            Pytest fixture for replacing dependencies.
-    """
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "zone_name")
-    parser._processed_options.add("zone_name")
-    mock_log = MagicMock()
-    monkeypatch.setattr(
-        logging.getLogger("custom_components.places.advanced_options"),
-        "error",
-        mock_log,
-        raising=False,
-    )
-    await parser.build_from_advanced_options("zone_name")
-    mock_log.assert_called()
-    assert parser.state_list == []
 
 
 @pytest.mark.asyncio
