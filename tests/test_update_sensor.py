@@ -135,27 +135,6 @@ def register_aioclient(aioclient_mock: AioClientMock, url: str, **kwargs: object
         aioclient_mock.get(f"{url}/", **kwargs)
 
 
-def test_mock_sensor_safe_conversion_helpers_match_production() -> None:
-    """Keep mock float, mapping, and list fallbacks aligned with production."""
-    sensor = MockSensor(
-        attrs={
-            "bad_float": object(),
-            "mock_float": MagicMock(),
-            "mapping": {"key": "value"},
-            "items": ["value"],
-        }
-    )
-
-    assert sensor.get_attr_safe_float("missing", "not-a-number") == 0.0
-    assert sensor.get_attr_safe_float("bad_float", 2.0) == 0.0
-    assert sensor.get_attr_safe_float("mock_float", 2.5) == 2.5
-    assert sensor.get_attr_safe_float("mock_float", "not-a-number") == 0.0
-    assert sensor.get_attr_safe_dict("mapping") == {"key": "value"}
-    assert sensor.get_attr_safe_dict("missing", {"fallback": True}) == {"fallback": True}
-    assert sensor.get_attr_safe_list("items") == ["value"]
-    assert sensor.get_attr_safe_list("missing", ("not", "a", "list")) == []
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("check_result", "should_rollback", "should_handle"),

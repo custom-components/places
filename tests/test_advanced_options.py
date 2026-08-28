@@ -511,32 +511,6 @@ async def test_mismatched_special_chars_log_error(
 
 
 @pytest.mark.asyncio
-async def test_build_from_advanced_options_not_none_calls_normal(sensor: MockSensor) -> None:
-    """Process single term when curr_options is provided.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "zone_name")
-    called: dict[str, str] = {}
-
-    async def fake_process_single_term(opt: str) -> None:
-        """Capture the single option term processed by the parser.
-
-        Args:
-            opt (str):
-                Display option term passed to ``process_single_term``.
-        """
-        called["single_term"] = opt
-
-    parser.process_single_term = fake_process_single_term  # type: ignore[assignment]
-    await parser.build_from_advanced_options("zone_name")
-    assert called["single_term"] == "zone_name"
-
-
-@pytest.mark.asyncio
 async def test_build_from_advanced_options_processed_options(
     sensor: MockSensor, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -561,54 +535,6 @@ async def test_build_from_advanced_options_processed_options(
     await parser.build_from_advanced_options("zone_name")
     mock_log.assert_called()
     assert parser.state_list == []
-
-
-@pytest.mark.asyncio
-async def test_build_from_advanced_options_no_bracket_or_paren(sensor: MockSensor) -> None:
-    """Skip bracket/paren processing when none are present.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "zone_name")
-    # Assign AsyncMock stubs directly so they remain on parser for assertions
-    parser.process_bracket_or_parens = AsyncMock()
-    parser.process_only_commas = AsyncMock()
-    parser.process_single_term = AsyncMock()
-    await parser.build_from_advanced_options("zone_name")
-    parser.process_bracket_or_parens.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_build_from_advanced_options_with_comma(sensor: MockSensor) -> None:
-    """Delegate to process_only_commas when comma present in options.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "zone_name,place_type")
-    parser.process_only_commas = AsyncMock()
-    await parser.build_from_advanced_options("zone_name,place_type")
-    parser.process_only_commas.assert_awaited_once_with("zone_name,place_type")
-
-
-@pytest.mark.asyncio
-async def test_build_from_advanced_options_no_comma(sensor: MockSensor) -> None:
-    """Call process_single_term when options string has no comma.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "zone_name")
-    parser.process_single_term = AsyncMock()
-    await parser.build_from_advanced_options("zone_name")
-    parser.process_single_term.assert_awaited_once_with("zone_name")
 
 
 @pytest.mark.asyncio

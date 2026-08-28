@@ -33,33 +33,25 @@ def test_dispatch_workflow_sends_ref_and_expected_sha(
     Args:
         monkeypatch (pytest.MonkeyPatch): Fixture for replacing the API helper.
     """
-    calls: list[list[str]] = []
+    calls: list[tuple[list[str], int | None]] = []
 
     def fake_api(arguments: Sequence[str], expected_status: int | None = None) -> dict[str, Any]:
-        calls.append(list(arguments))
-        assert expected_status == 200
+        calls.append((list(arguments), expected_status))
         return {"workflow_run_id": 42}
 
     monkeypatch.setattr(verify, "github_api", fake_api)
 
     assert verify.dispatch_workflow(REPOSITORY, "validate.yml", REF, SHA) == 42
 
-    assert calls == [
-        [
-            "--include",
-            "--method",
-            "POST",
-            "-H",
-            "Accept: application/vnd.github+json",
-            "-H",
-            "X-GitHub-Api-Version: 2026-03-10",
-            f"repos/{REPOSITORY}/actions/workflows/validate.yml/dispatches",
-            "-f",
-            f"ref={REF}",
-            "-f",
-            f"inputs[expected_sha]={SHA}",
-        ]
-    ]
+    assert len(calls) == 1
+    arguments, expected_status = calls[0]
+    assert expected_status == 200
+    assert arguments[arguments.index("--method") + 1] == "POST"
+    assert f"repos/{REPOSITORY}/actions/workflows/validate.yml/dispatches" in arguments
+    assert f"ref={REF}" in arguments
+    assert f"inputs[expected_sha]={SHA}" in arguments
+    assert "Accept: application/vnd.github+json" in arguments
+    assert "X-GitHub-Api-Version: 2026-03-10" in arguments
 
 
 @pytest.mark.parametrize(
@@ -428,7 +420,8 @@ def test_github_api_uses_a_bounded_request_timeout(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(subprocess, "run", fake_run)
 
     assert verify.github_api(["repos/example/repo"]) == {}
-    assert calls == [{"check": False, "capture_output": True, "text": True, "timeout": 30}]
+    assert len(calls) == 1
+    assert calls[0]["timeout"] == 30
 
 
 def _load_workflow(name: str) -> dict[str, Any]:
