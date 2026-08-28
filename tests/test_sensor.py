@@ -2336,9 +2336,7 @@ async def test_async_setup_entry_adds_main_and_child_sensors(
         and not entity.entity_description.entity_registry_enabled_default
     ]
     assert disabled_entities
-    assert all(
-        entity._attr_entity_registry_enabled_default is False for entity in disabled_entities
-    )
+    assert all(entity.entity_registry_enabled_default is False for entity in disabled_entities)
 
 
 async def test_async_setup_entry_removes_extended_sensor_when_disabled(

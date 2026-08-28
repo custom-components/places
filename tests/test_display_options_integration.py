@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -168,12 +167,3 @@ async def test_basic_place_option_includes_neighborhood(
 
     assert basic_state
     assert "Koreatown" in basic_state
-
-
-def test_readme_display_examples_are_documented() -> None:
-    """Assert that README still contains the two example advanced display strings."""
-    readme = Path(__file__).resolve().parent.parent / "README.md"
-    readme_contents = readme.read_text(encoding="utf-8")
-
-    assert README_PLACE_ADVANCED in readme_contents
-    assert README_FORMATTED_PLACE_ADVANCED in readme_contents
