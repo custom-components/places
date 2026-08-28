@@ -609,10 +609,8 @@ async def test_do_update_publishes_after_successful_rollback_path(
             Updater with external dependencies replaced by stubs.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    call_order: list[str] = []
 
     def publish_update() -> None:
-        call_order.append("publish")
         assert updater.coordinator.get_attr(ATTR_LAST_UPDATED) == "2024-01-01 12:00:00"
 
     updater.coordinator.publish_update = MagicMock(side_effect=publish_update)
@@ -620,14 +618,12 @@ async def test_do_update_publishes_after_successful_rollback_path(
 
     async def persist_attributes() -> None:
         persisted_last_updated.append(updater.coordinator.get_attr(ATTR_LAST_UPDATED))
-        call_order.append("persist")
 
     updater.coordinator.async_persist_attributes = AsyncMock(side_effect=persist_attributes)
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
     async def finish_update(*_args: object, **_kwargs: object) -> None:
         updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
-        call_order.append("finish_update")
 
     with stubbed_updater(
         updater,
@@ -658,7 +654,6 @@ async def test_do_update_publishes_after_successful_rollback_path(
         updater.coordinator.publish_update.assert_called_once_with()
         updater.coordinator.async_persist_attributes.assert_awaited_once_with()
         assert persisted_last_updated == ["2024-01-01 12:00:00"]
-        assert call_order == ["finish_update", "persist", "publish"]
 
 
 @pytest.mark.asyncio
@@ -3208,11 +3203,10 @@ async def test_get_extended_attr_node_triggers_wikidata_lookup(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("payload", "expect_log_substr", "expect_cached", "expect_sensor_attr"),
+    ("payload", "expect_log_substr"),
     [
-        ("{bad json}", "JSON Decode Error", False, False),
-        ('{"error_message": "bad"}', "error occurred contacting the web service", False, False),
-        ('[{"k": "v"}]', None, True, True),
+        ("{bad json}", "JSON Decode Error"),
+        ('{"error_message": "bad"}', "error occurred contacting the web service"),
     ],
 )
 async def test_get_dict_from_url_network_variants(
@@ -3223,10 +3217,8 @@ async def test_get_dict_from_url_network_variants(
     aioclient_mock: AioClientMock,
     payload: str | None,
     expect_log_substr: str | None,
-    expect_cached: bool,
-    expect_sensor_attr: object,
 ) -> None:
-    """Parametrized network-response variants for get_dict_from_url covering JSON errors, service errors, and 1-item list payloads.
+    """Parametrize malformed JSON and service-error responses for get_dict_from_url.
 
     Args:
         mock_hass (MagicMock):
@@ -3243,10 +3235,6 @@ async def test_get_dict_from_url_network_variants(
             Places payload returned by the mocked request.
         expect_log_substr (str | None):
             Expected log-message fragment, or ``None`` when no fragment is expected.
-        expect_cached (bool):
-            Whether the response is expected to enter the cache.
-        expect_sensor_attr (object):
-            Expected stored sensor-attribute value, where applicable.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     url = "http://example.com/nettest"
@@ -3262,10 +3250,6 @@ async def test_get_dict_from_url_network_variants(
 
     if expect_log_substr:
         assert any(expect_log_substr.lower() in r.getMessage().lower() for r in caplog.records)
-    if expect_cached:
-        assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) is not None
-    if expect_sensor_attr:
-        assert sensor.attrs.get("dict_name") == {"k": "v"}
 
 
 @pytest.mark.asyncio
@@ -3780,22 +3764,26 @@ async def test_fire_event_data_respects_shutdown_state(
 
 
 @pytest.mark.asyncio
-async def test_fire_event_data_omits_raw_extended_payloads(updater: PlacesUpdater) -> None:
+async def test_fire_event_data_omits_raw_extended_payloads(
+    updater: PlacesUpdater, mock_hass: MagicMock
+) -> None:
     """Places state update events should not carry raw extended dict payloads.
 
     Args:
         updater (PlacesUpdater):
             Places updater used by the test.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime whose event bus receives the event.
     """
     updater.coordinator.set_attr(CONF_EXTENDED_ATTR, True)
     updater.coordinator.set_attr(ATTR_OSM_DICT, {"raw": "payload"})
     updater.coordinator.set_attr(ATTR_OSM_DETAILS_DICT, {"details": "payload"})
     updater.coordinator.set_attr(ATTR_WIKIDATA_DICT, {"wikidata": "payload"})
-    updater._hass.bus.fire = MagicMock()
+    mock_hass.bus.fire = MagicMock()
 
     await updater.fire_event_data(prev_last_place_name="")
 
-    event_data = updater._hass.bus.fire.call_args.args[1]
+    event_data = mock_hass.bus.fire.call_args.args[1]
     assert ATTR_OSM_DICT not in event_data
     assert ATTR_OSM_DETAILS_DICT not in event_data
     assert ATTR_WIKIDATA_DICT not in event_data

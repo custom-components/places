@@ -12,7 +12,6 @@ from tests.conftest import MockSensor, mock_sensor
 
 type Attrs = Mapping[str, object]
 type FilterMap = Mapping[str, Sequence[str]]
-type StateItem = str | None
 
 
 class AdvancedParserFactory(Protocol):
@@ -338,43 +337,46 @@ async def test_parse_parens_and_bracket(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("state_list", "street_i", "street_num_i", "expected"),
+    ("options", "attrs", "expected"),
     [
-        (["Home", "Restaurant"], None, None, "Home, Restaurant"),
-        ([None, "Home", "", "Restaurant"], None, None, "Home, Restaurant"),
-        (["Home", "123", "Main St"], 1, 1, "Home, 123, Main St"),
-        (["123", "Main St"], 1, 0, "123 Main St"),
+        (
+            "zone_name,place_type",
+            {"zone_name": "Home", "place_type": "Restaurant"},
+            "Home, Restaurant",
+        ),
+        (
+            "zone_name,missing,place_type",
+            {"zone_name": "Home", "place_type": "Restaurant"},
+            "Home, Restaurant",
+        ),
+        (
+            "zone_name,street_number,street",
+            {"zone_name": "Home", "street_number": "123", "street": "Main St"},
+            "Home, 123 Main St",
+        ),
+        ("street_number,street", {"street_number": "123", "street": "Main St"}, "123 Main St"),
     ],
 )
 async def test_compile_state_variants(
-    state_list: list[StateItem],
-    street_i: int | None,
-    street_num_i: int | None,
+    options: str,
+    attrs: Attrs,
     expected: str,
-    sensor: MockSensor,
+    advanced_parser: AdvancedParserFactory,
 ) -> None:
-    """Compile state_list into the expected string across variants.
+    """Compile states produced from display expressions across variants.
 
     Args:
-        state_list (list[StateItem]):
-            Ordered state components to compile.
-        street_i (int | None):
-            Index of the street component in ``state_list``.
-        street_num_i (int | None):
-            Index of the street-number component in ``state_list``.
+        options (str):
+            Advanced display-options expression to parse.
+        attrs (Attrs):
+            Sensor attributes used to resolve the expression.
         expected (str):
-            Expected result for this parametrized case.
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
+            Expected compiled state.
+        advanced_parser (AdvancedParserFactory):
+            Factory fixture for an expression-driven parser and sensor.
     """
-    # Use shared sensor fixture and adjust state for this scenario
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "")
-    parser.state_list = state_list
-    if street_i is not None:
-        parser._street_i = street_i
-    if street_num_i is not None:
-        parser._street_num_i = street_num_i
+    parser, _sensor = advanced_parser(options, attrs, in_zone=True)
+    await parser.build_from_advanced_options()
     result = await parser.compile_state()
     assert result == expected
 
