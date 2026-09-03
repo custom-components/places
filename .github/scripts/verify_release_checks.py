@@ -106,8 +106,12 @@ def verify_jobs(repository: str, run_id: int, required_checks: set[str]) -> None
         if isinstance(job, dict) and isinstance(job.get("name"), str):
             outcomes[job["name"]].append(job.get("conclusion"))
     missing = sorted(required_checks - outcomes.keys())
-    duplicate = sorted(name for name in required_checks if len(outcomes.get(name, [])) != 1)
-    failed = sorted(name for name in required_checks if outcomes.get(name) != ["success"])
+    duplicate = sorted(name for name in required_checks if len(outcomes.get(name, [])) > 1)
+    failed = sorted(
+        name
+        for name in required_checks
+        if len(outcomes.get(name, [])) == 1 and outcomes[name] != ["success"]
+    )
     if missing or duplicate or failed:
         raise GitHubCommandError(
             "Required checks "
@@ -172,25 +176,23 @@ def parse_required_checks(values: Sequence[str]) -> dict[str, set[str]]:
 
 
 def main() -> int:
-    """Dispatch and verify all supplied workflows for one candidate commit."""
+    """Dispatch and verify all workflows named by required checks."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--ref", required=True)
     parser.add_argument("--sha", required=True)
-    parser.add_argument("--workflow", action="append", required=True)
     parser.add_argument("--required-check", action="append", required=True)
     parser.add_argument("--timeout-seconds", type=int, default=1800)
     args = parser.parse_args()
     try:
         checks = parse_required_checks(args.required_check)
-        workflows = list(dict.fromkeys(args.workflow))
-        if set(workflows) != checks.keys():
-            raise ValueError("Every workflow must have exact required checks and vice versa.")
+        workflows = list(checks)
         if args.timeout_seconds <= 0:
             raise ValueError("timeout-seconds must be positive.")
-        dispatched: dict[str, int] = {}
-        for workflow in workflows:
-            dispatched[workflow] = dispatch_workflow(args.repository, workflow, args.ref, args.sha)
+        dispatched = {
+            workflow: dispatch_workflow(args.repository, workflow, args.ref, args.sha)
+            for workflow in workflows
+        }
         deadline = time.monotonic() + args.timeout_seconds
         for workflow in workflows:
             run_id = wait_for_workflow(

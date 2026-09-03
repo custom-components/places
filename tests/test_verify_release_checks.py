@@ -327,43 +327,145 @@ def test_verify_check_suite_requires_github_actions_source_and_sha(
         verify.verify_check_suite(REPOSITORY, {"check_suite_id": 99}, SHA)
 
 
-def test_verify_jobs_requires_each_exact_named_job_to_succeed(
+@pytest.mark.parametrize(
+    ("required_checks", "jobs", "failed_category", "failed_name"),
+    [
+        ({"missing"}, [], "missing", "missing"),
+        (
+            {"duplicate"},
+            [
+                {"name": "duplicate", "conclusion": "success"},
+                {"name": "duplicate", "conclusion": "success"},
+                {"name": "unrelated", "conclusion": "failure"},
+            ],
+            "duplicate",
+            "duplicate",
+        ),
+        (
+            {"failed"},
+            [
+                {"name": "failed", "conclusion": "failure"},
+                {"name": "unrelated", "conclusion": "success"},
+            ],
+            "unsuccessful",
+            "failed",
+        ),
+    ],
+)
+def test_verify_jobs_reports_mutually_exclusive_fail_closed_categories(
     monkeypatch: pytest.MonkeyPatch,
+    required_checks: set[str],
+    jobs: list[dict[str, Any]],
+    failed_category: str,
+    failed_name: str,
 ) -> None:
-    """Ignore unrelated jobs but fail when a required name is missing or unsuccessful.
+    """Report missing, duplicate, and single unsuccessful jobs separately.
 
     Args:
         monkeypatch (pytest.MonkeyPatch): Fixture for replacing the API helper.
+        required_checks (set[str]): Required job names for the deterministic fixture.
+        jobs (list[dict[str, Any]]): Workflow jobs returned by the API fixture.
+        failed_category (str): Diagnostic category expected for the fixture.
+        failed_name (str): Required job expected in that category.
     """
     monkeypatch.setattr(
         verify,
         "github_api",
-        lambda _arguments: {
-            "total_count": 3,
-            "jobs": [
-                {"name": "HACS Validation", "conclusion": "success"},
-                {"name": "Hassfest Validation", "conclusion": "failure"},
-                {"name": "unrelated", "conclusion": "failure"},
-            ],
-        },
+        lambda _arguments: {"total_count": len(jobs), "jobs": jobs},
     )
 
-    with pytest.raises(verify.GitHubCommandError, match="Hassfest Validation"):
-        verify.verify_jobs(
-            REPOSITORY,
-            42,
-            {"HACS Validation", "Hassfest Validation", "pytest and coverage report"},
-        )
+    with pytest.raises(verify.GitHubCommandError) as error:
+        verify.verify_jobs(REPOSITORY, 42, required_checks)
+
+    message = str(error.value)
+    assert f"{failed_category}=[{failed_name!r}]" in message
+    for category in {"missing", "duplicate", "unsuccessful"} - {failed_category}:
+        assert f"{category}=[]" in message
 
 
 def test_parse_required_checks_groups_exact_names_and_rejects_malformed_values() -> None:
     """Group checks by workflow while retaining exact job-name boundaries."""
-    assert verify.parse_required_checks(
-        ["validate.yml::HACS Validation", "validate.yml::HACS Validation", "coverage.yml::pytest"]
-    ) == {"validate.yml": {"HACS Validation"}, "coverage.yml": {"pytest"}}
+    checks = verify.parse_required_checks(
+        [
+            "pytest_coverage.yml::pytest and coverage report",
+            "validate.yml::HACS Validation",
+            "validate.yml::Hassfest Validation",
+            "prek-autofix-review.yml::review",
+            "pytest_coverage.yml::pytest and coverage report",
+        ]
+    )
+
+    assert list(checks) == [
+        "pytest_coverage.yml",
+        "validate.yml",
+        "prek-autofix-review.yml",
+    ]
+    assert checks == {
+        "pytest_coverage.yml": {"pytest and coverage report"},
+        "validate.yml": {"HACS Validation", "Hassfest Validation"},
+        "prek-autofix-review.yml": {"review"},
+    }
 
     with pytest.raises(ValueError, match="workflow::exact job name"):
         verify.parse_required_checks(["validate.yml:HACS Validation"])
+
+
+def test_main_dispatches_workflows_in_required_check_first_seen_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Use the required-check manifest as the sole ordered workflow input.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch): Fixture for replacing dispatch and polling helpers.
+    """
+    dispatches: list[str] = []
+    waits: list[tuple[str, set[str], int]] = []
+
+    def fake_dispatch(_repository: str, workflow: str, _ref: str, _sha: str) -> int:
+        dispatches.append(workflow)
+        return len(dispatches)
+
+    def fake_wait(
+        _repository: str,
+        workflow: str,
+        _ref: str,
+        _sha: str,
+        checks: set[str],
+        _deadline: float,
+        run_id: int,
+    ) -> int:
+        waits.append((workflow, checks, run_id))
+        return run_id
+
+    monkeypatch.setattr(verify, "dispatch_workflow", fake_dispatch)
+    monkeypatch.setattr(verify, "wait_for_workflow", fake_wait)
+    monkeypatch.setattr(verify.time, "monotonic", lambda: 100.0)
+    monkeypatch.setattr(
+        verify.sys,
+        "argv",
+        [
+            "verify_release_checks.py",
+            "--repository",
+            REPOSITORY,
+            "--ref",
+            REF,
+            "--sha",
+            SHA,
+            "--required-check",
+            "pytest_coverage.yml::pytest and coverage report",
+            "--required-check",
+            "validate.yml::HACS Validation",
+            "--required-check",
+            "validate.yml::Hassfest Validation",
+        ],
+    )
+
+    assert verify.main() == 0
+    assert dispatches == ["pytest_coverage.yml", "validate.yml"]
+    assert waits == [
+        ("pytest_coverage.yml", {"pytest and coverage report"}, 1),
+        ("validate.yml", {"HACS Validation", "Hassfest Validation"}, 2),
+    ]
 
 
 def test_github_api_fails_closed_for_unavailable_or_malformed_responses(
@@ -489,6 +591,7 @@ def test_release_workflow_has_published_trigger_and_stable_prerelease_split() ->
     )
 
     dispatch_run = steps["Dispatch and verify immutable release gates"]["run"]
+    assert "--workflow" not in dispatch_run
     assert {
         line.strip().removeprefix("--required-check '").removesuffix("' \\").removesuffix("'")
         for line in dispatch_run.splitlines()
@@ -558,25 +661,25 @@ def test_release_workflow_trusts_only_default_branch_and_scopes_tokens() -> None
             "Delete validated temporary branch",
         }
     }
-    assert token_steps["Build prerelease archive without mutating refs"]["env"]["GH_TOKEN"] == (
-        "${{ github.token }}"
+    for step in token_steps.values():
+        assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
+
+
+def test_release_workflow_uses_scoped_github_cli_credentials_for_git_pushes() -> None:
+    """Authenticate release pushes without persisting checkout credentials."""
+    document = _load_workflow("release.yml")
+    steps = _named_steps(document, "release")
+    push_step_names = (
+        "Publish B to an isolated validation branch",
+        "Atomically advance target and guarded release tag",
+        "Delete validated temporary branch",
     )
-    assert token_steps["Publish B to an isolated validation branch"]["env"]["GITHUB_TOKEN"] == (
-        "${{ github.token }}"
-    )
-    assert token_steps["Dispatch and verify immutable release gates"]["env"]["GH_TOKEN"] == (
-        "${{ github.token }}"
-    )
-    assert (
-        token_steps["Atomically advance target and guarded release tag"]["env"]["GITHUB_TOKEN"]
-        == "${{ github.token }}"
-    )
-    assert token_steps["Verify release identity and upload B archive"]["env"]["GH_TOKEN"] == (
-        "${{ github.token }}"
-    )
-    assert token_steps["Delete validated temporary branch"]["env"]["GITHUB_TOKEN"] == (
-        "${{ github.token }}"
-    )
+
+    for step_name in push_step_names:
+        step = steps[step_name]
+        assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
+        assert "extraheader" not in step["run"].lower()
+        assert "gh auth setup-git --hostname github.com" in step["run"]
 
 
 @pytest.mark.parametrize(
