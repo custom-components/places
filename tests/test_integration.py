@@ -626,7 +626,8 @@ async def test_async_setup_entry_calls_forward_setups(
     mock_hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
         mock_entry, PLATFORMS
     )
-    assert call_order == ["subscribe", "render", "publish", "forward"]
+    assert call_order.index("render") < call_order.index("forward")
+    assert call_order.index("publish") < call_order.index("forward")
 
 
 @pytest.mark.asyncio

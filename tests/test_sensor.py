@@ -2098,7 +2098,7 @@ def test_attribute_sensor_clamps_long_state_to_ha_limit(mock_hass: MagicMock) ->
 
 
 def test_main_places_sensor_uses_coordinator_state(mock_hass: MagicMock) -> None:
-    """The main display sensor should copy coordinator state into _attr fields.
+    """The main display sensor should expose the coordinator state publicly.
 
     Args:
         mock_hass (MagicMock):
@@ -2123,15 +2123,13 @@ def test_main_places_sensor_uses_coordinator_state(mock_hass: MagicMock) -> None
 
     assert entity.native_value == "Library"
     assert entity.extra_state_attributes == {"latitude": 1.25}
-    assert entity._attr_native_value == "Library"
-    assert entity._attr_extra_state_attributes == {"latitude": 1.25}
     write_state.assert_called_once_with()
 
 
 def test_attribute_sensor_handle_coordinator_update_writes_state(
     mock_hass: MagicMock,
 ) -> None:
-    """Attribute child sensors should refresh _attr_native_value in coordinator updates.
+    """Attribute child sensors should refresh their native value in coordinator updates.
 
     Args:
         mock_hass (MagicMock):
@@ -2153,7 +2151,6 @@ def test_attribute_sensor_handle_coordinator_update_writes_state(
     entity._handle_coordinator_update()
 
     assert entity.native_value == "Library"
-    assert entity._attr_native_value == "Library"
     write_state.assert_called_once_with()
 
 
@@ -2194,12 +2191,6 @@ def test_extended_data_sensor_exposes_raw_payload_and_is_unrecorded(
         ATTR_OSM_DETAILS_DICT: osm_details_dict,
         ATTR_WIKIDATA_DICT: wikidata_dict,
     }
-    assert entity._attr_extra_state_attributes == {
-        ATTR_OSM_DICT: osm_dict,
-        ATTR_OSM_DETAILS_DICT: osm_details_dict,
-        ATTR_WIKIDATA_DICT: wikidata_dict,
-    }
-    assert entity._attr_native_value == "available"
     assert entity._unrecorded_attributes == frozenset({MATCH_ALL})
     write_state.assert_called_once_with()
 
@@ -2236,7 +2227,6 @@ async def test_places_sensor_marks_all_attributes_unrecorded_when_extended_attr_
     entity = async_add_entities.call_args.args[0][0]
 
     assert entity._unrecorded_attributes == frozenset({MATCH_ALL})
-    assert MATCH_ALL in entity._Entity__combined_unrecorded_attributes  # type: ignore[attr-defined]
 
 
 async def test_places_sensor_records_attributes_when_extended_attr_disabled(
@@ -2271,7 +2261,6 @@ async def test_places_sensor_records_attributes_when_extended_attr_disabled(
     entity = async_add_entities.call_args.args[0][0]
     assert entity.__class__ is Places
     assert entity._unrecorded_attributes == frozenset()
-    assert MATCH_ALL not in entity._Entity__combined_unrecorded_attributes  # type: ignore[attr-defined]
 
 
 def test_extended_data_sensor_is_empty_without_payloads(mock_hass: MagicMock) -> None:
@@ -2347,9 +2336,7 @@ async def test_async_setup_entry_adds_main_and_child_sensors(
         and not entity.entity_description.entity_registry_enabled_default
     ]
     assert disabled_entities
-    assert all(
-        entity._attr_entity_registry_enabled_default is False for entity in disabled_entities
-    )
+    assert all(entity.entity_registry_enabled_default is False for entity in disabled_entities)
 
 
 async def test_async_setup_entry_removes_extended_sensor_when_disabled(

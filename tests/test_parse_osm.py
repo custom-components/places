@@ -35,7 +35,7 @@ from custom_components.places.const import (
     PLACE_NAME_DUPLICATE_LIST,
 )
 from custom_components.places.parse_osm import OSMParser
-from tests.conftest import MockSensor, mock_sensor, stubbed_parser
+from tests.conftest import MockSensor, mock_sensor
 
 type Attrs = Mapping[str, object]
 type AttrName = str
@@ -303,25 +303,6 @@ async def test_parse_namedetails_variants(
         # If a language-specific override is expected, it should appear later in the calls
         for expected in expected_calls[1:]:
             assert expected in values
-
-
-@pytest.mark.asyncio
-async def test_parse_address_calls_submethods(osm_parser: OSMParserFactory) -> None:
-    """parse_address should delegate to set_address_details, set_city_details and set_region_details when an address exists.
-
-    Args:
-        osm_parser (OSMParserFactory):
-            OpenStreetMap parser fixture.
-    """
-    osm_dict = {"address": {"house_number": "123", "road": "Main"}}
-    parser, _sensor = osm_parser()
-    with stubbed_parser(
-        parser, [("set_address_details", {}), ("set_city_details", {}), ("set_region_details", {})]
-    ) as mocks:
-        await parser.parse_address(osm_dict)
-    mocks["set_address_details"].assert_awaited_once_with(osm_dict["address"])
-    mocks["set_city_details"].assert_awaited_once_with(osm_dict["address"])
-    mocks["set_region_details"].assert_awaited_once_with(osm_dict["address"])
 
 
 @pytest.mark.asyncio
@@ -796,7 +777,7 @@ async def test_finalize_last_place_name_variants(
 
 @pytest.mark.asyncio
 async def test_parse_osm_dict_full_flow(osm_parser: OSMParserFactory) -> None:
-    """Test that ``parse_osm_dict`` awaits parser submethods with the OSM dictionary.
+    """Parse a complete OSM payload into user-visible coordinator attributes.
 
     Args:
         osm_parser (OSMParserFactory):
@@ -812,24 +793,16 @@ async def test_parse_osm_dict_full_flow(osm_parser: OSMParserFactory) -> None:
         "osm_id": 123456,
         "osm_type": "way",
     }
-    parser, _sensor = osm_parser(attrs={ATTR_OSM_DICT: osm_dict})
-    with stubbed_parser(
-        parser,
-        [
-            ("set_attribution", {}),
-            ("parse_type", {}),
-            ("parse_category", {}),
-            ("parse_namedetails", {}),
-            ("parse_address", {}),
-            ("parse_miscellaneous", {}),
-            ("set_place_name_no_dupe", {}),
-        ],
-    ) as mocks:
-        await parser.parse_osm_dict()
-    mocks["set_attribution"].assert_awaited_once_with(osm_dict)
-    mocks["parse_type"].assert_awaited_once_with(osm_dict)
-    mocks["parse_category"].assert_awaited_once_with(osm_dict)
-    mocks["parse_namedetails"].assert_awaited_once_with(osm_dict)
-    mocks["parse_address"].assert_awaited_once_with(osm_dict)
-    mocks["parse_miscellaneous"].assert_awaited_once_with(osm_dict)
-    mocks["set_place_name_no_dupe"].assert_awaited_once()
+    parser, sensor = osm_parser(attrs={ATTR_OSM_DICT: osm_dict})
+    await parser.parse_osm_dict()
+
+    assert sensor.attrs[ATTR_ATTRIBUTION] == "OSM License"
+    assert sensor.attrs[ATTR_PLACE_TYPE] == "road"
+    assert sensor.attrs[ATTR_PLACE_CATEGORY] == "retail"
+    assert sensor.attrs[ATTR_PLACE_NAME] == "Park"
+    assert sensor.attrs[ATTR_STREET_NUMBER] == "123"
+    assert sensor.attrs[ATTR_STREET] == "Main"
+    assert sensor.attrs[ATTR_FORMATTED_ADDRESS] == "123 Main St"
+    assert sensor.attrs[ATTR_OSM_ID] == "123456"
+    assert sensor.attrs[ATTR_OSM_TYPE] == "way"
+    assert sensor.attrs[ATTR_PLACE_NAME_NO_DUPE] == "Park"

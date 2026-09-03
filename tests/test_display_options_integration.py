@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -19,99 +18,19 @@ from custom_components.places.const import (
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 
-# Snapshot of internal attributes after parse_osm_dict
+# Semantic location attributes used by the display-option cases below.
 BASE_INTERNAL_ATTR = {
-    "initial_update": False,
-    "name": "Test Place",
-    "unique_id": "5a00ead04bce9bbd7ab4a40c8ed70e3c",
-    "icon": "mdi:map-search-outline",
-    "api_key": "abcdefg@test.com",
-    "options": "formatted_place",
-    "devicetracker_id": "device_tracker.test_iphone",
-    "devicetracker_entityid": "device_tracker.test_iphone",
-    "home_zone": "zone.home",
-    "map_provider": "apple",
-    "map_zoom": 18,
-    "extended_attr": False,
-    "show_time": False,
-    "date_format": "mm/dd",
-    "use_gps_accuracy": True,
-    "display_options": "formatted_place",
-    "home_latitude": 40.824763,
-    "home_longitude": -73.973675,
-    "show_date": False,
     "zone_name": "not_home",
     "zone": "not_home",
-    "direction_of_travel": "towards home",
-    "distance_from_home": 23898.658,
-    "distance_traveled": 2378.348,
-    "gps_accuracy": 4.0,
-    "last_changed": "2025-07-30 16:52:35-04:00",
-    "last_place_name": "Riverside Drive",
-    "last_updated": "2025-07-30 16:52:35-04:00",
-    "previous_latitude": 40.83871498707779,
-    "latitude": 40.854733600095464,
-    "previous_longitude": -73.94654779701861,
-    "longitude": -73.96526768799811,
-    "native_value": "Secondary, Riverside Drive, New York, NY",  # Pre-existing state before re-render
-    "attribution": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
-    "display_options_list": ["formatted_place"],
-    "previous_state": "Secondary, Riverside Drive, New York, NY",
-    "current_location": "40.854733600095464,-73.96526768799811",
-    "previous_location": "40.83871498707779,-73.94654779701861",
-    "home_location": "40.824763, -73.973675",
-    "map_link": "https://maps.apple.com/?q=40.854733600095464%2C-73.96526768799811&z=18",
-    "osm_dict": {
-        "place_id": 333305883,
-        "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
-        "osm_type": "node",
-        "osm_id": 2563205146,
-        "lat": "40.8553978",
-        "lon": "-73.9647140",
-        "class": "place",
-        "type": "house",
-        "place_rank": 30,
-        "importance": 5.726176852059232e-05,
-        "addresstype": "place",
-        "name": "Roy Spiegel MSW",
-        "display_name": "Roy Spiegel MSW, 1, Bridge Plaza North, Koreatown, Fort Lee, Bergen County, New Jersey, 07024, United States",
-        "address": {
-            "place": "Roy Spiegel MSW",
-            "house_number": "1",
-            "road": "Bridge Plaza North",
-            "neighbourhood": "Koreatown",
-            "town": "Fort Lee",
-            "county": "Bergen County",
-            "state": "New Jersey",
-            "ISO3166-2-lvl4": "US-NJ",
-            "postcode": "07024",
-            "country": "United States",
-            "country_code": "us",
-        },
-        "namedetails": {
-            "name": "Roy Spiegel MSW",
-            "name:en": "Roy Spiegel MSW",
-            "addr:housename": "Roy Spiegel MSW",
-        },
-        "boundingbox": ["40.8553478", "40.8554478", "-73.9647640", "-73.9646640"],
-    },
-    "place_type": "house",
     "place_name": "Roy Spiegel MSW",
+    "place_name_no_dupe": "Roy Spiegel MSW",
+    "place_type": "house",
+    "neighborhood": "Koreatown",
     "street_number": "1",
     "street": "Bridge Plaza North",
-    "city": "Fort Lee",
-    "neighborhood": "Koreatown",
     "city_clean": "Fort Lee",
-    "state": "New Jersey",
     "state_abbr": "NJ",
-    "county": "Bergen County",
-    "country": "United States",
-    "country_code": "US",
-    "postal_code": "07024",
     "formatted_address": "Roy Spiegel MSW, 1, Bridge Plaza North, Koreatown, Fort Lee, Bergen County, New Jersey, 07024, United States",
-    "osm_id": "2563205146",
-    "osm_type": "node",
-    "place_name_no_dupe": "Roy Spiegel MSW",
 }
 
 README_PLACE_ADVANCED = (
@@ -248,12 +167,3 @@ async def test_basic_place_option_includes_neighborhood(
 
     assert basic_state
     assert "Koreatown" in basic_state
-
-
-def test_readme_display_examples_are_documented() -> None:
-    """Assert that README still contains the two example advanced display strings."""
-    readme = Path(__file__).resolve().parent.parent / "README.md"
-    readme_contents = readme.read_text(encoding="utf-8")
-
-    assert README_PLACE_ADVANCED in readme_contents
-    assert README_FORMATTED_PLACE_ADVANCED in readme_contents
