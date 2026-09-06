@@ -387,21 +387,21 @@ def test_parse_required_checks_groups_exact_names_and_rejects_malformed_values()
     """Group checks by workflow while retaining exact job-name boundaries."""
     checks = verify.parse_required_checks(
         [
-            "pytest_coverage.yml::pytest and coverage report",
+            "pytest_check.yml::pytest check and post coverage",
             "validate.yml::HACS Validation",
             "validate.yml::Hassfest Validation",
             "prek-autofix-review.yml::review",
-            "pytest_coverage.yml::pytest and coverage report",
+            "pytest_check.yml::pytest check and post coverage",
         ]
     )
 
     assert list(checks) == [
-        "pytest_coverage.yml",
+        "pytest_check.yml",
         "validate.yml",
         "prek-autofix-review.yml",
     ]
     assert checks == {
-        "pytest_coverage.yml": {"pytest and coverage report"},
+        "pytest_check.yml": {"pytest check and post coverage"},
         "validate.yml": {"HACS Validation", "Hassfest Validation"},
         "prek-autofix-review.yml": {"review"},
     }
@@ -452,7 +452,7 @@ def test_main_dispatches_workflows_in_required_check_first_seen_order(
             "--sha",
             SHA,
             "--required-check",
-            "pytest_coverage.yml::pytest and coverage report",
+            "pytest_check.yml::pytest check and post coverage",
             "--required-check",
             "validate.yml::HACS Validation",
             "--required-check",
@@ -461,9 +461,9 @@ def test_main_dispatches_workflows_in_required_check_first_seen_order(
     )
 
     assert verify.main() == 0
-    assert dispatches == ["pytest_coverage.yml", "validate.yml"]
+    assert dispatches == ["pytest_check.yml", "validate.yml"]
     assert waits == [
-        ("pytest_coverage.yml", {"pytest and coverage report"}, 1),
+        ("pytest_check.yml", {"pytest check and post coverage"}, 1),
         ("validate.yml", {"HACS Validation", "Hassfest Validation"}, 2),
     ]
 
@@ -599,7 +599,7 @@ def test_release_workflow_has_published_trigger_and_stable_prerelease_split() ->
     } == {
         "validate.yml::HACS Validation",
         "validate.yml::Hassfest Validation",
-        "pytest_coverage.yml::pytest and coverage report",
+        "pytest_check.yml::pytest check and post coverage",
         "prek-autofix-review.yml::review",
     }
 
@@ -686,7 +686,7 @@ def test_release_workflow_uses_scoped_github_cli_credentials_for_git_pushes() ->
     ("workflow_name", "guarded_jobs"),
     [
         ("validate.yml", ["ha_validation", "hacs_validation"]),
-        ("pytest_coverage.yml", ["tests"]),
+        ("pytest_check.yml", ["tests"]),
         ("prek-autofix-review.yml", ["review"]),
     ],
 )
@@ -714,9 +714,9 @@ def test_release_dispatch_guards_require_lowercase_sha_and_match_workflow_sha(
 
 def test_dispatch_pytest_job_is_read_only_and_preserves_required_check_name() -> None:
     """Run release-dispatched pytest with read-only contents and the required job name."""
-    document = _load_workflow("pytest_coverage.yml")
+    document = _load_workflow("pytest_check.yml")
     pytest_job = document["jobs"]["tests"]
-    assert pytest_job["name"] == "pytest and coverage report"
+    assert pytest_job["name"] == "pytest check and post coverage"
     assert "workflow_dispatch" not in pytest_job["if"]
     assert pytest_job["permissions"] == {"contents": "read"}
     assert all(
@@ -739,7 +739,7 @@ def test_dispatch_pytest_job_is_read_only_and_preserves_required_check_name() ->
 
 @pytest.mark.parametrize(
     ("workflow_name", "has_push_trigger"),
-    [("validate.yml", True), ("pytest_coverage.yml", True), ("prek-autofix-review.yml", False)],
+    [("validate.yml", True), ("pytest_check.yml", True), ("prek-autofix-review.yml", False)],
 )
 def test_release_gate_workflows_retain_normal_triggers_and_expected_sha_dispatch(
     workflow_name: str, has_push_trigger: bool
@@ -764,7 +764,7 @@ def test_release_gate_workflows_retain_normal_triggers_and_expected_sha_dispatch
     assert isinstance(jobs, dict)
     guarded_jobs = {
         "validate.yml": set(jobs),
-        "pytest_coverage.yml": {"tests"},
+        "pytest_check.yml": {"tests"},
         "prek-autofix-review.yml": {"review"},
     }[workflow_name]
     for job_id, job in jobs.items():
@@ -779,7 +779,7 @@ def test_release_gate_workflows_retain_normal_triggers_and_expected_sha_dispatch
 
 def test_release_gate_workflow_checkouts_pin_dispatch_sha_without_pr_credentials() -> None:
     """Ensure release-dispatched validation checks out the expected SHA credential-free."""
-    for workflow_name in ["validate.yml", "pytest_coverage.yml", "prek-autofix-review.yml"]:
+    for workflow_name in ["validate.yml", "pytest_check.yml", "prek-autofix-review.yml"]:
         document = _load_workflow(workflow_name)
         jobs = document["jobs"]
         assert isinstance(jobs, dict)
@@ -790,17 +790,15 @@ def test_release_gate_workflow_checkouts_pin_dispatch_sha_without_pr_credentials
                 for step in job["steps"]
                 if isinstance(step, dict) and step.get("uses") == "actions/checkout@v7"
             )
-            if workflow_name == "pytest_coverage.yml" and job_id == "tests":
+            if workflow_name == "pytest_check.yml" and job_id == "tests":
                 assert "inputs.expected_sha || github.sha" in checkout["with"]["ref"]
-            elif workflow_name == "pytest_coverage.yml":
+            elif workflow_name == "pytest_check.yml":
                 assert checkout["with"]["ref"] == "${{ github.sha }}"
             else:
                 assert "inputs.expected_sha || github.sha" in checkout["with"]["ref"]
-            if workflow_name == "pytest_coverage.yml" and job_id == "tests":
+            if (
+                workflow_name == "pytest_check.yml" and job_id == "tests"
+            ) or workflow_name == "pytest_check.yml":
                 assert checkout["with"]["persist-credentials"] is False
-            elif workflow_name == "pytest_coverage.yml":
-                assert checkout["with"]["persist-credentials"] == (
-                    "${{ github.event_name == 'push' }}"
-                )
             else:
                 assert checkout["with"]["persist-credentials"] is False

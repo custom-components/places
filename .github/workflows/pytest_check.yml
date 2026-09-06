@@ -1,4 +1,4 @@
-name: pytest and coverage
+name: pytest check and post coverage
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
 
 jobs:
   tests:
-    name: pytest and coverage report
+    name: pytest check and post coverage
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.user.login == 'prek-autoupdate-bot' ||
@@ -66,7 +66,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-          persist-credentials: ${{ github.event_name == 'push' }}
+          persist-credentials: false
       - name: Setup uv (with caching)
         uses: astral-sh/setup-uv@v10.0.1
         with:
@@ -78,13 +78,14 @@ jobs:
         run: uv run --locked --group pytest pytest
       - name: Generate coverage Comment (and possibly Post to PR)
         id: coverage_comment
-        uses: py-cov-action/python-coverage-comment-action@v3
+        uses: py-cov-action/python-coverage-comment-action@v4.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIVITY: ${{ github.event_name == 'push' && 'save_coverage_data_files' || 'process_pr' }}
           MINIMUM_GREEN: 90
           MINIMUM_ORANGE: 70
       - name: Store PR Comment to be Posted
-        if: steps.coverage_comment.outputs.COMMENT_FILE_WRITTEN == 'true'
+        if: steps.coverage_comment.outputs.comment_file_written == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: python-coverage-comment-action

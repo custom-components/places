@@ -1,31 +1,32 @@
-name: Post coverage Comment to PR
+name: pytest post coverage
 
 on:
   workflow_run:
-    workflows: ['pytest and coverage']
+    workflows: ['pytest check and post coverage']
     types:
       - completed
 
 jobs:
   test:
-    name: Post coverage Comment to PR
+    name: pytest post coverage
     runs-on: ubuntu-latest
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
     permissions:
       # Posts or updates the artifact-generated coverage comment when the PR
       # workflow could not comment directly, such as for a fork PR.
       pull-requests: write
-      # Required by the coverage action when updating an existing comment.
-      contents: write
+      # Allows the coverage action to inspect repository metadata while posting.
+      contents: read
       # Reads the triggering workflow run and downloads its comment artifact.
       actions: read
     steps:
       # DO NOT run actions/checkout here, for security reasons
       # For details, refer to https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
       - name: Post coverage Comment to PR
-        uses: py-cov-action/python-coverage-comment-action@v3
+        uses: py-cov-action/python-coverage-comment-action@v4.3
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIVITY: post_comment
           GITHUB_PR_RUN_ID: ${{ github.event.workflow_run.id }}
           # Update those if you changed the default values:
           # COMMENT_ARTIFACT_NAME: python-coverage-comment-action

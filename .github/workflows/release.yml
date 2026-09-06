@@ -166,7 +166,7 @@ jobs:
             --repository "$GITHUB_REPOSITORY" --ref "$TEMP_REF" --sha "$CANDIDATE_SHA" \
             --required-check 'validate.yml::HACS Validation' \
             --required-check 'validate.yml::Hassfest Validation' \
-            --required-check 'pytest_coverage.yml::pytest and coverage report' \
+            --required-check 'pytest_check.yml::pytest check and post coverage' \
             --required-check 'prek-autofix-review.yml::review'
 
       - name: Atomically advance target and guarded release tag
