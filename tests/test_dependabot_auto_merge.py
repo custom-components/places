@@ -7,6 +7,7 @@ import shutil
 import subprocess
 from typing import Any
 
+import pytest
 import yaml
 
 SCRIPT_PATH = Path(__file__).parents[1] / ".github" / "scripts" / "dependabot-auto-merge.mjs"
@@ -56,6 +57,7 @@ def dependabot_commit(sha: str = HEAD_SHA) -> dict[str, Any]:
     """
     return {
         "author": {"login": "dependabot[bot]"},
+        "committer": {"login": "web-flow"},
         "commit": {"verification": {"verified": True}},
         "parents": [],
         "sha": sha,
@@ -74,6 +76,7 @@ def update_branch_commit(previous_sha: str, base_sha: str, sha: str) -> dict[str
         dict[str, Any]: GitHub pull-request commit record.
     """
     return {
+        "author": {"login": "maintainer"},
         "committer": {"login": "web-flow"},
         "commit": {"verification": {"verified": True}},
         "parents": [{"sha": previous_sha}, {"sha": base_sha}],
@@ -344,6 +347,34 @@ def test_rejects_update_branch_history_with_a_non_github_merge(tmp_path: Path) -
     assert result.returncode != 0
 
 
+@pytest.mark.parametrize(
+    ("history", "committer"),
+    [("direct", None), ("direct", "maintainer"), ("update", None), ("update", "maintainer")],
+)
+def test_rejects_dependabot_roots_without_a_verified_web_flow_committer(
+    tmp_path: Path, history: str, committer: str | None
+) -> None:
+    """Reject direct and update roots missing GitHub web-flow provenance.
+
+    Args:
+        tmp_path (Path): Isolated trusted-base checkout fixture.
+        history (str): Whether to construct direct or GitHub Update branch history.
+        committer (str | None): Invalid root committer, or None when omitted.
+    """
+    commits = [dependabot_commit()] if history == "direct" else update_chain()
+    if committer is None:
+        del commits[0]["committer"]
+    else:
+        commits[0]["committer"]["login"] = committer
+    result = authorize(
+        tmp_path,
+        ancestry_proofs=[] if history == "direct" else update_chain_proofs(),
+        commits=commits,
+    )
+
+    assert result.returncode != 0
+
+
 def _load_workflow(path: str) -> dict[str, Any]:
     """Load a workflow for behavior-level contracts.
 
@@ -456,6 +487,8 @@ def test_workflows_authorize_with_trusted_history_and_compare_evidence() -> None
         )
         assert "compare/" in authorization["run"]
         assert "dependabot-ancestry-proofs.json" in authorization["run"]
+        assert authorization["env"]["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
+        assert 'base_sha="${BASE_SHA}"' in authorization["run"]
 
     pytest_steps = pytest_authorizer["steps"]
     trusted_checkout = next(

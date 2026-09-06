@@ -44,13 +44,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPOSITORY: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           changed_files="${RUNNER_TEMP}/dependabot-changed-files"
           commits="${RUNNER_TEMP}/dependabot-commits.json"
           ancestry_proofs="${RUNNER_TEMP}/dependabot-ancestry-proofs.json"
           ancestry_proof_items="${RUNNER_TEMP}/dependabot-ancestry-proof-items.jsonl"
-          base_sha="${{ github.event.pull_request.base.sha }}"
+          base_sha="${BASE_SHA}"
           gh api --paginate \
             "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
             --jq '.[].filename' > "${changed_files}"
