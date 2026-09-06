@@ -82,6 +82,7 @@ def authorize(
     changed_files: list[str],
     commits: list[dict[str, Any]],
     event: dict[str, Any],
+    trusted_base_files: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Execute the helper against an isolated trusted-base directory.
 
@@ -91,10 +92,16 @@ def authorize(
         changed_files (list[str]): Pull-request paths.
         commits (list[dict[str, Any]]): Pull-request history from GitHub.
         event (dict[str, Any]): Pull-request event payload.
+        trusted_base_files (list[str] | None): Files present in the trusted base.
 
     Returns:
         subprocess.CompletedProcess[str]: Completed Node authorizer process.
     """
+    for path in trusted_base_files or ["uv.lock"]:
+        trusted_base_file = tmp_path / path
+        trusted_base_file.parent.mkdir(parents=True, exist_ok=True)
+        trusted_base_file.touch()
+
     event_path = tmp_path / "event.json"
     changed_files_path = tmp_path / "changed-files"
     commits_path = tmp_path / "commits.json"
@@ -151,10 +158,6 @@ def test_authorizes_existing_trusted_action_files(tmp_path: Path) -> None:
     Args:
         tmp_path (Path): Isolated trusted-base checkout fixture.
     """
-    workflow = tmp_path / ".github" / "workflows" / "validate.yml"
-    workflow.parent.mkdir(parents=True)
-    workflow.touch()
-    (tmp_path / "action.yml").touch()
     event = pull_request_event()
     event["pull_request"]["head"]["ref"] = "dependabot/github_actions/actions/checkout-7"
     result = authorize(
@@ -162,6 +165,7 @@ def test_authorizes_existing_trusted_action_files(tmp_path: Path) -> None:
         changed_files=[".github/workflows/validate.yml", "action.yml"],
         commits=[dependabot_commit()],
         event=event,
+        trusted_base_files=[".github/workflows/validate.yml", "action.yml"],
     )
 
     assert result.returncode == 0, result.stderr
@@ -185,6 +189,24 @@ def test_rejects_action_path_absent_from_trusted_base(tmp_path: Path) -> None:
     assert result.returncode != 0
 
 
+def test_rejects_npm_update_when_the_trusted_base_uses_uv(tmp_path: Path) -> None:
+    """Reject an npm update when its required manifests are absent from base.
+
+    Args:
+        tmp_path (Path): Isolated trusted-base checkout fixture.
+    """
+    event = pull_request_event()
+    event["pull_request"]["head"]["ref"] = "dependabot/npm_and_yarn/example-1.0.0"
+    result = authorize(
+        tmp_path,
+        changed_files=["package-lock.json"],
+        commits=[dependabot_commit()],
+        event=event,
+    )
+
+    assert result.returncode != 0
+
+
 def test_authorizes_verified_update_branch_merge(tmp_path: Path) -> None:
     """Preserve auto-merge after GitHub updates a trusted Dependabot branch.
 
@@ -200,3 +222,22 @@ def test_authorizes_verified_update_branch_merge(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_rejects_update_branch_history_with_a_non_github_merge(tmp_path: Path) -> None:
+    """Reject an Update branch chain whose merge lacks GitHub web-flow provenance.
+
+    Args:
+        tmp_path (Path): Isolated trusted-base checkout fixture.
+    """
+    invalid_merge = update_branch_commit(DEPENDABOT_SHA)
+    invalid_merge["committer"]["login"] = "maintainer"
+    result = authorize(
+        tmp_path,
+        actor="maintainer",
+        changed_files=["uv.lock"],
+        commits=[dependabot_commit(DEPENDABOT_SHA), invalid_merge],
+        event=pull_request_event("synchronize"),
+    )
+
+    assert result.returncode != 0
