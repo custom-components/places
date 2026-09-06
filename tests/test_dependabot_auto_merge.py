@@ -435,7 +435,9 @@ def test_workflows_authorize_with_trusted_history_and_compare_evidence() -> None
     )
     pytest_authorizer = _workflow_job_with_authorizer(pytest_check)
     for job in [auto_authorizer, pytest_authorizer]:
-        assert job["permissions"] == {"contents": "read", "pull-requests": "read"}
+        assert job["permissions"]["contents"] == "read"
+        assert job["permissions"]["pull-requests"] == "read"
+        assert all(permission in {"contents", "pull-requests"} for permission in job["permissions"])
         authorization = _authorization_step(job)
         authorization_index = job["steps"].index(authorization)
         trusted_checkout = next(
@@ -496,17 +498,23 @@ def test_coverage_generation_and_trusted_publishing_have_separate_capabilities()
     """Keep source coverage read-only and writers scoped to their trusted run types."""
     pytest_check = _load_workflow("pytest_check.yml")
     post_coverage = _load_workflow("pytest_post_coverage.yml")
+    assert "concurrency" not in post_coverage
     source = next(
         job
         for job in pytest_check["jobs"].values()
         if any(
-            "uv run --locked --group pytest pytest" in str(step.get("run", ""))
+            isinstance(step, dict)
+            and _uses_major_action(step, "py-cov-action/python-coverage-comment-action")
+            and step.get("with", {}).get("ACTIVITY") == "process_pr"
             for step in job["steps"]
         )
     )
     assert "write" not in source["permissions"].values()
     coverage = _coverage_step(source, "process_pr")
-    assert coverage["if"]
+    coverage_condition = str(coverage["if"])
+    assert "github.event_name == 'pull_request'" in coverage_condition
+    assert "pull_request.user.login != 'prek-autoupdate-bot'" in coverage_condition
+    assert "dependabot[bot]" not in coverage_condition
     stored_coverage = next(
         step
         for step in source["steps"]
@@ -529,6 +537,13 @@ def test_coverage_generation_and_trusted_publishing_have_separate_capabilities()
         )
     )
     assert comment_writer["permissions"]["pull-requests"] == "write"
+    assert comment_writer["permissions"]["actions"] == "read"
+    assert comment_writer["permissions"]["contents"] == "read"
+    assert all(
+        permission in {"actions", "contents", "pull-requests"}
+        for permission in comment_writer["permissions"]
+    )
+    assert "concurrency" not in comment_writer
     assert all(
         not (isinstance(step, dict) and _uses_major_action(step, "actions/checkout"))
         for step in comment_writer["steps"]
@@ -543,25 +558,44 @@ def test_coverage_generation_and_trusted_publishing_have_separate_capabilities()
             for step in job["steps"]
         )
     )
-    assert publisher["permissions"] == {"actions": "read", "contents": "write"}
+    publisher_permissions = publisher["permissions"]
+    assert publisher_permissions["actions"] == "read"
+    assert publisher_permissions["contents"] == "write"
+    assert all(permission in {"actions", "contents"} for permission in publisher_permissions)
     for term in [
         "workflow_run.event == 'push'",
         "workflow_run.conclusion == 'success'",
         "workflow_run.head_branch == github.event.repository.default_branch",
+        "workflow_run.head_repository.full_name == github.repository",
     ]:
         assert term in publisher["if"]
+    assert publisher["concurrency"]["cancel-in-progress"] is True
+    assert "github.event.repository.default_branch" in publisher["concurrency"]["group"]
     checkout = next(
         step
         for step in publisher["steps"]
         if isinstance(step, dict) and _uses_major_action(step, "actions/checkout")
     )
-    assert checkout["with"] == {
-        "persist-credentials": False,
-        "ref": "${{ github.event.workflow_run.head_sha }}",
-    }
+    checkout_with = checkout["with"]
+    assert checkout_with["persist-credentials"] is False
+    assert checkout_with["ref"] == "${{ github.event.repository.default_branch }}"
+    verification = next(
+        step
+        for step in publisher["steps"]
+        if isinstance(step, dict) and "git rev-parse HEAD" in step.get("run", "")
+    )
+    assert verification["env"]["EXPECTED_SHA"] == "${{ github.event.workflow_run.head_sha }}"
     download = next(
         step
         for step in publisher["steps"]
-        if isinstance(step, dict) and "gh run download" in step.get("run", "")
+        if isinstance(step, dict) and _uses_major_action(step, "actions/download-artifact")
     )
-    assert "--name python-coverage-data" in download["run"]
+    download_with = download["with"]
+    assert download_with["github-token"] == "${{ secrets.GITHUB_TOKEN }}"
+    assert download_with["name"] == "python-coverage-data"
+    assert download_with["path"] == "."
+    assert download_with["run-id"] == "${{ github.event.workflow_run.id }}"
+    publish = _coverage_step(publisher, "save_coverage_data_files")
+    assert publisher["steps"].index(checkout) < publisher["steps"].index(verification)
+    assert publisher["steps"].index(verification) < publisher["steps"].index(download)
+    assert publisher["steps"].index(download) < publisher["steps"].index(publish)
