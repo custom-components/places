@@ -729,7 +729,11 @@ def test_dispatch_pytest_job_is_read_only_and_preserves_required_check_name() ->
     checkout = next(
         step
         for step in pytest_job["steps"]
-        if isinstance(step, dict) and step.get("uses") == "actions/checkout@v7"
+        if (
+            isinstance(step, dict)
+            and step.get("uses") == "actions/checkout@v7"
+            and step.get("with", {}).get("ref") == "${{ inputs.expected_sha || github.sha }}"
+        )
     )
     assert checkout["with"] == {
         "ref": "${{ inputs.expected_sha || github.sha }}",
@@ -785,16 +789,27 @@ def test_release_gate_workflow_checkouts_pin_dispatch_sha_without_pr_credentials
         assert isinstance(jobs, dict)
         for job_id, job in jobs.items():
             assert isinstance(job, dict)
-            checkout = next(
-                step
-                for step in job["steps"]
-                if isinstance(step, dict) and step.get("uses") == "actions/checkout@v7"
-            )
             if workflow_name == "pytest_check.yml" and job_id == "tests":
+                checkout = next(
+                    step
+                    for step in job["steps"]
+                    if (
+                        isinstance(step, dict)
+                        and step.get("uses") == "actions/checkout@v7"
+                        and "inputs.expected_sha || github.sha"
+                        in step.get("with", {}).get("ref", "")
+                    )
+                )
                 assert "inputs.expected_sha || github.sha" in checkout["with"]["ref"]
-            elif workflow_name == "pytest_check.yml":
-                assert checkout["with"]["ref"] == "${{ github.sha }}"
             else:
+                checkout = next(
+                    step
+                    for step in job["steps"]
+                    if isinstance(step, dict) and step.get("uses") == "actions/checkout@v7"
+                )
+            if workflow_name == "pytest_check.yml" and job_id != "tests":
+                assert checkout["with"]["ref"] == "${{ github.sha }}"
+            elif workflow_name != "pytest_check.yml":
                 assert "inputs.expected_sha || github.sha" in checkout["with"]["ref"]
             if (
                 workflow_name == "pytest_check.yml" and job_id == "tests"
