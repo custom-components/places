@@ -624,7 +624,7 @@ def test_release_workflow_uses_guarded_atomic_promotion_and_resumable_cleanup() 
     assert 'echo "sha=$RESUME_SHA"' in candidate_run
     cleanup = steps["Delete validated temporary branch"]
     assert cleanup["if"] == "github.event.release.prerelease == false && success()"
-    assert 'push origin --delete "$TEMP_REF"' in cleanup["run"]
+    assert 'push --force-with-lease="refs/heads/$TEMP_REF:$CANDIDATE_SHA"' in cleanup["run"]
 
 
 def test_release_workflow_trusts_only_default_branch_and_scopes_tokens() -> None:
