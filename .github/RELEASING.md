@@ -22,6 +22,7 @@ pushing the candidate to a unique `release-validation/...` branch.
 It dispatches and verifies these exact candidate-SHA gates:
 
 - `pytest_check.yml::pytest check and post coverage`
+- `uv-lock-check.yml::Validate uv lock consistency`
 - `validate.yml::Hassfest Validation`
 - `validate.yml::HACS Validation`
 - `prek-autofix-review.yml::review`

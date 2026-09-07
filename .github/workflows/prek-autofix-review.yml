@@ -56,5 +56,5 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
-          uv run --locked prek run --all-files
-          git diff --exit-code
+          UV_LOCKED=1 uv run --locked prek run --all-files
+          test -z "$(git status --porcelain)"
