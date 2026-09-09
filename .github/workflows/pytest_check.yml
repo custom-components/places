@@ -5,12 +5,6 @@ on:
     branches:
       - main
   pull_request:
-  workflow_dispatch:
-    inputs:
-      expected_sha:
-        description: Immutable commit SHA required by release orchestration
-        required: true
-        type: string
 
 jobs:
   tests:
@@ -36,51 +30,9 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.base.sha }}
 
-      - name: Authorize Dependabot update before checking out its head
-        if: >-
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.user.login == 'dependabot[bot]'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPOSITORY: ${{ github.repository }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          set -euo pipefail
-          changed_files="${RUNNER_TEMP}/dependabot-changed-files"
-          commits="${RUNNER_TEMP}/dependabot-commits.json"
-          ancestry_proofs="${RUNNER_TEMP}/dependabot-ancestry-proofs.json"
-          ancestry_proof_items="${RUNNER_TEMP}/dependabot-ancestry-proof-items.jsonl"
-          base_sha="${BASE_SHA}"
-          gh api --paginate \
-            "repos/${REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
-            --jq '.[].filename' > "${changed_files}"
-          gh api --paginate --slurp \
-            "repos/${REPOSITORY}/pulls/${PR_NUMBER}/commits?per_page=100" \
-            > "${commits}"
-          : > "${ancestry_proof_items}"
-          while IFS= read -r second_parent; do
-            gh api "repos/${REPOSITORY}/compare/${second_parent}...${base_sha}" |
-              jq -c --arg parent_sha "${second_parent}" --arg base_sha "${base_sha}" \
-                '{parent_sha, base_sha, base_commit: .base_commit.sha, head_commit: .head_commit.sha, merge_base_commit: .merge_base_commit.sha, status, ahead_by, behind_by}' \
-                >> "${ancestry_proof_items}"
-          done < <(jq -r '.[].[] | select(.parents | length == 2) | .parents[1].sha' "${commits}")
-          jq -s . "${ancestry_proof_items}" > "${ancestry_proofs}"
-          node .github/scripts/dependabot-auto-merge.mjs \
-            "${GITHUB_EVENT_PATH}" "${changed_files}" "${commits}" "${ancestry_proofs}"
-
-      - name: Require expected release commit
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-          WORKFLOW_SHA: ${{ github.sha }}
-        run: |
-          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$WORKFLOW_SHA" = "$EXPECTED_SHA"
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.expected_sha || github.sha }}
           persist-credentials: false
 
       - name: Setup uv (with caching)
@@ -105,6 +57,7 @@ jobs:
           ACTIVITY: process_pr
           MINIMUM_GREEN: 90
           MINIMUM_ORANGE: 70
+
       - name: Store PR Comment to be Posted
         if: steps.coverage_comment.outputs.comment_file_written == 'true'
         uses: actions/upload-artifact@v7

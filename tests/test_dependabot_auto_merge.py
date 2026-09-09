@@ -456,48 +456,38 @@ def _coverage_step(job: dict[str, Any], activity: str) -> dict[str, Any]:
     )
 
 
-def test_workflows_authorize_with_trusted_history_and_compare_evidence() -> None:
-    """Require trusted-base, read-only authorization in dedicated and pytest CI."""
+def test_auto_merge_authorizes_with_trusted_history_and_compare_evidence() -> None:
+    """Require trusted-base, read-only authorization in dedicated auto-merge CI."""
     auto_merge = _load_workflow("dependabot-auto-merge.yml")
-    pytest_check = _load_workflow("pytest_check.yml")
     auto_authorizer = _workflow_job_with_authorizer(auto_merge)
     auto_authorizer_id = next(
         job_id for job_id, job in auto_merge["jobs"].items() if job is auto_authorizer
     )
-    pytest_authorizer = _workflow_job_with_authorizer(pytest_check)
-    for job in [auto_authorizer, pytest_authorizer]:
-        assert job["permissions"]["contents"] == "read"
-        assert job["permissions"]["pull-requests"] == "read"
-        assert all(permission in {"contents", "pull-requests"} for permission in job["permissions"])
-        authorization = _authorization_step(job)
-        authorization_index = job["steps"].index(authorization)
-        trusted_checkout = next(
-            step
-            for step in job["steps"][:authorization_index]
-            if isinstance(step, dict)
-            and _uses_major_action(step, "actions/checkout")
-            and step.get("with", {}).get("ref") == "${{ github.event.pull_request.base.sha }}"
-        )
-        assert trusted_checkout["with"]["persist-credentials"] is False
-        assert all(
-            not _uses_major_action(step, "actions/checkout")
-            or step.get("with", {}).get("ref") == "${{ github.event.pull_request.base.sha }}"
-            for step in job["steps"][:authorization_index]
-            if isinstance(step, dict)
-        )
-        assert "compare/" in authorization["run"]
-        assert "dependabot-ancestry-proofs.json" in authorization["run"]
-        assert authorization["env"]["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
-        assert 'base_sha="${BASE_SHA}"' in authorization["run"]
-
-    pytest_steps = pytest_authorizer["steps"]
+    assert auto_authorizer["permissions"]["contents"] == "read"
+    assert auto_authorizer["permissions"]["pull-requests"] == "read"
+    assert all(
+        permission in {"contents", "pull-requests"} for permission in auto_authorizer["permissions"]
+    )
+    authorization = _authorization_step(auto_authorizer)
+    authorization_index = auto_authorizer["steps"].index(authorization)
     trusted_checkout = next(
         step
-        for step in pytest_steps
+        for step in auto_authorizer["steps"][:authorization_index]
         if isinstance(step, dict)
         and _uses_major_action(step, "actions/checkout")
         and step.get("with", {}).get("ref") == "${{ github.event.pull_request.base.sha }}"
     )
+    assert trusted_checkout["with"]["persist-credentials"] is False
+    assert all(
+        not _uses_major_action(step, "actions/checkout")
+        or step.get("with", {}).get("ref") == "${{ github.event.pull_request.base.sha }}"
+        for step in auto_authorizer["steps"][:authorization_index]
+        if isinstance(step, dict)
+    )
+    assert "compare/" in authorization["run"]
+    assert "dependabot-ancestry-proofs.json" in authorization["run"]
+    assert authorization["env"]["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
+    assert 'base_sha="${BASE_SHA}"' in authorization["run"]
     assert "pull_request.user.login == 'dependabot[bot]'" in auto_authorizer["if"]
     assert "repository.fork" not in auto_authorizer["if"]
     enable = next(
@@ -522,9 +512,6 @@ def test_workflows_authorize_with_trusted_history_and_compare_evidence() -> None
         "pull_request.base.ref == github.event.repository.default_branch",
     ]:
         assert term in cleanup["if"]
-    for condition in [trusted_checkout["if"], _authorization_step(pytest_authorizer)["if"]]:
-        assert "github.event_name == 'pull_request'" in condition
-        assert "pull_request.user.login == 'dependabot[bot]'" in condition
 
 
 def test_coverage_generation_and_trusted_publishing_have_separate_capabilities() -> None:

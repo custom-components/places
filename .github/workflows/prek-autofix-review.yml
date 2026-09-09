@@ -3,12 +3,6 @@ name: prek-autofix
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  workflow_dispatch:
-    inputs:
-      expected_sha:
-        description: Immutable commit SHA required by release orchestration
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -22,20 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Require expected release commit
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-          WORKFLOW_SHA: ${{ github.sha }}
-        run: |
-          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$WORKFLOW_SHA" = "$EXPECTED_SHA"
-
       - uses: actions/checkout@v7
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || inputs.expected_sha || github.sha }}
-          fetch-depth: 1
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Setup uv (with caching)
@@ -47,14 +31,6 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - id: review
-        if: github.event_name == 'pull_request'
         uses: Snuffy2/prek-autofix/review@v1
         env:
           UV_LOCKED: "1"
-
-      - name: Verify prek without pull-request context
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          set -euo pipefail
-          UV_LOCKED=1 uv run --locked prek run --all-files
-          test -z "$(git status --porcelain)"
