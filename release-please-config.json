@@ -3,7 +3,6 @@
   "release-type": "simple",
   "include-component-in-tag": false,
   "include-v-in-tag": true,
-  "include-commit-authors": true,
   "changelog-sections": [
     {
       "type": "feat",
@@ -68,12 +67,17 @@
   ],
   "packages": {
     ".": {
-      "package-name": "aiopnsense",
-      "changelog-path": "docs/source/changelog.md",
+      "package-name": "places",
+      "skip-changelog": true,
       "extra-files": [
         {
           "type": "generic",
           "path": "custom_components/places/const.py"
+        },
+        {
+          "type": "json",
+          "path": "custom_components/places/manifest.json",
+          "jsonpath": "$.version"
         }
       ]
     }
