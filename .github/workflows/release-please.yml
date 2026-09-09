@@ -21,6 +21,7 @@ concurrency:
 
 jobs:
   release-please:
+    if: github.event.repository.fork == false
     runs-on: ubuntu-latest
     steps:
       - name: Create or update the release pull request
