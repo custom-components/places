@@ -13,3 +13,8 @@ Review and merge the release pull request after its normal required checks
 pass. The next `Release Please` workflow run creates the `v`-prefixed tag and
 GitHub Release, then builds and uploads `places.zip` for HACS. Release Please
 does not create or maintain a changelog file in this repository.
+
+If archive creation or upload fails after the GitHub Release exists, manually
+run the `Release Please` workflow with that release's `vMAJOR.MINOR.PATCH` tag.
+The recovery run checks out the existing tag, validates its version sources,
+and rebuilds and replaces `places.zip` without creating another release.
