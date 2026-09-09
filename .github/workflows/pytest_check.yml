@@ -33,7 +33,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Setup uv (with caching)
