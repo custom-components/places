@@ -159,7 +159,7 @@ class PlacesUpdater:
             if proceed_with_update == UpdateStatus.PROCEED:
                 await self.process_osm_update(now=now)
 
-                if self._is_shutting_down() or (force and coordinator.is_attr_blank(ATTR_OSM_DICT)):
+                if self._is_shutting_down() or coordinator.is_attr_blank(ATTR_OSM_DICT):
                     await self.rollback_update(previous_attr, now, proceed_with_update)
                 elif force or await self.should_update_state(now=now):
                     if self._is_shutting_down():

@@ -341,6 +341,40 @@ async def test_do_update_force_rolls_back_failed_fresh_lookup(
 
 
 @pytest.mark.asyncio
+async def test_do_update_rolls_back_failed_lookup(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """A failed normal lookup restores coordinates so later movement retries."""
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    with stubbed_updater(
+        updater,
+        [
+            ("get_current_time", {"return_value": datetime(2024, 1, 1, tzinfo=UTC)}),
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("update_old_coordinates", {}),
+            (
+                "check_device_tracker_and_update_coords",
+                {"return_value": UpdateStatus.PROCEED},
+            ),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
+            ("process_osm_update", {}),
+            ("should_update_state", {"return_value": True}),
+            ("handle_state_update", {}),
+            ("rollback_update", {}),
+        ],
+    ) as mocks:
+        await updater.do_update("Track State Change", {"native_value": "Library"})
+
+    mocks["rollback_update"].assert_awaited_once()
+    mocks["should_update_state"].assert_not_awaited()
+    mocks["handle_state_update"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_do_update_rolls_back_and_finishes_on_phase_error(
     mock_hass: MagicMock,
     mock_config_entry: MockConfigEntry,
