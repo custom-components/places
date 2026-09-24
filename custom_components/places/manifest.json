@@ -1,14 +1,30 @@
 {
   "domain": "places",
   "name": "Places",
-  "after_dependencies": ["device_tracker","http","icloud3","mobile_app","owntracks","person","recorder","variable","zone"],
-  "codeowners": ["@Snuffy2"],
+  "after_dependencies": [
+    "device_tracker",
+    "http",
+    "icloud3",
+    "mobile_app",
+    "owntracks",
+    "person",
+    "recorder",
+    "variable",
+    "zone"
+  ],
+  "codeowners": [
+    "@Snuffy2"
+  ],
   "config_flow": true,
-  "dependencies": ["sensor"],
+  "dependencies": [
+    "sensor"
+  ],
   "documentation": "https://github.com/custom-components/places",
   "integration_type": "device",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/custom-components/places/issues",
-  "requirements": ["cachetools"],
-  "version": "3.0.1"
+  "requirements": [
+    "cachetools"
+  ],
+  "version": "3.1.0"
 }
