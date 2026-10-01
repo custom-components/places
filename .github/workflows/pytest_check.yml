@@ -51,7 +51,7 @@ jobs:
           github.event_name == 'pull_request' &&
           github.event.pull_request.user.login != 'prek-autoupdate-bot'
         id: coverage_comment
-        uses: py-cov-action/python-coverage-comment-action@v4.3
+        uses: py-cov-action/python-coverage-comment-action@v4.4
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTIVITY: process_pr
