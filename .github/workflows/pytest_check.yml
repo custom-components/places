@@ -47,9 +47,11 @@ jobs:
         run: uv run --locked --group pytest pytest
 
       - name: Generate coverage comment
+        # Keep required tests running for update bots without posting PR coverage.
         if: >-
           github.event_name == 'pull_request' &&
-          github.event.pull_request.user.login != 'prek-autoupdate-bot'
+          github.event.pull_request.user.login != 'prek-autoupdate-bot' &&
+          github.event.pull_request.user.login != 'dependabot[bot]'
         id: coverage_comment
         uses: py-cov-action/python-coverage-comment-action@v4.4
         with:

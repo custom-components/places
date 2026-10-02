@@ -534,7 +534,7 @@ def test_coverage_generation_and_trusted_publishing_have_separate_capabilities()
     coverage_condition = str(coverage["if"])
     assert "github.event_name == 'pull_request'" in coverage_condition
     assert "pull_request.user.login != 'prek-autoupdate-bot'" in coverage_condition
-    assert "dependabot[bot]" not in coverage_condition
+    assert "pull_request.user.login != 'dependabot[bot]'" in coverage_condition
     stored_coverage = next(
         step
         for step in source["steps"]
@@ -559,6 +559,10 @@ def test_coverage_generation_and_trusted_publishing_have_separate_capabilities()
     assert comment_writer["permissions"]["pull-requests"] == "write"
     assert comment_writer["permissions"]["actions"] == "read"
     assert comment_writer["permissions"]["contents"] == "read"
+    assert (
+        _coverage_step(comment_writer, "post_comment")["if"]
+        == "steps.comment_artifact.outputs.exists == 'true'"
+    )
     assert all(
         permission in {"actions", "contents", "pull-requests"}
         for permission in comment_writer["permissions"]
@@ -619,3 +623,47 @@ def test_coverage_generation_and_trusted_publishing_have_separate_capabilities()
     assert publisher["steps"].index(checkout) < publisher["steps"].index(verification)
     assert publisher["steps"].index(verification) < publisher["steps"].index(download)
     assert publisher["steps"].index(download) < publisher["steps"].index(publish)
+
+
+@pytest.mark.parametrize(
+    ("artifacts", "expected"),
+    [
+        ([], False),
+        ([{"name": "python-coverage-data", "expired": False}], False),
+        ([{"name": "python-coverage-comment-action", "expired": True}], False),
+        ([{"name": "python-coverage-comment-action", "expired": False}], True),
+    ],
+)
+def test_coverage_comment_requires_available_artifact(
+    artifacts: list[dict[str, object]], expected: bool
+) -> None:
+    """Only publish coverage when the triggering run has a usable comment artifact.
+
+    Args:
+        artifacts (list[dict[str, object]]): GitHub artifact listing for the test run.
+        expected (bool): Whether the posting step should run.
+    """
+    job = _load_workflow("pytest_post_coverage.yml")["jobs"]["test"]
+    lookup = next(step for step in job["steps"] if step.get("id") == "comment_artifact")
+    script = lookup["with"]["script"]
+    harness = f"""
+const context = {{repo: {{owner: 'owner', repo: 'places'}}, payload: {{workflow_run: {{id: 42}}}}}};
+const github = {{
+  rest: {{actions: {{listWorkflowRunArtifacts: 'listWorkflowRunArtifacts'}}}},
+  paginate: async (method, args) => {{
+    if (method !== 'listWorkflowRunArtifacts' || args.owner !== 'owner' ||
+        args.repo !== 'places' || args.run_id !== 42) throw new Error('Wrong run');
+    return {json.dumps(artifacts)};
+  }},
+}};
+const core = {{setOutput: (name, value) => console.log(JSON.stringify({{[name]: value}}))}};
+{script}
+"""
+    result = subprocess.run(  # noqa: S603
+        [shutil.which("node") or "node", "--input-type=module"],
+        input=harness,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(result.stdout) == {"exists": expected}
