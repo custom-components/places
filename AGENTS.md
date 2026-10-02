@@ -45,7 +45,7 @@
 - Preserve existing comments and keep imports at the top of files.
 - When editing code, prefer fixing root causes over surface patches.
 - Keep changes minimal and consistent with the codebase style.
-- Add tests for any changed behavior and update documentation if needed.
+- Verify changes in proportion to their risk and update documentation if needed. Follow the Testing guidance below when deciding whether to add tests.
 
 ## Error handling & logging
 
@@ -78,7 +78,8 @@
 - One test file per integration file: every integration source file should have a single corresponding test module; add new unit tests for that integration to that existing test module. Only split into additional test modules if the existing test module would exceed ~1000 lines, except for explicit end-to-end/integration tests in `test_integration.py`.
 - If tests fail due to missing dev dependencies, install them into `./.venv` and add them into the `pyproject.toml` dependencies when appropriate.
 - When parameterizing tests, delete any legacy placeholder tests and related comments.
-- When making changes to code, include tests for the new/changed behavior; the agent should add tests alongside code edits even when changes are not minimally invasive.
+- Add or update tests when they protect a meaningful behavioral contract or reproduce a bug that existing coverage would miss. Exercise observable behavior at the relevant interface, including failure paths when material; avoid tests that merely mirror implementation details, assert configuration text, or duplicate existing checks.
+- For documentation, declarative configuration, and small workflow changes, use the relevant validators, linters, or focused runtime checks when those provide sufficient confidence. Add automation tests when executable logic or material operational risk warrants them, rather than solely because a workflow changed. Keep such tests separate from unrelated integration or automation tests.
 
 ## PR and branch behavior
 
