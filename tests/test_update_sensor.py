@@ -171,6 +171,15 @@ async def test_do_update_flow_variants(
             Whether ``handle_state_update`` is expected to be called.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    async def process_osm_update(**_kwargs: object) -> None:
+        """Populate the payload expected from a successful reverse-geocode lookup.
+
+        Args:
+            **_kwargs (object): Ignored lookup options supplied by the updater.
+        """
+        sensor.attrs[ATTR_OSM_DICT] = {"place_id": 123}
+
     with stubbed_updater(
         updater,
         [
@@ -184,7 +193,7 @@ async def test_do_update_flow_variants(
             ("update_old_coordinates", {}),
             ("check_device_tracker_and_update_coords", {"return_value": check_result}),
             ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
-            ("process_osm_update", {}),
+            ("process_osm_update", {"side_effect": process_osm_update}),
             ("should_update_state", {"return_value": True}),
             ("handle_state_update", {}),
             ("rollback_update", {}),
@@ -347,7 +356,14 @@ async def test_do_update_rolls_back_failed_lookup(
     sensor: MockSensor,
     stubbed_updater: StubbedUpdater,
 ) -> None:
-    """A failed normal lookup restores coordinates so later movement retries."""
+    """A failed normal lookup restores coordinates so later movement retries.
+
+    Args:
+        mock_hass (MagicMock): Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry): Places configuration entry.
+        sensor (MockSensor): Sensor being updated.
+        stubbed_updater (StubbedUpdater): Helper isolating unrelated phases.
+    """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
     with stubbed_updater(
         updater,
@@ -656,6 +672,14 @@ async def test_do_update_publishes_after_successful_rollback_path(
     updater.coordinator.async_persist_attributes = AsyncMock(side_effect=persist_attributes)
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
 
+    async def process_osm_update(**_kwargs: object) -> None:
+        """Populate the payload expected from a successful reverse-geocode lookup.
+
+        Args:
+            **_kwargs (object): Ignored lookup options supplied by the updater.
+        """
+        sensor.attrs[ATTR_OSM_DICT] = {"place_id": 123}
+
     async def finish_update(*_args: object, **_kwargs: object) -> None:
         updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
 
@@ -669,7 +693,7 @@ async def test_do_update_publishes_after_successful_rollback_path(
             ("update_old_coordinates", {}),
             ("check_device_tracker_and_update_coords", {"return_value": UpdateStatus.PROCEED}),
             ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
-            ("process_osm_update", {}),
+            ("process_osm_update", {"side_effect": process_osm_update}),
             ("should_update_state", {"return_value": False}),
             ("rollback_update", {}),
             ("finish_update", {"side_effect": finish_update}),
@@ -688,6 +712,96 @@ async def test_do_update_publishes_after_successful_rollback_path(
         updater.coordinator.publish_update.assert_called_once_with()
         updater.coordinator.async_persist_attributes.assert_awaited_once_with()
         assert persisted_last_updated == ["2024-01-01 12:00:00"]
+
+
+@pytest.mark.asyncio
+async def test_do_update_retries_failed_lookup_at_tracker_coordinates(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """A failed lookup restores the snapshot and permits retry at current tracker coordinates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Sensor whose previous snapshot must survive a failed lookup.
+        stubbed_updater (StubbedUpdater):
+            Updater helper used to isolate unrelated update phases.
+    """
+    mock_hass.config.time_zone = "UTC"
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    old_osm = {"place_id": 1}
+    sensor.attrs.update(
+        {
+            ATTR_LATITUDE: 1.0,
+            ATTR_LONGITUDE: 2.0,
+            ATTR_LATITUDE_OLD: 0.5,
+            ATTR_LONGITUDE_OLD: 1.5,
+            ATTR_NATIVE_VALUE: "Old place",
+            ATTR_PREVIOUS_STATE: "Old place",
+            ATTR_OSM_DICT: old_osm,
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+        }
+    )
+    tracker_state = MagicMock()
+    tracker_state.attributes = {CONF_LATITUDE: 3.0, CONF_LONGITUDE: 4.0}
+    mock_hass.states.get.return_value = tracker_state
+
+    lookup_coordinates: list[tuple[float, float]] = []
+    lookup_results: list[dict[str, object] | None] = [None, {"place_id": 2}]
+
+    async def process_osm_update(**_kwargs: object) -> None:
+        """Record the lookup coordinates and apply its deterministic result.
+
+        Args:
+            **_kwargs (object): Ignored lookup options supplied by the updater.
+        """
+        lookup_coordinates.append(
+            (
+                sensor.get_attr_safe_float(ATTR_LATITUDE),
+                sensor.get_attr_safe_float(ATTR_LONGITUDE),
+            )
+        )
+        result = lookup_results.pop(0)
+        if result is None:
+            sensor.clear_attr(ATTR_OSM_DICT)
+        else:
+            sensor.set_attr(ATTR_OSM_DICT, result)
+
+    with stubbed_updater(
+        updater,
+        [
+            ("update_entity_name_and_cleanup", {}),
+            ("update_previous_state", {}),
+            ("determine_update_criteria", {"return_value": UpdateStatus.PROCEED}),
+            ("process_osm_update", {"side_effect": process_osm_update}),
+            ("should_update_state", {"return_value": True}),
+            ("handle_state_update", {}),
+        ],
+    ) as mocks:
+        await updater.do_update("manual", dict(sensor.attrs))
+
+        assert sensor.attrs[ATTR_LATITUDE] == 1.0
+        assert sensor.attrs[ATTR_LONGITUDE] == 2.0
+        assert sensor.attrs[ATTR_LATITUDE_OLD] == 0.5
+        assert sensor.attrs[ATTR_LONGITUDE_OLD] == 1.5
+        assert sensor.attrs[ATTR_NATIVE_VALUE] == "Old place"
+        assert sensor.attrs[ATTR_PREVIOUS_STATE] == "Old place"
+        assert sensor.attrs[ATTR_OSM_DICT] == old_osm
+
+        await updater.do_update("manual retry", dict(sensor.attrs))
+
+    assert lookup_coordinates == [(3.0, 4.0), (3.0, 4.0)]
+    assert sensor.attrs[ATTR_LATITUDE] == 3.0
+    assert sensor.attrs[ATTR_LONGITUDE] == 4.0
+    assert sensor.attrs[ATTR_OSM_DICT] == {"place_id": 2}
+    sensor.restore_previous_attr.assert_awaited_once()
+    mocks["handle_state_update"].assert_awaited_once()
 
 
 @pytest.mark.asyncio
