@@ -444,7 +444,8 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             # HA aliases Voluptuous to Probatio at runtime; mypy cannot see that alias.
-            data_schema=data_schema,  # type: ignore[arg-type]
+            # Older HA annotations do not need the argument-type ignore.
+            data_schema=data_schema,  # type: ignore[arg-type, unused-ignore]
             errors=errors,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
@@ -635,7 +636,8 @@ class PlacesOptionsFlowHandler(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             # HA aliases Voluptuous to Probatio at runtime; mypy cannot see that alias.
-            data_schema=options_schema,  # type: ignore[arg-type]
+            # Older HA annotations do not need the argument-type ignore.
+            data_schema=options_schema,  # type: ignore[arg-type, unused-ignore]
             errors=errors,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
