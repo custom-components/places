@@ -11,6 +11,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.data_entry_flow import FlowManagerIndexView
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -475,6 +476,13 @@ async def test_options_flow_handler_shows_form_when_no_user_input(
     assert result["description_placeholders"]["sensor_name"] == config_entry.data["name"]
     assert result["description_placeholders"]["component_config_url"]
 
+    serialized = FlowManagerIndexView(mock_hass.config_entries.options)._prepare_result_json(result)
+    fields = {field["name"]: field for field in serialized["data_schema"]}
+    assert fields["devicetracker_id"]["selector"]["select"]["options"] == [
+        {"value": "device.test", "label": "Device Test"}
+    ]
+    assert fields["map_provider"]["description"]["suggested_value"] == "osm"
+
 
 @pytest.mark.parametrize(
     ("display_options", "expected"),
@@ -683,6 +691,12 @@ async def test_config_flow_user_step_no_input_shows_form(mock_hass: MagicMock) -
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
     assert "data_schema" in result
+
+    serialized = FlowManagerIndexView(mock_hass.config_entries.flow)._prepare_result_json(result)
+    fields = {field["name"]: field for field in serialized["data_schema"]}
+    assert fields["name"]["required"] is True
+    assert fields["map_zoom"]["default"] == int(DEFAULT_MAP_ZOOM)
+    assert fields["map_provider"]["selector"]["select"]["options"] == ["apple", "google", "osm"]
 
 
 @pytest.mark.asyncio

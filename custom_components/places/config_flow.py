@@ -443,7 +443,8 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
         data_schema: vol.Schema = user_schema(devicetracker_id_list, zone_list)
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
+            # HA aliases Voluptuous to Probatio at runtime; mypy cannot see that alias.
+            data_schema=data_schema,  # type: ignore[arg-type]
             errors=errors,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
@@ -633,7 +634,8 @@ class PlacesOptionsFlowHandler(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=options_schema,
+            # HA aliases Voluptuous to Probatio at runtime; mypy cannot see that alias.
+            data_schema=options_schema,  # type: ignore[arg-type]
             errors=errors,
             description_placeholders={
                 "component_config_url": COMPONENT_CONFIG_URL,
