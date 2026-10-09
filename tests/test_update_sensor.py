@@ -21,6 +21,7 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_ZONE,
 )
+from homeassistant.core import State
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -28,6 +29,7 @@ from custom_components.places.const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
+    ATTR_DISPLAY_OPTIONS,
     ATTR_DISTANCE_FROM_HOME,
     ATTR_DISTANCE_TRAVELED,
     ATTR_HOME_LATITUDE,
@@ -136,6 +138,157 @@ def register_aioclient(aioclient_mock: AioClientMock, url: str, **kwargs: object
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("show_time", [False, True])
+@pytest.mark.parametrize("force", [False, True])
+@pytest.mark.parametrize("blank_payload", ["{}", "[]"])
+async def test_failed_lookup_retries_without_more_movement(
+    mock_hass: MagicMock,
+    coordinator_factory: CoordinatorFactory,
+    monkeypatch: pytest.MonkeyPatch,
+    show_time: bool,
+    force: bool,
+    blank_payload: str,
+) -> None:
+    """Retry failed lookups while retaining suppression of unchanged display updates.
+
+    Args:
+        mock_hass (MagicMock): Mocked Home Assistant runtime.
+        coordinator_factory (CoordinatorFactory): Factory for a real coordinator.
+        monkeypatch (pytest.MonkeyPatch): Scoped lookup and clock replacements.
+        show_time (bool): Whether to append the display's since time.
+        force (bool): Whether to force the failed update attempt.
+        blank_payload (str): Empty JSON response returned by the failed lookup.
+    """
+    mock_hass.config.time_zone = "UTC"
+    states = {
+        "zone.home": State("zone.home", "0", {"latitude": 51.4, "longitude": -0.1}),
+        "device_tracker.test": State(
+            "device_tracker.test",
+            "not_home",
+            {"latitude": 51.5, "longitude": -0.1, "gps_accuracy": 5},
+        ),
+    }
+    mock_hass.states.get.side_effect = states.get
+    mock_hass.data = {
+        DOMAIN: {
+            OSM_CACHE: {},
+            OSM_THROTTLE: {"lock": asyncio.Lock(), "last_query": 0.0},
+        }
+    }
+    _, coordinator = coordinator_factory("Probe")
+    persist = AsyncMock()
+    monkeypatch.setattr(coordinator._persistence, "async_save", persist)
+    coordinator.set_attr(ATTR_DISPLAY_OPTIONS, "city")
+    coordinator.set_attr(CONF_SHOW_TIME, show_time)
+    coordinator.set_attr(CONF_EXTENDED_ATTR, False)
+    monkeypatch.setattr(
+        PlacesUpdater,
+        "get_current_time",
+        AsyncMock(side_effect=[datetime(2024, 1, 1, hour, tzinfo=UTC) for hour in range(12, 17)]),
+    )
+    payload = {
+        "osm_id": 1,
+        "osm_type": "node",
+        "category": "place",
+        "type": "city",
+        "address": {"city": "London", "country": "United Kingdom", "country_code": "gb"},
+    }
+
+    def make_response_context(payload_text: str) -> MagicMock:
+        """Create an asynchronous response context for one mocked HTTP reply.
+
+        Args:
+            payload_text (str): Serialized JSON body returned by the response.
+
+        Returns:
+            MagicMock: Asynchronous context manager for a successful reply.
+        """
+        response = MagicMock(status=200)
+        response.text = AsyncMock(return_value=payload_text)
+        response_context = MagicMock()
+        response_context.__aenter__ = AsyncMock(return_value=response)
+        response_context.__aexit__ = AsyncMock(return_value=False)
+        return response_context
+
+    url_attempts: dict[str, int] = {}
+
+    def get_response(url: str, **_kwargs: object) -> MagicMock:
+        """Return one of the JSON bodies queued for the requested URL.
+
+        Args:
+            url (str): URL requested by the OSM client.
+            _kwargs (object): HTTP request options supplied by the OSM client.
+
+        Returns:
+            MagicMock: Asynchronous context manager for the selected reply.
+        """
+        query = parse_qs(urlparse(url).query)
+        if query.get("lat") == ["51.7"]:
+            attempt = url_attempts.get(url, 0)
+            url_attempts[url] = attempt + 1
+            response_text = blank_payload if attempt == 0 else json.dumps(payload)
+        else:
+            response_text = json.dumps(payload)
+        return make_response_context(response_text)
+
+    session = MagicMock()
+    session.get.side_effect = get_response
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession",
+        MagicMock(return_value=session),
+    )
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    await coordinator._run_update("Test")
+    original_state = coordinator.data.native_value
+    original_changed = coordinator.data.attributes[ATTR_LAST_CHANGED]
+    original_link = coordinator.data.attributes[ATTR_MAP_LINK]
+    mock_hass.bus.fire.reset_mock()
+
+    states["device_tracker.test"] = State(
+        "device_tracker.test",
+        "not_home",
+        {"latitude": 51.6, "longitude": -0.1, "gps_accuracy": 5},
+    )
+    await coordinator._run_update("Test")
+    assert coordinator.data.native_value == original_state
+    assert coordinator.data.attributes[ATTR_LATITUDE] == 51.5
+    assert coordinator.data.attributes[ATTR_MAP_LINK] == original_link
+    mock_hass.bus.fire.assert_not_called()
+
+    states["device_tracker.test"] = State(
+        "device_tracker.test",
+        "not_home",
+        {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 5},
+    )
+    if force:
+        await coordinator.async_force_update()
+    else:
+        await coordinator._run_update("Test")
+    assert coordinator.data.native_value == original_state
+    assert coordinator.data.attributes[ATTR_LATITUDE] == 51.5
+    assert coordinator.data.attributes[ATTR_MAP_LINK] == original_link
+    assert coordinator.data.attributes[ATTR_LAST_CHANGED] == original_changed
+    assert persist.call_args.args[0][ATTR_LATITUDE] == 51.5
+    mock_hass.bus.fire.assert_not_called()
+
+    payload["address"]["city"] = "Oxford"
+    await coordinator._run_update("Test")
+    assert coordinator.data.native_value == ("Oxford (since 15:00)" if show_time else "Oxford")
+    assert coordinator.data.attributes[ATTR_LATITUDE] == 51.7
+    assert coordinator.data.attributes[ATTR_LAST_CHANGED] == "2024-01-01 15:00:00+00:00"
+    assert session.get.call_count == 4
+    failed_url = session.get.call_args_list[2].args[0]
+    recovered_url = session.get.call_args_list[3].args[0]
+    assert failed_url == recovered_url
+    assert mock_hass.data[DOMAIN][OSM_CACHE][recovered_url] == payload
+    mock_hass.bus.fire.assert_called_once()
+
+    await coordinator._run_update("Test")
+    assert session.get.call_count == 4
+    mock_hass.bus.fire.assert_called_once()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("check_result", "should_rollback", "should_handle"),
     [
@@ -171,6 +324,7 @@ async def test_do_update_flow_variants(
             Whether ``handle_state_update`` is expected to be called.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.set_attr(ATTR_OSM_DICT, {"place_id": 123})
     with stubbed_updater(
         updater,
         [
@@ -621,6 +775,7 @@ async def test_do_update_publishes_after_successful_rollback_path(
 
     updater.coordinator.async_persist_attributes = AsyncMock(side_effect=persist_attributes)
     now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+    sensor.set_attr(ATTR_OSM_DICT, {"place_id": 123})
 
     async def finish_update(*_args: object, **_kwargs: object) -> None:
         updater.coordinator.set_attr(ATTR_LAST_UPDATED, "2024-01-01 12:00:00")
@@ -2136,7 +2291,7 @@ async def test_get_dict_from_url_sets_empty_list_payload(
     aioclient_mock: AioClientMock,
     sensor: MockSensor,
 ) -> None:
-    """Non-mapping list payloads are cached and set directly on sensor attributes.
+    """Empty list payloads are stored on the sensor but removed from cache.
 
     Args:
         mock_hass (MagicMock):
@@ -2149,6 +2304,7 @@ async def test_get_dict_from_url_sets_empty_list_payload(
             Places sensor fixture whose state is asserted.
     """
     updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    sensor.blank_attrs.add("dict_name")
     url = "http://example.com/empty-list"
     if DOMAIN not in mock_hass.data:
         mock_hass.data[DOMAIN] = {
@@ -2160,7 +2316,7 @@ async def test_get_dict_from_url_sets_empty_list_payload(
     await updater.get_dict_from_url(url, "NetService", "dict_name")
 
     assert sensor.attrs["dict_name"] == []
-    assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) == []
+    assert url not in mock_hass.data[DOMAIN][OSM_CACHE]
 
 
 @pytest.mark.asyncio

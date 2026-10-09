@@ -159,7 +159,9 @@ class PlacesUpdater:
             if proceed_with_update == UpdateStatus.PROCEED:
                 await self.process_osm_update(now=now)
 
-                if self._is_shutting_down() or (force and coordinator.is_attr_blank(ATTR_OSM_DICT)):
+                # Failed lookups must not advance coordinates, or movement gating
+                # can suppress retries while the tracker remains at that location.
+                if self._is_shutting_down() or coordinator.is_attr_blank(ATTR_OSM_DICT):
                     await self.rollback_update(previous_attr, now, proceed_with_update)
                 elif force or await self.should_update_state(now=now):
                     if self._is_shutting_down():
@@ -958,6 +960,13 @@ class PlacesUpdater:
         get_dict = await self._osm_client.get_json(url=url, name=name, use_cache=self._use_cache)
         self.coordinator.set_attr(dict_name, get_dict if get_dict is not None else {})
         if get_dict is not None:
+            if not self.coordinator.is_attr_blank(dict_name):
+                return
+
+            # Empty payloads are not useful lookup results. OSMClient caches
+            # every successful response, including empty containers, so remove
+            # them even after a forced fetch that bypassed cache reads.
+            self._hass.data[DOMAIN][OSM_CACHE].pop(url, None)
             return
 
         if self._use_cache:
