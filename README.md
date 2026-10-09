@@ -169,6 +169,8 @@ __Note:__ `place` and `formatted_place` are not valid fields in the advanced dis
 
 Places fires `places_state_update` after each successful state update that publishes a state. The event data is a flat snapshot of the location details available for that update. Blank or unavailable values are omitted, so automations should allow for optional fields.
 
+Failed location lookups retain the previous display and coordinates without firing a `places_state_update` event, allowing subsequent normal updates to retry the lookup even if the tracked entity has stopped moving.
+
 <details>
 <summary>Event data fields</summary>
 
