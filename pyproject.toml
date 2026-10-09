@@ -215,7 +215,9 @@ skip = "custom_components/places/translations/cs.json,custom_components/places/t
 
 [tool.pydoclint]
 style = "google"
-should-document-private-class-attributes = true
+ignore-private-class-attributes = false
+ignore-underscore-only-class-attributes = false
+ignore-special-dunder-class-attributes = false
 skip-checking-short-docstrings = false
 arg-type-hints-in-docstring = true
 check-return-types = true
