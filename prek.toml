@@ -65,7 +65,7 @@ require_serial = true
 
 [[repos]]
 repo = "https://github.com/jsh9/pydoclint"
-rev = "0.9.1"
+rev = "0.10.1"
 
 [[repos.hooks]]
 id = "pydoclint"
@@ -73,7 +73,7 @@ language_version = "python3.14"
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.16.7"
+rev = "v0.16.9"
 
 [[repos.hooks]]
 id = "ruff-check"
