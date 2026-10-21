@@ -51,9 +51,13 @@ dev = [
 
 [tool.uv]
 required-version = ">=0.11.0"
+# multidict 6.9.1 fixes the items-view reference leak (CVE-2026-104874).
+constraint-dependencies = ["multidict>=6.9.1"]
 # Home Assistant pins a cryptography release vulnerable to CVE-2026-69247.
 # Keep the development lock patched until Home Assistant adopts 50.0.0 or newer.
-override-dependencies = ["cryptography>=50.0.0"]
+# Home Assistant also pins PyJWT 2.13.0, which has multiple security advisories.
+# PyJWT 2.15.1 includes the security fixes and preserves padded-token compatibility.
+override-dependencies = ["cryptography>=50.0.0", "PyJWT[crypto]>=2.15.1"]
 
 [tool.pytest.ini_options]
 addopts = """
@@ -213,7 +217,9 @@ skip = "custom_components/places/translations/cs.json,custom_components/places/t
 
 [tool.pydoclint]
 style = "google"
-should-document-private-class-attributes = true
+ignore-private-class-attributes = false
+ignore-underscore-only-class-attributes = false
+ignore-special-dunder-class-attributes = false
 skip-checking-short-docstrings = false
 arg-type-hints-in-docstring = true
 check-return-types = true
