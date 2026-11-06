@@ -41,7 +41,7 @@ pytest = [
   "pytest>=9",
   "pytest-asyncio",
   "pytest-cov",
-  "pytest-homeassistant-custom-component>=0.13.317",
+  "pytest-homeassistant>=2026.11.0",
   "pytest-timeout",
 ]
 dev = [
@@ -62,7 +62,9 @@ constraint-dependencies = ["certifi>=2026.10.19", "multidict>=6.9.1"]
 override-dependencies = ["cryptography>=50.0.0", "Pillow>=13.0.0", "PyJWT[crypto]>=2.15.1"]
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 addopts = """
+  -p no:respx
   --quiet
   --timeout=20
   --durations=10

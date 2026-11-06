@@ -12,7 +12,7 @@ from homeassistant.const import (
 from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.config_flow import (
     HOME_LOCATION_DOMAINS,

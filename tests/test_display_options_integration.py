@@ -6,7 +6,7 @@ import copy
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_DISPLAY_OPTIONS,

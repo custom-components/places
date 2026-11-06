@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 import homeassistant.helpers.entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import ATTR_NATIVE_VALUE, CONF_DEVICETRACKER_ID, CONF_NAME
 from custom_components.places.coordinator import PlacesUpdateCoordinator

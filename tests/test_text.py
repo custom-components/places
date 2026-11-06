@@ -6,7 +6,7 @@ from homeassistant.const import MAX_LENGTH_STATE_STATE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     CONF_DEVICETRACKER_ID,
