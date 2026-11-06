@@ -67,7 +67,7 @@
 ## Testing
 
 - Use pytest (not unittest) and pytest plugins for all tests.
-- Use pytest-homeassistant-custom-component for Home Assistant–specific testing utilities (prefer `MockConfigEntry` for config entries).
+- Use pytest-homeassistant for Home Assistant–specific testing utilities (prefer `MockConfigEntry` from `pytest_homeassistant.common` for config entries).
 - Parameterize tests instead of creating multiple similar test functions when appropriate.
 - Aim for at least 80% code coverage.
 - Don't run pytest with `--disable-warnings` and address all warnings.

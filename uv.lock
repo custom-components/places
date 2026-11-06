@@ -1867,7 +1867,7 @@ dev = [
     { name = "pytest", specifier = ">=9" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-homeassistant", specifier = "==2026.11.0" },
+    { name = "pytest-homeassistant", specifier = ">=2026.11.0" },
     { name = "pytest-timeout" },
     { name = "ruff" },
     { name = "types-cachetools" },
@@ -1903,7 +1903,7 @@ pytest = [
     { name = "pytest", specifier = ">=9" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
-    { name = "pytest-homeassistant", specifier = "==2026.11.0" },
+    { name = "pytest-homeassistant", specifier = ">=2026.11.0" },
     { name = "pytest-timeout" },
 ]
 
