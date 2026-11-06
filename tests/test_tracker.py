@@ -11,7 +11,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_LATITUDE as PLACES_ATTR_LATITUDE,

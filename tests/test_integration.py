@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places import (
     _ensure_osm_runtime_state,
