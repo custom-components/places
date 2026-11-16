@@ -11,6 +11,7 @@ from .const import (
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
+    CONF_GEOCODING_MODE,
     CONF_HOME_ZONE,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
@@ -21,11 +22,13 @@ from .const import (
     DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
+    DEFAULT_GEOCODING_MODE,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
+    GEOCODING_MODES,
 )
 
 MAP_PROVIDER_OPTIONS: list[str] = ["apple", "google", "osm"]
@@ -90,6 +93,9 @@ def user_schema(
             vol.Required(CONF_NAME): str,
             vol.Required(CONF_DEVICETRACKER_ID): select_schema(
                 devicetracker_options, custom_value=False
+            ),
+            vol.Optional(CONF_GEOCODING_MODE, default=DEFAULT_GEOCODING_MODE): select_schema(
+                GEOCODING_MODES, custom_value=False
             ),
             vol.Optional(CONF_API_KEY): str,
             vol.Optional(CONF_DISPLAY_OPTIONS, default=DEFAULT_DISPLAY_OPTIONS): select_schema(

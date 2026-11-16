@@ -49,6 +49,7 @@ from custom_components.places.const import (
     ATTR_NATIVE_VALUE,
     ATTR_OSM_DETAILS_DICT,
     ATTR_OSM_DICT,
+    ATTR_OSM_FORWARD_DICT,
     ATTR_OSM_ID,
     ATTR_OSM_TYPE,
     ATTR_PLACE_NAME,
@@ -59,12 +60,15 @@ from custom_components.places.const import (
     CONF_DATE_FORMAT,
     CONF_DEVICETRACKER_ID,
     CONF_EXTENDED_ATTR,
+    CONF_GEOCODING_MODE,
     CONF_HOME_ZONE,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     DOMAIN,
+    GEOCODING_MODE_FORWARD,
+    GEOCODING_MODE_REVERSE,
     OSM_CACHE,
     OSM_THROTTLE,
     OSM_THROTTLE_INTERVAL_SECONDS,
@@ -4179,3 +4183,239 @@ async def test_get_dict_from_url_handles_network_error(
     await updater.get_dict_from_url(url, "BadService", "dict_name")
     assert "Error connecting to BadService" in caplog.text
     assert mock_hass.data[DOMAIN][OSM_CACHE].get(url) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("geocoding_mode", "expected"),
+    [
+        (GEOCODING_MODE_FORWARD, True),
+        (GEOCODING_MODE_REVERSE, False),
+        (None, False),
+    ],
+)
+async def test_is_forward_geocoding_param(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    geocoding_mode: str | None,
+    expected: bool,
+) -> None:
+    """Only an explicit forward geocoding mode enables forward geocoding.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        geocoding_mode (str | None):
+            Configured geocoding mode, or ``None`` when the option is unset.
+        expected (bool):
+            Expected forward geocoding flag.
+    """
+    if geocoding_mode is not None:
+        sensor.attrs[CONF_GEOCODING_MODE] = geocoding_mode
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    assert updater.is_forward_geocoding is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("tracker_available", "expected"),
+    [
+        (False, UpdateStatus.SKIP),
+        (True, UpdateStatus.PROCEED),
+    ],
+)
+async def test_is_devicetracker_set_forward_mode_skips_coordinate_check(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    tracker_available: bool,
+    expected: UpdateStatus,
+) -> None:
+    """Forward mode only requires an available tracked entity, not tracker coordinates.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        stubbed_updater (StubbedUpdater):
+            Updater with external dependencies replaced by stubs.
+        tracker_available (bool):
+            Whether the source tracker is available.
+        expected (UpdateStatus):
+            Expected result for this parametrized case.
+    """
+    sensor.attrs[CONF_GEOCODING_MODE] = GEOCODING_MODE_FORWARD
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    with stubbed_updater(
+        updater,
+        [
+            ("is_tracker_available", {"return_value": tracker_available}),
+            ("has_valid_coordinates", {"return_value": False}),
+        ],
+    ) as mocks:
+        result = await updater.is_devicetracker_set()
+    assert result == expected
+    mocks["has_valid_coordinates"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_check_device_tracker_and_update_coords_forward_mode_skips_tracker_coordinates(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+) -> None:
+    """Forward mode resolves coordinates via search instead of tracker coordinates or GPS accuracy.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        stubbed_updater (StubbedUpdater):
+            Updater with external dependencies replaced by stubs.
+    """
+    sensor.attrs[CONF_GEOCODING_MODE] = GEOCODING_MODE_FORWARD
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    with stubbed_updater(
+        updater,
+        [
+            ("is_devicetracker_set", {"return_value": UpdateStatus.PROCEED}),
+            ("query_forward_osm", {"return_value": UpdateStatus.PROCEED}),
+            ("update_coordinates", {}),
+            ("get_gps_accuracy", {"return_value": UpdateStatus.SKIP}),
+        ],
+    ) as mocks:
+        result = await updater.check_device_tracker_and_update_coords()
+    assert result == UpdateStatus.PROCEED
+    mocks["query_forward_osm"].assert_awaited_once()
+    mocks["update_coordinates"].assert_not_awaited()
+    mocks["get_gps_accuracy"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_build_osm_search_url_queries_tracked_entity_state(
+    mock_hass: MagicMock, mock_config_entry: MockConfigEntry, sensor: MockSensor
+) -> None:
+    """Forward geocoding searches Nominatim for the address held in the tracked entity state.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+    """
+    sensor.attrs.update(
+        {
+            CONF_GEOCODING_MODE: GEOCODING_MODE_FORWARD,
+            CONF_DEVICETRACKER_ID: "input_text.address",
+            CONF_LANGUAGE: "en",
+            CONF_API_KEY: "apikey",
+        }
+    )
+    mock_hass.states.get.side_effect = lambda entity_id: (
+        State("input_text.address", "10 Downing Street, London")
+        if entity_id == "input_text.address"
+        else None
+    )
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+
+    url = await updater.build_osm_search_url()
+
+    assert url.startswith("https://nominatim.openstreetmap.org/search?format=json")
+    params = parse_qs(urlparse(url).query)
+    assert params.get("q") == ["10 Downing Street, London"]
+    assert params.get("accept-language") == ["en"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("search_result", "expected_status", "expected_coordinates"),
+    [
+        pytest.param(
+            {"lat": "51.5033635", "lon": "-0.1276248", "display_name": "10 Downing Street"},
+            UpdateStatus.PROCEED,
+            (51.5033635, -0.1276248),
+            id="result",
+        ),
+        pytest.param(None, UpdateStatus.SKIP, None, id="no_result"),
+    ],
+)
+async def test_query_forward_osm(
+    mock_hass: MagicMock,
+    mock_config_entry: MockConfigEntry,
+    sensor: MockSensor,
+    stubbed_updater: StubbedUpdater,
+    search_result: dict[str, str] | None,
+    expected_status: UpdateStatus,
+    expected_coordinates: tuple[float, float] | None,
+) -> None:
+    """Forward lookup fetches the search URL and stores result coordinates, or skips.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        mock_config_entry (MockConfigEntry):
+            Places configuration entry used by the test.
+        sensor (MockSensor):
+            Places sensor fixture whose state is asserted.
+        stubbed_updater (StubbedUpdater):
+            Updater with external dependencies replaced by stubs.
+        search_result (dict[str, str] | None):
+            Mocked Nominatim search payload, or ``None`` for a failed lookup.
+        expected_status (UpdateStatus):
+            Expected update status.
+        expected_coordinates (tuple[float, float] | None):
+            Expected latitude/longitude, or ``None`` when coordinates must stay unset.
+    """
+    sensor.attrs[CONF_GEOCODING_MODE] = GEOCODING_MODE_FORWARD
+
+    async def _fetch(url: str, name: str, dict_name: str) -> None:
+        """Store the mocked Nominatim search result like get_dict_from_url does.
+
+        Args:
+            url (str):
+                URL requested by the updater.
+            name (str):
+                Service name used for logging.
+            dict_name (str):
+                Attribute that receives the response payload.
+        """
+        if search_result is not None:
+            sensor.attrs[dict_name] = search_result
+
+    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
+    with stubbed_updater(
+        updater,
+        [
+            ("build_osm_search_url", {"return_value": "http://search-url"}),
+            ("get_dict_from_url", {"side_effect": _fetch}),
+        ],
+    ) as updater_mocks:
+        result = await updater.query_forward_osm()
+
+    assert result == expected_status
+    updater_mocks["get_dict_from_url"].assert_awaited_once_with(
+        url="http://search-url",
+        name="OpenStreetMaps",
+        dict_name=ATTR_OSM_FORWARD_DICT,
+    )
+    if expected_coordinates is None:
+        assert ATTR_LATITUDE not in sensor.attrs
+        assert ATTR_LONGITUDE not in sensor.attrs
+    else:
+        assert float(sensor.attrs[ATTR_LATITUDE]) == expected_coordinates[0]
+        assert float(sensor.attrs[ATTR_LONGITUDE]) == expected_coordinates[1]

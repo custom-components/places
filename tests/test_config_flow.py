@@ -27,18 +27,23 @@ from custom_components.places.config_flow import (
 )
 from custom_components.places.config_schema import user_schema
 from custom_components.places.const import (
+    CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
+    CONF_GEOCODING_MODE,
     CONF_SHOW_TIME,
     CONF_USE_GPS,
     DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
+    DEFAULT_GEOCODING_MODE,
     DEFAULT_HOME_ZONE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
+    GEOCODING_MODE_FORWARD,
+    GEOCODING_MODE_REVERSE,
 )
 
 type ConfigData = dict[str, object]
@@ -128,6 +133,7 @@ def test_user_schema_sets_expected_defaults() -> None:
     assert validated[CONF_EXTENDED_ATTR] == DEFAULT_EXTENDED_ATTR
     assert validated[CONF_SHOW_TIME] == DEFAULT_SHOW_TIME
     assert validated["date_format"] == DEFAULT_DATE_FORMAT
+    assert validated[CONF_GEOCODING_MODE] == DEFAULT_GEOCODING_MODE == GEOCODING_MODE_REVERSE
 
 
 @pytest.mark.asyncio
@@ -302,6 +308,7 @@ def test_get_devicetracker_id_entities_current_entity_variants(
     # Limit TRACKING_DOMAINS to a single domain for deterministic results
     domain = "device_tracker"
     monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", [domain])
+    monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS_FORWARD_ONLY", [])
 
     mock_hass.states.async_all = MagicMock(return_value=async_all_states)
     mock_hass.states.get = MagicMock(return_value=states_get_state)
@@ -341,6 +348,7 @@ def test_get_devicetracker_id_entities_excludes_places_sensors(
         platform="places" if entity_id == places_state.entity_id else "template"
     )
     monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", ["sensor"])
+    monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS_FORWARD_ONLY", [])
     monkeypatch.setattr(
         "custom_components.places.config_flow.TRACKING_DOMAINS_NEED_LATLONG", ["sensor"]
     )
@@ -380,6 +388,7 @@ def test_get_devicetracker_id_entities_uses_scanned_state_when_lookup_is_missing
     registry_module = MagicMock()
     registry_module.async_get.return_value = registry
     monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", ["sensor"])
+    monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS_FORWARD_ONLY", [])
     monkeypatch.setattr(
         "custom_components.places.config_flow.TRACKING_DOMAINS_NEED_LATLONG", ["sensor"]
     )
@@ -805,3 +814,108 @@ def test_validate_option_names(display_options: str, expected: bool) -> None:
     errors: Errors = {}
     result = _validate_option_names(display_options, errors)
     assert result is expected
+
+
+ADDRESS_TEXT = State("input_text.address", "10 Downing Street", {ATTR_FRIENDLY_NAME: "Address"})
+ADDRESS_SENSOR = State("sensor.address", "10 Downing Street", {ATTR_FRIENDLY_NAME: "Addr"})
+GPS_SENSOR = State(
+    "sensor.gps",
+    "ok",
+    {ATTR_FRIENDLY_NAME: "GPS", CONF_LATITUDE: 1.0, CONF_LONGITUDE: 2.0},
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("tracker", "mode", "expected_error"),
+    [
+        pytest.param(ADDRESS_TEXT, GEOCODING_MODE_FORWARD, None, id="forward_text_entity"),
+        pytest.param(ADDRESS_SENSOR, GEOCODING_MODE_FORWARD, None, id="forward_sensor_no_coords"),
+        pytest.param(GPS_SENSOR, None, None, id="default_reverse_sensor_with_coords"),
+        pytest.param(
+            ADDRESS_TEXT, None, "tracker_needs_coordinates", id="default_reverse_text_entity"
+        ),
+        pytest.param(
+            ADDRESS_SENSOR,
+            GEOCODING_MODE_REVERSE,
+            "tracker_needs_coordinates",
+            id="reverse_sensor_no_coords",
+        ),
+    ],
+)
+async def test_config_flow_user_step_validates_tracker_for_geocoding_mode(
+    mock_hass: MagicMock,
+    patch_entity_registry: object,
+    tracker: State,
+    mode: str | None,
+    expected_error: str | None,
+) -> None:
+    """Coordinates are only required from the tracked entity in reverse mode.
+
+    Args:
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        patch_entity_registry (object):
+            Isolated entity-registry fixture used when the form is re-rendered.
+        tracker (State):
+            Tracked entity state selected by the user.
+        mode (str | None):
+            Submitted geocoding mode, or ``None`` to omit it.
+        expected_error (str | None):
+            Expected ``devicetracker_id`` error, or ``None`` for a created entry.
+    """
+    _ = patch_entity_registry
+    mock_hass.states.get.side_effect = lambda entity_id: (
+        tracker if entity_id == tracker.entity_id else None
+    )
+    mock_hass.states.async_all.return_value = []
+    flow = PlacesConfigFlow()
+    flow.hass = mock_hass
+    user_input: ConfigData = {
+        "name": "Geocoder",
+        CONF_DEVICETRACKER_ID: tracker.entity_id,
+        CONF_DISPLAY_OPTIONS: DEFAULT_DISPLAY_OPTIONS,
+    }
+    if mode is not None:
+        user_input[CONF_GEOCODING_MODE] = mode
+
+    result = await flow.async_step_user(user_input)
+
+    if expected_error is None:
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        assert result["data"] == user_input
+    else:
+        assert result["type"] == FlowResultType.FORM
+        assert result["errors"] == {CONF_DEVICETRACKER_ID: expected_error}
+
+
+def test_get_devicetracker_id_entities_offers_forward_geocoding_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+    mock_hass: MagicMock,
+    patch_entity_registry: object,
+) -> None:
+    """Entities without coordinates and text entities are selectable for forward mode.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch):
+            Pytest fixture for replacing dependencies.
+        mock_hass (MagicMock):
+            Mocked Home Assistant runtime.
+        patch_entity_registry (object):
+            Isolated entity-registry fixture.
+    """
+    _ = patch_entity_registry
+    by_domain = {"sensor": [ADDRESS_SENSOR, GPS_SENSOR], "input_text": [ADDRESS_TEXT]}
+    monkeypatch.setattr("custom_components.places.config_flow.TRACKING_DOMAINS", ["sensor"])
+    monkeypatch.setattr(
+        "custom_components.places.config_flow.TRACKING_DOMAINS_FORWARD_ONLY", ["input_text"]
+    )
+    mock_hass.states.async_all.side_effect = lambda domain: by_domain.get(domain, [])
+
+    entities = get_devicetracker_id_entities(mock_hass)
+
+    assert {entity["value"] for entity in entities} == {
+        "input_text.address",
+        "sensor.address",
+        "sensor.gps",
+    }

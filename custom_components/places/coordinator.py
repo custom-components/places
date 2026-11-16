@@ -63,6 +63,7 @@ from .const import (
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
+    CONF_GEOCODING_MODE,
     CONF_HOME_ZONE,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
@@ -72,6 +73,7 @@ from .const import (
     DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
+    DEFAULT_GEOCODING_MODE,
     DEFAULT_HOME_ZONE,
     DEFAULT_ICON,
     DEFAULT_MAP_PROVIDER,
@@ -227,6 +229,10 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             str(self.config.setdefault(CONF_DATE_FORMAT, DEFAULT_DATE_FORMAT)).lower(),
         )
         self.set_attr(CONF_USE_GPS, self.config.setdefault(CONF_USE_GPS, DEFAULT_USE_GPS))
+        self.set_attr(
+            CONF_GEOCODING_MODE,
+            str(self.config.setdefault(CONF_GEOCODING_MODE, DEFAULT_GEOCODING_MODE)).lower(),
+        )
         self.set_attr(ATTR_DISPLAY_OPTIONS, self.get_attr(CONF_DISPLAY_OPTIONS))
         self.set_attr(ATTR_SHOW_DATE, False)
 

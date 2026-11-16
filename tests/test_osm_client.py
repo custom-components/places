@@ -54,6 +54,24 @@ def test_reverse_url_matches_nominatim_query_contract() -> None:
     assert query["email"] == ["person@example.com"]
 
 
+def test_search_url_matches_nominatim_query_contract() -> None:
+    """Search URL targets the Nominatim search endpoint with the free-form query."""
+    url = OSMClient.search_url(
+        query="10 Downing Street, London",
+        language="en",
+        email="person@example.com",
+    )
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+
+    assert url.startswith("https://nominatim.openstreetmap.org/search?")
+    assert query["format"] == ["json"]
+    assert query["q"] == ["10 Downing Street, London"]
+    assert query["accept-language"] == ["en"]
+    assert query["limit"] == ["1"]
+    assert query["email"] == ["person@example.com"]
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("url", "cached_payload", "expect_copy"),
