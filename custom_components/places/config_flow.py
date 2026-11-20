@@ -25,6 +25,7 @@ from .config_schema import (
     MAP_ZOOM_MAX,
     MAP_ZOOM_MIN,
     STATE_OPTIONS,
+    select_schema,
     user_schema,
 )
 from .const import (
@@ -32,6 +33,7 @@ from .const import (
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
+    CONF_GEOCODING_MODE,
     CONF_HOME_ZONE,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
@@ -41,14 +43,18 @@ from .const import (
     DEFAULT_DATE_FORMAT,
     DEFAULT_DISPLAY_OPTIONS,
     DEFAULT_EXTENDED_ATTR,
+    DEFAULT_GEOCODING_MODE,
     DEFAULT_MAP_PROVIDER,
     DEFAULT_MAP_ZOOM,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
     DISPLAY_OPTIONS_MAP,
     DOMAIN,
+    GEOCODING_MODE_FORWARD,
+    GEOCODING_MODES,
     HOME_LOCATION_DOMAINS,
     TRACKING_DOMAINS,
+    TRACKING_DOMAINS_FORWARD_ONLY,
     TRACKING_DOMAINS_NEED_LATLONG,
 )
 
@@ -63,7 +69,11 @@ COMPONENT_CONFIG_URL: str = "https://github.com/custom-components/places#configu
 def get_devicetracker_id_entities(
     hass: HomeAssistant, current_entity: str | None = None
 ) -> list[selector.SelectOptionDict]:
-    """Build selector options for trackable entities with usable coordinates.
+    """Build selector options for entities usable by either geocoding mode.
+
+    Reverse geocoding needs coordinates, while forward geocoding reads the entity
+    state, so entities without coordinates and text entities are offered as well.
+    ``validate_tracker_for_mode`` rejects unsuitable picks on submit.
 
     Args:
         hass (HomeAssistant):
@@ -78,24 +88,21 @@ def get_devicetracker_id_entities(
     """
     dt_list: list[selector.SelectOptionDict] = []
     entity_registry = er.async_get(hass)
-    for dom in TRACKING_DOMAINS:
+    for dom in [*TRACKING_DOMAINS, *TRACKING_DOMAINS_FORWARD_ONLY]:
         # _LOGGER.debug("Getting entities for domain: %s", dom)
         for ent in hass.states.async_all(dom):
             registry_entry = entity_registry.async_get(ent.entity_id)
             if registry_entry is not None and registry_entry.platform == DOMAIN:
                 continue
-            if dom not in TRACKING_DOMAINS_NEED_LATLONG or (
-                CONF_LATITUDE in ent.attributes and CONF_LONGITUDE in ent.attributes
-            ):
-                # _LOGGER.debug("Entity: %s", ent)
-                dt_list.extend(
-                    [
-                        selector.SelectOptionDict(
-                            value=str(ent.entity_id),
-                            label=f"{ent.attributes.get(ATTR_FRIENDLY_NAME)} ({ent.entity_id})",
-                        )
-                    ]
-                )
+            # _LOGGER.debug("Entity: %s", ent)
+            dt_list.extend(
+                [
+                    selector.SelectOptionDict(
+                        value=str(ent.entity_id),
+                        label=f"{ent.attributes.get(ATTR_FRIENDLY_NAME)} ({ent.entity_id})",
+                    )
+                ]
+            )
     # Optional: Include the current entity in the list as well.
     if current_entity is not None:
         # _LOGGER.debug("current_entity: %s", current_entity)
@@ -131,6 +138,54 @@ def get_devicetracker_id_entities(
         dt_list_sorted = []
 
     return dt_list_sorted
+
+
+def validate_tracker_for_mode(
+    hass: HomeAssistant,
+    entity_id: str | None,
+    geocoding_mode: str | None,
+    errors: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate that the tracked entity can feed the selected geocoding mode.
+
+    Forward geocoding accepts any entity because it geocodes the entity state.
+    Reverse geocoding rejects text-only entities and, for domains that do not
+    inherently carry a location, entities lacking ``latitude``/``longitude``.
+
+    Args:
+        hass (HomeAssistant):
+            Home Assistant instance used to inspect the entity state.
+        entity_id (str | None):
+            Selected tracked entity ID.
+        geocoding_mode (str | None):
+            Selected geocoding mode; ``None`` means the reverse default.
+        errors (dict[str, Any]):
+            Mutable flow error mapping to populate when validation fails.
+
+    Returns:
+        dict[str, Any]:
+            The same error mapping, possibly with ``devicetracker_id`` set.
+    """
+    if geocoding_mode == GEOCODING_MODE_FORWARD or not entity_id:
+        return errors
+    domain = entity_id.split(".", 1)[0]
+    if domain in TRACKING_DOMAINS_FORWARD_ONLY:
+        _LOGGER.error("Tracked entity %s only provides text; select forward geocoding.", entity_id)
+        errors[CONF_DEVICETRACKER_ID] = "tracker_needs_coordinates"
+        return errors
+    if domain not in TRACKING_DOMAINS_NEED_LATLONG:
+        return errors
+    state = hass.states.get(entity_id)
+    if state is not None and (
+        CONF_LATITUDE not in state.attributes or CONF_LONGITUDE not in state.attributes
+    ):
+        _LOGGER.error(
+            "Tracked entity %s has no latitude/longitude attributes; "
+            "select forward geocoding or a location entity.",
+            entity_id,
+        )
+        errors[CONF_DEVICETRACKER_ID] = "tracker_needs_coordinates"
+    return errors
 
 
 def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
@@ -431,6 +486,12 @@ class PlacesConfigFlow(ConfigFlow, domain=DOMAIN):
                 display_options=user_input.get(CONF_DISPLAY_OPTIONS, ""),
                 errors=errors,
             )
+            validate_tracker_for_mode(
+                self.hass,
+                user_input.get(CONF_DEVICETRACKER_ID),
+                user_input.get(CONF_GEOCODING_MODE),
+                errors,
+            )
 
             if not errors:
                 _LOGGER.debug("[New Sensor] user_input: %s", user_input)
@@ -503,6 +564,12 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                 display_options=user_input.get(CONF_DISPLAY_OPTIONS, ""),
                 errors=errors,
             )
+            validate_tracker_for_mode(
+                self.hass,
+                user_input.get(CONF_DEVICETRACKER_ID),
+                user_input.get(CONF_GEOCODING_MODE),
+                errors,
+            )
 
             if not errors:
                 self.hass.config_entries.async_update_entry(
@@ -529,6 +596,10 @@ class PlacesOptionsFlowHandler(OptionsFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
+                vol.Optional(
+                    CONF_GEOCODING_MODE,
+                    default=self.config_entry.data.get(CONF_GEOCODING_MODE, DEFAULT_GEOCODING_MODE),
+                ): select_schema(GEOCODING_MODES, custom_value=False),
                 vol.Optional(
                     CONF_API_KEY,
                     default="",

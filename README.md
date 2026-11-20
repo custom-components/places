@@ -59,7 +59,8 @@ Options for existing places entries can be changed by clicking the gear icon nex
 Key | Required | Default | Description |
 -- | -- | -- | --
 `Sensor Name` | `Yes` | | Friendly name of the places sensor |
-`Tracked Entity ID` | `Yes` | | The location entity to track. **Must** have `latitude` and `longitude` as attributes. Supports these entities: `device_tracker`, `person`, `sensor`, `variable` & `zone` |
+`Tracked Entity ID` | `Yes` | | The entity to track.<br />**Reverse mode:** **Must** have `latitude` and `longitude` as attributes. Supports these entities: `device_tracker`, `person`, `sensor`, `variable` & `zone`<br />**Forward mode:** the entity's **state** is used as the address to look up (e.g. a `sensor`, `input_text` or `text` entity) |
+`Geocoding Mode` | `No` | `reverse` | `reverse`: look up the address based on the tracked entity's coordinates.<br />`forward`: look up the coordinates based on the tracked entity's address. |
 `Email Address` | `No` | | OpenStreetMap API key (your email address). |
 `Display Options` | `No` | `zone_name`, `place` | Display options: `formatted_place` *(exclusive option)*, `driving` *(can be used with formatted_place or other options)*, `zone` or `zone_name`, `place`, `place_name`, `street_number`, `street`, `city`, `county`, `state`, `postal_code`, `country`, `osm_formatted_address`, `do_not_show_not_home`<br /><br />**See optional Advanced Display Options below to use more complex display logic.** |
 `Home Zone` | `No` | `zone.home` | Used to calculate distance from home and direction of travel |
@@ -252,7 +253,7 @@ Example automation:
 logger:
   default: warning
   logs:
-    custom_components.places: debug  
+    custom_components.places: debug
 ```
 
 ## Development

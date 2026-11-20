@@ -23,6 +23,8 @@ from .const import (
     ATTR_FORMATTED_ADDRESS,
     ATTR_INITIAL_UPDATE,
     ATTR_LAST_PLACE_NAME,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
     ATTR_OSM_DICT,
     ATTR_OSM_ID,
     ATTR_OSM_TYPE,
@@ -39,7 +41,9 @@ from .const import (
     ATTR_STREET,
     ATTR_STREET_NUMBER,
     CITY_LIST,
+    CONF_GEOCODING_MODE,
     CONF_LANGUAGE,
+    GEOCODING_MODE_FORWARD,
     NEIGHBOURHOOD_LIST,
     PLACE_NAME_DUPLICATE_LIST,
     POSTAL_TOWN_LIST,
@@ -434,6 +438,23 @@ class OSMParser:
             self.coordinator.get_attr(CONF_NAME),
             self.coordinator.get_attr(ATTR_LAST_PLACE_NAME),
         )
+
+    async def parse_location(self, osm_dict: MutableMapping[str, Any]) -> None:
+        """Parse coordinates from result. Used when doing forward geocoding.
+
+        Args:
+            osm_dict (MutableMapping[str, Any]):
+                Parsed Nominatim response payload.
+        """
+        if self.coordinator.get_attr(CONF_GEOCODING_MODE) != GEOCODING_MODE_FORWARD:
+            return
+        if "lat" not in osm_dict:
+            return
+        if "lon" not in osm_dict:
+            return
+
+        self.coordinator.set_attr(ATTR_LATITUDE, osm_dict.get("lat"))
+        self.coordinator.set_attr(ATTR_LONGITUDE, osm_dict.get("lon"))
 
 
 def _without_prioritized_types(types: list[str], prioritized_types: list[str]) -> list[str]:

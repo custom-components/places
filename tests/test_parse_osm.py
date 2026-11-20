@@ -16,6 +16,8 @@ from custom_components.places.const import (
     ATTR_FORMATTED_ADDRESS,
     ATTR_INITIAL_UPDATE,
     ATTR_LAST_PLACE_NAME,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
     ATTR_OSM_DICT,
     ATTR_OSM_ID,
     ATTR_OSM_TYPE,
@@ -31,7 +33,10 @@ from custom_components.places.const import (
     ATTR_STATE_ABBR,
     ATTR_STREET,
     ATTR_STREET_NUMBER,
+    CONF_GEOCODING_MODE,
     CONF_LANGUAGE,
+    GEOCODING_MODE_FORWARD,
+    GEOCODING_MODE_REVERSE,
     PLACE_NAME_DUPLICATE_LIST,
 )
 from custom_components.places.parse_osm import OSMParser
@@ -806,3 +811,123 @@ async def test_parse_osm_dict_full_flow(osm_parser: OSMParserFactory) -> None:
     assert sensor.attrs[ATTR_OSM_ID] == "123456"
     assert sensor.attrs[ATTR_OSM_TYPE] == "way"
     assert sensor.attrs[ATTR_PLACE_NAME_NO_DUPE] == "Park"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("geocoding_mode", "osm_dict", "expected_coordinates"),
+    [
+        pytest.param(
+            GEOCODING_MODE_FORWARD,
+            {"lat": "51.5033635", "lon": "-0.1276248"},
+            (51.5033635, -0.1276248),
+            id="forward_sets_coordinates",
+        ),
+        pytest.param(
+            GEOCODING_MODE_FORWARD,
+            {"lon": "-0.1276248"},
+            None,
+            id="forward_missing_lat",
+        ),
+        pytest.param(
+            GEOCODING_MODE_FORWARD,
+            {"lat": "51.5033635"},
+            None,
+            id="forward_missing_lon",
+        ),
+        pytest.param(
+            GEOCODING_MODE_REVERSE,
+            {"lat": "51.5033635", "lon": "-0.1276248"},
+            None,
+            id="reverse_keeps_tracker_coordinates",
+        ),
+        pytest.param(
+            None,
+            {"lat": "51.5033635", "lon": "-0.1276248"},
+            None,
+            id="unset_mode_keeps_tracker_coordinates",
+        ),
+    ],
+)
+async def test_parse_location_sets_coordinates_only_in_forward_mode(
+    osm_parser: OSMParserFactory,
+    geocoding_mode: str | None,
+    osm_dict: OsmDict,
+    expected_coordinates: tuple[float, float] | None,
+) -> None:
+    """Ensure parse_location copies OSM coordinates only for complete forward-mode results.
+
+    Args:
+        osm_parser (OSMParserFactory):
+            OpenStreetMap parser fixture.
+        geocoding_mode (str | None):
+            Configured geocoding mode, or ``None`` when the option is unset.
+        osm_dict (OsmDict):
+            OpenStreetMap response fields supplied to the parser.
+        expected_coordinates (tuple[float, float] | None):
+            Expected ``(latitude, longitude)``, or ``None`` when the existing
+            coordinates must be left untouched.
+    """
+    attrs: dict[str, object] = {ATTR_LATITUDE: 1.0, ATTR_LONGITUDE: 2.0}
+    if geocoding_mode is not None:
+        attrs[CONF_GEOCODING_MODE] = geocoding_mode
+    parser, sensor = osm_parser(attrs=attrs)
+
+    await parser.parse_location(osm_dict)
+
+    if expected_coordinates is None:
+        assert sensor.attrs[ATTR_LATITUDE] == 1.0
+        assert sensor.attrs[ATTR_LONGITUDE] == 2.0
+    else:
+        assert float(sensor.attrs[ATTR_LATITUDE]) == expected_coordinates[0]
+        assert float(sensor.attrs[ATTR_LONGITUDE]) == expected_coordinates[1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("geocoding_mode", "osm_dict", "expected_coordinates"),
+    [
+        pytest.param(
+            GEOCODING_MODE_FORWARD,
+            {"lat": "51.5033635", "lon": "-0.1276248", "display_name": "10 Downing Street"},
+            (51.5033635, -0.1276248),
+            id="forward_sets_coordinates",
+        ),
+        pytest.param(
+            GEOCODING_MODE_REVERSE,
+            {"lat": "51.5033635", "lon": "-0.1276248"},
+            None,
+            id="reverse_ignored",
+        ),
+        pytest.param(GEOCODING_MODE_FORWARD, {"lon": "-0.1276248"}, None, id="missing_lat"),
+        pytest.param(GEOCODING_MODE_FORWARD, {"lat": "51.5033635"}, None, id="missing_lon"),
+    ],
+)
+async def test_parse_location(
+    osm_parser: OSMParserFactory,
+    geocoding_mode: str,
+    osm_dict: dict[str, str],
+    expected_coordinates: tuple[float, float] | None,
+) -> None:
+    """Copy search-result coordinates only in forward mode when both are present.
+
+    Args:
+        osm_parser (OSMParserFactory):
+            OpenStreetMap parser fixture.
+        geocoding_mode (str):
+            Configured geocoding mode.
+        osm_dict (dict[str, str]):
+            Nominatim search result payload.
+        expected_coordinates (tuple[float, float] | None):
+            Expected latitude/longitude, or ``None`` when coordinates must stay unset.
+    """
+    parser, sensor = osm_parser(attrs={CONF_GEOCODING_MODE: geocoding_mode})
+
+    await parser.parse_location(osm_dict)
+
+    if expected_coordinates is None:
+        assert ATTR_LATITUDE not in sensor.attrs
+        assert ATTR_LONGITUDE not in sensor.attrs
+    else:
+        assert float(sensor.attrs[ATTR_LATITUDE]) == expected_coordinates[0]
+        assert float(sensor.attrs[ATTR_LONGITUDE]) == expected_coordinates[1]

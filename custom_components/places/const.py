@@ -35,6 +35,10 @@ DEFAULT_DISPLAY_OPTIONS = "zone_name, place"
 DEFAULT_SHOW_TIME = False
 DEFAULT_DATE_FORMAT = "mm/dd"
 DEFAULT_USE_GPS = True
+GEOCODING_MODE_REVERSE = "reverse"
+GEOCODING_MODE_FORWARD = "forward"
+GEOCODING_MODES: list[str] = [GEOCODING_MODE_REVERSE, GEOCODING_MODE_FORWARD]
+DEFAULT_GEOCODING_MODE = GEOCODING_MODE_REVERSE
 
 OSM_CACHE = "osm_cache"
 OSM_THROTTLE = "osm_throttle"
@@ -55,11 +59,17 @@ TRACKING_DOMAINS_NEED_LATLONG: list[str] = [
     Platform.SENSOR,
     "variable",
 ]
+# Forward geocoding reads the address from the entity state, so text entities qualify too.
+TRACKING_DOMAINS_FORWARD_ONLY: list[str] = [
+    "input_text",
+    Platform.TEXT,
+]
 HOME_LOCATION_DOMAINS: list[str] = [CONF_ZONE]
 
 # Config
 CONF_DEVICETRACKER_ID = "devicetracker_id"
 CONF_EXTENDED_ATTR = "extended_attr"
+CONF_GEOCODING_MODE = "geocoding_mode"
 CONF_HOME_ZONE = "home_zone"
 CONF_LANGUAGE = "language"
 CONF_MAP_PROVIDER = "map_provider"
@@ -106,6 +116,7 @@ ATTR_NATIVE_VALUE = "native_value"
 ATTR_DISPLAY_OPTIONS = "display_options"
 ATTR_OSM_DETAILS_DICT = "osm_details_dict"
 ATTR_OSM_DICT = "osm_dict"
+ATTR_OSM_FORWARD_DICT = "osm_forward_dict"
 ATTR_OSM_ID = "osm_id"
 ATTR_OSM_TYPE = "osm_type"
 ATTR_PICTURE = "entity_picture"
@@ -145,6 +156,7 @@ CONFIG_ATTRIBUTES_LIST: list[str] = [
     CONF_API_KEY,
     CONF_DEVICETRACKER_ID,
     CONF_EXTENDED_ATTR,
+    CONF_GEOCODING_MODE,
     CONF_HOME_ZONE,
     CONF_ICON,
     CONF_LANGUAGE,
