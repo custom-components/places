@@ -11,7 +11,17 @@ import homeassistant.helpers.entity_registry as er
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
-from custom_components.places.const import ATTR_NATIVE_VALUE, CONF_DEVICETRACKER_ID, CONF_NAME
+from custom_components.places.const import (
+    ATTR_NATIVE_VALUE,
+    ATTR_POSTAL_CODE,
+    CONF_DEVICETRACKER_ID,
+    CONF_DISPLAY_OPTIONS,
+    CONF_EXTENDED_ATTR,
+    CONF_NAME,
+    CONF_SHOW_TIME,
+    CONF_USE_GPS,
+    DOMAIN,
+)
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
@@ -21,6 +31,47 @@ type StubMock = AsyncMock | MagicMock
 type MethodSpec = tuple[str, dict[str, object]]
 type StubMapping = dict[str, StubMock]
 type CoordinatorFactory = Callable[[str], tuple[MockConfigEntry, PlacesUpdateCoordinator]]
+
+
+@pytest.fixture
+def force_update_entry(hass: HomeAssistant, enable_custom_integrations: None) -> MockConfigEntry:
+    """Prepare a Places entry with its Force update button and postal code sensor enabled.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        enable_custom_integrations (None): Allow Home Assistant to load Places.
+
+    Returns:
+        MockConfigEntry: The registered Places entry before setup.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Probe",
+        data={
+            CONF_NAME: "Probe",
+            CONF_DEVICETRACKER_ID: "device_tracker.probe",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: False,
+            CONF_SHOW_TIME: False,
+            CONF_USE_GPS: True,
+        },
+    )
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "button", DOMAIN, f"{entry.entry_id}_force_update", suggested_object_id="probe_force_update"
+    )
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{entry.entry_id}_{ATTR_POSTAL_CODE}",
+        suggested_object_id="probe_postal_code",
+    )
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.5, "longitude": -0.1, "gps_accuracy": 5}
+    )
+    return entry
 
 
 def mock_method(default_func: Callable[..., object]) -> Mock:

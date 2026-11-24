@@ -4,6 +4,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 import json
 import logging
+from types import SimpleNamespace
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
@@ -13,6 +14,7 @@ from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.core import Event, HomeAssistant, callback
 import pytest
 from pytest_homeassistant.common import MockConfigEntry, async_capture_events
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.places import (
     _ensure_osm_runtime_state,
@@ -35,6 +37,7 @@ from custom_components.places.const import (
     ATTR_LONGITUDE_OLD,
     ATTR_MAP_LINK,
     ATTR_NATIVE_VALUE,
+    ATTR_POSTAL_CODE,
     ATTR_SHOW_DATE,
     CONF_API_KEY,
     CONF_DATE_FORMAT,
@@ -1567,6 +1570,269 @@ async def test_async_setup_entry_preserves_recorder_event_exclusions_for_extende
     await async_setup_entry(mock_hass, entry)
 
     assert recorder.exclude_event_types == {"external_event"}
+
+
+# Force update through the loaded Places entry
+
+
+@pytest.mark.parametrize("latitude", [51.5, 51.50001], ids=["same-coordinates", "small-move"])
+async def test_force_update_accepts_fresh_details_with_unchanged_place_text(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    latitude: float,
+) -> None:
+    """Accept fresh Place details while an ordinary scan would be throttled.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacements for scan and OSM timing.
+        latitude (float): Tracked latitude when the button is pressed.
+    """
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
+    osm_time = 1000.0
+
+    async def advance_osm_clock(delay: float) -> None:
+        """Advance the request clock by the requested delay.
+
+        Args:
+            delay (float): Number of seconds to advance.
+        """
+        nonlocal osm_time
+        osm_time += delay
+
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.asyncio",
+        SimpleNamespace(
+            get_running_loop=lambda: SimpleNamespace(time=lambda: osm_time),
+            sleep=advance_osm_clock,
+        ),
+    )
+    reverse_url = "https://nominatim.openstreetmap.org/reverse"
+    place = {"osm_id": 1, "osm_type": "node", "category": "place", "type": "city"}
+    aioclient_mock.get(
+        f"{reverse_url}?lat=51.5",
+        json={
+            **place,
+            "address": {"city": "London", "postcode": "SW1A 1AA"},
+        },
+    )
+    entry_id = force_update_entry.entry_id
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe").state == "London"
+    assert hass.states.get("sensor.probe_postal_code").state == "SW1A 1AA"
+    assert aioclient_mock.call_count == 1
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(
+        f"{reverse_url}?lat={latitude}",
+        json={
+            **place,
+            "address": {"city": "London", "postcode": "SW1A 2AA"},
+        },
+    )
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": latitude, "longitude": -0.1}
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 0
+    assert hass.states.get("sensor.probe").attributes[ATTR_LATITUDE] == 51.5
+
+    events: list[tuple[dict[str, object], str]] = []
+
+    @callback
+    def record_event(event: Event) -> None:
+        """Read the published postal code when the Places event fires.
+
+        Args:
+            event (Event): Places state update event.
+        """
+        events.append((event.data, hass.states.get("sensor.probe_postal_code").state))
+
+    hass.bus.async_listen(EVENT_TYPE, record_event)
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 1
+    assert osm_time == 1001.0
+    main = hass.states.get("sensor.probe")
+    assert main.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == latitude
+    assert len(events) == 1
+    event, published_postal_code = events[0]
+    assert event["from_state"] == event["to_state"] == "London"
+    assert event["postal_code"] == published_postal_code == "SW1A 2AA"
+    assert event["latitude"] == latitude
+
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    saved = await storage.async_load()
+    assert saved[ATTR_NATIVE_VALUE] == "London"
+    assert saved[ATTR_POSTAL_CODE] == "SW1A 2AA"
+    assert saved[ATTR_LATITUDE] == latitude
+    assert saved[ATTR_LATITUDE_OLD] == 51.5
+    assert (
+        saved[ATTR_MAP_LINK] == hass.states.get("sensor.probe_map_link").state == event["map_link"]
+    )
+
+    # Restart without a saved Place to observe what an ordinary lookup gets from the cache.
+    assert await hass.config_entries.async_unload(entry_id)
+    await storage.async_remove()
+    aioclient_mock.clear_requests()
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe_postal_code").state == "SW1A 2AA"
+    assert aioclient_mock.call_count == 0
+
+
+@pytest.mark.parametrize(
+    "invalid_input", ["missing-entity", "coordinates", "accuracy", "home-zone"]
+)
+async def test_force_update_preserves_place_when_inputs_are_unusable(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_input: str,
+) -> None:
+    """Keep the restored Place when pressing the button with an unusable input.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): HTTP boundary that should remain unused.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the Update clock.
+        invalid_input (str): The input that should prevent the reverse lookup.
+    """
+    attributes = {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 5}
+    if invalid_input == "coordinates":
+        del attributes["longitude"]
+    elif invalid_input == "accuracy":
+        attributes["gps_accuracy"] = 0
+    elif invalid_input == "home-zone":
+        hass.states.async_set("zone.home", "0", {"latitude": 51.4})
+    if invalid_input == "missing-entity":
+        hass.states.async_remove("device_tracker.probe")
+    else:
+        hass.states.async_set("device_tracker.probe", "not_home", attributes)
+
+    now = datetime(2026, 11, 24, 12, tzinfo=UTC)
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(side_effect=lambda: now),
+    )
+    aioclient_mock.get("https://nominatim.openstreetmap.org/reverse", json={})
+    entry_id = force_update_entry.entry_id
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    await storage.async_save(
+        {
+            ATTR_NATIVE_VALUE: "London",
+            ATTR_CITY: "London",
+            ATTR_POSTAL_CODE: "SW1A 1AA",
+            ATTR_LATITUDE: 51.5,
+            ATTR_LONGITUDE: -0.1,
+            ATTR_MAP_LINK: "https://maps.apple.com/?q=51.5%2C-0.1&z=18",
+        }
+    )
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    accepted = await storage.async_load()
+    assert accepted[ATTR_LAST_UPDATED] == "2026-11-24 12:00:00+00:00"
+    events = async_capture_events(hass, EVENT_TYPE)
+
+    now += timedelta(minutes=1)
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 0
+    assert not events
+    main = hass.states.get("sensor.probe")
+    assert main.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == 51.5
+    assert hass.states.get("sensor.probe_postal_code").state == "SW1A 1AA"
+    assert hass.states.get("sensor.probe_map_link").state == accepted[ATTR_MAP_LINK]
+    saved = await storage.async_load()
+    assert saved == {**accepted, ATTR_LAST_UPDATED: "2026-11-24 12:01:00+00:00"}
+
+
+async def test_failed_force_update_keeps_place_until_an_ordinary_scan_recovers(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retry an empty Force update result on a later scan without further movement.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacements for scan and request timing.
+    """
+    scan_time = 1000.0
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_time)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: datetime(2026, 11, 24, 12, tzinfo=UTC))
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    reverse_url = "https://nominatim.openstreetmap.org/reverse"
+    place = {"osm_id": 1, "osm_type": "node", "category": "place", "type": "city"}
+    aioclient_mock.get(f"{reverse_url}?lat=51.5", json={**place, "address": {"city": "London"}})
+    entry_id = force_update_entry.entry_id
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+
+    # A stationary tracked-entity Update starts the existing event cooldown.
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.5, "longitude": -0.1, "gps_accuracy": 6}
+    )
+    await hass.async_block_till_done()
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    accepted = await storage.async_load()
+    events = async_capture_events(hass, EVENT_TYPE)
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{reverse_url}?lat=51.7", json={})
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 6}
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 0
+
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 1
+    assert not events
+    main = hass.states.get("sensor.probe")
+    assert main.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == 51.5
+    assert hass.states.get("sensor.probe_map_link").state == accepted[ATTR_MAP_LINK]
+    saved = await storage.async_load()
+    assert saved == {**accepted, ATTR_LAST_UPDATED: saved[ATTR_LAST_UPDATED]}
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{reverse_url}?lat=51.7", json={**place, "address": {"city": "Oxford"}})
+    scan_time += 600
+    coordinator: PlacesUpdateCoordinator = force_update_entry.runtime_data
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 1
+    assert len(events) == 1
+    assert events[0].data["from_state"] == "London"
+    assert events[0].data["to_state"] == hass.states.get("sensor.probe").state == "Oxford"
+    recovered = await storage.async_load()
+    assert recovered[ATTR_LATITUDE] == 51.7
+    assert recovered[ATTR_LATITUDE_OLD] == 51.5
+    assert recovered[ATTR_MAP_LINK] == hass.states.get("sensor.probe_map_link").state
 
 
 @pytest.mark.asyncio
