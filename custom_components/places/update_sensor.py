@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
 import copy
+from dataclasses import dataclass
 from datetime import UTC, datetime
 import logging
 from typing import TYPE_CHECKING, Any
@@ -87,6 +88,27 @@ _LOGGER = logging.getLogger(__name__)
 
 # Distance a reading must move from the accepted Place to count as movement.
 MOVEMENT_THRESHOLD_M = 10
+# Consecutive moving 0 GPS accuracy readings after which a source tracker is forgotten.
+GPS_ACCURACY_FORGET_COUNT = 5
+
+
+@dataclass(slots=True)
+class SourceTrackerHistory:
+    """Last reading seen from one source tracker during this runtime.
+
+    Attributes:
+        latitude (float): Latitude of the last reading.
+        longitude (float): Longitude of the last reading.
+        gps_accuracy (float): GPS accuracy of the last reading.
+        moving_zero_readings (int):
+            Consecutive 0 GPS accuracy readings that each moved more than
+            ``MOVEMENT_THRESHOLD_M`` from the reading before them.
+    """
+
+    latitude: float
+    longitude: float
+    gps_accuracy: float
+    moving_zero_readings: int = 0
 
 
 class PlacesUpdater:
@@ -424,22 +446,128 @@ class PlacesUpdater:
         if not self.state.get_attr(CONF_USE_GPS):
             return UpdateStatus.PROCEED
 
-        source_tracker = tracker_snapshot.source_tracker or tracker_id
+        return self._judge_gps_accuracy(
+            tracker_snapshot.source_tracker or tracker_id,
+            tracker_snapshot.latitude,
+            tracker_snapshot.longitude,
+            gps_accuracy,
+        )
+
+    def _judge_gps_accuracy(
+        self,
+        source_tracker: str,
+        latitude: float | None,
+        longitude: float | None,
+        gps_accuracy: float,
+    ) -> UpdateStatus:
+        """Judge one reading from a source tracker with Use GPS Accuracy on.
+
+        Readings and runs of moving 0 readings are kept in memory on the coordinator,
+        per source tracker. A run that reaches ``GPS_ACCURACY_FORGET_COUNT`` removes
+        the source tracker from the saved record and lets that reading Update.
+
+        Args:
+            source_tracker (str): Entity ID of the source tracker that sent the reading.
+            latitude (float | None): Latitude of the reading, when usable.
+            longitude (float | None): Longitude of the reading, when usable.
+            gps_accuracy (float): Zero or positive GPS accuracy of the reading.
+
+        Returns:
+            UpdateStatus:
+                ``SKIP`` for a 0 reading from a source tracker recorded as reporting
+                accuracy, otherwise ``PROCEED``.
+        """
         if gps_accuracy > 0:
             self.state.add_gps_accuracy_source(source_tracker)
+            self._remember_reading(source_tracker, latitude, longitude, gps_accuracy, 0)
             _LOGGER.debug(
                 "(%s) GPS Accuracy: %s",
                 self.state.get_attr(CONF_NAME),
                 round(gps_accuracy, 3),
             )
             return UpdateStatus.PROCEED
-        if source_tracker in self.state.get_gps_accuracy_sources():
-            _LOGGER.info(
-                "(%s) GPS Accuracy is 0.0, not performing update",
-                self.state.get_attr(CONF_NAME),
+        if source_tracker not in self.state.get_gps_accuracy_sources():
+            self._remember_reading(source_tracker, latitude, longitude, gps_accuracy, 0)
+            return UpdateStatus.PROCEED
+
+        previous = self.coordinator.source_tracker_history.get(source_tracker)
+        if latitude is None or longitude is None:
+            return self._skip_zero_accuracy()
+        if previous is None:
+            self._remember_reading(source_tracker, latitude, longitude, gps_accuracy, 0)
+            return self._skip_zero_accuracy()
+        if (previous.latitude, previous.longitude, previous.gps_accuracy) == (
+            latitude,
+            longitude,
+            gps_accuracy,
+        ):
+            return self._skip_zero_accuracy()
+
+        movement = LocationSnapshot(
+            current=CoordinatePair(latitude=latitude, longitude=longitude),
+            previous=CoordinatePair(latitude=previous.latitude, longitude=previous.longitude),
+        )
+        movement.calculate()
+        moved = (movement.distance_traveled or 0.0) > MOVEMENT_THRESHOLD_M
+        moving_zero_readings = previous.moving_zero_readings + 1 if moved else 0
+        if moving_zero_readings < GPS_ACCURACY_FORGET_COUNT:
+            self._remember_reading(
+                source_tracker, latitude, longitude, gps_accuracy, moving_zero_readings
             )
-            return UpdateStatus.SKIP
+            return self._skip_zero_accuracy()
+
+        self.state.remove_gps_accuracy_source(source_tracker)
+        self._remember_reading(source_tracker, latitude, longitude, gps_accuracy, 0)
+        _LOGGER.warning(
+            "(%s) %s sent %s GPS accuracy 0 readings in a row, each moving more than %s m, "
+            "so it is no longer treated as reporting GPS accuracy; using this reading",
+            self.state.get_attr(CONF_NAME),
+            source_tracker,
+            GPS_ACCURACY_FORGET_COUNT,
+            MOVEMENT_THRESHOLD_M,
+        )
         return UpdateStatus.PROCEED
+
+    def _skip_zero_accuracy(self) -> UpdateStatus:
+        """Log a skipped 0 GPS accuracy reading and return the skip status.
+
+        Returns:
+            UpdateStatus: ``SKIP``.
+        """
+        _LOGGER.info(
+            "(%s) GPS Accuracy is 0.0, not performing update",
+            self.state.get_attr(CONF_NAME),
+        )
+        return UpdateStatus.SKIP
+
+    def _remember_reading(
+        self,
+        source_tracker: str,
+        latitude: float | None,
+        longitude: float | None,
+        gps_accuracy: float,
+        moving_zero_readings: int,
+    ) -> None:
+        """Keep the last reading seen from a source tracker in memory.
+
+        Readings without usable coordinates are not kept, because they cannot show
+        movement.
+
+        Args:
+            source_tracker (str): Entity ID of the source tracker.
+            latitude (float | None): Latitude of the reading, when usable.
+            longitude (float | None): Longitude of the reading, when usable.
+            gps_accuracy (float): GPS accuracy of the reading.
+            moving_zero_readings (int): Run of moving 0 readings to keep.
+        """
+        if latitude is None or longitude is None:
+            return
+        self.coordinator.source_tracker_history[source_tracker] = SourceTrackerHistory(
+            latitude=latitude,
+            longitude=longitude,
+            gps_accuracy=gps_accuracy,
+            moving_zero_readings=moving_zero_readings,
+        )
 
     async def update_coordinates(self) -> None:
         """Copy latitude and longitude from the tracked entity state."""

@@ -79,7 +79,7 @@ from .const import (
 from .helpers import is_float
 from .location import CoordinatePair
 from .state import PlacesState
-from .update_sensor import PlacesUpdater
+from .update_sensor import PlacesUpdater, SourceTrackerHistory
 
 if TYPE_CHECKING:
     from .persistence import PlacesStorage
@@ -136,6 +136,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         self._is_shutting_down = False
         self._pending_place_event: dict[str, Any] | None = None
         self._tracker_update_tasks: set[asyncio.Task[None]] = set()
+        self._source_tracker_history: dict[str, SourceTrackerHistory] = {}
         self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
         self.entity_id: str | None = None
@@ -165,6 +166,19 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             for attr in MAIN_STATE_ATTRIBUTE_LIST
             if not self.is_attr_blank(attr)
         }
+
+    @property
+    def source_tracker_history(self) -> dict[str, SourceTrackerHistory]:
+        """Return the in-memory readings kept per source tracker.
+
+        The map starts empty for each runtime, so a restart, entry reload, or change
+        to the setting starts it again.
+
+        Returns:
+            dict[str, SourceTrackerHistory]:
+                Last reading and moving 0 reading run for each source tracker seen.
+        """
+        return self._source_tracker_history
 
     @property
     def is_shutting_down(self) -> bool:
