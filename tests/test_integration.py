@@ -6,6 +6,7 @@ from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 import json
 import logging
+from math import ceil
 from pathlib import Path
 from threading import Event as ThreadEvent
 from time import monotonic
@@ -2605,7 +2606,8 @@ async def test_overlapping_tracker_and_scan_updates_use_latest_accepted_place(
     """
     entry, storage, session = loaded_lifecycle_entry
     coordinator: PlacesUpdateCoordinator = entry.runtime_data
-    scan_clock = monotonic() + 600
+    # Start beyond the setup scan's throttle with exact whole-second advances.
+    scan_clock = ceil(monotonic()) + 600
     tracker_clock = datetime(2026, 11, 24, tzinfo=UTC)
     monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
     monkeypatch.setattr("homeassistant.util.utcnow", lambda: tracker_clock)
