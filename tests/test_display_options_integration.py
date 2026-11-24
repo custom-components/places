@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from homeassistant.const import MAX_LENGTH_STATE_STATE
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry, async_capture_events
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.places.config_flow import PlacesConfigFlow
 from custom_components.places.const import (
@@ -22,7 +23,6 @@ from custom_components.places.const import (
     EVENT_TYPE,
 )
 from custom_components.places.persistence import PlacesStorage
-from custom_components.places.update_sensor import PlacesUpdater
 
 # Semantic location attributes used by the display-option cases below.
 BASE_INTERNAL_ATTR = {
@@ -288,12 +288,16 @@ async def test_config_flow_renders_restored_place(
     ],
 )
 async def test_display_options_event_driving(
-    hass: HomeAssistant, rule: str, expected_formatted: str
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    rule: str,
+    expected_formatted: str,
 ) -> None:
     """Publish the main sensor state and the established Formatted place event value.
 
     Args:
         hass (HomeAssistant): Home Assistant runtime hosting the Places entry.
+        aioclient_mock (AiohttpClientMocker): Mocked reverse-geocode HTTP response.
         rule (str): Advanced display options for a Place outside a zone.
         expected_formatted (str): Formatted place value in the state-update event.
     """
@@ -313,21 +317,29 @@ async def test_display_options_event_driving(
             "zone": "not_home",
             "place_category": "highway",
             "place_type": "motorway",
-            "county": "Bergen County",
+            "county": "Hudson County",
+            "latitude": 51.5,
+            "longitude": -0.1,
             ATTR_NATIVE_VALUE: "Earlier display text",
         }
     )
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert hass.states.is_state("sensor.test_place", "Driving, Bergen County")
+    assert hass.states.is_state("sensor.test_place", "Driving, Hudson County")
 
-    events: list[Event] = []
-    hass.bus.async_listen_once(EVENT_TYPE, events.append)
-    await PlacesUpdater(hass, entry, entry.runtime_data).fire_event_data("")
+    events = async_capture_events(hass, EVENT_TYPE)
+    aioclient_mock.get(
+        "https://nominatim.openstreetmap.org/reverse",
+        json={"category": "highway", "type": "motorway", "address": {"county": "Bergen County"}},
+    )
+    hass.states.async_set("device_tracker.test", "not_home", {"latitude": 51.7, "longitude": -0.1})
     await hass.async_block_till_done()
 
-    assert events[0].data["to_state"] == "Driving, Bergen County"
-    assert events[0].data["formatted_place"] == expected_formatted
+    assert hass.states.is_state("sensor.test_place", "Driving, Bergen County")
+    (event,) = events
+    assert event.data["to_state"] == "Driving, Bergen County"
+    assert event.data["formatted_place"] == expected_formatted
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

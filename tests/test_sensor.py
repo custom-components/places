@@ -26,7 +26,6 @@ from pytest_homeassistant.common import MockConfigEntry
 from custom_components.places.const import (
     ATTR_ATTRIBUTION,
     ATTR_CITY,
-    ATTR_DEVICETRACKER_ID,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DISPLAY_OPTIONS,
@@ -702,7 +701,6 @@ async def test_async_update_setting_serialized_with_scan_updates(
     async def fail_update(
         _: PlacesUpdater,
         reason: str,
-        previous_attr: dict[str, object],
         **_kwargs: object,
     ) -> None:
         """Keep the scan path open long enough to exercise lock contention.
@@ -710,8 +708,6 @@ async def test_async_update_setting_serialized_with_scan_updates(
         Args:
             reason (str):
                 Reason recorded for the coordinator refresh.
-            previous_attr (dict[str, object]):
-                Previous attribute content used for comparison.
             _kwargs (object):
                 Optional update arguments accepted by the test double.
 
@@ -781,87 +777,6 @@ async def test_coordinator_enables_show_time_from_existing_state(
     assert coordinator.get_attr(ATTR_NATIVE_VALUE) == "Library (since 14:05)"
 
 
-async def test_coordinator_tsc_update_schedules_updater_with_snapshot(
-    mock_hass: MagicMock,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Tracker state changes should schedule one updater task with copied attrs.
-
-    Args:
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
-        monkeypatch (pytest.MonkeyPatch):
-            Pytest fixture for replacing dependencies.
-    """
-    mock_hass.states.get.return_value = None
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        entry_id="entry123",
-        data={"name": "TestSensor", "devicetracker_id": "person.test"},
-    )
-    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    coordinator.set_attr("place_name", "Library")
-    captured: dict[str, object] = {}
-
-    class _FakeUpdater:
-        """Capture coordinator update scheduling arguments."""
-
-        def __init__(self, **kwargs: object) -> None:
-            """Store constructor arguments for assertions.
-
-            Args:
-                kwargs (object):
-                    Constructor options recorded by the test double.
-            """
-            captured.update(kwargs)
-
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Capture scheduled update arguments.
-
-            Args:
-                reason (str):
-                    Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
-            """
-            captured["reason"] = reason
-            captured["previous_attr"] = previous_attr
-
-    tasks: list[asyncio.Task[None]] = []
-
-    def _create_task(coro: Coroutine[object, object, None]) -> asyncio.Task[None]:
-        """Schedule the coroutine on the active event loop for the test.
-
-        Args:
-            coro (Coroutine[object, object, None]):
-                Coroutine scheduled by the task helper.
-
-        Returns:
-            asyncio.Task[None]:
-                Scheduled task double used to observe background work.
-        """
-        task: asyncio.Task[None] = asyncio.create_task(coro)
-        tasks.append(task)
-        return task
-
-    mock_hass.async_create_task.side_effect = _create_task
-    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FakeUpdater)
-
-    coordinator.tsc_update(MagicMock(data={"new_state": MagicMock(state="home")}))
-    await asyncio.gather(*tasks)
-
-    assert captured["hass"] is mock_hass
-    assert captured["config_entry"] is entry
-    assert captured["coordinator"] is coordinator
-    assert captured["reason"] == "Track State Change"
-    previous_attr = captured["previous_attr"]
-    assert isinstance(previous_attr, dict)
-    assert previous_attr["place_name"] == "Library"
-    assert previous_attr[ATTR_DEVICETRACKER_ID] == "person.test"
-    assert previous_attr["name"] == "TestSensor"
-    assert previous_attr is not coordinator.get_internal_attr()
-
-
 async def test_coordinator_tsc_update_cancelled_on_shutdown(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
@@ -899,14 +814,12 @@ async def test_coordinator_tsc_update_cancelled_on_shutdown(
             """
             updater_state["constructed"] = True
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(self, reason: str) -> None:
             """Wait long enough for coordinator shutdown to cancel the running task.
 
             Args:
                 reason (str):
                     Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
 
             Raises:
                 asyncio.CancelledError:
@@ -1066,14 +979,12 @@ async def test_coordinator_resume_after_failed_unload_forces_refresh(
                     Constructor options recorded by the test double.
             """
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(self, reason: str) -> None:
             """Record the refresh reason.
 
             Args:
                 reason (str):
                     Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
             """
             update_calls.append(reason)
 
@@ -1122,14 +1033,12 @@ async def test_coordinator_prepare_unload_waits_for_active_update(
                     Constructor options recorded by the test double.
             """
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(self, reason: str) -> None:
             """Block until the test releases the active update.
 
             Args:
                 reason (str):
                     Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
             """
             update_started.set()
             await release_update.wait()
@@ -1186,14 +1095,12 @@ async def test_coordinator_prepare_unload_continues_cleanup_when_unsubscribe_rai
                     Constructor options recorded by the test double.
             """
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(self, reason: str) -> None:
             """Block until the test releases the active update.
 
             Args:
                 reason (str):
                     Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
             """
             update_started.set()
             await release_update.wait()
@@ -1237,11 +1144,11 @@ async def test_coordinator_prepare_unload_continues_cleanup_when_unsubscribe_rai
     assert "unsubscribe boom" in caplog.text
 
 
-async def test_coordinator_scan_update_runs_updater_with_snapshot(
+async def test_coordinator_scan_update_returns_updated_snapshot(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Scan interval refreshes should run the updater with copied attrs.
+    """Scan interval refreshes should return the completed Update snapshot.
 
     Args:
         mock_hass (MagicMock):
@@ -1256,49 +1163,23 @@ async def test_coordinator_scan_update_runs_updater_with_snapshot(
         data={"name": "TestSensor", "devicetracker_id": "person.test"},
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    coordinator.set_attr("place_name", "Library")
-    captured: dict[str, object] = {}
 
-    class _FakeUpdater:
-        """Capture scan update arguments and mutate coordinator state."""
+    async def update_place(updater: PlacesUpdater, *, reason: str) -> None:
+        """Give the scan a changed Place to return.
 
-        def __init__(self, **kwargs: object) -> None:
-            """Store constructor arguments for assertions.
+        Args:
+            updater (PlacesUpdater): Updater for this Places entry.
+            reason (str): Update reason provided by the coordinator.
+        """
+        _ = reason
+        updater.coordinator.set_native_value("Updated")
 
-            Args:
-                kwargs (object):
-                    Constructor options recorded by the test double.
-            """
-            captured.update(kwargs)
-
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
-            """Capture scheduled update arguments and publish a new value.
-
-            Args:
-                reason (str):
-                    Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
-            """
-            captured["reason"] = reason
-            captured["previous_attr"] = previous_attr
-            coordinator.set_native_value("Updated")
-
-    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
-    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FakeUpdater)
+    monkeypatch.setattr(PlacesUpdater, "do_update", update_place)
 
     data = await coordinator.async_scan_update()
 
     assert coordinator.update_interval == SCAN_INTERVAL
     assert data.native_value == "Updated"
-    assert captured["hass"] is mock_hass
-    assert captured["config_entry"] is entry
-    assert captured["coordinator"] is coordinator
-    assert captured["reason"] == "Scan Interval"
-    previous_attr = captured["previous_attr"]
-    assert isinstance(previous_attr, dict)
-    assert previous_attr["place_name"] == "Library"
-    assert previous_attr is not coordinator.get_internal_attr()
 
 
 async def test_coordinator_scan_update_failure_does_not_set_throttle_marker(
@@ -1335,14 +1216,12 @@ async def test_coordinator_scan_update_failure_does_not_set_throttle_marker(
             call_tracker["constructors"] += 1
             _ = kwargs
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(self, reason: str) -> None:
             """Raise a deterministic failure.
 
             Args:
                 reason (str):
                     Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
 
             Raises:
                 RuntimeError:
@@ -1396,17 +1275,15 @@ async def test_coordinator_scan_update_serializes_throttle_and_records_completio
             """
             _ = kwargs
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(self, reason: str) -> None:
             """Record and block the update until the test releases it.
 
             Args:
                 reason (str):
                     Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
             """
             nonlocal update_calls
-            _ = reason, previous_attr
+            _ = reason
             update_calls += 1
             update_started.set()
             await release_update.wait()
@@ -1563,7 +1440,6 @@ async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
         async def do_update(
             self,
             _reason: str = "",
-            _previous_attr: dict[str, object] | None = None,
             **_kwargs: object,
         ) -> None:
             """Block first run and let any later run flag itself.
@@ -1571,8 +1447,6 @@ async def test_coordinator_run_update_recheck_after_lock_on_shutdown(
             Args:
                 _reason (str):
                     Reason recorded for the coordinator refresh.
-                _previous_attr (dict[str, object] | None):
-                    Previous attribute content used for comparison.
                 _kwargs (object):
                     Optional update arguments accepted by the test double.
             """
@@ -1633,14 +1507,12 @@ async def test_coordinator_updates_are_serialized_between_scan_and_tracker_event
                     Constructor options recorded by the test double.
             """
 
-        async def do_update(self, reason: str, previous_attr: dict[str, object]) -> None:
+        async def do_update(self, reason: str) -> None:
             """Record concurrent overlap while the update is in-flight.
 
             Args:
                 reason (str):
                     Reason recorded for the coordinator refresh.
-                previous_attr (dict[str, object]):
-                    Previous attribute content used for comparison.
             """
             FakeUpdater.active_count += 1
             FakeUpdater.max_active_count = max(

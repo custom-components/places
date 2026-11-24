@@ -21,7 +21,7 @@ from .const import (
 from .display_options import DisplayOptions, parse_display_options
 
 if TYPE_CHECKING:
-    from .coordinator import PlacesUpdateCoordinator
+    from .state import PlacesState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,14 +29,12 @@ _LOGGER = logging.getLogger(__name__)
 class AdvancedOptionsParser:
     """Render bracketed and filtered Display options into a main sensor state."""
 
-    def __init__(
-        self, coordinator: PlacesUpdateCoordinator, curr_options: str | DisplayOptions
-    ) -> None:
+    def __init__(self, coordinator: PlacesState, curr_options: str | DisplayOptions) -> None:
         """Initialize the renderer for a single Display options expression.
 
         Args:
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator that provides attribute access helpers.
+            coordinator (PlacesState):
+                Place state that provides attribute access helpers.
             curr_options (str | DisplayOptions):
                 Display options expression or its parsed representation.
         """
