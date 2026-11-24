@@ -19,11 +19,18 @@ from homeassistant.const import (
     CONF_LONGITUDE,
     CONF_NAME,
     CONF_UNIQUE_ID,
+    EVENT_HOMEASSISTANT_STOP,
     MAX_LENGTH_STATE_STATE,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, Event, HomeAssistant, callback
+from homeassistant.core import (
+    DOMAIN as HOMEASSISTANT_DOMAIN,
+    CoreState,
+    Event,
+    HomeAssistant,
+    callback,
+)
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -282,9 +289,24 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             name="Finalize accepted Place",
             eager_start=False,
         )
+
+        async def wait_for_finalization(_event: Event) -> None:
+            """Keep shutdown stage two open until this accepted Place is finalized.
+
+            Args:
+                _event (Event): Home Assistant stop event.
+            """
+            await asyncio.shield(finalization)
+
+        unsubscribe_stop = self.hass.bus.async_listen(
+            EVENT_HOMEASSISTANT_STOP, wait_for_finalization
+        )
         try:
             await asyncio.shield(finalization)
         except asyncio.CancelledError:
+            if self.hass.state is CoreState.not_running:
+                finalization.cancel("Home Assistant final shutdown")
+                raise
             # A published Place outlives caller cancellation. Keep the lock until
             # finalization has stopped, even if the caller is cancelled again.
             while not finalization.done():
@@ -294,6 +316,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                     continue
             finalization.result()
             raise
+        finally:
+            unsubscribe_stop()
 
     async def _async_save_and_announce(self, event_data: dict[str, Any]) -> None:
         """Save the accepted snapshot before event subscribers can reload the entry.
