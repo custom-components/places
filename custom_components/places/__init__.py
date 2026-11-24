@@ -3,7 +3,6 @@
 import asyncio
 from collections.abc import Callable
 import logging
-import re
 
 import cachetools
 from homeassistant.config_entries import ConfigEntry
@@ -23,6 +22,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import PlacesUpdateCoordinator
+from .display_options import parse_display_options
 from .migration import async_migrate_legacy_snapshot
 from .persistence import PlacesStorage
 
@@ -72,99 +72,64 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_migrate_legacy_snapshot(hass, entry.entry_id, name)
     update_kwargs: dict = {"version": 2, "minor_version": 1}
     display_options = entry.data.get(CONF_DISPLAY_OPTIONS, "")
-    migrated_display_options = _migrate_formatted_address_display_options(display_options)
+    migrated_display_options = _migrate_display_options(display_options)
     if migrated_display_options != display_options:
         update_kwargs["data"] = {
             **entry.data,
             CONF_DISPLAY_OPTIONS: migrated_display_options,
         }
-    display_options = migrated_display_options
-    options = [option.strip().lower() for option in _split_top_level_options(display_options)]
-    if "do_not_reorder" in options:
-        migrated_options_list: list[str] = []
-        for option in options:
-            if option in {"do_not_reorder", "do_not_show_not_home"}:
-                continue
-            if option == "place":
-                migrated_options_list.extend(
-                    [
-                        "name_no_dupe",
-                        "category(-, place)",
-                        "type(-, yes)",
-                        "neighborhood",
-                        "house_number",
-                        "street",
-                    ]
-                )
-            else:
-                migrated_options_list.append(option)
-        options = migrated_options_list
-        if options:
-            if "formatted_place" not in options:
-                options[0] += "[]"
-            migrated_options = ", ".join(options)
-        else:
-            migrated_options = DEFAULT_DISPLAY_OPTIONS
-        update_kwargs["data"] = {**entry.data, CONF_DISPLAY_OPTIONS: migrated_options}
     hass.config_entries.async_update_entry(entry, **update_kwargs)
     return True
 
 
-def _split_top_level_options(display_options: str) -> list[str]:
-    """Split display options on commas outside parentheses and brackets.
+def _migrate_display_options(source: str) -> str:
+    """Rename v1 identifiers and convert legacy ordered Display options.
 
     Args:
-        display_options (str):
-            Raw comma-separated display-options expression.
-
-    Returns:
-        list[str]:
-            Display-option expressions with nested commas kept intact.
-    """
-    options: list[str] = []
-    start = 0
-    depth = 0
-    for index, character in enumerate(display_options):
-        if character in "([":
-            depth += 1
-        elif character in ")]":
-            depth = max(0, depth - 1)
-        elif character == "," and depth == 0:
-            options.append(display_options[start:index])
-            start = index + 1
-    options.append(display_options[start:])
-    return options
-
-
-def _migrate_formatted_address_display_options(raw_display_options: str) -> str:
-    """Migrate ``formatted_address`` tokens while preserving literal filter values.
-
-    Args:
-        raw_display_options (str):
-            The raw display-options string to migrate.
+        source (str):
+            Stored v1 Display options.
 
     Returns:
         str:
-            The migrated display-options string with display-option identifiers renamed where safe.
+            Migrated Display options, with surrounding text preserved for identifier-only renames.
     """
-    out: list[str] = []
-    paren_depth = 0
-    last = 0
-    for match in re.finditer(r"(?i)\bformatted_address\b", raw_display_options):
-        segment = raw_display_options[last : match.start()]
-        out.append(segment)
-        paren_depth = max(
-            0,
-            paren_depth + segment.count("(") - segment.count(")"),
-        )
-        out.append(
-            "osm_formatted_address"
-            if paren_depth == 0 or raw_display_options[match.end() :].lstrip().startswith("(")
-            else match.group()
-        )
-        last = match.end()
-    out.append(raw_display_options[last:])
-    return "".join(out)
+    parsed = parse_display_options(source)
+    chunks: list[str] = []
+    start = 0
+    for identifier in parsed.identifiers:
+        if identifier.is_field and identifier.name.lower() == "formatted_address":
+            chunks.extend((source[start : identifier.start], "osm_formatted_address"))
+            start = identifier.end
+    if chunks:
+        chunks.append(source[start:])
+        parsed = parse_display_options("".join(chunks))
+
+    options = [option.strip().lower() for option in parsed.top_level_options()]
+    if "do_not_reorder" not in options:
+        return parsed.source
+
+    migrated: list[str] = []
+    for option in options:
+        if option in {"do_not_reorder", "do_not_show_not_home"}:
+            continue
+        if option == "place":
+            migrated.extend(
+                [
+                    "name_no_dupe",
+                    "category(-, place)",
+                    "type(-, yes)",
+                    "neighborhood",
+                    "house_number",
+                    "street",
+                ]
+            )
+        else:
+            migrated.append(option)
+    if not migrated:
+        return DEFAULT_DISPLAY_OPTIONS
+    if "formatted_place" not in migrated:
+        migrated[0] += "[]"
+    return ", ".join(migrated)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

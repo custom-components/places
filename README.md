@@ -76,9 +76,9 @@ Key | Required | Default | Description |
 To use, simply enter your advanced options into the `display_options` text area. Any display_options that contain `[]` or `()` will be processed with the Advanced Display Options.<br />
 __Tip:__ _Build your advanced display options string in a text editor and copy/paste it into display_options field as it is pretty small._
 
-### __Brackets [ ]:__ Fields to show if initial field is blank or empty<br />
+### __Brackets [ ]:__ Fields to show if the preceding field is blank or filtered out<br />
 
-These can be nested.
+Fallbacks can contain several comma-separated fields and can be nested.
 
 #### Examples
 
