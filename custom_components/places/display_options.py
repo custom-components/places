@@ -192,12 +192,13 @@ def parse_display_options(source: str) -> DisplayOptions:
             is_field = not group.in_literal and (group.opener != "(" or delimiter == "(")
             identifiers.append(Identifier(token, start, start + len(token), is_field))
 
-        if (
-            ((token and item.groups) or (opening and delimiter in item.groups))
-            and group.opener != "("
-            and not group.in_literal
-        ):
-            group.stopped = True
+        if group.opener != "(" and not group.in_literal:
+            repeated_group = opening and delimiter in item.groups
+            if repeated_group:
+                # Reject new submissions while preserving the stored-rule parse.
+                invalid_syntax = True
+            if (token and item.groups) or repeated_group:
+                group.stopped = True
 
         # Structural errors retain precedence over comma and token syntax errors.
         if opening:
