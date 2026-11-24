@@ -184,7 +184,6 @@ class PlacesState:
                 New state value for the main Places sensor.
         """
         if value is None:
-            self._native_value = None
             self.clear_attr(ATTR_NATIVE_VALUE)
             return
         self._native_value = str(value)
@@ -223,7 +222,6 @@ class PlacesState:
     async def get_driving_status(self) -> None:
         """Set the driving marker when movement implies road travel."""
         self.clear_attr(ATTR_DRIVING)
-        is_driving = False
         if (
             not await self.in_zone()
             and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
@@ -232,8 +230,6 @@ class PlacesState:
                 or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
             )
         ):
-            is_driving = True
-        if is_driving:
             self.set_attr(ATTR_DRIVING, "Driving")
 
     async def process_display_options(self) -> None:
