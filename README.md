@@ -4,7 +4,7 @@
 
 | Name                                           |    Stmts |     Miss |   Branch |   BrPart |   Cover |   Missing |
 |----------------------------------------------- | -------: | -------: | -------: | -------: | ------: | --------: |
-| custom\_components/places/\_\_init\_\_.py      |      159 |        8 |       38 |        4 |     94% |172-173, 182-183, 222-224, 250-252, 307-\>319, 322-\>330, 333-\>335, 338-\>350 |
+| custom\_components/places/\_\_init\_\_.py      |      161 |        8 |       40 |        4 |     94% |176-177, 186-187, 226-228, 254-256, 311-\>323, 326-\>334, 337-\>339, 342-\>354 |
 | custom\_components/places/advanced\_options.py |       75 |        0 |       34 |        1 |     99% | 111-\>113 |
 | custom\_components/places/attributes.py        |       65 |        5 |       26 |        2 |     92% |65-\>exit, 126-127, 150-151, 212 |
 | custom\_components/places/basic\_options.py    |       93 |        3 |       38 |        2 |     96% |304-305, 334 |
@@ -28,7 +28,7 @@
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |       86 |        0 |       16 |        0 |    100% |           |
 | custom\_components/places/update\_sensor.py    |      476 |       16 |      186 |       18 |     95% |178, 319, 444-\>exit, 445-\>447, 447-\>exit, 538-\>540, 544-\>547, 554, 664, 665-\>667, 669-673, 790, 813-\>exit, 833-\>exit, 925-\>936, 1024, 1119, 1120-\>1130, 1122-1128, 1132-1134, 1139-\>exit |
-| **TOTAL**                                      | **2321** |   **61** |  **686** |   **53** | **96%** |           |
+| **TOTAL**                                      | **2323** |   **61** |  **688** |   **53** | **96%** |           |
 
 
 ## Setup coverage badge
