@@ -83,6 +83,9 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# Distance a reading must move from the accepted Place to count as movement.
+MOVEMENT_THRESHOLD_M = 10
+
 
 class PlacesUpdater:
     """Resolve one candidate Place and apply the outcome of the Update."""
@@ -903,16 +906,32 @@ class PlacesUpdater:
             )
             return UpdateStatus.SKIP_SET_STATIONARY
 
-        if int(self.state.get_attr_safe_float(ATTR_DISTANCE_TRAVELED)) < 10:
+        threshold_m = self._movement_threshold_m()
+        if int(self.state.get_attr_safe_float(ATTR_DISTANCE_TRAVELED)) < threshold_m:
             _LOGGER.info(
                 "(%s) Not performing update, distance traveled from last update is "
-                "less than 10 m (%s m)",
+                "less than %s m (%s m)",
                 self.state.get_attr(CONF_NAME),
+                threshold_m,
                 round(self.state.get_attr_safe_float(ATTR_DISTANCE_TRAVELED), 1),
             )
             return UpdateStatus.SKIP_SET_STATIONARY
 
         return proceed_with_update
+
+    def _movement_threshold_m(self) -> float:
+        """Return the distance a reading must move to count as movement.
+
+        Returns:
+            float:
+                ``max(10 m, GPS accuracy)`` when Use GPS Accuracy is on and the
+                current reading reports a positive accuracy, otherwise 10 m.
+        """
+        if self.state.get_attr(CONF_USE_GPS) and not self.state.is_attr_blank(ATTR_GPS_ACCURACY):
+            gps_accuracy = self.state.get_attr_safe_float(ATTR_GPS_ACCURACY)
+            if gps_accuracy > 0:
+                return max(MOVEMENT_THRESHOLD_M, gps_accuracy)
+        return MOVEMENT_THRESHOLD_M
 
     async def update_location_attributes(self) -> None:
         """Store current, previous, and home coordinates as ``lat,lon`` strings."""

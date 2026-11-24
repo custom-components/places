@@ -65,6 +65,7 @@ from custom_components.places.const import (
     CONF_EXTENDED_ATTR,
     CONF_NAME,
     CONF_SHOW_TIME,
+    CONF_USE_GPS,
     DEFAULT_DISPLAY_OPTIONS,
     DOMAIN,
     EVENT_TYPE,
@@ -1871,6 +1872,143 @@ async def test_failed_force_update_keeps_place_until_an_ordinary_scan_recovers(
     assert recovered[ATTR_LATITUDE] == 51.7
     assert recovered[ATTR_LATITUDE_OLD] == 51.5
     assert recovered[ATTR_MAP_LINK] == hass.states.get("sensor.probe_map_link").state
+
+
+# Stationary threshold scaled by the reading's GPS accuracy
+
+_METRES_PER_DEGREE_LATITUDE = 111_195
+_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+_LONDON_RESPONSE = {
+    "osm_id": 1,
+    "osm_type": "node",
+    "category": "place",
+    "type": "city",
+    "address": {"city": "London"},
+}
+_OXFORD_RESPONSE = {**_LONDON_RESPONSE, "address": {"city": "Oxford"}}
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
+    ("tracker_attributes", "use_gps", "moved_m", "expect_update"),
+    [
+        pytest.param({"gps_accuracy": 80}, True, 40, False, id="inside-accuracy-radius"),
+        pytest.param({"gps_accuracy": 80}, True, 200, True, id="beyond-accuracy-radius"),
+        pytest.param({"gps_accuracy": 80}, False, 40, True, id="setting-off-ignores-accuracy"),
+        pytest.param({}, True, 15, True, id="absent-accuracy-keeps-ten-metres"),
+        pytest.param({}, True, 5, False, id="absent-accuracy-inside-ten-metres"),
+        pytest.param(
+            {"gps_accuracy": 0}, False, 15, True, id="zero-accuracy-setting-off-keeps-ten-metres"
+        ),
+    ],
+)
+async def test_movement_threshold_scales_with_gps_accuracy(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    tracker_attributes: dict[str, float],
+    use_gps: bool,
+    moved_m: float,
+    expect_update: bool,
+) -> None:
+    """Treat movement inside a reading's GPS accuracy radius as stationary.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the OSM throttle interval.
+        tracker_attributes (dict[str, float]): GPS attributes on the tracked entity.
+        use_gps (bool): Value of the Use GPS Accuracy setting.
+        moved_m (float): Distance moved north of the accepted Place, in metres.
+        expect_update (bool): Whether the move should trigger a reverse lookup and Update.
+    """
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Probe",
+        data={
+            CONF_NAME: "Probe",
+            CONF_DEVICETRACKER_ID: "device_tracker.probe",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: False,
+            CONF_SHOW_TIME: False,
+            CONF_USE_GPS: use_gps,
+        },
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set(
+        "device_tracker.probe",
+        "not_home",
+        {"latitude": 51.5, "longitude": -0.1, **tracker_attributes},
+    )
+    aioclient_mock.get(_REVERSE_URL, json=_LONDON_RESPONSE)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe").state == "London"
+    assert aioclient_mock.call_count == 1
+
+    latitude = round(51.5 + moved_m / _METRES_PER_DEGREE_LATITUDE, 7)
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={latitude}", json=_OXFORD_RESPONSE)
+    hass.states.async_set(
+        "device_tracker.probe",
+        "not_home",
+        {"latitude": latitude, "longitude": -0.1, **tracker_attributes},
+    )
+    await hass.async_block_till_done()
+
+    main = hass.states.get("sensor.probe")
+    if expect_update:
+        assert aioclient_mock.call_count == 1
+        assert main.state == "Oxford"
+        assert main.attributes[ATTR_LATITUDE] == latitude
+    else:
+        assert aioclient_mock.call_count == 0
+        assert main.state == "London"
+        assert main.attributes[ATTR_LATITUDE] == 51.5
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_force_update_bypasses_accuracy_radius_check(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Let Force update accept a move that is inside the reading's accuracy radius.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the OSM throttle interval.
+    """
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    aioclient_mock.get(_REVERSE_URL, json=_LONDON_RESPONSE)
+    assert await hass.config_entries.async_setup(force_update_entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe").state == "London"
+    assert aioclient_mock.call_count == 1
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(_REVERSE_URL, json=_LONDON_RESPONSE)
+    latitude = round(51.5 + 40 / _METRES_PER_DEGREE_LATITUDE, 7)
+    hass.states.async_set(
+        "device_tracker.probe",
+        "not_home",
+        {"latitude": latitude, "longitude": -0.1, "gps_accuracy": 80},
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 0
+    assert hass.states.get("sensor.probe").attributes[ATTR_LATITUDE] == 51.5
+
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").attributes[ATTR_LATITUDE] == latitude
 
 
 @pytest.mark.asyncio
