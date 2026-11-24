@@ -80,6 +80,7 @@ from .const import (
     DEFAULT_USE_GPS,
     MAIN_STATE_ATTRIBUTE_LIST,
 )
+from .display_options import parse_display_options
 from .helpers import is_float
 from .location import CoordinatePair
 from .update_sensor import PlacesUpdater
@@ -735,12 +736,12 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
     async def process_display_options(self) -> None:
         """Render configured display options into the native value."""
         self.clear_attr(ATTR_NATIVE_VALUE)
-        display_options: list[str] = []
-        if not self.is_attr_blank(ATTR_DISPLAY_OPTIONS):
-            display_options.extend(
-                option.strip() for option in self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS).split(",")
-            )
-        self.set_attr(ATTR_DISPLAY_OPTIONS_LIST, display_options)
+        source = self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS)
+        parsed = parse_display_options(source)
+        display_options = (
+            [option.strip() for option in parsed.top_level_options()] if source else []
+        )
+        self.set_attr(ATTR_DISPLAY_OPTIONS_LIST, parsed.event_options)
 
         await self.get_driving_status()
 
@@ -748,7 +749,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             basic_parser = BasicOptionsParser(
                 coordinator=self,
                 internal_attr=self.get_internal_attr(),
-                display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
+                display_options=display_options,
             )
             formatted_place = await basic_parser.build_formatted_place()
             self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
@@ -756,10 +757,10 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             self._native_value = self.get_attr_safe_str(ATTR_NATIVE_VALUE) or None
             return
 
-        if any(ext in self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS) for ext in ["(", ")", "[", "]"]):
+        if parsed.has_groups or parsed.bracket_mismatch:
             advanced_parser = AdvancedOptionsParser(
                 coordinator=self,
-                curr_options=self.get_attr_safe_str(ATTR_DISPLAY_OPTIONS),
+                curr_options=parsed,
             )
             await advanced_parser.build_from_advanced_options()
             self.set_attr(ATTR_NATIVE_VALUE, await advanced_parser.compile_state())
@@ -770,7 +771,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             basic_parser = BasicOptionsParser(
                 coordinator=self,
                 internal_attr=self.get_internal_attr(),
-                display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
+                display_options=display_options,
             )
             state = await basic_parser.build_display()
             if state:
