@@ -159,6 +159,9 @@ async def test_failed_lookup_retries_without_more_movement(
         blank_payload (str): Empty JSON response returned by the failed lookup.
     """
     mock_hass.config.time_zone = "UTC"
+    mock_hass.async_create_task_internal.side_effect = lambda target, name, eager_start: (
+        asyncio.create_task(target, name=name, eager_start=eager_start)
+    )
     states = {
         "zone.home": State("zone.home", "0", {"latitude": 51.4, "longitude": -0.1}),
         "device_tracker.test": State(

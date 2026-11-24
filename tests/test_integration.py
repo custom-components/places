@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 import json
 import logging
+from threading import Event as ThreadEvent
 from time import monotonic
 from types import SimpleNamespace
 from typing import ClassVar
@@ -14,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP, STATE_UNAVAILABLE
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
@@ -2275,6 +2276,66 @@ async def test_force_update_finalizes_published_place(
     assert snapshot[ATTR_LATITUDE] == 51.7
     assert snapshot[ATTR_NATIVE_VALUE] == "Oxford"
     session.get.assert_called_once()
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_tracker_update_finalizes_during_home_assistant_stop(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drain accepted Place serialization and announcement during shutdown stage two.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacement for Store serialization.
+    """
+    entry, _, session = loaded_lifecycle_entry
+    storage: PlacesStorage = entry.runtime_data._persistence
+    session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
+    serialization_started = asyncio.Event()
+    release_serialization = ThreadEvent()
+    original_prepare_data = storage._store._prepare_data
+
+    def hold_serialization(data: dict) -> tuple[str, str | bytes]:
+        """Hold Store serialization until Home Assistant dispatches its stop event.
+
+        Args:
+            data (dict): Store payload to serialize.
+
+        Returns:
+            tuple[str, str | bytes]: Serialized Store payload.
+
+        Raises:
+            TimeoutError: Serialization was not released during shutdown.
+        """
+        hass.loop.call_soon_threadsafe(serialization_started.set)
+        if not release_serialization.wait(timeout=10):
+            raise TimeoutError("Timed out waiting for Home Assistant stop")
+        return original_prepare_data(data)
+
+    monkeypatch.setattr(storage._store, "_prepare_data", hold_serialization)
+    events = async_capture_events(hass, EVENT_TYPE)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    await asyncio.wait_for(serialization_started.wait(), timeout=2)
+    assert entry.runtime_data.data.native_value == "Oxford"
+
+    @callback
+    def release_on_stop(_event: Event) -> None:
+        """Release serialization after Home Assistant begins stopping integrations.
+
+        Args:
+            _event (Event): Home Assistant stop event.
+        """
+        release_serialization.set()
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, release_on_stop)
+    await asyncio.wait_for(hass.async_stop(), timeout=5)
+
+    saved = await storage.async_load()
+    assert saved[ATTR_NATIVE_VALUE] == "Oxford"
+    assert [event.data["to_state"] for event in events] == ["Oxford"]
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

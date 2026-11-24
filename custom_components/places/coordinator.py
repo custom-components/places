@@ -276,8 +276,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             return
 
         # Let queued sensor listeners start unload before saving or firing the event.
-        finalization = asyncio.create_task(
-            self._async_save_and_announce(event_data), eager_start=False
+        finalization = self.config_entry.async_create_task(
+            self.hass,
+            self._async_save_and_announce(event_data),
+            name="Finalize accepted Place",
+            eager_start=False,
         )
         try:
             await asyncio.shield(finalization)
