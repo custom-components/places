@@ -56,7 +56,7 @@ class AdvancedOptionsParser:
         previous_field: str | None = None
         while pending:
             item = pending.pop()
-            if not item.token:
+            if not item.renderable or not item.token:
                 continue
             filters = item.filters(self.options.source)
             state = await self.get_option_state(

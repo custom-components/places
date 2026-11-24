@@ -41,6 +41,7 @@ class Item:
     end: int = 0
     token: str = ""
     groups: dict[str, Group] = field(default_factory=dict)
+    renderable: bool = True
 
     @property
     def fallback(self) -> list[Item]:
@@ -90,6 +91,7 @@ class Group:
     opener: str
     items: list[Item]
     in_literal: bool = False
+    stopped: bool = False
 
     def filter_values(self, source: str, *, attribute: bool = False) -> tuple[bool, list[str]]:
         """Return the include mode and literal values in a filter group.
@@ -181,6 +183,9 @@ def parse_display_options(source: str) -> DisplayOptions:
             is_field = not group.in_literal and (group.opener != "(" or delimiter == "(")
             identifiers.append(Identifier(token, start, start + len(token), is_field))
 
+        if token and item.groups and group.opener != "(" and not group.in_literal:
+            group.stopped = True
+
         # Structural errors retain precedence over comma and token syntax errors.
         if opening:
             has_groups = True
@@ -188,7 +193,8 @@ def parse_display_options(source: str) -> DisplayOptions:
                 structural_error = structural_error or "invalid_syntax"
             in_literal = group.in_literal or (group.opener == "(" and delimiter == "[")
             nested = Group(delimiter, [Item(index + 1)], in_literal)
-            item.groups.setdefault(delimiter, nested)
+            if not group.stopped:
+                item.groups.setdefault(delimiter, nested)
             stack.append(nested)
         elif delimiter in _CLOSERS:
             if group.opener != _CLOSERS[delimiter]:
@@ -199,7 +205,7 @@ def parse_display_options(source: str) -> DisplayOptions:
             item.end = index
         else:
             item.end = index
-            group.items.append(Item(index + 1))
+            group.items.append(Item(index + 1, renderable=not group.stopped))
             # The event formatter has historically matched comma-delimited text.
             event_options.append(source[event_option_start:index].strip())
             event_option_start = index + 1
