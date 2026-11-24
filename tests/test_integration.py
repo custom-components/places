@@ -2,6 +2,7 @@
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 import json
 import logging
@@ -16,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import EVENT_HOMEASSISTANT_STOP, STATE_UNAVAILABLE
+from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE, STATE_UNAVAILABLE
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
@@ -2291,7 +2292,7 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
     Args:
         hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
         loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
-        monkeypatch (pytest.MonkeyPatch): Replacement for Store serialization.
+        monkeypatch (pytest.MonkeyPatch): Replacement for Store disk write.
         tmp_path (Path): Temporary Store directory for a real executor-backed disk write.
     """
     entry, _, session = loaded_lifecycle_entry
@@ -2305,32 +2306,10 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
     )
     monkeypatch.setattr(file_io, "async_write", production_async_write)
     session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
-    serialization_started = asyncio.Event()
-    release_serialization = ThreadEvent()
     disk_started = ThreadEvent()
     release_disk_write = ThreadEvent()
     disk_write_finished = ThreadEvent()
-    stop_handler_started = asyncio.Event()
-    release_stop_handler = asyncio.Event()
-    original_prepare_data = store._prepare_data
     original_disk_write = file_io._write
-
-    def hold_serialization(data: dict) -> tuple[str, str | bytes]:
-        """Hold Store serialization until Home Assistant dispatches its stop event.
-
-        Args:
-            data (dict): Store payload to serialize.
-
-        Returns:
-            tuple[str, str | bytes]: Serialized Store payload.
-
-        Raises:
-            TimeoutError: Serialization was not released during shutdown.
-        """
-        hass.loop.call_soon_threadsafe(serialization_started.set)
-        if not release_serialization.wait(timeout=10):
-            raise TimeoutError("Timed out waiting for Home Assistant stop")
-        return original_prepare_data(data)
 
     def hold_disk_write(*args: object) -> object:
         """Hold the production Store file write until the test releases it.
@@ -2352,40 +2331,50 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
         finally:
             disk_write_finished.set()
 
-    monkeypatch.setattr(store, "_prepare_data", hold_serialization)
     monkeypatch.setattr(file_io, "_write", hold_disk_write)
     events = async_capture_events(hass, EVENT_TYPE)
-    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
-    await asyncio.wait_for(serialization_started.wait(), timeout=2)
-    assert entry.runtime_data.data.native_value == "Oxford"
+    event_order: list[str] = []
+    final_write_started = asyncio.Event()
 
-    async def hold_stop_handler(_event: Event) -> None:
-        """Hold a STOP listener after its first yield while serialization remains blocked.
+    @callback
+    def record_place_event(_event: Event) -> None:
+        """Record when the accepted Place event is fired.
 
         Args:
-            _event (Event): Home Assistant stop event.
+            _event (Event): Places update event.
         """
-        stop_handler_started.set()
-        await release_stop_handler.wait()
+        event_order.append("place")
 
-    hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, hold_stop_handler)
+    @callback
+    def record_final_write(_event: Event) -> None:
+        """Record when Home Assistant reaches its final-write phase.
+
+        Args:
+            _event (Event): Home Assistant final-write event.
+        """
+        event_order.append("final_write")
+        final_write_started.set()
+
+    hass.bus.async_listen(EVENT_TYPE, record_place_event)
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_FINAL_WRITE, record_final_write)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    await asyncio.wait_for(asyncio.to_thread(disk_started.wait, 10), timeout=2)
+    main_state = hass.states.get("sensor.lifecycle")
+    assert main_state is not None and main_state.state == "Oxford"
+
     stop_task = hass.async_create_task(hass.async_stop())
     try:
-        await asyncio.wait_for(stop_handler_started.wait(), timeout=2)
-        release_serialization.set()
-        await asyncio.wait_for(asyncio.to_thread(disk_started.wait, 10), timeout=2)
-        release_stop_handler.set()
-        await asyncio.wait({stop_task}, timeout=0.5)
-        completed_while_disk_stalled = stop_task.done()
+        with suppress(TimeoutError):
+            await asyncio.wait_for(final_write_started.wait(), timeout=0.5)
+        final_write_before_disk_release = final_write_started.is_set()
     finally:
-        release_serialization.set()
         release_disk_write.set()
-        release_stop_handler.set()
     await asyncio.wait_for(stop_task, timeout=5)
     assert await asyncio.to_thread(disk_write_finished.wait, 2)
 
     assert [event.data["to_state"] for event in events] == ["Oxford"]
-    assert not completed_while_disk_stalled
+    assert not final_write_before_disk_release
+    assert event_order == ["place", "final_write"]
     assert (
         json.loads((tmp_path / "places-store.json").read_text())["data"][ATTR_NATIVE_VALUE]
         == "Oxford"

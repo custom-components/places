@@ -289,6 +289,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             name="Finalize accepted Place",
             eager_start=False,
         )
+        stop_observed = self.hass.state in (CoreState.stopping, CoreState.final_write)
 
         async def wait_for_finalization(_event: Event) -> None:
             """Keep shutdown stage two open until this accepted Place is finalized.
@@ -296,6 +297,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             Args:
                 _event (Event): Home Assistant stop event.
             """
+            nonlocal stop_observed
+            stop_observed = True
             await asyncio.shield(finalization)
 
         unsubscribe_stop = self.hass.bus.async_listen(
@@ -304,12 +307,12 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         try:
             await asyncio.shield(finalization)
         except asyncio.CancelledError:
-            if self.hass.state is CoreState.not_running:
-                finalization.cancel("Home Assistant final shutdown")
-                raise
-            # A published Place outlives caller cancellation. Keep the lock until
-            # finalization has stopped, even if the caller is cancelled again.
+            # Keep the lock until finalization stops after ordinary caller cancellation.
+            # Terminal Core cancellation cancels finalization and releases the lock.
             while not finalization.done():
+                if stop_observed and self.hass.state is CoreState.not_running:
+                    finalization.cancel("Home Assistant final shutdown")
+                    raise
                 try:
                     await asyncio.shield(finalization)
                 except asyncio.CancelledError:
