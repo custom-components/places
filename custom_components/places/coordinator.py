@@ -316,13 +316,15 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
 
         Raises:
             HomeAssistantError:
-                If display options or the map provider fail validation.
+                If the entry is unloading or a setting fails validation.
             Exception:
                 Propagated when the operation fails.
             asyncio.CancelledError:
                 Propagated when the operation fails.
         """
         async with self._update_lock:
+            if self._is_shutting_down:
+                raise HomeAssistantError("Places entry is unloading")
             previous_config: MutableMapping[str, Any] = copy.deepcopy(self.config)
             previous_data = self.snapshot()
             config_entry_updated = False

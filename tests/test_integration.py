@@ -16,6 +16,8 @@ from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 import pytest
 from pytest_homeassistant.common import (
@@ -2151,6 +2153,12 @@ async def loaded_lifecycle_entry(
     )
     entry.add_to_hass(hass)
     storage = PlacesStorage(hass, entry.entry_id, "Lifecycle")
+    er.async_get(hass).async_get_or_create(
+        "switch",
+        DOMAIN,
+        f"{entry.entry_id}_{CONF_SHOW_TIME}",
+        suggested_object_id="lifecycle_show_last_updated",
+    )
     await storage.async_save(
         {
             ATTR_NATIVE_VALUE: "London",
@@ -2318,6 +2326,7 @@ async def test_places_event_waits_for_unload_outcome(
     )
     events = async_capture_events(hass, EVENT_TYPE)
     unload_tasks: list[asyncio.Task[bool]] = []
+    setting_errors: list[HomeAssistantError] = []
     coordinator: PlacesUpdateCoordinator = entry.runtime_data
 
     async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
@@ -2332,6 +2341,15 @@ async def test_places_event_waits_for_unload_outcome(
         """
         assert not events
         assert await storage.async_load() == accepted
+        try:
+            await hass.services.async_call(
+                "switch",
+                "turn_on",
+                {"entity_id": "switch.lifecycle_show_last_updated"},
+                blocking=True,
+            )
+        except HomeAssistantError as error:
+            setting_errors.append(error)
         return False
 
     @callback
@@ -2378,9 +2396,13 @@ async def test_places_event_waits_for_unload_outcome(
         async_fire_time_changed(hass, datetime.now(UTC) + timedelta(seconds=11))
         await hass.async_block_till_done()
         await coordinator.async_shutdown()
+        assert [str(error) for error in setting_errors] == ["Places entry is unloading"]
+        assert entry.data[CONF_SHOW_TIME] is False
         assert hass.states.get("sensor.lifecycle").state == "Oxford"
         assert [event.data["to_state"] for event in events] == ["Oxford"]
-        assert (await storage.async_load())[ATTR_LATITUDE] == 51.7
+        snapshot = await storage.async_load()
+        assert snapshot[ATTR_LATITUDE] == 51.7
+        assert snapshot[ATTR_NATIVE_VALUE] == "Oxford"
         session.get.assert_called_once()
 
 
