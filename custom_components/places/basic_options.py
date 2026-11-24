@@ -21,7 +21,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from .coordinator import PlacesUpdateCoordinator
+    from .state import PlacesState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,15 +31,15 @@ class BasicOptionsParser:
 
     def __init__(
         self,
-        coordinator: PlacesUpdateCoordinator,
+        coordinator: PlacesState,
         internal_attr: MutableMapping[str, Any],
         display_options: list[str],
     ) -> None:
         """Initialize the parser with coordinator state and selected display options.
 
         Args:
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator that provides attribute access helpers.
+            coordinator (PlacesState):
+                Place state that provides attribute access helpers.
             internal_attr (MutableMapping[str, Any]):
                 Current coordinator attribute mapping used for duplicate
                 checks.
@@ -214,15 +214,15 @@ class BasicOptionsParser:
     def should_use_place_name(
         self,
         internal_attr: MutableMapping[str, Any],
-        coordinator: PlacesUpdateCoordinator,
+        coordinator: PlacesState,
     ) -> bool:
         """Decide whether the OSM place name adds distinct information.
 
         Args:
             internal_attr (MutableMapping[str, Any]):
                 Current coordinator attribute mapping.
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator used for blank checks and safe value access.
+            coordinator (PlacesState):
+                Place state used for blank checks and safe value access.
 
         Returns:
             bool:
@@ -246,15 +246,15 @@ class BasicOptionsParser:
     def add_type_or_category(
         self,
         formatted_place_array: list[str],
-        coordinator: PlacesUpdateCoordinator,
+        coordinator: PlacesState,
     ) -> None:
         """Append a useful place type or category to a formatted-place list.
 
         Args:
             formatted_place_array (list[str]):
                 Mutable output list being assembled.
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator used for blank checks and safe value access.
+            coordinator (PlacesState):
+                Place state used for blank checks and safe value access.
         """
         if (
             not coordinator.is_attr_blank("place_type")
@@ -279,15 +279,15 @@ class BasicOptionsParser:
     def add_street_info(
         self,
         formatted_place_array: list[str],
-        coordinator: PlacesUpdateCoordinator,
+        coordinator: PlacesState,
     ) -> None:
         """Append street reference or house-number/street details.
 
         Args:
             formatted_place_array (list[str]):
                 Mutable output list being assembled.
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator used for blank checks and safe value access.
+            coordinator (PlacesState):
+                Place state used for blank checks and safe value access.
         """
         street = None
         if coordinator.is_attr_blank("street") and not coordinator.is_attr_blank(ATTR_ROUTE_NUMBER):
@@ -316,15 +316,15 @@ class BasicOptionsParser:
     def add_neighbourhood_if_house(
         self,
         formatted_place_array: list[str],
-        coordinator: PlacesUpdateCoordinator,
+        coordinator: PlacesState,
     ) -> None:
         """Append neighbourhood context for house-level places.
 
         Args:
             formatted_place_array (list[str]):
                 Mutable output list being assembled.
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator used for blank checks and safe value access.
+            coordinator (PlacesState):
+                Place state used for blank checks and safe value access.
         """
         if (
             not coordinator.is_attr_blank("place_type")
@@ -338,15 +338,15 @@ class BasicOptionsParser:
     def add_city_county_state(
         self,
         formatted_place_array: list[str],
-        coordinator: PlacesUpdateCoordinator,
+        coordinator: PlacesState,
     ) -> None:
         """Append the best locality and state abbreviation available.
 
         Args:
             formatted_place_array (list[str]):
                 Mutable output list being assembled.
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator used for blank checks and safe value access.
+            coordinator (PlacesState):
+                Place state used for blank checks and safe value access.
         """
         if not coordinator.is_attr_blank("city_clean"):
             formatted_place_array.append(coordinator.get_attr_safe_str("city_clean").strip())

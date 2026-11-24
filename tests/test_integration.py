@@ -1,16 +1,35 @@
 """Integration tests for the custom_components.places module."""
 
 import asyncio
-from datetime import UTC, datetime
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
+from datetime import UTC, datetime, timedelta
+import json
 import logging
+from math import ceil
+from pathlib import Path
+from threading import Event as ThreadEvent
+from time import monotonic
+from types import SimpleNamespace
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import parse_qs, urlparse
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
-from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE, STATE_UNAVAILABLE
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_capture_events,
+    async_fire_time_changed,
+)
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.places import (
     _ensure_osm_runtime_state,
@@ -26,9 +45,17 @@ from custom_components.places.const import (
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_LAST_CHANGED,
+    ATTR_LAST_UPDATED,
+    ATTR_LATITUDE,
+    ATTR_LATITUDE_OLD,
+    ATTR_LONGITUDE,
+    ATTR_LONGITUDE_OLD,
+    ATTR_MAP_LINK,
     ATTR_NATIVE_VALUE,
-    ATTR_PLACE_CATEGORY,
+    ATTR_POSTAL_CODE,
+    ATTR_SHOW_DATE,
     CONF_API_KEY,
+    CONF_DATE_FORMAT,
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
@@ -36,13 +63,378 @@ from custom_components.places.const import (
     CONF_SHOW_TIME,
     DEFAULT_DISPLAY_OPTIONS,
     DOMAIN,
+    EVENT_TYPE,
     OSM_CACHE,
     OSM_THROTTLE,
     PLATFORMS,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
+from custom_components.places.migration import legacy_json_path
 from custom_components.places.persistence import PlacesStorage
 from tests.conftest import assert_awaited_count
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("blank_payload", ["{}", "[]", '{"error":"Unable to geocode"}'])
+@pytest.mark.parametrize("restored", [False, True], ids=["new-entry", "restored-entry"])
+async def test_entry_keeps_accepted_place_until_lookup_recovers(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    blank_payload: str,
+    *,
+    restored: bool,
+) -> None:
+    """Keep the sensors and Store coherent from the first Place through OSM recovery.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the clock and HTTP boundary.
+        blank_payload (str): Unusable JSON body returned for the moved coordinates.
+        restored (bool): Whether to seed the accepted Place through Store before setup.
+    """
+    now = datetime(2026, 11, 24, 12, tzinfo=UTC)
+    scan_clock = 1000.0
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(side_effect=lambda: now),
+    )
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Probe",
+        data={
+            CONF_NAME: "Probe",
+            CONF_DEVICETRACKER_ID: "device_tracker.probe",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: False,
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    accepted_link = "https://maps.apple.com/?q=51.5%2C-0.1&z=18"
+    if restored:
+        await storage.async_save(
+            {
+                ATTR_NATIVE_VALUE: "Stale display text",
+                ATTR_CITY: "London",
+                ATTR_LATITUDE: 51.5,
+                ATTR_LONGITUDE: -0.1,
+                ATTR_LATITUDE_OLD: 51.4,
+                ATTR_LONGITUDE_OLD: -0.2,
+                ATTR_MAP_LINK: accepted_link,
+                ATTR_LAST_CHANGED: "2026-11-24 11:00:00+00:00",
+            }
+        )
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set("device_tracker.probe", "not_home", {"latitude": 51.5, "longitude": -0.1})
+
+    requests: list[str] = []
+    in_flight: list[tuple[str | None, float, str]] = []
+
+    def get_response(url: str, **_kwargs: object) -> MagicMock:
+        """Return the appropriate OSM response and observe the accepted snapshot.
+
+        Args:
+            url (str): Requested reverse-geocode URL.
+            _kwargs (object): HTTP request options.
+
+        Returns:
+            MagicMock: Async response context for the requested coordinates.
+        """
+        latitude = parse_qs(urlparse(url).query)["lat"][0]
+        requests.append(latitude)
+        if latitude == "51.7" and requests.count(latitude) == 1:
+            snapshot = entry.runtime_data.snapshot()
+            in_flight.append(
+                (
+                    snapshot.native_value,
+                    snapshot.attributes[ATTR_LATITUDE],
+                    snapshot.attributes[ATTR_MAP_LINK],
+                )
+            )
+            body = blank_payload
+        else:
+            body = json.dumps(
+                {
+                    "osm_id": 1,
+                    "osm_type": "node",
+                    "category": "place",
+                    "type": "city",
+                    "address": {"city": "London" if latitude == "51.5" else "Oxford"},
+                }
+            )
+        response = MagicMock(status=200, text=AsyncMock(return_value=body))
+        return MagicMock(__aenter__=AsyncMock(return_value=response))
+
+    session = MagicMock()
+    session.get.side_effect = get_response
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+
+    events: list[tuple[dict[str, object], str, str]] = []
+
+    @callback
+    def record_event(event: Event) -> None:
+        """Read published sensor states from the Places event listener.
+
+        Args:
+            event (Event): Places state update event.
+        """
+        main = hass.states.get("sensor.probe")
+        city = hass.states.get("sensor.probe_city")
+        assert main is not None and city is not None
+        events.append((event.data, main.state, city.state))
+
+    hass.bus.async_listen(EVENT_TYPE, record_event)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    main = hass.states.get("sensor.probe")
+    city = hass.states.get("sensor.probe_city")
+    link = hass.states.get("sensor.probe_map_link")
+    assert main is not None and city is not None and link is not None
+    assert main.state == city.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == 51.5
+    assert link.state == accepted_link
+    assert requests == ([] if restored else ["51.5"])
+    assert len(events) == (0 if restored else 1)
+    events.clear()
+    accepted = await storage.async_load()
+
+    now += timedelta(minutes=10)
+    hass.states.async_set("device_tracker.probe", "away", {"latitude": 51.7, "longitude": -0.1})
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe") == main
+    assert hass.states.get("sensor.probe_city") == city
+    assert hass.states.get("sensor.probe_map_link") == link
+    failed = await storage.async_load()
+    assert failed == {**accepted, ATTR_LAST_UPDATED: "2026-11-24 12:10:00+00:00"}
+    assert not events
+
+    now += timedelta(minutes=10)
+    scan_clock += 600
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    event, main_state, city_state = events[0]
+    assert event["from_state"] == "London"
+    assert event["to_state"] == main_state == city_state == "Oxford"
+    assert event["latitude"] == 51.7
+    assert event["longitude"] == -0.1
+    assert event["previous_latitude"] == 51.5
+    assert event["previous_longitude"] == -0.1
+    assert event["zone"] == "away"
+    assert event["last_changed"] == "2026-11-24 12:20:00+00:00"
+    assert "osm_dict" not in event
+    assert "street" not in event
+    recovered = await storage.async_load()
+    assert recovered[ATTR_NATIVE_VALUE] == recovered[ATTR_CITY] == "Oxford"
+    assert recovered[ATTR_LAST_UPDATED] == recovered[ATTR_LAST_CHANGED] == event["last_changed"]
+    assert recovered[ATTR_LATITUDE] == 51.7
+    assert recovered[ATTR_LONGITUDE] == -0.1
+    assert recovered[ATTR_LATITUDE_OLD] == 51.5
+    assert recovered[ATTR_LONGITUDE_OLD] == -0.1
+    assert recovered[ATTR_MAP_LINK] == event["map_link"]
+    main = hass.states.get("sensor.probe")
+    link = hass.states.get("sensor.probe_map_link")
+    assert main is not None and link is not None
+    assert main.attributes[ATTR_LATITUDE] == 51.7
+    assert link.state == event["map_link"] == "https://maps.apple.com/?q=51.7%2C-0.1&z=18"
+
+    now += timedelta(minutes=10)
+    scan_clock += 600
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+    assert requests == (["51.7", "51.7"] if restored else ["51.5", "51.7", "51.7"])
+    assert len(events) == 1
+    assert in_flight == [("London", 51.5, accepted_link)]
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_entry_maintains_zone_and_time_while_retaining_place(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Publish retained Place maintenance and keep using the accepted coordinates.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the clocks and HTTP boundary.
+    """
+    now = datetime(2026, 11, 24, 12, tzinfo=UTC)
+    scan_clock = 1000.0
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(side_effect=lambda: now),
+    )
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: now)
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Probe",
+        data={
+            CONF_NAME: "Probe",
+            CONF_DEVICETRACKER_ID: "device_tracker.probe",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: False,
+            CONF_SHOW_TIME: True,
+            CONF_DATE_FORMAT: "dd/mm",
+        },
+    )
+    entry.add_to_hass(hass)
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set("zone.work", "0", {"friendly_name": "Office"})
+    hass.states.async_set("device_tracker.probe", "away", {"latitude": 51.5, "longitude": -0.1})
+
+    requests: list[str] = []
+
+    def get_response(url: str, **_kwargs: object) -> MagicMock:
+        """Return the same Place text with fresh OSM details, or an empty result.
+
+        Args:
+            url (str): Requested reverse-geocode URL.
+            _kwargs (object): HTTP request options.
+
+        Returns:
+            MagicMock: Async response context for the requested coordinates.
+        """
+        latitude = parse_qs(urlparse(url).query)["lat"][0]
+        requests.append(latitude)
+        body = (
+            "{}"
+            if latitude == "51.50023"
+            else json.dumps(
+                {
+                    "osm_id": len(requests),
+                    "osm_type": "node",
+                    "category": "place",
+                    "type": "city",
+                    "address": {"city": "London"},
+                }
+            )
+        )
+        response = MagicMock(status=200, text=AsyncMock(return_value=body))
+        return MagicMock(__aenter__=AsyncMock(return_value=response))
+
+    session = MagicMock()
+    session.get.side_effect = get_response
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+    events = async_capture_events(hass, EVENT_TYPE)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    accepted = await storage.async_load()
+    assert len(events) == 1
+    events.clear()
+
+    async def assert_retained(expected: dict[str, object], zone_name: str) -> None:
+        """Compare the retained snapshot and its Home Assistant states.
+
+        Args:
+            expected (dict[str, object]): Snapshot with only permitted maintenance changes.
+            zone_name (str): Published Current zone name, or unknown after clearing.
+        """
+        assert await storage.async_load() == expected
+        main = hass.states.get("sensor.probe")
+        assert main is not None
+        assert main.state == expected[ATTR_NATIVE_VALUE]
+        assert main.attributes[ATTR_LATITUDE] == 51.5
+        assert main.attributes[ATTR_LONGITUDE] == -0.1
+        for entity_id, value in (
+            ("sensor.probe_city", "London"),
+            ("sensor.probe_map_link", "https://maps.apple.com/?q=51.5%2C-0.1&z=18"),
+            ("sensor.probe_zone_name", zone_name),
+            ("sensor.probe_direction_of_travel", expected[ATTR_DIRECTION_OF_TRAVEL]),
+        ):
+            state = hass.states.get(entity_id)
+            assert state is not None and state.state == value
+        assert not events
+
+    assert accepted[ATTR_LAST_CHANGED] == "2026-11-24 12:00:00+00:00"
+    assert accepted[ATTR_NATIVE_VALUE] == "London (since 12:00)"
+    assert accepted[ATTR_DIRECTION_OF_TRAVEL] == "away from home"
+
+    # About 3 metres from the accepted coordinates, still inside the movement gate.
+    now += timedelta(seconds=30)
+    hass.states.async_set("device_tracker.probe", "work", {"latitude": 51.50003, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected = {
+        **accepted,
+        ATTR_DEVICETRACKER_ZONE: "work",
+        ATTR_DEVICETRACKER_ZONE_NAME: "Office",
+        ATTR_LAST_UPDATED: "2026-11-24 12:00:30+00:00",
+    }
+    await assert_retained(expected, "Office")
+    assert requests == ["51.5"]
+
+    now += timedelta(seconds=30)
+    hass.states.async_set("device_tracker.probe", "work", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_DIRECTION_OF_TRAVEL: "stationary",
+            ATTR_LAST_CHANGED: "2026-11-24 12:01:00+00:00",
+            ATTR_LAST_UPDATED: "2026-11-24 12:01:00+00:00",
+        }
+    )
+    await assert_retained(expected, "Office")
+    assert requests == ["51.5"]
+
+    now += timedelta(days=1)
+    scan_clock += 86400
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_NATIVE_VALUE: "London (since 24/11)",
+            ATTR_LAST_UPDATED: "2026-11-25 12:01:00+00:00",
+            ATTR_SHOW_DATE: True,
+        }
+    )
+    await assert_retained(expected, "Office")
+    assert requests == ["51.5"]
+
+    now += timedelta(minutes=1)
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.5002, "longitude": -0.1}
+    )
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_DEVICETRACKER_ZONE: "not_home",
+            ATTR_DEVICETRACKER_ZONE_NAME: "not_home",
+            ATTR_LAST_UPDATED: "2026-11-25 12:02:00+00:00",
+        }
+    )
+    await assert_retained(expected, "not_home")
+    assert requests == ["51.5", "51.5002"]
+
+    # Only about 3 metres from the suppressed candidate, but over 10 from the accepted Place.
+    now += timedelta(minutes=1)
+    hass.states.async_set("device_tracker.probe", "work", {"latitude": 51.50023, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected[ATTR_LAST_UPDATED] = "2026-11-25 12:03:00+00:00"
+    await assert_retained(expected, "not_home")
+    assert requests == ["51.5", "51.5002", "51.50023"]
+
+    now += timedelta(minutes=1)
+    hass.states.async_set("device_tracker.probe", "", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_DEVICETRACKER_ZONE: None,
+            ATTR_DEVICETRACKER_ZONE_NAME: None,
+            ATTR_LAST_UPDATED: "2026-11-25 12:04:00+00:00",
+        }
+    )
+    await assert_retained(expected, "unknown")
+    assert requests == ["51.5", "51.5002", "51.50023"]
 
 
 @pytest.fixture
@@ -187,230 +579,194 @@ def reset_fake_storage() -> None:
     _FakeCoordinator.instances = []
 
 
-@pytest.mark.usefixtures("enable_custom_integrations")
-@pytest.mark.parametrize(
-    ("direction", "in_zone", "display_options", "expected_state"),
-    [
-        pytest.param(None, False, "driving, city", "Metro", id="no-saved-direction"),
-        pytest.param("towards home", False, "driving, city", "Driving, Metro", id="moving"),
-        pytest.param("away from home", True, "driving, city", "Work", id="current-zone"),
-        pytest.param("away from home", False, "city", "Metro", id="driving-omitted"),
-    ],
-)
-async def test_render_restored_road_place(
-    hass: HomeAssistant,
-    direction: str | None,
-    in_zone: bool,
-    display_options: str,
-    expected_state: str,
-) -> None:
-    """Render the saved road Place while the tracked entity is unavailable at setup.
-
-    Args:
-        hass (HomeAssistant): Home Assistant instance loading the Places entry.
-        direction (str | None): Saved direction of travel, if present.
-        in_zone (bool): Whether the snapshot includes an active Current zone.
-        display_options (str): Display options for the Places entry.
-        expected_state (str): Expected state of the main sensor after setup.
-    """
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        version=2,
-        minor_version=1,
-        data={
-            CONF_NAME: "Test Place",
-            CONF_DEVICETRACKER_ID: "device_tracker.test",
-            CONF_DISPLAY_OPTIONS: display_options,
-            CONF_SHOW_TIME: False,
-        },
-    )
-    entry.add_to_hass(hass)
-    snapshot = {ATTR_PLACE_CATEGORY: "highway", ATTR_CITY: "Metro"}
-    if direction is not None:
-        snapshot[ATTR_DIRECTION_OF_TRAVEL] = direction
-    if in_zone:
-        hass.states.async_set("zone.work", "0", {"passive": False})
-        snapshot.update({ATTR_DEVICETRACKER_ZONE: "work", ATTR_DEVICETRACKER_ZONE_NAME: "Work"})
-    await PlacesStorage(hass, entry.entry_id, "Test Place").async_save(snapshot)
-
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-
-    state = hass.states.get("sensor.test_place")
-    assert state is not None
-    assert state.state == expected_state
-
-
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("version", "update_calls"), [(1, 1), (2, 0)])
-async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
+@pytest.mark.usefixtures("hass_storage")
+@pytest.mark.parametrize("version", [1, 2])
+async def test_async_migrate_entry_gates_migration_by_version(
+    hass: HomeAssistant,
+    tmp_path: Path,
     version: int,
-    update_calls: int,
 ) -> None:
-    """Config-entry migration should run only for legacy entry versions.
+    """Only a v1 entry migrates both its Display options and legacy snapshot.
 
     Args:
-        monkeypatch (pytest.MonkeyPatch):
-            Pytest fixture for replacing dependencies.
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
+        hass (HomeAssistant):
+            Home Assistant instance with a config entry registry.
+        tmp_path (Path):
+            Isolated config directory for the legacy snapshot.
         version (int):
-            Storage or configuration schema version.
-        update_calls (int):
-            Expected legacy snapshot migration and configuration-entry update
-            call count.
+            Config entry schema version.
     """
+    data = {
+        CONF_NAME: "Test Place",
+        CONF_DISPLAY_OPTIONS: "  Formatted_Address , City ",
+        CONF_SHOW_TIME: True,
+    }
     entry = MockConfigEntry(
         domain=DOMAIN,
         version=version,
-        data={CONF_NAME: "Test Place"},
+        minor_version=3 if version == 2 else 1,
+        data=data,
     )
-    migrate_legacy_snapshot = AsyncMock()
-    monkeypatch.setattr(
-        "custom_components.places.async_migrate_legacy_snapshot",
-        migrate_legacy_snapshot,
-    )
+    entry.add_to_hass(hass)
+    hass.config.config_dir = str(tmp_path)
+    snapshot_path = legacy_json_path(hass, entry.entry_id)
+    await hass.async_add_executor_job(snapshot_path.parent.mkdir, 0o777, True)
+    await hass.async_add_executor_job(snapshot_path.write_text, '{"city": "Legacy City"}')
+    storage = PlacesStorage(hass, entry.entry_id, "Test Place")
 
-    result = await async_migrate_entry(mock_hass, entry)
+    assert await async_migrate_entry(hass, entry)
 
-    assert result is True
-    assert migrate_legacy_snapshot.await_count == update_calls
-    assert mock_hass.config_entries.async_update_entry.call_count == update_calls
     if version == 1:
-        migrate_legacy_snapshot.assert_awaited_once_with(
-            mock_hass,
-            entry.entry_id,
-            "Test Place",
-        )
-        mock_hass.config_entries.async_update_entry.assert_called_once_with(
-            entry,
-            version=2,
-            minor_version=1,
-        )
+        assert (entry.version, entry.minor_version) == (2, 1)
+        assert entry.data == {**data, CONF_DISPLAY_OPTIONS: "  osm_formatted_address , City "}
+        assert await storage.async_load() == {ATTR_CITY: "Legacy City"}
+        assert not snapshot_path.exists()
+    else:
+        assert (entry.version, entry.minor_version) == (2, 3)
+        assert entry.data == data
+        assert await storage.async_load() == {}
+        assert snapshot_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_async_migrate_entry_preserves_literal_in_malformed_rule(hass: HomeAssistant) -> None:
+    """A stray closing delimiter does not change the role of later filter values.
+
+    Args:
+        hass (HomeAssistant): Home Assistant instance with a config entry registry.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DISPLAY_OPTIONS: (
+                "City),  Type(Formatted_Address, Formatted_Address(+, 'Formatted_Address'))"
+                "[ \tFORMATTED_ADDRESS, State ],  Country "
+            ),
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert (entry.version, entry.minor_version) == (2, 1)
+    assert entry.data == {
+        CONF_NAME: "Test Place",
+        CONF_DISPLAY_OPTIONS: (
+            "City),  Type(Formatted_Address, osm_formatted_address(+, 'Formatted_Address'))"
+            "[ \tosm_formatted_address, State ],  Country "
+        ),
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_migrate_entry_keeps_filter_role_after_wrong_closer(
+    hass: HomeAssistant,
+) -> None:
+    """A mismatched closer does not cause a filter value to be migrated as a field.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the config entry.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DISPLAY_OPTIONS: "type(house], formatted_address), formatted_address",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.data == {
+        CONF_NAME: "Test Place",
+        CONF_DISPLAY_OPTIONS: "type(house], formatted_address), osm_formatted_address",
+    }
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("display_options", "expected_data"),
+    ("display_options", "expected_options"),
     [
-        (
-            "do_not_reorder, formatted_place",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place"},
-        ),
-        (
-            "do_not_reorder, formatted_place, driving",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place, driving"},
-        ),
+        ("do_not_reorder, formatted_place", "formatted_place"),
+        ("do_not_reorder, formatted_place, driving", "formatted_place, driving"),
         # A top-level option is renamed, while a filter argument remains literal data.
         pytest.param(
             "formatted_address, city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "osm_formatted_address, city",
-            },
+            "osm_formatted_address, city",
             id="top-level-formatted-address",
         ),
         pytest.param(
             "type(formatted_address)[city]",
-            None,
+            "type(formatted_address)[city]",
             id="filter-value-formatted-address",
         ),
-        (
-            "formatted_address[city]",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "osm_formatted_address[city]",
-            },
+        ("formatted_address[city]", "osm_formatted_address[city]"),
+        pytest.param(
+            "formatted_address[name], name(formatted_address[city], city[formatted_address])",
+            "osm_formatted_address[name], name(formatted_address[city], city[formatted_address])",
+            id="bracketed-filter-values",
         ),
         (
             "type(formatted_address(formatted_address), city)",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "type(osm_formatted_address(formatted_address), city)",
-            },
+            "type(osm_formatted_address(formatted_address), city)",
         ),
-        (
-            "do_not_reorder, formatted_address, city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "osm_formatted_address[], city",
-            },
-        ),
-        (
-            "do_not_reorder, city, state",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
-        ),
-        (
-            "Do_Not_Reorder, City, State",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
-        ),
+        ("do_not_reorder, formatted_address, city", "osm_formatted_address[], city"),
+        ("do_not_reorder, city, state", "city[], state"),
+        ("Do_Not_Reorder, City, State", "city[], state"),
         (
             "do_not_reorder, zone, do_not_show_not_home, city",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "zone[], city"},
+            "zone[], city",
         ),
         (
             "do_not_reorder, zone_name, place, city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: (
-                    "zone_name[], name_no_dupe, category(-, place), type(-, yes), "
-                    "neighborhood, house_number, street, city"
-                ),
-            },
+            (
+                "zone_name[], name_no_dupe, category(-, place), type(-, yes), "
+                "neighborhood, house_number, street, city"
+            ),
         ),
+        ("do_not_reorder, type(-, yes), city", "type(-, yes)[], city"),
         (
-            "do_not_reorder, type(-, yes), city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "type(-, yes)[], city",
-            },
+            (
+                "Do_Not_Reorder, City, Type(-, DO_NOT_SHOW_NOT_HOME)"
+                "[Formatted_Address, State], Do_Not_Show_Not_Home"
+            ),
+            "city[], type(-, do_not_show_not_home)[osm_formatted_address, state]",
         ),
-        ("city, state", None),
-        (
-            "do_not_reorder",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: DEFAULT_DISPLAY_OPTIONS},
-        ),
+        ("city, state", "city, state"),
+        ("do_not_reorder", DEFAULT_DISPLAY_OPTIONS),
     ],
 )
-async def test_async_migrate_entry_converts_do_not_reorder_to_advanced_options(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
+async def test_async_migrate_entry_updates_stored_display_options(
+    hass: HomeAssistant,
     display_options: str,
-    expected_data: dict[str, object] | None,
+    expected_options: str,
 ) -> None:
-    """Legacy ordered display options migrate to an advanced expression.
+    """Migration saves the intended Display options and upgrades the entry version.
 
     Args:
-        monkeypatch (pytest.MonkeyPatch):
-            Pytest fixture for replacing dependencies.
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
+        hass (HomeAssistant):
+            Home Assistant instance with a config entry registry.
         display_options (str):
-            Display options applied to state rendering.
-        expected_data (dict[str, object] | None):
-            Places payload expected for this parametrized case.
+            Legacy Display options saved in the entry.
+        expected_options (str):
+            Display options expected after migration.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
         version=1,
         data={CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: display_options},
     )
-    monkeypatch.setattr(
-        "custom_components.places.async_migrate_legacy_snapshot",
-        AsyncMock(),
-    )
+    entry.add_to_hass(hass)
 
-    await async_migrate_entry(mock_hass, entry)
+    assert await async_migrate_entry(hass, entry)
 
-    expected_kwargs: dict[str, object] = {"version": 2, "minor_version": 1}
-    if expected_data is not None:
-        expected_kwargs["data"] = expected_data
-    mock_hass.config_entries.async_update_entry.assert_called_once_with(
-        entry,
-        **expected_kwargs,
-    )
+    assert (entry.version, entry.minor_version) == (2, 1)
+    assert entry.data == {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: expected_options}
 
 
 @pytest.mark.asyncio
@@ -1250,6 +1606,269 @@ async def test_async_setup_entry_preserves_recorder_event_exclusions_for_extende
     assert recorder.exclude_event_types == {"external_event"}
 
 
+# Force update through the loaded Places entry
+
+
+@pytest.mark.parametrize("latitude", [51.5, 51.50001], ids=["same-coordinates", "small-move"])
+async def test_force_update_accepts_fresh_details_with_unchanged_place_text(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    latitude: float,
+) -> None:
+    """Accept fresh Place details while an ordinary scan would be throttled.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacements for scan and OSM timing.
+        latitude (float): Tracked latitude when the button is pressed.
+    """
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
+    osm_time = 1000.0
+
+    async def advance_osm_clock(delay: float) -> None:
+        """Advance the request clock by the requested delay.
+
+        Args:
+            delay (float): Number of seconds to advance.
+        """
+        nonlocal osm_time
+        osm_time += delay
+
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.asyncio",
+        SimpleNamespace(
+            get_running_loop=lambda: SimpleNamespace(time=lambda: osm_time),
+            sleep=advance_osm_clock,
+        ),
+    )
+    reverse_url = "https://nominatim.openstreetmap.org/reverse"
+    place = {"osm_id": 1, "osm_type": "node", "category": "place", "type": "city"}
+    aioclient_mock.get(
+        f"{reverse_url}?lat=51.5",
+        json={
+            **place,
+            "address": {"city": "London", "postcode": "SW1A 1AA"},
+        },
+    )
+    entry_id = force_update_entry.entry_id
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe").state == "London"
+    assert hass.states.get("sensor.probe_postal_code").state == "SW1A 1AA"
+    assert aioclient_mock.call_count == 1
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(
+        f"{reverse_url}?lat={latitude}",
+        json={
+            **place,
+            "address": {"city": "London", "postcode": "SW1A 2AA"},
+        },
+    )
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": latitude, "longitude": -0.1}
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 0
+    assert hass.states.get("sensor.probe").attributes[ATTR_LATITUDE] == 51.5
+
+    events: list[tuple[dict[str, object], str]] = []
+
+    @callback
+    def record_event(event: Event) -> None:
+        """Read the published postal code when the Places event fires.
+
+        Args:
+            event (Event): Places state update event.
+        """
+        events.append((event.data, hass.states.get("sensor.probe_postal_code").state))
+
+    hass.bus.async_listen(EVENT_TYPE, record_event)
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 1
+    assert osm_time == 1001.0
+    main = hass.states.get("sensor.probe")
+    assert main.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == latitude
+    assert len(events) == 1
+    event, published_postal_code = events[0]
+    assert event["from_state"] == event["to_state"] == "London"
+    assert event["postal_code"] == published_postal_code == "SW1A 2AA"
+    assert event["latitude"] == latitude
+
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    saved = await storage.async_load()
+    assert saved[ATTR_NATIVE_VALUE] == "London"
+    assert saved[ATTR_POSTAL_CODE] == "SW1A 2AA"
+    assert saved[ATTR_LATITUDE] == latitude
+    assert saved[ATTR_LATITUDE_OLD] == 51.5
+    assert (
+        saved[ATTR_MAP_LINK] == hass.states.get("sensor.probe_map_link").state == event["map_link"]
+    )
+
+    # Restart without a saved Place to observe what an ordinary lookup gets from the cache.
+    assert await hass.config_entries.async_unload(entry_id)
+    await storage.async_remove()
+    aioclient_mock.clear_requests()
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe_postal_code").state == "SW1A 2AA"
+    assert aioclient_mock.call_count == 0
+
+
+@pytest.mark.parametrize(
+    "invalid_input", ["missing-entity", "coordinates", "accuracy", "home-zone"]
+)
+async def test_force_update_preserves_place_when_inputs_are_unusable(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    invalid_input: str,
+) -> None:
+    """Keep the restored Place when pressing the button with an unusable input.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): HTTP boundary that should remain unused.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the Update clock.
+        invalid_input (str): The input that should prevent the reverse lookup.
+    """
+    attributes = {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 5}
+    if invalid_input == "coordinates":
+        del attributes["longitude"]
+    elif invalid_input == "accuracy":
+        attributes["gps_accuracy"] = 0
+    elif invalid_input == "home-zone":
+        hass.states.async_set("zone.home", "0", {"latitude": 51.4})
+    if invalid_input == "missing-entity":
+        hass.states.async_remove("device_tracker.probe")
+    else:
+        hass.states.async_set("device_tracker.probe", "not_home", attributes)
+
+    now = datetime(2026, 11, 24, 12, tzinfo=UTC)
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(side_effect=lambda: now),
+    )
+    aioclient_mock.get("https://nominatim.openstreetmap.org/reverse", json={})
+    entry_id = force_update_entry.entry_id
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    await storage.async_save(
+        {
+            ATTR_NATIVE_VALUE: "London",
+            ATTR_CITY: "London",
+            ATTR_POSTAL_CODE: "SW1A 1AA",
+            ATTR_LATITUDE: 51.5,
+            ATTR_LONGITUDE: -0.1,
+            ATTR_MAP_LINK: "https://maps.apple.com/?q=51.5%2C-0.1&z=18",
+        }
+    )
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    accepted = await storage.async_load()
+    assert accepted[ATTR_LAST_UPDATED] == "2026-11-24 12:00:00+00:00"
+    events = async_capture_events(hass, EVENT_TYPE)
+
+    now += timedelta(minutes=1)
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 0
+    assert not events
+    main = hass.states.get("sensor.probe")
+    assert main.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == 51.5
+    assert hass.states.get("sensor.probe_postal_code").state == "SW1A 1AA"
+    assert hass.states.get("sensor.probe_map_link").state == accepted[ATTR_MAP_LINK]
+    saved = await storage.async_load()
+    assert saved == {**accepted, ATTR_LAST_UPDATED: "2026-11-24 12:01:00+00:00"}
+
+
+async def test_failed_force_update_keeps_place_until_an_ordinary_scan_recovers(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retry an empty Force update result on a later scan without further movement.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacements for scan and request timing.
+    """
+    scan_time = 1000.0
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_time)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: datetime(2026, 11, 24, 12, tzinfo=UTC))
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    reverse_url = "https://nominatim.openstreetmap.org/reverse"
+    place = {"osm_id": 1, "osm_type": "node", "category": "place", "type": "city"}
+    aioclient_mock.get(f"{reverse_url}?lat=51.5", json={**place, "address": {"city": "London"}})
+    entry_id = force_update_entry.entry_id
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+
+    # A stationary tracked-entity Update starts the existing event cooldown.
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.5, "longitude": -0.1, "gps_accuracy": 6}
+    )
+    await hass.async_block_till_done()
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    accepted = await storage.async_load()
+    events = async_capture_events(hass, EVENT_TYPE)
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{reverse_url}?lat=51.7", json={})
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 6}
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 0
+
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 1
+    assert not events
+    main = hass.states.get("sensor.probe")
+    assert main.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == 51.5
+    assert hass.states.get("sensor.probe_map_link").state == accepted[ATTR_MAP_LINK]
+    saved = await storage.async_load()
+    assert saved == {**accepted, ATTR_LAST_UPDATED: saved[ATTR_LAST_UPDATED]}
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{reverse_url}?lat=51.7", json={**place, "address": {"city": "Oxford"}})
+    scan_time += 600
+    coordinator: PlacesUpdateCoordinator = force_update_entry.runtime_data
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 1
+    assert len(events) == 1
+    assert events[0].data["from_state"] == "London"
+    assert events[0].data["to_state"] == hass.states.get("sensor.probe").state == "Oxford"
+    recovered = await storage.async_load()
+    assert recovered[ATTR_LATITUDE] == 51.7
+    assert recovered[ATTR_LATITUDE_OLD] == 51.5
+    assert recovered[ATTR_MAP_LINK] == hass.states.get("sensor.probe_map_link").state
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("unload_return", "expected"), [(True, True), (False, False)])
 async def test_async_unload_entry_result(
@@ -1524,6 +2143,654 @@ async def test_async_unload_entry_resume_failure_preserves_unload_result(
     assert mock_entry.runtime_data is coordinator
     assert "resume_after_failed_unload" in caplog.text
     assert "resume boom" in caplog.text
+
+
+@pytest.fixture
+async def loaded_lifecycle_entry(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> tuple[MockConfigEntry, PlacesStorage, MagicMock]:
+    """Load a Places entry at its saved Place with a controllable HTTP session.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the HTTP boundary.
+
+    Returns:
+        tuple[MockConfigEntry, PlacesStorage, MagicMock]: Loaded entry, Store, and HTTP session.
+    """
+    session = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Lifecycle",
+        data={
+            CONF_NAME: "Lifecycle",
+            CONF_DEVICETRACKER_ID: "device_tracker.lifecycle",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: True,
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    storage = PlacesStorage(hass, entry.entry_id, "Lifecycle")
+    er.async_get(hass).async_get_or_create(
+        "switch",
+        DOMAIN,
+        f"{entry.entry_id}_{CONF_SHOW_TIME}",
+        suggested_object_id="lifecycle_show_last_updated",
+    )
+    await storage.async_save(
+        {
+            ATTR_NATIVE_VALUE: "London",
+            ATTR_CITY: "London",
+            ATTR_LATITUDE: 51.5,
+            ATTR_LONGITUDE: -0.1,
+            ATTR_MAP_LINK: "https://maps.apple.com/?q=51.5%2C-0.1&z=18",
+        }
+    )
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set(
+        "device_tracker.lifecycle", "not_home", {"latitude": 51.5, "longitude": -0.1}
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    session.get.assert_not_called()
+    return entry, storage, session
+
+
+def _lifecycle_response(body: str | Callable[[], Awaitable[str]]) -> MagicMock:
+    """Mock an HTTP response with a fixed body or a controlled asynchronous read.
+
+    Args:
+        body (str | Callable[[], Awaitable[str]]): JSON text or asynchronous reader.
+
+    Returns:
+        MagicMock: Async context manager returned by the HTTP session.
+    """
+    read = AsyncMock(return_value=body) if isinstance(body, str) else body
+    return MagicMock(__aenter__=AsyncMock(return_value=MagicMock(status=200, text=read)))
+
+
+@pytest.mark.parametrize("interruption", ["cancel", "reload"])
+async def test_force_update_finalizes_published_place(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    monkeypatch: pytest.MonkeyPatch,
+    interruption: str,
+) -> None:
+    """Save and announce an accepted Place once across a cancellation or reload.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Entry with Force update enabled.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the HTTP boundary.
+        interruption (str): Lifecycle action triggered by publication or the event.
+    """
+    session = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    session.get.return_value = _lifecycle_response('{"address":{"city":"London"}}')
+    entry_id = force_update_entry.entry_id
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    session.get.return_value = _lifecycle_response("{}")
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 5}
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe").state == "London"
+
+    session.get.reset_mock()
+    session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    announcements: list[tuple[str, str]] = []
+    reload_tasks: list[asyncio.Task[bool]] = []
+
+    @callback
+    def cancel_on_publish(event: Event[EventStateChangedData]) -> None:
+        """Cancel the service caller as Oxford is published.
+
+        Args:
+            event (Event[EventStateChangedData]): Main sensor state change.
+        """
+        state = event.data["new_state"]
+        if state is not None and state.state == "Oxford":
+            service_call.cancel()
+
+    @callback
+    def observe_event(event: Event) -> None:
+        """Read the sensor on every event and optionally reload the entry once.
+
+        Args:
+            event (Event): Places state update event.
+        """
+        announcements.append((event.data["to_state"], hass.states.get("sensor.probe").state))
+        if interruption == "reload" and not reload_tasks:
+            reload_tasks.append(hass.async_create_task(hass.config_entries.async_reload(entry_id)))
+
+    hass.bus.async_listen(EVENT_TYPE, observe_event)
+    if interruption == "cancel":
+        async_track_state_change_event(hass, "sensor.probe", cancel_on_publish)
+    service_call = hass.async_create_task(
+        hass.services.async_call(
+            "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+        ),
+        eager_start=False,
+    )
+    if interruption == "cancel":
+        with pytest.raises(asyncio.CancelledError):
+            await service_call
+    else:
+        await service_call
+    await hass.async_block_till_done()
+
+    if interruption == "reload":
+        (reload_task,) = reload_tasks
+        assert reload_task.result()
+    assert announcements == [("Oxford", "Oxford")]
+    assert hass.states.get("sensor.probe").state == "Oxford"
+    snapshot = await storage.async_load()
+    assert snapshot[ATTR_LATITUDE] == 51.7
+    assert snapshot[ATTR_NATIVE_VALUE] == "Oxford"
+    session.get.assert_called_once()
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_tracker_update_finalizes_during_home_assistant_stop(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Drain accepted Place disk write and announcement during shutdown stage two.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacement for Store disk write.
+        tmp_path (Path): Temporary Store directory for a real executor-backed disk write.
+    """
+    entry, _, session = loaded_lifecycle_entry
+    storage: PlacesStorage = entry.runtime_data._persistence
+    store = storage._store
+    file_io = store._io
+    file_io.path = str(tmp_path / "places-store.json")
+    async_write_attribute = "async_write"
+    production_async_write = getattr(type(file_io).__mro__[1], async_write_attribute).__get__(
+        file_io
+    )
+    monkeypatch.setattr(file_io, "async_write", production_async_write)
+    session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
+    disk_started = ThreadEvent()
+    release_disk_write = ThreadEvent()
+    disk_write_finished = ThreadEvent()
+    original_disk_write = file_io._write
+
+    def hold_disk_write(*args: object) -> object:
+        """Hold the production Store file write until the test releases it.
+
+        Args:
+            *args (object): Arguments passed to the Store's file write.
+
+        Returns:
+            object: Result from the production file write.
+
+        Raises:
+            TimeoutError: The test did not release the write.
+        """
+        disk_started.set()
+        try:
+            if not release_disk_write.wait(timeout=10):
+                raise TimeoutError("Timed out waiting to release the Store disk write")
+            return original_disk_write(*args)
+        finally:
+            disk_write_finished.set()
+
+    monkeypatch.setattr(file_io, "_write", hold_disk_write)
+    events = async_capture_events(hass, EVENT_TYPE)
+    event_order: list[str] = []
+    final_write_started = asyncio.Event()
+
+    @callback
+    def record_place_event(_event: Event) -> None:
+        """Record when the accepted Place event is fired.
+
+        Args:
+            _event (Event): Places update event.
+        """
+        event_order.append("place")
+
+    @callback
+    def record_final_write(_event: Event) -> None:
+        """Record when Home Assistant reaches its final-write phase.
+
+        Args:
+            _event (Event): Home Assistant final-write event.
+        """
+        event_order.append("final_write")
+        final_write_started.set()
+
+    hass.bus.async_listen(EVENT_TYPE, record_place_event)
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_FINAL_WRITE, record_final_write)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    await asyncio.wait_for(asyncio.to_thread(disk_started.wait, 10), timeout=2)
+    main_state = hass.states.get("sensor.lifecycle")
+    assert main_state is not None and main_state.state == "Oxford"
+    event_order_before_disk_release = list(event_order)
+
+    stop_task = hass.async_create_task(hass.async_stop())
+    try:
+        with suppress(TimeoutError):
+            await asyncio.wait_for(final_write_started.wait(), timeout=0.5)
+        final_write_before_disk_release = final_write_started.is_set()
+    finally:
+        release_disk_write.set()
+    await asyncio.wait_for(stop_task, timeout=5)
+    assert await asyncio.to_thread(disk_write_finished.wait, 2)
+
+    assert [event.data["to_state"] for event in events] == ["Oxford"]
+    assert event_order_before_disk_release == []
+    assert not final_write_before_disk_release
+    assert event_order == ["place", "final_write"]
+    assert (
+        json.loads((tmp_path / "places-store.json").read_text())["data"][ATTR_NATIVE_VALUE]
+        == "Oxford"
+    )
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
+    ("unload_timing", "unload_succeeds"),
+    [
+        ("during-publish", True),
+        ("after-publish", True),
+        ("nested-bus", True),
+        ("force-after-publish", True),
+        ("during-publish", False),
+    ],
+)
+async def test_places_event_waits_for_unload_outcome(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+    unload_timing: str,
+    *,
+    unload_succeeds: bool,
+) -> None:
+    """Suppress the published Place event during unload and recover it if unload fails.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacement for Home Assistant platform unload.
+        unload_timing (str): How sensor publication overlaps unload and bus dispatch.
+        unload_succeeds (bool): Whether the platforms agree to unload.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    accepted = await storage.async_load()
+    request_started = asyncio.Event()
+    release_request = asyncio.Event()
+    oxford = '{"osm_type":"node","category":"place","address":{"city":"Oxford"}}'
+
+    async def read_reverse_response() -> str:
+        """Wait until the tracked entity task is running before returning Oxford.
+
+        Returns:
+            str: Usable reverse geocoding response body.
+        """
+        request_started.set()
+        await release_request.wait()
+        return oxford
+
+    session.get.return_value = _lifecycle_response(
+        oxford if unload_timing == "nested-bus" else read_reverse_response
+    )
+    events = async_capture_events(hass, EVENT_TYPE)
+    unload_tasks: list[asyncio.Task[bool]] = []
+    setting_errors: list[ServiceValidationError] = []
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+
+    async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
+        """Check finalization is suspended while the platforms decide whether to unload.
+
+        Args:
+            _entry (object): Entry Home Assistant is unloading.
+            _platforms (object): Platforms Home Assistant should unload.
+
+        Returns:
+            bool: Platform unload result.
+        """
+        assert not events
+        assert await storage.async_load() == accepted
+        try:
+            await hass.services.async_call(
+                "switch",
+                "turn_on",
+                {"entity_id": "switch.lifecycle_show_last_updated"},
+                blocking=True,
+            )
+        except ServiceValidationError as error:
+            setting_errors.append(error)
+        return False
+
+    @callback
+    def unload_on_publish(event: Event[EventStateChangedData]) -> None:
+        """Start unloading when Home Assistant publishes Oxford.
+
+        Args:
+            event (Event[EventStateChangedData]): Main sensor state change.
+        """
+        state = event.data["new_state"]
+        if state is not None and state.state == "Oxford":
+            unload_tasks.append(
+                hass.async_create_task(
+                    hass.config_entries.async_unload(entry.entry_id),
+                    eager_start=unload_timing not in {"after-publish", "force-after-publish"},
+                )
+            )
+
+    with monkeypatch.context() as patch:
+        if not unload_succeeds:
+            patch.setattr(hass.config_entries, "async_unload_platforms", refuse_platform_unload)
+        async_track_state_change_event(hass, "sensor.lifecycle", unload_on_publish)
+        force = None
+        if unload_timing == "force-after-publish":
+            force = hass.async_create_task(coordinator.async_force_update())
+        else:
+            hass.states.async_set(
+                "device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1}
+            )
+        if unload_timing != "nested-bus":
+            await asyncio.wait_for(request_started.wait(), timeout=2)
+            release_request.set()
+        await hass.async_block_till_done()
+
+    (unload_task,) = unload_tasks
+    assert unload_task.result() is unload_succeeds
+    if force is not None:
+        await force
+    if unload_succeeds:
+        assert not events
+        assert await storage.async_load() == accepted
+    else:
+        # Allow the resumed scan to run, then drain the refresh debouncer on the failed entry.
+        async_fire_time_changed(hass, datetime.now(UTC) + timedelta(seconds=11))
+        await hass.async_block_till_done()
+        await coordinator.async_shutdown()
+        (setting_error,) = setting_errors
+        assert setting_error.translation_domain == "homeassistant"
+        assert setting_error.translation_key == "service_config_entry_not_loaded"
+        assert setting_error.translation_placeholders == {
+            "domain": DOMAIN,
+            "entry_title": entry.title,
+        }
+        assert entry.data[CONF_SHOW_TIME] is False
+        assert hass.states.get("sensor.lifecycle").state == "Oxford"
+        assert [event.data["to_state"] for event in events] == ["Oxford"]
+        snapshot = await storage.async_load()
+        assert snapshot[ATTR_LATITUDE] == 51.7
+        assert snapshot[ATTR_NATIVE_VALUE] == "Oxford"
+        session.get.assert_called_once()
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_unload_drains_scan_during_extended_data_lookup(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drain an interrupted scan before tearing down its sensors or starting Wikidata.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the scan and tracker clocks.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    scan_clock = monotonic() + 600
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: datetime(2026, 11, 24, tzinfo=UTC))
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+    accepted = await storage.async_load()
+    main = hass.states.get("sensor.lifecycle")
+    link = hass.states.get("sensor.lifecycle_map_link")
+    assert main is not None and link is not None
+
+    details_started = asyncio.Event()
+    release_details = asyncio.Event()
+
+    async def read_details_response() -> str:
+        """Hold the OSM lookup until unload starts, then offer a Wikidata ID.
+
+        Returns:
+            str: Usable Extended data body pointing to Wikidata.
+        """
+        details_started.set()
+        await release_details.wait()
+        return '[{"extratags":{"wikidata":"Q34217"}}]'
+
+    session.get.side_effect = [
+        _lifecycle_response(
+            '{"osm_id":2,"osm_type":"node","category":"place","address":{"city":"Oxford"}}'
+        ),
+        _lifecycle_response(read_details_response),
+        _lifecycle_response("{}"),
+    ]
+    events = async_capture_events(hass, EVENT_TYPE)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    scan = hass.async_create_task(coordinator.async_scan_update())
+    await asyncio.wait_for(details_started.wait(), timeout=2)
+
+    unload = hass.async_create_task(hass.config_entries.async_unload(entry.entry_id))
+    try:
+        assert entry.state is ConfigEntryState.UNLOAD_IN_PROGRESS
+        assert not unload.done()
+        assert hass.states.get("sensor.lifecycle") == main
+        assert hass.states.get("sensor.lifecycle_map_link") == link
+        await coordinator.async_force_update()
+    finally:
+        release_details.set()
+
+    drained = await asyncio.wait_for(scan, timeout=2)
+    assert await asyncio.wait_for(unload, timeout=2)
+    unloaded_main = hass.states.get("sensor.lifecycle")
+    assert unloaded_main is not None and unloaded_main.state == STATE_UNAVAILABLE
+    assert [urlparse(call.args[0]).path for call in session.get.call_args_list] == [
+        "/reverse",
+        "/lookup",
+    ]
+    assert drained.native_value == "London"
+    assert drained.attributes[ATTR_LATITUDE] == 51.5
+    assert not events
+    assert await storage.async_load() == accepted
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_overlapping_tracker_and_scan_updates_use_latest_accepted_place(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Serialize scans and tracker Updates and throttle scans from completion.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the scan and tracker clocks.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    # Start beyond the setup scan's throttle with exact whole-second advances.
+    scan_clock = ceil(monotonic()) + 600
+    tracker_clock = datetime(2026, 11, 24, tzinfo=UTC)
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: tracker_clock)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+
+    request_started = asyncio.Event()
+    release_request = asyncio.Event()
+
+    async def read_reverse_response() -> str:
+        """Hold Oxford's reverse lookup while a scan and tracker Update overlap.
+
+        Returns:
+            str: Successful reverse geocoding response body.
+        """
+        request_started.set()
+        await release_request.wait()
+        return '{"osm_type":"node","category":"place","address":{"city":"Oxford"}}'
+
+    session.get.side_effect = [
+        _lifecycle_response(read_reverse_response),
+        _lifecycle_response(
+            '{"osm_type":"node","category":"place","address":{"city":"Cambridge"}}'
+        ),
+    ]
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    scan = hass.async_create_task(coordinator.async_scan_update())
+    await asyncio.wait_for(request_started.wait(), timeout=2)
+
+    try:
+        overlapping_scan = hass.async_create_task(coordinator.async_scan_update())
+        tracker_clock += timedelta(seconds=11)
+        hass.states.async_set(
+            "device_tracker.lifecycle", "nearby", {"latitude": 51.70001, "longitude": -0.1}
+        )
+        assert not overlapping_scan.done()
+        assert (await storage.async_load())[ATTR_LATITUDE] == 51.5
+        assert session.get.call_count == 1
+        scan_clock += 30
+    finally:
+        release_request.set()
+
+    await hass.async_block_till_done()
+    assert scan.result().native_value == overlapping_scan.result().native_value == "Oxford"
+    saved = await storage.async_load()
+    assert saved[ATTR_LATITUDE] == 51.7
+    assert saved[ATTR_DEVICETRACKER_ZONE] == "nearby"
+    assert session.get.call_count == 1
+
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.9, "longitude": -0.1})
+    scan_clock += 599
+    assert (await coordinator.async_scan_update()).native_value == "Oxford"
+    assert session.get.call_count == 1
+    scan_clock += 1
+    assert (await coordinator.async_scan_update()).native_value == "Cambridge"
+    city = hass.states.get("sensor.lifecycle_city")
+    assert city is not None and city.state == "Cambridge"
+    saved = await storage.async_load()
+    assert saved[ATTR_LATITUDE] == 51.9
+    assert saved[ATTR_LATITUDE_OLD] == 51.7
+    assert [
+        parse_qs(urlparse(call.args[0]).query)["lat"] for call in session.get.call_args_list
+    ] == [
+        ["51.7"],
+        ["51.9"],
+    ]
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_failed_unload_drains_tracker_and_resumes_updates(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drain tracker cancellation and resume Updates from the accepted Place.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Simulated platform unload failure and tracker clock.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    accepted = await storage.async_load()
+    tracker_clock = datetime(2026, 11, 24, tzinfo=UTC)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: tracker_clock)
+    request_started = asyncio.Event()
+    cancellation_started = asyncio.Event()
+    release_request_cleanup = asyncio.Event()
+    tracker_task: asyncio.Task[object] | None = None
+
+    async def read_interrupted_response() -> str:
+        """Hold the reverse lookup and its cleanup until the test releases them.
+
+        Returns:
+            str: Pending response body.
+
+        Raises:
+            asyncio.CancelledError: The entry unload cancels the tracked entity Update.
+        """
+        nonlocal tracker_task
+        tracker_task = asyncio.current_task()
+        request_started.set()
+        try:
+            return await asyncio.Future[str]()
+        except asyncio.CancelledError:
+            cancellation_started.set()
+            await release_request_cleanup.wait()
+            raise
+
+    session.get.side_effect = [
+        _lifecycle_response(read_interrupted_response),
+        _lifecycle_response('{"osm_type":"node","category":"place","address":{"city":"Oxford"}}'),
+        _lifecycle_response(
+            '{"osm_type":"node","category":"place","address":{"city":"Cambridge"}}'
+        ),
+    ]
+    events = async_capture_events(hass, EVENT_TYPE)
+
+    async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
+        """Verify the accepted Place at teardown, then leave the platforms loaded.
+
+        Args:
+            _entry (object): Entry passed to Home Assistant's platform unload boundary.
+            _platforms (object): Platforms Home Assistant should unload.
+
+        Returns:
+            bool: Platform unload result.
+        """
+        assert tracker_task is not None and tracker_task.cancelled()
+        main = hass.states.get("sensor.lifecycle")
+        assert main is not None and main.state == "London"
+        assert main.attributes[ATTR_LATITUDE] == 51.5
+        assert await storage.async_load() == accepted
+        assert not events
+        return False
+
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    await asyncio.wait_for(request_started.wait(), timeout=2)
+    platform_unload = AsyncMock(side_effect=refuse_platform_unload)
+    with monkeypatch.context() as patch:
+        patch.setattr(hass.config_entries, "async_unload_platforms", platform_unload)
+        unload = hass.async_create_task(async_unload_entry(hass, entry))
+        try:
+            await asyncio.wait_for(cancellation_started.wait(), timeout=2)
+            platform_unload.assert_not_called()
+            assert not unload.done()
+        finally:
+            release_request_cleanup.set()
+        assert not await asyncio.wait_for(unload, timeout=2)
+
+    async_fire_time_changed(hass, datetime.now(UTC) + timedelta(seconds=11))
+    await hass.async_block_till_done()
+    assert [event.data["to_state"] for event in events] == ["Oxford"]
+    assert events[0].data["previous_latitude"] == 51.5
+    assert (await storage.async_load())[ATTR_LATITUDE] == 51.7
+    assert session.get.call_args_list[0].args[0] == session.get.call_args_list[1].args[0]
+
+    tracker_clock += timedelta(seconds=11)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.9, "longitude": -0.1})
+    await hass.async_block_till_done()
+    assert [event.data["to_state"] for event in events] == ["Oxford", "Cambridge"]
+    assert (await storage.async_load())[ATTR_LATITUDE] == 51.9
 
 
 @pytest.mark.asyncio
