@@ -3,11 +3,13 @@
 import asyncio
 from datetime import UTC, datetime
 import logging
+from pathlib import Path
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
+from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -38,6 +40,8 @@ from custom_components.places.const import (
     PLATFORMS,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
+from custom_components.places.migration import legacy_json_path
+from custom_components.places.persistence import PlacesStorage
 from tests.conftest import assert_awaited_count
 
 
@@ -184,175 +188,161 @@ def reset_fake_storage() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("version", "update_calls"), [(1, 1), (2, 0)])
-async def test_async_migrate_entry_gates_legacy_snapshot_migration_by_version(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
+@pytest.mark.usefixtures("hass_storage")
+@pytest.mark.parametrize("version", [1, 2])
+async def test_async_migrate_entry_gates_migration_by_version(
+    hass: HomeAssistant,
+    tmp_path: Path,
     version: int,
-    update_calls: int,
 ) -> None:
-    """Config-entry migration should run only for legacy entry versions.
+    """Only a v1 entry migrates both its Display options and legacy snapshot.
 
     Args:
-        monkeypatch (pytest.MonkeyPatch):
-            Pytest fixture for replacing dependencies.
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
+        hass (HomeAssistant):
+            Home Assistant instance with a config entry registry.
+        tmp_path (Path):
+            Isolated config directory for the legacy snapshot.
         version (int):
-            Storage or configuration schema version.
-        update_calls (int):
-            Expected legacy snapshot migration and configuration-entry update
-            call count.
+            Config entry schema version.
     """
+    data = {
+        CONF_NAME: "Test Place",
+        CONF_DISPLAY_OPTIONS: "  Formatted_Address , City ",
+        CONF_SHOW_TIME: True,
+    }
     entry = MockConfigEntry(
         domain=DOMAIN,
         version=version,
-        data={CONF_NAME: "Test Place"},
+        minor_version=3 if version == 2 else 1,
+        data=data,
     )
-    migrate_legacy_snapshot = AsyncMock()
-    monkeypatch.setattr(
-        "custom_components.places.async_migrate_legacy_snapshot",
-        migrate_legacy_snapshot,
-    )
+    entry.add_to_hass(hass)
+    hass.config.config_dir = str(tmp_path)
+    snapshot_path = legacy_json_path(hass, entry.entry_id)
+    await hass.async_add_executor_job(snapshot_path.parent.mkdir, 0o777, True)
+    await hass.async_add_executor_job(snapshot_path.write_text, '{"city": "Legacy City"}')
+    storage = PlacesStorage(hass, entry.entry_id, "Test Place")
 
-    result = await async_migrate_entry(mock_hass, entry)
+    assert await async_migrate_entry(hass, entry)
 
-    assert result is True
-    assert migrate_legacy_snapshot.await_count == update_calls
-    assert mock_hass.config_entries.async_update_entry.call_count == update_calls
     if version == 1:
-        migrate_legacy_snapshot.assert_awaited_once_with(
-            mock_hass,
-            entry.entry_id,
-            "Test Place",
-        )
-        mock_hass.config_entries.async_update_entry.assert_called_once_with(
-            entry,
-            version=2,
-            minor_version=1,
-        )
+        assert (entry.version, entry.minor_version) == (2, 1)
+        assert entry.data == {**data, CONF_DISPLAY_OPTIONS: "  osm_formatted_address , City "}
+        assert await storage.async_load() == {ATTR_CITY: "Legacy City"}
+        assert not snapshot_path.exists()
+    else:
+        assert (entry.version, entry.minor_version) == (2, 3)
+        assert entry.data == data
+        assert await storage.async_load() == {}
+        assert snapshot_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_async_migrate_entry_preserves_literal_in_malformed_rule(hass: HomeAssistant) -> None:
+    """A stray closing delimiter does not change the role of later filter values.
+
+    Args:
+        hass (HomeAssistant): Home Assistant instance with a config entry registry.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DISPLAY_OPTIONS: (
+                "City),  Type(Formatted_Address, Formatted_Address(+, 'Formatted_Address'))"
+                "[ \tFORMATTED_ADDRESS, State ],  Country "
+            ),
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert (entry.version, entry.minor_version) == (2, 1)
+    assert entry.data == {
+        CONF_NAME: "Test Place",
+        CONF_DISPLAY_OPTIONS: (
+            "City),  Type(Formatted_Address, osm_formatted_address(+, 'Formatted_Address'))"
+            "[ \tosm_formatted_address, State ],  Country "
+        ),
+    }
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("display_options", "expected_data"),
+    ("display_options", "expected_options"),
     [
-        (
-            "do_not_reorder, formatted_place",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place"},
-        ),
-        (
-            "do_not_reorder, formatted_place, driving",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "formatted_place, driving"},
-        ),
+        ("do_not_reorder, formatted_place", "formatted_place"),
+        ("do_not_reorder, formatted_place, driving", "formatted_place, driving"),
         # A top-level option is renamed, while a filter argument remains literal data.
         pytest.param(
             "formatted_address, city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "osm_formatted_address, city",
-            },
+            "osm_formatted_address, city",
             id="top-level-formatted-address",
         ),
         pytest.param(
             "type(formatted_address)[city]",
-            None,
+            "type(formatted_address)[city]",
             id="filter-value-formatted-address",
         ),
-        (
-            "formatted_address[city]",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "osm_formatted_address[city]",
-            },
-        ),
+        ("formatted_address[city]", "osm_formatted_address[city]"),
         (
             "type(formatted_address(formatted_address), city)",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "type(osm_formatted_address(formatted_address), city)",
-            },
+            "type(osm_formatted_address(formatted_address), city)",
         ),
-        (
-            "do_not_reorder, formatted_address, city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "osm_formatted_address[], city",
-            },
-        ),
-        (
-            "do_not_reorder, city, state",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
-        ),
-        (
-            "Do_Not_Reorder, City, State",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "city[], state"},
-        ),
+        ("do_not_reorder, formatted_address, city", "osm_formatted_address[], city"),
+        ("do_not_reorder, city, state", "city[], state"),
+        ("Do_Not_Reorder, City, State", "city[], state"),
         (
             "do_not_reorder, zone, do_not_show_not_home, city",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: "zone[], city"},
+            "zone[], city",
         ),
         (
             "do_not_reorder, zone_name, place, city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: (
-                    "zone_name[], name_no_dupe, category(-, place), type(-, yes), "
-                    "neighborhood, house_number, street, city"
-                ),
-            },
+            (
+                "zone_name[], name_no_dupe, category(-, place), type(-, yes), "
+                "neighborhood, house_number, street, city"
+            ),
         ),
+        ("do_not_reorder, type(-, yes), city", "type(-, yes)[], city"),
         (
-            "do_not_reorder, type(-, yes), city",
-            {
-                CONF_NAME: "Test Place",
-                CONF_DISPLAY_OPTIONS: "type(-, yes)[], city",
-            },
+            (
+                "Do_Not_Reorder, City, Type(-, DO_NOT_SHOW_NOT_HOME)"
+                "[Formatted_Address, State], Do_Not_Show_Not_Home"
+            ),
+            "city[], type(-, do_not_show_not_home)[osm_formatted_address, state]",
         ),
-        ("city, state", None),
-        (
-            "do_not_reorder",
-            {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: DEFAULT_DISPLAY_OPTIONS},
-        ),
+        ("city, state", "city, state"),
+        ("do_not_reorder", DEFAULT_DISPLAY_OPTIONS),
     ],
 )
-async def test_async_migrate_entry_converts_do_not_reorder_to_advanced_options(
-    monkeypatch: pytest.MonkeyPatch,
-    mock_hass: MagicMock,
+async def test_async_migrate_entry_updates_stored_display_options(
+    hass: HomeAssistant,
     display_options: str,
-    expected_data: dict[str, object] | None,
+    expected_options: str,
 ) -> None:
-    """Legacy ordered display options migrate to an advanced expression.
+    """Migration saves the intended Display options and upgrades the entry version.
 
     Args:
-        monkeypatch (pytest.MonkeyPatch):
-            Pytest fixture for replacing dependencies.
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
+        hass (HomeAssistant):
+            Home Assistant instance with a config entry registry.
         display_options (str):
-            Display options applied to state rendering.
-        expected_data (dict[str, object] | None):
-            Places payload expected for this parametrized case.
+            Legacy Display options saved in the entry.
+        expected_options (str):
+            Display options expected after migration.
     """
     entry = MockConfigEntry(
         domain=DOMAIN,
         version=1,
         data={CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: display_options},
     )
-    monkeypatch.setattr(
-        "custom_components.places.async_migrate_legacy_snapshot",
-        AsyncMock(),
-    )
+    entry.add_to_hass(hass)
 
-    await async_migrate_entry(mock_hass, entry)
+    assert await async_migrate_entry(hass, entry)
 
-    expected_kwargs: dict[str, object] = {"version": 2, "minor_version": 1}
-    if expected_data is not None:
-        expected_kwargs["data"] = expected_data
-    mock_hass.config_entries.async_update_entry.assert_called_once_with(
-        entry,
-        **expected_kwargs,
-    )
+    assert (entry.version, entry.minor_version) == (2, 1)
+    assert entry.data == {CONF_NAME: "Test Place", CONF_DISPLAY_OPTIONS: expected_options}
 
 
 @pytest.mark.asyncio
