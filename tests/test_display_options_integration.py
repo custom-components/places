@@ -74,6 +74,8 @@ NESTED_FILTER_PLACE = {
     "place_type": "cafe",
     "city": "Fort Lee",
 }
+REPEATED_FALLBACK_GROUP = "name[street][city], state_abbr"
+REPEATED_FILTER_GROUP = "name(type(house))(type(city)), state_abbr"
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -148,18 +150,13 @@ NESTED_FILTER_PLACE = {
         (NESTED_FILTER_WITH_SIBLINGS, NESTED_FILTER_PLACE | {"place_name": "City"}, "Fort Lee"),
         (NESTED_FILTER_WITH_SIBLINGS, NESTED_FILTER_PLACE | {"place_type": "house"}, "Fort Lee"),
         (
+            "name(-, city[county][state])[street], state_abbr",
+            FALLBACK_PLACE | {"place_name": "City[County][State]"},
+            "Bridge Plaza North, NJ",
+        ),
+        (
             "name[street]city(house), state_abbr",
             FALLBACK_PLACE | {"place_name": "Corner Cafe"},
-            "Corner Cafe",
-        ),
-        (
-            "name[street][city], state_abbr",
-            FALLBACK_PLACE | {"place_name": "Corner Cafe"},
-            "Corner Cafe",
-        ),
-        (
-            "name(type(house))(type(city)), state_abbr",
-            FALLBACK_PLACE | {"place_name": "Corner Cafe", "place_type": "house"},
             "Corner Cafe",
         ),
         (
@@ -231,9 +228,8 @@ NESTED_FILTER_PLACE = {
         "unsupported-nested-filter-with-matching-siblings",
         "unsupported-nested-filter-with-literal-exclusion",
         "unsupported-nested-filter-with-attribute-mismatch",
+        "literal-repeated-brackets",
         "post-fallback-token",
-        "repeated-fallback-group",
-        "repeated-filter-group",
         "nested-post-fallback-token",
         "matching-primary",
         "literal-mismatch",
@@ -277,6 +273,82 @@ async def test_config_flow_renders_restored_place(
     state = hass.states.get("sensor.test_place")
     assert state is not None
     assert state.state == expected
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
+    "rule",
+    [
+        REPEATED_FALLBACK_GROUP,
+        REPEATED_FILTER_GROUP,
+        "name[street](type(house))[city], state_abbr",
+        "name[city[street][county]], state_abbr",
+    ],
+    ids=("fallback", "filter", "mixed-order", "nested-fallback"),
+)
+async def test_options_flow_rejects_repeated_groups(hass: HomeAssistant, rule: str) -> None:
+    """Show a syntax error and retain the saved rule when an edit repeats a group.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the options flow.
+        rule (str): Submitted Display options containing a repeated group.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_DISPLAY_OPTIONS: "county",
+        },
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set("device_tracker.test", "not_home")
+    hass.states.async_set("zone.home", "0")
+
+    form = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"],
+        {
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_HOME_ZONE: "zone.home",
+            CONF_DISPLAY_OPTIONS: rule,
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_syntax"}
+    assert entry.data[CONF_DISPLAY_OPTIONS] == "county"
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("rule", [REPEATED_FALLBACK_GROUP, REPEATED_FILTER_GROUP])
+async def test_saved_repeated_groups_keep_legacy_rendering(hass: HomeAssistant, rule: str) -> None:
+    """Render a previously saved rule with repeated groups on entry setup.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the Places entry.
+        rule (str): Previously saved Display options containing a repeated group.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_DISPLAY_OPTIONS: rule,
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    await PlacesStorage(hass, entry.entry_id, "Test Place").async_save(
+        FALLBACK_PLACE
+        | {"place_name": "Corner Cafe", "place_type": "house", ATTR_NATIVE_VALUE: "Earlier text"}
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.is_state("sensor.test_place", "Corner Cafe")
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
