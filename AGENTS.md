@@ -48,6 +48,8 @@
 ## PR and branch behavior
 
 - The agent will only push commits or open PRs when the user explicitly requests it.
+- Every PR title must start with a [Conventional Commits](https://www.conventionalcommits.org/) prefix, such as `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `perf:`, `build:`, `ci:`, or `chore:`, with an optional scope like `fix(config_flow):`. Mark breaking changes with `!` before the colon.
+- Use the same Conventional Commits prefixes for commit messages.
 
 ## Network / install consent
 
