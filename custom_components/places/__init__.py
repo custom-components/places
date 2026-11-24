@@ -85,6 +85,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 def _migrate_display_options(source: str) -> str:
     """Rename v1 identifiers and convert legacy ordered Display options.
 
+    An existing fallback on the first field already enables ordered rendering.
+
     Args:
         source (str):
             Stored v1 Display options.
@@ -128,7 +130,9 @@ def _migrate_display_options(source: str) -> str:
     if not migrated:
         return DEFAULT_DISPLAY_OPTIONS
     if "formatted_place" not in migrated:
-        migrated[0] += "[]"
+        first_option = parse_display_options(migrated[0]).items[0]
+        if "[" not in first_option.groups:
+            migrated[0] += "[]"
     return ", ".join(migrated)
 
 

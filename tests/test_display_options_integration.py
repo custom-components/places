@@ -277,6 +277,55 @@ async def test_config_flow_renders_restored_place(
 
 @pytest.mark.usefixtures("enable_custom_integrations")
 @pytest.mark.parametrize(
+    ("legacy_options", "migrated_options", "expected_state"),
+    [
+        ("name[street], state_abbr", "name[street], state_abbr", "Bridge Plaza North, NJ"),
+        ("name[], state_abbr", "name[], state_abbr", "NJ"),
+        (
+            "name(-, city[county]), street, state_abbr",
+            "name(-, city[county])[], street, state_abbr",
+            "Bridge Plaza North, NJ",
+        ),
+    ],
+)
+async def test_legacy_ordered_display_options_render_after_migration(
+    hass: HomeAssistant, legacy_options: str, migrated_options: str, expected_state: str
+) -> None:
+    """Load a v1 Places entry and render all its migrated Display options.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the Places entry.
+        legacy_options (str): Display options following the v1 ordering marker.
+        migrated_options (str): Display options saved by migration.
+        expected_state (str): Main sensor state after the entry is loaded.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_DISPLAY_OPTIONS: f"do_not_reorder, {legacy_options}",
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    await PlacesStorage(hass, entry.entry_id, "Test Place").async_save(
+        {"street": "Bridge Plaza North", "state_abbr": "NJ"}
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.test_place")
+    assert state is not None
+    assert state.state == expected_state
+    assert (entry.version, entry.minor_version) == (2, 1)
+    assert entry.data[CONF_DISPLAY_OPTIONS] == migrated_options
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
     "rule",
     [
         REPEATED_FALLBACK_GROUP,
