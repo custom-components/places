@@ -1,6 +1,6 @@
 # Coding standards
 
-Rules for code in this repository, read during review. Use the terms defined in [`GLOSSARY.md`](./GLOSSARY.md) in names, docstrings, and user-visible text. Agent workflow rules (permissions, venv, PR behavior) live in [`AGENTS.md`](./AGENTS.md).
+Rules for code in this repository, read during review. Use the terms defined in [`GLOSSARY.md`](./GLOSSARY.md) in names, docstrings, and user-visible text. Agent workflow rules (permissions, venv, running tests, PR behavior) live in [`AGENTS.md`](./AGENTS.md).
 
 ## Enforced by tooling
 
@@ -48,7 +48,9 @@ Run them with `./.venv/bin/python -m prek run -a`.
 
 - Use pytest and its plugins, not `unittest`. Use `pytest-homeassistant-custom-component` helpers, preferring `MockConfigEntry` for config entries.
 - Parameterize similar cases instead of writing near-duplicate tests, and delete placeholder tests the parameterized version replaces.
+- Add or update tests when they protect a meaningful behavioral contract or reproduce a bug that existing coverage would miss.
 - Test observable behavior at the real interface, including material failure paths. Do not add tests that mirror the implementation, assert configuration text, or duplicate existing checks.
 - Each integration source file has one test module. Add to the existing module, and split only past about 1000 lines. End-to-end tests belong in `test_integration.py`.
-- Shared fixtures and helpers go in `conftest.py`. Tests are typed and documented in Google style.
+- Use fixtures and mocks to isolate tests. Shared fixtures and helpers go in `conftest.py`. Tests are typed and documented in Google style.
+- For documentation, declarative configuration, and small workflow changes, run the relevant validators, linters, or focused runtime checks when they give enough confidence. Add automation tests only when executable logic or material operational risk warrants them, and keep those separate from unrelated integration tests.
 - Keep coverage at 80% or higher. Address warnings rather than suppressing them: never run pytest with `--disable-warnings`.
