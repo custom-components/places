@@ -232,6 +232,16 @@ FILTERED_FALLBACK = (
             "Corner Cafe",
         ),
         (
+            "name[street][city], state_abbr",
+            FALLBACK_PLACE | {"place_name": "Corner Cafe"},
+            "Corner Cafe",
+        ),
+        (
+            "name(type(house))(type(city)), state_abbr",
+            FALLBACK_PLACE | {"place_name": "Corner Cafe", "place_type": "house"},
+            "Corner Cafe",
+        ),
+        (
             "name[city[street]city(house), county], state_abbr",
             FALLBACK_PLACE | {"city": "Fort Lee"},
             "Fort Lee, NJ",
@@ -288,6 +298,8 @@ FILTERED_FALLBACK = (
         "bracketed-exclude-match",
         "bracketed-attribute-match",
         "post-fallback-token",
+        "repeated-fallback-group",
+        "repeated-filter-group",
         "nested-post-fallback-token",
         "matching-primary",
         "literal-mismatch",

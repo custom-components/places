@@ -183,7 +183,11 @@ def parse_display_options(source: str) -> DisplayOptions:
             is_field = not group.in_literal and (group.opener != "(" or delimiter == "(")
             identifiers.append(Identifier(token, start, start + len(token), is_field))
 
-        if token and item.groups and group.opener != "(" and not group.in_literal:
+        if (
+            ((token and item.groups) or (opening and delimiter in item.groups))
+            and group.opener != "("
+            and not group.in_literal
+        ):
             group.stopped = True
 
         # Structural errors retain precedence over comma and token syntax errors.
