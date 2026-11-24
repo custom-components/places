@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import MutableMapping
 import copy
 from datetime import UTC, datetime
@@ -115,7 +116,7 @@ class PlacesUpdater:
         self._use_cache = True
 
     async def do_update(self, reason: str, *, force: bool = False) -> None:
-        """Resolve and commit one Update while the coordinator holds its lock.
+        """Resolve and commit one Update under the coordinator lock, propagating cancellation.
 
         Args:
             reason (str): Human-readable trigger reason used in logs.
@@ -144,7 +145,12 @@ class PlacesUpdater:
         coordinator.replace_attributes(self.state.get_internal_attr())
         if event_data is not None:
             coordinator.publish_update()
-            self._hass.bus.fire(EVENT_TYPE, event_data)
+            # Let Home Assistant finish dispatching sensor changes before firing the
+            # Places event. A sensor listener may have started unloading the entry.
+            await asyncio.sleep(0)
+            if coordinator.is_shutting_down:
+                return
+            self._hass.bus.async_fire(EVENT_TYPE, event_data)
             _LOGGER.info(
                 "(%s) Event Fired [event_type: %s]", coordinator.get_attr(CONF_NAME), EVENT_TYPE
             )
@@ -783,7 +789,7 @@ class PlacesUpdater:
         )
 
     async def get_extended_attr(self) -> None:
-        """Fetch optional OSM lookup details and related Wikidata payloads."""
+        """Fetch optional OSM details and continue to Wikidata while the entry is active."""
         if not self.state.is_attr_blank(ATTR_OSM_ID) and not self.state.is_attr_blank(
             ATTR_OSM_TYPE
         ):
@@ -812,6 +818,8 @@ class PlacesUpdater:
                 name="OpenStreetMaps Details",
                 dict_name=ATTR_OSM_DETAILS_DICT,
             )
+            if self.coordinator.is_shutting_down:
+                return
 
             if not self.state.is_attr_blank(ATTR_OSM_DETAILS_DICT):
                 osm_details_dict = self.state.get_attr_safe_dict(ATTR_OSM_DETAILS_DICT)

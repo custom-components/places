@@ -154,6 +154,7 @@ class MockSensor:
         self.native_value = None
         self.entity_id = "sensor.test"
         self.warn_if_device_tracker_prob = False
+        self.is_shutting_down = False
 
         # get_attr: MagicMock with fallback to real attribute lookup
         def _get_attr_fallback(key: str) -> object:

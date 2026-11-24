@@ -1,9 +1,11 @@
 """Integration tests for the custom_components.places module."""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 import json
 import logging
+from time import monotonic
 from types import SimpleNamespace
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
@@ -11,9 +13,16 @@ from urllib.parse import parse_qs, urlparse
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 import pytest
-from pytest_homeassistant.common import MockConfigEntry, async_capture_events
+from pytest_homeassistant.common import (
+    MockConfigEntry,
+    async_capture_events,
+    async_fire_time_changed,
+)
 from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.places import (
@@ -2109,6 +2118,388 @@ async def test_async_unload_entry_resume_failure_preserves_unload_result(
     assert mock_entry.runtime_data is coordinator
     assert "resume_after_failed_unload" in caplog.text
     assert "resume boom" in caplog.text
+
+
+@pytest.fixture
+async def loaded_lifecycle_entry(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> tuple[MockConfigEntry, PlacesStorage, MagicMock]:
+    """Load a Places entry at its saved Place with a controllable HTTP session.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the HTTP boundary.
+
+    Returns:
+        tuple[MockConfigEntry, PlacesStorage, MagicMock]: Loaded entry, Store, and HTTP session.
+    """
+    session = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Lifecycle",
+        data={
+            CONF_NAME: "Lifecycle",
+            CONF_DEVICETRACKER_ID: "device_tracker.lifecycle",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: True,
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    storage = PlacesStorage(hass, entry.entry_id, "Lifecycle")
+    await storage.async_save(
+        {
+            ATTR_NATIVE_VALUE: "London",
+            ATTR_CITY: "London",
+            ATTR_LATITUDE: 51.5,
+            ATTR_LONGITUDE: -0.1,
+            ATTR_MAP_LINK: "https://maps.apple.com/?q=51.5%2C-0.1&z=18",
+        }
+    )
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set(
+        "device_tracker.lifecycle", "not_home", {"latitude": 51.5, "longitude": -0.1}
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    session.get.assert_not_called()
+    return entry, storage, session
+
+
+def _lifecycle_response(body: str | Callable[[], Awaitable[str]]) -> MagicMock:
+    """Mock an HTTP response with a fixed body or a controlled asynchronous read.
+
+    Args:
+        body (str | Callable[[], Awaitable[str]]): JSON text or asynchronous reader.
+
+    Returns:
+        MagicMock: Async context manager returned by the HTTP session.
+    """
+    read = AsyncMock(return_value=body) if isinstance(body, str) else body
+    return MagicMock(__aenter__=AsyncMock(return_value=MagicMock(status=200, text=read)))
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("unload_timing", ["during-publish", "after-publish", "nested-bus"])
+async def test_places_event_does_not_dispatch_after_unload_starts(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    unload_timing: str,
+) -> None:
+    """Keep Place event dispatch on the publication side of the unload boundary.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        unload_timing (str): How sensor publication overlaps unload and bus dispatch.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    accepted = await storage.async_load()
+    request_started = asyncio.Event()
+    release_request = asyncio.Event()
+    oxford = '{"osm_type":"node","category":"place","address":{"city":"Oxford"}}'
+
+    async def read_reverse_response() -> str:
+        """Wait until the tracked entity task is running before returning Oxford.
+
+        Returns:
+            str: Usable reverse geocoding response body.
+        """
+        request_started.set()
+        await release_request.wait()
+        return oxford
+
+    session.get.return_value = _lifecycle_response(
+        oxford if unload_timing == "nested-bus" else read_reverse_response
+    )
+    events = async_capture_events(hass, EVENT_TYPE)
+    unload_tasks: list[asyncio.Task[bool]] = []
+
+    @callback
+    def unload_on_publish(event: Event[EventStateChangedData]) -> None:
+        """Start unloading when Home Assistant publishes Oxford.
+
+        Args:
+            event (Event[EventStateChangedData]): Main sensor state change.
+        """
+        state = event.data["new_state"]
+        if state is not None and state.state == "Oxford":
+            unload_tasks.append(
+                hass.async_create_task(
+                    hass.config_entries.async_unload(entry.entry_id),
+                    eager_start=unload_timing != "after-publish",
+                )
+            )
+
+    async_track_state_change_event(hass, "sensor.lifecycle", unload_on_publish)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    if unload_timing != "nested-bus":
+        await asyncio.wait_for(request_started.wait(), timeout=2)
+        release_request.set()
+    await hass.async_block_till_done()
+
+    (unload_task,) = unload_tasks
+    assert unload_task.result()
+    assert not events
+    assert await storage.async_load() == accepted
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_unload_drains_scan_during_extended_data_lookup(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drain an interrupted scan before tearing down its sensors or starting Wikidata.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the scan and tracker clocks.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    scan_clock = monotonic() + 600
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: datetime(2026, 11, 24, tzinfo=UTC))
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+    accepted = await storage.async_load()
+    main = hass.states.get("sensor.lifecycle")
+    link = hass.states.get("sensor.lifecycle_map_link")
+    assert main is not None and link is not None
+
+    details_started = asyncio.Event()
+    release_details = asyncio.Event()
+
+    async def read_details_response() -> str:
+        """Hold the OSM lookup until unload starts, then offer a Wikidata ID.
+
+        Returns:
+            str: Usable Extended data body pointing to Wikidata.
+        """
+        details_started.set()
+        await release_details.wait()
+        return '[{"extratags":{"wikidata":"Q34217"}}]'
+
+    session.get.side_effect = [
+        _lifecycle_response(
+            '{"osm_id":2,"osm_type":"node","category":"place","address":{"city":"Oxford"}}'
+        ),
+        _lifecycle_response(read_details_response),
+        _lifecycle_response("{}"),
+    ]
+    events = async_capture_events(hass, EVENT_TYPE)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    scan = hass.async_create_task(coordinator.async_scan_update())
+    await asyncio.wait_for(details_started.wait(), timeout=2)
+
+    unload = hass.async_create_task(hass.config_entries.async_unload(entry.entry_id))
+    try:
+        assert entry.state is ConfigEntryState.UNLOAD_IN_PROGRESS
+        assert not unload.done()
+        assert hass.states.get("sensor.lifecycle") == main
+        assert hass.states.get("sensor.lifecycle_map_link") == link
+        await coordinator.async_force_update()
+    finally:
+        release_details.set()
+
+    drained = await asyncio.wait_for(scan, timeout=2)
+    assert await asyncio.wait_for(unload, timeout=2)
+    unloaded_main = hass.states.get("sensor.lifecycle")
+    assert unloaded_main is not None and unloaded_main.state == STATE_UNAVAILABLE
+    assert [urlparse(call.args[0]).path for call in session.get.call_args_list] == [
+        "/reverse",
+        "/lookup",
+    ]
+    assert drained.native_value == "London"
+    assert drained.attributes[ATTR_LATITUDE] == 51.5
+    assert not events
+    assert await storage.async_load() == accepted
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_overlapping_tracker_and_scan_updates_use_latest_accepted_place(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Serialize scans and tracker Updates and throttle scans from completion.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the scan and tracker clocks.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    scan_clock = monotonic() + 600
+    tracker_clock = datetime(2026, 11, 24, tzinfo=UTC)
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: tracker_clock)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+
+    request_started = asyncio.Event()
+    release_request = asyncio.Event()
+
+    async def read_reverse_response() -> str:
+        """Hold Oxford's reverse lookup while a scan and tracker Update overlap.
+
+        Returns:
+            str: Successful reverse geocoding response body.
+        """
+        request_started.set()
+        await release_request.wait()
+        return '{"osm_type":"node","category":"place","address":{"city":"Oxford"}}'
+
+    session.get.side_effect = [
+        _lifecycle_response(read_reverse_response),
+        _lifecycle_response(
+            '{"osm_type":"node","category":"place","address":{"city":"Cambridge"}}'
+        ),
+    ]
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    scan = hass.async_create_task(coordinator.async_scan_update())
+    await asyncio.wait_for(request_started.wait(), timeout=2)
+
+    try:
+        overlapping_scan = hass.async_create_task(coordinator.async_scan_update())
+        tracker_clock += timedelta(seconds=11)
+        hass.states.async_set(
+            "device_tracker.lifecycle", "nearby", {"latitude": 51.70001, "longitude": -0.1}
+        )
+        assert not overlapping_scan.done()
+        assert (await storage.async_load())[ATTR_LATITUDE] == 51.5
+        assert session.get.call_count == 1
+        scan_clock += 30
+    finally:
+        release_request.set()
+
+    await hass.async_block_till_done()
+    assert scan.result().native_value == overlapping_scan.result().native_value == "Oxford"
+    saved = await storage.async_load()
+    assert saved[ATTR_LATITUDE] == 51.7
+    assert saved[ATTR_DEVICETRACKER_ZONE] == "nearby"
+    assert session.get.call_count == 1
+
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.9, "longitude": -0.1})
+    scan_clock += 599
+    assert (await coordinator.async_scan_update()).native_value == "Oxford"
+    assert session.get.call_count == 1
+    scan_clock += 1
+    assert (await coordinator.async_scan_update()).native_value == "Cambridge"
+    city = hass.states.get("sensor.lifecycle_city")
+    assert city is not None and city.state == "Cambridge"
+    saved = await storage.async_load()
+    assert saved[ATTR_LATITUDE] == 51.9
+    assert saved[ATTR_LATITUDE_OLD] == 51.7
+    assert [
+        parse_qs(urlparse(call.args[0]).query)["lat"] for call in session.get.call_args_list
+    ] == [
+        ["51.7"],
+        ["51.9"],
+    ]
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_failed_unload_drains_tracker_and_resumes_updates(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Drain tracker cancellation and resume Updates from the accepted Place.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Simulated platform unload failure and tracker clock.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    accepted = await storage.async_load()
+    tracker_clock = datetime(2026, 11, 24, tzinfo=UTC)
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: tracker_clock)
+    request_started = asyncio.Event()
+    cancellation_started = asyncio.Event()
+    release_request_cleanup = asyncio.Event()
+    tracker_task: asyncio.Task[object] | None = None
+
+    async def read_interrupted_response() -> str:
+        """Hold the reverse lookup and its cleanup until the test releases them.
+
+        Returns:
+            str: Pending response body.
+
+        Raises:
+            asyncio.CancelledError: The entry unload cancels the tracked entity Update.
+        """
+        nonlocal tracker_task
+        tracker_task = asyncio.current_task()
+        request_started.set()
+        try:
+            return await asyncio.Future[str]()
+        except asyncio.CancelledError:
+            cancellation_started.set()
+            await release_request_cleanup.wait()
+            raise
+
+    session.get.side_effect = [
+        _lifecycle_response(read_interrupted_response),
+        _lifecycle_response('{"osm_type":"node","category":"place","address":{"city":"Oxford"}}'),
+        _lifecycle_response(
+            '{"osm_type":"node","category":"place","address":{"city":"Cambridge"}}'
+        ),
+    ]
+    events = async_capture_events(hass, EVENT_TYPE)
+
+    async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
+        """Verify the accepted Place at teardown, then leave the platforms loaded.
+
+        Args:
+            _entry (object): Entry passed to Home Assistant's platform unload boundary.
+            _platforms (object): Platforms Home Assistant should unload.
+
+        Returns:
+            bool: Platform unload result.
+        """
+        assert tracker_task is not None and tracker_task.cancelled()
+        main = hass.states.get("sensor.lifecycle")
+        assert main is not None and main.state == "London"
+        assert main.attributes[ATTR_LATITUDE] == 51.5
+        assert await storage.async_load() == accepted
+        assert not events
+        return False
+
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
+    await asyncio.wait_for(request_started.wait(), timeout=2)
+    platform_unload = AsyncMock(side_effect=refuse_platform_unload)
+    with monkeypatch.context() as patch:
+        patch.setattr(hass.config_entries, "async_unload_platforms", platform_unload)
+        unload = hass.async_create_task(async_unload_entry(hass, entry))
+        try:
+            await asyncio.wait_for(cancellation_started.wait(), timeout=2)
+            platform_unload.assert_not_called()
+            assert not unload.done()
+        finally:
+            release_request_cleanup.set()
+        assert not await asyncio.wait_for(unload, timeout=2)
+
+    async_fire_time_changed(hass, datetime.now(UTC) + timedelta(seconds=11))
+    await hass.async_block_till_done()
+    assert [event.data["to_state"] for event in events] == ["Oxford"]
+    assert events[0].data["previous_latitude"] == 51.5
+    assert (await storage.async_load())[ATTR_LATITUDE] == 51.7
+    assert session.get.call_args_list[0].args[0] == session.get.call_args_list[1].args[0]
+
+    tracker_clock += timedelta(seconds=11)
+    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.9, "longitude": -0.1})
+    await hass.async_block_till_done()
+    assert [event.data["to_state"] for event in events] == ["Oxford", "Cambridge"]
+    assert (await storage.async_load())[ATTR_LATITUDE] == 51.9
 
 
 @pytest.mark.asyncio

@@ -241,7 +241,7 @@ async def test_failed_lookup_retries_without_more_movement(
     original_state = coordinator.data.native_value
     original_changed = coordinator.data.attributes[ATTR_LAST_CHANGED]
     original_link = coordinator.data.attributes[ATTR_MAP_LINK]
-    mock_hass.bus.fire.reset_mock()
+    mock_hass.bus.async_fire.reset_mock()
 
     states["device_tracker.test"] = State(
         "device_tracker.test",
@@ -254,7 +254,7 @@ async def test_failed_lookup_retries_without_more_movement(
     assert coordinator.data.attributes[ATTR_MAP_LINK] == original_link
     assert coordinator.data.attributes[ATTR_DEVICETRACKER_ZONE] == "away"
     assert coordinator.data.attributes[ATTR_DEVICETRACKER_ZONE_NAME] == "away"
-    mock_hass.bus.fire.assert_not_called()
+    mock_hass.bus.async_fire.assert_not_called()
 
     states["device_tracker.test"] = State(
         "device_tracker.test",
@@ -272,7 +272,7 @@ async def test_failed_lookup_retries_without_more_movement(
     assert coordinator.data.attributes[ATTR_DEVICETRACKER_ZONE_NAME] == "away"
     assert coordinator.data.attributes[ATTR_LAST_CHANGED] == original_changed
     assert persist.call_args.args[0][ATTR_LATITUDE] == 51.5
-    mock_hass.bus.fire.assert_not_called()
+    mock_hass.bus.async_fire.assert_not_called()
 
     payload["address"]["city"] = "Oxford"
     await coordinator._run_update("Test")
@@ -284,15 +284,16 @@ async def test_failed_lookup_retries_without_more_movement(
     recovered_url = session.get.call_args_list[3].args[0]
     assert failed_url == recovered_url
     assert mock_hass.data[DOMAIN][OSM_CACHE][recovered_url] == payload
-    mock_hass.bus.fire.assert_called_once()
+    mock_hass.bus.async_fire.assert_called_once()
 
     await coordinator._run_update("Test")
     assert session.get.call_count == 4
-    mock_hass.bus.fire.assert_called_once()
+    mock_hass.bus.async_fire.assert_called_once()
 
 
 @pytest.mark.parametrize("failure", [asyncio.CancelledError, ValueError])
 async def test_interrupted_lookup_does_not_commit(
+    caplog: pytest.LogCaptureFixture,
     mock_hass: MagicMock,
     coordinator_factory: CoordinatorFactory,
     monkeypatch: pytest.MonkeyPatch,
@@ -301,6 +302,7 @@ async def test_interrupted_lookup_does_not_commit(
     """Propagate lookup interruption while preserving the accepted Place.
 
     Args:
+        caplog (pytest.LogCaptureFixture): Update failure log capture.
         mock_hass (MagicMock): Home Assistant runtime with a moved tracked entity.
         coordinator_factory (CoordinatorFactory): Factory for the real coordinator.
         monkeypatch (pytest.MonkeyPatch): Replacement for the HTTP session.
@@ -340,7 +342,8 @@ async def test_interrupted_lookup_does_not_commit(
     response.text.assert_awaited_once()
     assert coordinator.snapshot() == coordinator.data == accepted
     persist.assert_not_awaited()
-    mock_hass.bus.fire.assert_not_called()
+    mock_hass.bus.async_fire.assert_not_called()
+    assert ("Error during Places update" in caplog.text) is (failure is ValueError)
 
 
 @pytest.mark.asyncio
