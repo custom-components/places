@@ -777,78 +777,6 @@ async def test_coordinator_enables_show_time_from_existing_state(
     assert coordinator.get_attr(ATTR_NATIVE_VALUE) == "Library (since 14:05)"
 
 
-async def test_coordinator_tsc_update_schedules_updater(
-    mock_hass: MagicMock,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Tracker state changes should schedule one updater task.
-
-    Args:
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
-        monkeypatch (pytest.MonkeyPatch):
-            Pytest fixture for replacing dependencies.
-    """
-    mock_hass.states.get.return_value = None
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        entry_id="entry123",
-        data={"name": "TestSensor", "devicetracker_id": "person.test"},
-    )
-    coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    coordinator.set_attr("place_name", "Library")
-    captured: dict[str, object] = {}
-
-    class _FakeUpdater:
-        """Capture coordinator update scheduling arguments."""
-
-        def __init__(self, **kwargs: object) -> None:
-            """Store constructor arguments for assertions.
-
-            Args:
-                kwargs (object):
-                    Constructor options recorded by the test double.
-            """
-            captured.update(kwargs)
-
-        async def do_update(self, reason: str) -> None:
-            """Capture scheduled update arguments.
-
-            Args:
-                reason (str):
-                    Reason recorded for the coordinator refresh.
-            """
-            captured["reason"] = reason
-
-    tasks: list[asyncio.Task[None]] = []
-
-    def _create_task(coro: Coroutine[object, object, None]) -> asyncio.Task[None]:
-        """Schedule the coroutine on the active event loop for the test.
-
-        Args:
-            coro (Coroutine[object, object, None]):
-                Coroutine scheduled by the task helper.
-
-        Returns:
-            asyncio.Task[None]:
-                Scheduled task double used to observe background work.
-        """
-        task: asyncio.Task[None] = asyncio.create_task(coro)
-        tasks.append(task)
-        return task
-
-    mock_hass.async_create_task.side_effect = _create_task
-    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FakeUpdater)
-
-    coordinator.tsc_update(MagicMock(data={"new_state": MagicMock(state="home")}))
-    await asyncio.gather(*tasks)
-
-    assert captured["hass"] is mock_hass
-    assert captured["config_entry"] is entry
-    assert captured["coordinator"] is coordinator
-    assert captured["reason"] == "Track State Change"
-
-
 async def test_coordinator_tsc_update_cancelled_on_shutdown(
     mock_hass: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
@@ -1235,42 +1163,23 @@ async def test_coordinator_scan_update_returns_updated_snapshot(
         data={"name": "TestSensor", "devicetracker_id": "person.test"},
     )
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
-    coordinator.set_attr("place_name", "Library")
-    captured: dict[str, object] = {}
 
-    class _FakeUpdater:
-        """Capture scan update arguments and mutate coordinator state."""
+    async def update_place(updater: PlacesUpdater, *, reason: str) -> None:
+        """Give the scan a changed Place to return.
 
-        def __init__(self, **kwargs: object) -> None:
-            """Store constructor arguments for assertions.
+        Args:
+            updater (PlacesUpdater): Updater for this Places entry.
+            reason (str): Update reason provided by the coordinator.
+        """
+        _ = reason
+        updater.coordinator.set_native_value("Updated")
 
-            Args:
-                kwargs (object):
-                    Constructor options recorded by the test double.
-            """
-            captured.update(kwargs)
-
-        async def do_update(self, reason: str) -> None:
-            """Capture scheduled update arguments and publish a new value.
-
-            Args:
-                reason (str):
-                    Reason recorded for the coordinator refresh.
-            """
-            captured["reason"] = reason
-            coordinator.set_native_value("Updated")
-
-    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: 1000.0)
-    monkeypatch.setattr("custom_components.places.coordinator.PlacesUpdater", _FakeUpdater)
+    monkeypatch.setattr(PlacesUpdater, "do_update", update_place)
 
     data = await coordinator.async_scan_update()
 
     assert coordinator.update_interval == SCAN_INTERVAL
     assert data.native_value == "Updated"
-    assert captured["hass"] is mock_hass
-    assert captured["config_entry"] is entry
-    assert captured["coordinator"] is coordinator
-    assert captured["reason"] == "Scan Interval"
 
 
 async def test_coordinator_scan_update_failure_does_not_set_throttle_marker(

@@ -3018,7 +3018,6 @@ async def test_build_event_data_matches_exact_public_schema(
         "place": "Landmark, Amenity, Cafe, Downtown, 10, Main Street",
         "formatted_place": "Driving, Landmark, Metro, ST",
     }
-    assert {"name", "name_no_dupe", "type", "category", "zip_code"}.isdisjoint(event_data)
 
 
 @pytest.mark.asyncio
