@@ -10,6 +10,7 @@ import = [
 ]
 
 words = [
+    "actioned",
     "aiohttp",
     "automations",
     "conftest",
@@ -20,6 +21,7 @@ words = [
     "hass",
     "homeassistant",
     "licence",
+    "mattpocock",
     "mypy",
     "neighbourhood",
     "nbsp",
@@ -28,6 +30,8 @@ words = [
     "pyproject",
     "pytest",
     "venv",
+    "wayfinder",
+    "wayfinding",
 ]
 
 [[overrides]]
