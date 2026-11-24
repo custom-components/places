@@ -12,8 +12,8 @@
 | custom\_components/places/config\_flow.py      |       95 |        0 |       46 |        1 |     99% |   87-\>83 |
 | custom\_components/places/config\_schema.py    |       18 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/const.py             |      105 |        0 |        0 |        0 |    100% |           |
-| custom\_components/places/coordinator.py       |      288 |       17 |       80 |       14 |     91% |207, 313-319, 415-416, 437-\>440, 455, 506-\>505, 508-\>510, 518, 520-\>530, 551, 554, 574, 586, 618 |
-| custom\_components/places/display\_options.py  |      146 |        0 |       42 |        1 |     99% | 216-\>218 |
+| custom\_components/places/coordinator.py       |      288 |       17 |       80 |       13 |     91% |207, 313-319, 415-416, 437-\>440, 455, 508-\>510, 518, 520-\>530, 551, 554, 574, 586, 618 |
+| custom\_components/places/display\_options.py  |      150 |        0 |       46 |        1 |     99% | 217-\>219 |
 | custom\_components/places/entity.py            |       38 |        2 |        2 |        1 |     92% |   88, 130 |
 | custom\_components/places/helpers.py           |       16 |        0 |        2 |        0 |    100% |           |
 | custom\_components/places/location.py          |       29 |        1 |       10 |        1 |     95% |        71 |
@@ -28,7 +28,7 @@
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |       86 |        0 |       16 |        0 |    100% |           |
 | custom\_components/places/update\_sensor.py    |      476 |       16 |      186 |       18 |     95% |178, 319, 444-\>exit, 445-\>447, 447-\>exit, 538-\>540, 544-\>547, 554, 664, 665-\>667, 669-673, 790, 813-\>exit, 833-\>exit, 925-\>936, 1024, 1119, 1120-\>1130, 1122-1128, 1132-1134, 1139-\>exit |
-| **TOTAL**                                      | **2314** |   **61** |  **680** |   **54** | **96%** |           |
+| **TOTAL**                                      | **2318** |   **61** |  **684** |   **53** | **96%** |           |
 
 
 ## Setup coverage badge
