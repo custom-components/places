@@ -225,7 +225,7 @@ class PlacesState:
         self.clear_attr(ATTR_DRIVING)
         if (
             not await self.in_zone()
-            and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+            and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) not in (None, "stationary")
             and (
                 self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
                 or self.get_attr(ATTR_PLACE_TYPE) == "motorway"

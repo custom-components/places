@@ -74,6 +74,11 @@ NESTED_FILTER_PLACE = {
     "place_type": "cafe",
     "city": "Fort Lee",
 }
+MOVING_ROAD_PLACE = {
+    "place_type": "motorway",
+    "place_category": "highway",
+    "direction_of_travel": "towards home",
+}
 REPEATED_FALLBACK_GROUP = "name[street][city], state_abbr"
 REPEATED_FILTER_GROUP = "name(type(house))(type(city)), state_abbr"
 
@@ -199,14 +204,16 @@ REPEATED_FILTER_GROUP = "name(type(house))(type(city)), state_abbr"
         ),
         (
             "formatted_place, driving",
-            BASE_INTERNAL_ATTR | {"place_type": "motorway", "place_category": "highway"},
+            BASE_INTERNAL_ATTR | MOVING_ROAD_PLACE,
             "Driving, Roy Spiegel MSW, Fort Lee, NJ",
         ),
         (
             "formatted_place, driving",
-            BASE_INTERNAL_ATTR | {"zone": "work", "zone_name": "Work"},
+            BASE_INTERNAL_ATTR | MOVING_ROAD_PLACE | {"zone": "work", "zone_name": "Work"},
             "Work",
         ),
+        ("driving, city", {"place_category": "highway", "city": "Metro"}, "Metro"),
+        ("city", MOVING_ROAD_PLACE | {"city": "Metro"}, "Metro"),
     ],
     ids=(
         "zone-name",
@@ -237,6 +244,8 @@ REPEATED_FILTER_GROUP = "name(type(house))(type(city)), state_abbr"
         "documented-rule",
         "formatted-place-driving",
         "formatted-place-in-zone",
+        "road-without-saved-direction",
+        "driving-omitted",
     ),
 )
 async def test_config_flow_renders_restored_place(
@@ -447,7 +456,7 @@ async def test_display_options_event_driving(
     hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert hass.states.is_state("sensor.test_place", "Driving, Hudson County")
+    assert hass.states.is_state("sensor.test_place", "Hudson County")
 
     events = async_capture_events(hass, EVENT_TYPE)
     aioclient_mock.get(
