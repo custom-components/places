@@ -4,15 +4,16 @@
 
 | Name                                           |    Stmts |     Miss |   Branch |   BrPart |   Cover |   Missing |
 |----------------------------------------------- | -------: | -------: | -------: | -------: | ------: | --------: |
-| custom\_components/places/\_\_init\_\_.py      |      176 |        8 |       42 |        4 |     94% |207-208, 217-218, 257-259, 285-287, 342-\>354, 357-\>365, 368-\>370, 373-\>385 |
-| custom\_components/places/advanced\_options.py |      258 |       10 |      148 |       22 |     92% |68-69, 91-\>exit, 145-\>147, 214-\>202, 269-\>273, 274-\>276, 291, 292-\>300, 298-\>300, 304-\>exit, 316-\>324, 334-\>333, 347-\>exit, 374, 402-\>404, 405-406, 430, 431-\>423, 434-435, 442, 447-\>449, 504-\>503 |
+| custom\_components/places/\_\_init\_\_.py      |      159 |        8 |       38 |        4 |     94% |172-173, 182-183, 222-224, 250-252, 307-\>319, 322-\>330, 333-\>335, 338-\>350 |
+| custom\_components/places/advanced\_options.py |       75 |        0 |       34 |        1 |     99% | 113-\>115 |
 | custom\_components/places/attributes.py        |       65 |        5 |       26 |        2 |     92% |65-\>exit, 126-127, 150-151, 212 |
 | custom\_components/places/basic\_options.py    |       93 |        3 |       38 |        2 |     96% |304-305, 334 |
 | custom\_components/places/button.py            |       18 |        0 |        0 |        0 |    100% |           |
-| custom\_components/places/config\_flow.py      |      194 |        8 |      100 |        6 |     95% |87-\>83, 204-214, 229-239, 347, 352-\>354, 356-\>358 |
+| custom\_components/places/config\_flow.py      |       95 |        0 |       46 |        1 |     99% |   87-\>83 |
 | custom\_components/places/config\_schema.py    |       18 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/const.py             |      105 |        0 |        0 |        0 |    100% |           |
-| custom\_components/places/coordinator.py       |      334 |       14 |       96 |       16 |     93% |213, 337-338, 359-\>362, 512, 566-\>565, 568-\>570, 577, 579-\>589, 599, 609, 612, 632, 644, 677, 739-\>743, 784-786, 788-\>exit |
+| custom\_components/places/coordinator.py       |      335 |       13 |       94 |       14 |     94% |214, 338-339, 360-\>363, 513, 569-\>571, 578, 580-\>590, 610, 613, 633, 645, 678, 785-787, 789-\>exit |
+| custom\_components/places/display\_options.py  |      146 |        0 |       42 |        1 |     99% | 216-\>218 |
 | custom\_components/places/entity.py            |       38 |        2 |        2 |        1 |     92% |   88, 130 |
 | custom\_components/places/helpers.py           |       16 |        0 |        2 |        0 |    100% |           |
 | custom\_components/places/location.py          |       29 |        1 |       10 |        1 |     95% |        71 |
@@ -25,8 +26,8 @@
 | custom\_components/places/switch.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |       86 |        0 |       16 |        0 |    100% |           |
-| custom\_components/places/update\_sensor.py    |      495 |       19 |      198 |       26 |     94% |168, 214-\>216, 216-\>exit, 295, 374, 378, 442-\>450, 512-\>exit, 513-\>515, 515-\>exit, 608-\>610, 616-\>619, 626, 736, 737-\>739, 741-745, 860, 890-\>exit, 898, 919-\>exit, 939-\>exit, 1026-\>1037, 1048-\>exit, 1127, 1224, 1225-\>1235, 1227-1233, 1237-1239, 1244-\>exit |
-| **TOTAL**                                      | **2437** |   **77** |  **816** |   **90** | **95%** |           |
+| custom\_components/places/update\_sensor.py    |      495 |       18 |      198 |       24 |     94% |168, 214-\>216, 216-\>exit, 295, 374, 512-\>exit, 513-\>515, 515-\>exit, 608-\>610, 616-\>619, 626, 736, 737-\>739, 741-745, 860, 890-\>exit, 898, 919-\>exit, 939-\>exit, 1026-\>1037, 1048-\>exit, 1127, 1224, 1225-\>1235, 1227-1233, 1237-1239, 1244-\>exit |
+| **TOTAL**                                      | **2285** |   **57** |  **684** |   **61** | **96%** |           |
 
 
 ## Setup coverage badge
