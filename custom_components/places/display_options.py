@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 import re
 from typing import Literal
 
 type SyntaxErrorKey = Literal["invalid_syntax", "bracket_mismatch"]
 
+_LOGGER = logging.getLogger(__name__)
 _DELIMITERS = re.compile(r"[][(),]")
 _CLOSERS = {"]": "[", ")": "("}
 _MARKERS = {"+", "-"}
@@ -55,7 +57,7 @@ class Item:
         return group.items if group else []
 
     def filters(self, source: str) -> Filters:
-        """Interpret this item's filter group.
+        """Interpret this item's filter group, skipping nested attribute predicates.
 
         Args:
             source (str): The original Display options expression.
@@ -77,10 +79,14 @@ class Item:
 
         for item in group.items:
             attribute_group = item.groups.get("(")
-            if attribute_group is not None:
-                include, values = attribute_group.filter_values(source, attribute=True)
-                attributes = filters.include_attributes if include else filters.exclude_attributes
-                attributes[item.token] = values
+            if attribute_group is None:
+                continue
+            if any("(" in value.groups for value in attribute_group.items):
+                _LOGGER.error("Parenthesis Mismatch: %s", source[item.start : item.end].strip())
+                continue
+            include, values = attribute_group.filter_values(source, attribute=True)
+            attributes = filters.include_attributes if include else filters.exclude_attributes
+            attributes[item.token] = values
         return filters
 
 

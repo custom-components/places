@@ -67,6 +67,13 @@ FILTERED_FALLBACK = (
     "place_type[city_clean[county], house_number, street](+, city, category(building)), "
     "neighborhood(-, city)[postal_town[]], state_abbr"
 )
+NESTED_FILTER_WITH_SIBLINGS = "name(-,city,category(building,type(house)),type(cafe))[city]"
+NESTED_FILTER_PLACE = {
+    "place_name": "Corner Cafe",
+    "place_category": "shop",
+    "place_type": "cafe",
+    "city": "Fort Lee",
+}
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -126,6 +133,14 @@ FILTERED_FALLBACK = (
             FALLBACK_PLACE | {"place_name": "Corner Cafe", "place_category": "city[county]"},
             "Corner Cafe",
         ),
+        (
+            "name(category(type(house)))[city]",
+            NESTED_FILTER_PLACE,
+            "Corner Cafe",
+        ),
+        (NESTED_FILTER_WITH_SIBLINGS, NESTED_FILTER_PLACE, "Corner Cafe"),
+        (NESTED_FILTER_WITH_SIBLINGS, NESTED_FILTER_PLACE | {"place_name": "City"}, "Fort Lee"),
+        (NESTED_FILTER_WITH_SIBLINGS, NESTED_FILTER_PLACE | {"place_type": "house"}, "Fort Lee"),
         (
             "name[street]city(house), state_abbr",
             FALLBACK_PLACE | {"place_name": "Corner Cafe"},
@@ -205,6 +220,10 @@ FILTERED_FALLBACK = (
         "bracketed-include-miss",
         "bracketed-exclude-match",
         "bracketed-attribute-match",
+        "unsupported-nested-filter",
+        "unsupported-nested-filter-with-matching-siblings",
+        "unsupported-nested-filter-with-literal-exclusion",
+        "unsupported-nested-filter-with-attribute-mismatch",
         "post-fallback-token",
         "repeated-fallback-group",
         "repeated-filter-group",
