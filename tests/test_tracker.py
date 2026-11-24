@@ -10,6 +10,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
+from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -327,3 +328,104 @@ async def test_tracker_state_object_with_coordinates_can_proceed(
     await _assert_tracker_state_can_proceed_with_coordinates(
         mock_hass, mock_config_entry, sensor, tracker_state
     )
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected_accuracy"),
+    [
+        ({ATTR_GPS_ACCURACY: 0}, 0.0),
+        ({ATTR_GPS_ACCURACY: 7.5}, 7.5),
+        ({ATTR_GPS_ACCURACY: "12"}, 12.0),
+        ({ATTR_GPS_ACCURACY: -1}, None),
+        ({ATTR_GPS_ACCURACY: float("nan")}, None),
+        ({ATTR_GPS_ACCURACY: float("inf")}, None),
+        ({ATTR_GPS_ACCURACY: "invalid"}, None),
+        ({ATTR_GPS_ACCURACY: None}, None),
+        ({}, None),
+    ],
+    ids=[
+        "zero",
+        "positive",
+        "numeric-string",
+        "negative",
+        "nan",
+        "infinite",
+        "non-numeric",
+        "none",
+        "absent",
+    ],
+)
+async def test_snapshot_reads_gps_accuracy_from_tracker_state(
+    hass: HomeAssistant,
+    attributes: dict[str, object],
+    expected_accuracy: float | None,
+) -> None:
+    """Snapshot reports only zero or positive GPS accuracy, treating other values as absent.
+
+    Args:
+        hass (HomeAssistant):
+            Real Home Assistant instance holding the tracked entity state.
+        attributes (dict[str, object]):
+            Extra attributes set on the tracked entity alongside its coordinates.
+        expected_accuracy (float | None):
+            GPS accuracy expected in the snapshot, or ``None`` when absent.
+    """
+    hass.states.async_set(
+        "device_tracker.phone",
+        "home",
+        {CONF_LATITUDE: 51.5, CONF_LONGITUDE: -0.1, **attributes},
+    )
+
+    snapshot = TrackerSnapshot.from_hass(hass, "device_tracker.phone")
+
+    assert snapshot.status is TrackerStatus.OK
+    assert snapshot.gps_accuracy == expected_accuracy
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "attributes", "expected_source_tracker"),
+    [
+        ("person.alex", {"source": "device_tracker.phone"}, "device_tracker.phone"),
+        ("person.alex", {}, "person.alex"),
+        ("person.alex", {"source": ""}, "person.alex"),
+        ("device_tracker.phone", {"source": "device_tracker.router"}, "device_tracker.phone"),
+        ("sensor.location", {"source": "device_tracker.router"}, "sensor.location"),
+        ("zone.work", {"source": "device_tracker.router"}, "zone.work"),
+    ],
+    ids=[
+        "person-with-source",
+        "person-without-source",
+        "person-with-empty-source",
+        "device-tracker-ignores-source",
+        "sensor-ignores-source",
+        "zone-ignores-source",
+    ],
+)
+async def test_snapshot_reports_source_tracker(
+    hass: HomeAssistant,
+    entity_id: str,
+    attributes: dict[str, str],
+    expected_source_tracker: str,
+) -> None:
+    """Source tracker is a person's ``source`` attribute, otherwise the entity itself.
+
+    Args:
+        hass (HomeAssistant):
+            Real Home Assistant instance holding the tracked entity state.
+        entity_id (str):
+            Tracked entity whose state is set up for the snapshot.
+        attributes (dict[str, str]):
+            Extra attributes set on the tracked entity alongside its coordinates.
+        expected_source_tracker (str):
+            Source tracker expected in the snapshot.
+    """
+    hass.states.async_set(
+        entity_id,
+        "home",
+        {CONF_LATITUDE: 51.5, CONF_LONGITUDE: -0.1, **attributes},
+    )
+
+    snapshot = TrackerSnapshot.from_hass(hass, entity_id)
+
+    assert snapshot.status is TrackerStatus.OK
+    assert snapshot.source_tracker == expected_source_tracker

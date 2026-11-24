@@ -393,15 +393,9 @@ class PlacesUpdater:
                 ``PROCEED``.
         """
         tracker_id = self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID)
-        tracker_state = self._hass.states.get(tracker_id)
-        gps_accuracy = (
-            tracker_state.attributes.get(ATTR_GPS_ACCURACY) if tracker_state is not None else None
-        )
-        if gps_accuracy is not None and is_float(gps_accuracy):
-            self.state.set_attr(
-                ATTR_GPS_ACCURACY,
-                float(gps_accuracy),
-            )
+        gps_accuracy = TrackerSnapshot.from_hass(self._hass, tracker_id).gps_accuracy
+        if gps_accuracy is not None:
+            self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
         else:
             self.state.clear_attr(ATTR_GPS_ACCURACY)
             _LOGGER.debug(

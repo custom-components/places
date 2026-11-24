@@ -911,8 +911,15 @@ async def test_get_gps_accuracy_variants(
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "tracker_attrs",
-    [{}, {ATTR_GPS_ACCURACY: None}, {ATTR_GPS_ACCURACY: "invalid"}],
-    ids=["absent", "none", "non-numeric"],
+    [
+        {},
+        {ATTR_GPS_ACCURACY: None},
+        {ATTR_GPS_ACCURACY: "invalid"},
+        {ATTR_GPS_ACCURACY: -1.0},
+        {ATTR_GPS_ACCURACY: float("nan")},
+        {ATTR_GPS_ACCURACY: float("inf")},
+    ],
+    ids=["absent", "none", "non-numeric", "negative", "nan", "infinite"],
 )
 async def test_get_gps_accuracy_clears_stale_zero(
     mock_hass: MagicMock,
