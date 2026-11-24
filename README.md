@@ -121,6 +121,8 @@ Fallbacks can contain several comma-separated fields and can be nested.
 
 ### Brackets and Parenthesis can also be combined
 
+Each field can have one fallback group (`[]`) and one filter group (`()`), in either order.
+
 * To recreate `place`:
 
 ```text
