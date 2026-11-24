@@ -38,6 +38,7 @@ from custom_components.places.const import (
     ATTR_INITIAL_UPDATE,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
+    ATTR_LAST_UPDATED,
     ATTR_LATITUDE,
     ATTR_LATITUDE_OLD,
     ATTR_LOCATION_CURRENT,
@@ -258,6 +259,7 @@ async def test_failed_lookup_retries_without_more_movement(
     assert coordinator.data.attributes[ATTR_DEVICETRACKER_ZONE] == "away"
     assert coordinator.data.attributes[ATTR_DEVICETRACKER_ZONE_NAME] == "away"
     mock_hass.bus.async_fire.assert_not_called()
+    persist.reset_mock()
 
     states["device_tracker.test"] = State(
         "device_tracker.test",
@@ -274,7 +276,10 @@ async def test_failed_lookup_retries_without_more_movement(
     assert coordinator.data.attributes[ATTR_DEVICETRACKER_ZONE] == "away"
     assert coordinator.data.attributes[ATTR_DEVICETRACKER_ZONE_NAME] == "away"
     assert coordinator.data.attributes[ATTR_LAST_CHANGED] == original_changed
-    assert persist.call_args.args[0][ATTR_LATITUDE] == 51.5
+    persist.assert_awaited_once()
+    failed_snapshot = persist.await_args.args[0]
+    assert failed_snapshot[ATTR_LATITUDE] == 51.5
+    assert failed_snapshot[ATTR_LAST_UPDATED] == "2024-01-01 14:00:00+00:00"
     mock_hass.bus.async_fire.assert_not_called()
 
     payload["address"]["city"] = "Oxford"

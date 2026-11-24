@@ -74,7 +74,7 @@ from tests.conftest import assert_awaited_count
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-@pytest.mark.parametrize("blank_payload", ["{}", "[]"])
+@pytest.mark.parametrize("blank_payload", ["{}", "[]", '{"error":"Unable to geocode"}'])
 @pytest.mark.parametrize("restored", [False, True], ids=["new-entry", "restored-entry"])
 async def test_entry_keeps_accepted_place_until_lookup_recovers(
     hass: HomeAssistant,
@@ -88,7 +88,7 @@ async def test_entry_keeps_accepted_place_until_lookup_recovers(
     Args:
         hass (HomeAssistant): Home Assistant runtime with real Places entities.
         monkeypatch (pytest.MonkeyPatch): Replacements for the clock and HTTP boundary.
-        blank_payload (str): Empty JSON body returned for the moved coordinates.
+        blank_payload (str): Unusable JSON body returned for the moved coordinates.
         restored (bool): Whether to seed the accepted Place through Store before setup.
     """
     now = datetime(2026, 11, 24, 12, tzinfo=UTC)
@@ -2362,6 +2362,7 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
     await asyncio.wait_for(asyncio.to_thread(disk_started.wait, 10), timeout=2)
     main_state = hass.states.get("sensor.lifecycle")
     assert main_state is not None and main_state.state == "Oxford"
+    event_order_before_disk_release = list(event_order)
 
     stop_task = hass.async_create_task(hass.async_stop())
     try:
@@ -2374,6 +2375,7 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
     assert await asyncio.to_thread(disk_write_finished.wait, 2)
 
     assert [event.data["to_state"] for event in events] == ["Oxford"]
+    assert event_order_before_disk_release == []
     assert not final_write_before_disk_release
     assert event_order == ["place", "final_write"]
     assert (

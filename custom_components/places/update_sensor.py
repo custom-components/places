@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 import copy
 from datetime import UTC, datetime
 import logging
@@ -852,6 +852,11 @@ class PlacesUpdater:
                 Sensor attribute that receives the parsed JSON payload.
         """
         get_dict = await self._osm_client.get_json(url=url, name=name, use_cache=self._use_cache)
+        if dict_name == ATTR_OSM_DICT and isinstance(get_dict, Mapping) and "error" in get_dict:
+            # Reverse geocoding may return an HTTP-success error object. Treat
+            # it like an empty result so it cannot replace the accepted Place
+            # or remain in the shared OSM cache.
+            get_dict = {}
         self.state.set_attr(dict_name, get_dict if get_dict is not None else {})
         if get_dict is not None:
             if not self.state.is_attr_blank(dict_name):
