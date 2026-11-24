@@ -77,9 +77,9 @@ Key | Required | Default | Description |
 To use, simply enter your advanced options into the `display_options` text area. Any display_options that contain `[]` or `()` will be processed with the Advanced Display Options.<br />
 __Tip:__ _Build your advanced display options string in a text editor and copy/paste it into display_options field as it is pretty small._
 
-### __Brackets [ ]:__ Fields to show if initial field is blank or empty<br />
+### __Brackets [ ]:__ Fields to show if the preceding field is blank or filtered out<br />
 
-These can be nested.
+Fallbacks can contain several comma-separated fields and can be nested.
 
 #### Examples
 
@@ -121,6 +121,8 @@ These can be nested.
 * `type(-,motorway, category(-, highway, building))` will show type if it is not "motorway" and if category is not "highway" or "building"
 
 ### Brackets and Parenthesis can also be combined
+
+Each field can have one fallback group (`[]`) and one filter group (`()`), in either order.
 
 * To recreate `place`:
 

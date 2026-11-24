@@ -50,7 +50,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from .coordinator import PlacesUpdateCoordinator
+    from .state import PlacesState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,22 +58,21 @@ _LOGGER = logging.getLogger(__name__)
 class OSMParser:
     """Translate Nominatim/OpenStreetMap response fields into coordinator attributes."""
 
-    def __init__(self, coordinator: PlacesUpdateCoordinator) -> None:
-        """Initialize the parser for a Places coordinator.
+    def __init__(self, coordinator: PlacesState) -> None:
+        """Initialize the parser for a Place.
 
         Args:
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator whose internal attributes receive parsed OSM
-                values.
+            coordinator (PlacesState):
+                Place state whose attributes receive parsed OSM values.
         """
         self.coordinator = coordinator
 
     async def parse_osm_dict(self) -> None:
-        """Parse the current OSM response stored on the coordinator.
+        """Parse the current OSM response stored in the Place state.
 
-        Reads ``ATTR_OSM_DICT`` from the coordinator, extracts attribution, place
+        Reads ``ATTR_OSM_DICT`` from the Place state, extracts attribution, place
         classification, address, display, OSM identity, and de-duplicated place
-        name fields, then leaves the parsed values on the coordinator attributes.
+        name fields, then leaves the parsed values in the Place attributes.
         """
         osm_dict: MutableMapping[str, Any] | None = self.coordinator.get_attr(ATTR_OSM_DICT)
         if not osm_dict:

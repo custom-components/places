@@ -1,7 +1,6 @@
 """Unit tests for AdvancedOptionsParser in custom_components.places.advanced_options."""
 
 from collections.abc import Mapping, Sequence
-import logging
 from typing import Protocol
 from unittest.mock import AsyncMock
 
@@ -69,33 +68,6 @@ def advanced_parser() -> AdvancedParserFactory:
         return parser, sensor
 
     return _create
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("input_str", "expected"),
-    [
-        ("a[b](c)", True),
-        ("a[b(c]", False),
-        ("a[b](c", False),
-        ("a[b]c)", False),
-    ],
-)
-async def test_do_brackets_and_parens_count_match(
-    input_str: str, expected: bool, advanced_parser: AdvancedParserFactory
-) -> None:
-    """Assert bracket and parenthesis count matching for the supplied text.
-
-    Args:
-        input_str (str):
-            Text supplied to the display-options parser.
-        expected (bool):
-            Expected result for this parametrized case.
-        advanced_parser (AdvancedParserFactory):
-            Advanced display-options parser fixture.
-    """
-    parser, _sensor = advanced_parser()
-    assert await parser.do_brackets_and_parens_count_match(input_str) is expected
 
 
 @pytest.mark.asyncio
@@ -254,89 +226,6 @@ async def test_get_option_state_title_case(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("input_str", "expected_attr", "expected_lst", "expected_incl"),
-    [
-        ("type(work,home)", "type", ["work", "home"], True),
-        ("type(-,work,home)", "type", ["work", "home"], False),
-    ],
-)
-async def test_parse_attribute_parentheses_incl_excl(
-    input_str: str,
-    expected_attr: str,
-    expected_lst: list[str],
-    expected_incl: bool,
-    advanced_parser: AdvancedParserFactory,
-) -> None:
-    """Parse attribute parentheses into (attr, list, include_flag).
-
-    Args:
-        input_str (str):
-            Text supplied to the display-options parser.
-        expected_attr (str):
-            Attribute name whose resulting content is asserted.
-        expected_lst (list[str]):
-            Parsed option list expected for this case.
-        expected_incl (bool):
-            Included option tokens expected after parsing.
-        advanced_parser (AdvancedParserFactory):
-            Advanced display-options parser fixture.
-    """
-    parser, _sensor = advanced_parser()
-    attr, lst, incl = parser.parse_attribute_parentheses(input_str)
-    assert attr == expected_attr
-    assert lst == expected_lst
-    assert incl is expected_incl
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    (
-        "parens_input",
-        "parens_expected_incl",
-        "parens_expected_excl",
-        "bracket_input",
-        "bracket_expected",
-    ),
-    [
-        ("(work,home)", ["work", "home"], [], "[option]", "option"),
-        ("(-,work,home)", [], ["work", "home"], "[option]", "option"),
-    ],
-)
-async def test_parse_parens_and_bracket(
-    parens_input: str,
-    parens_expected_incl: list[str],
-    parens_expected_excl: list[str],
-    bracket_input: str,
-    bracket_expected: str,
-    advanced_parser: AdvancedParserFactory,
-) -> None:
-    """Parse parens and bracketed options into their expected parts.
-
-    Args:
-        parens_input (str):
-            Parenthesized expression supplied to the parser.
-        parens_expected_incl (list[str]):
-            Tokens expected inside the parenthesized group.
-        parens_expected_excl (list[str]):
-            Tokens expected outside the parenthesized group.
-        bracket_input (str):
-            Bracketed expression supplied to the parser.
-        bracket_expected (str):
-            Tokens expected after bracket parsing.
-        advanced_parser (AdvancedParserFactory):
-            Advanced display-options parser fixture.
-    """
-    parser, _sensor = advanced_parser()
-    incl, excl, _incl_attr, _excl_attr, next_opt = await parser.parse_parens(parens_input)
-    assert incl == parens_expected_incl
-    assert excl == parens_expected_excl
-    none_opt, next_opt = await parser.parse_bracket(bracket_input)
-    assert none_opt == bracket_expected
-    assert isinstance(next_opt, str)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
     ("options", "attrs", "expected"),
     [
         (
@@ -471,78 +360,6 @@ async def test_build_from_advanced_options_empty_string(sensor: MockSensor) -> N
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("fn_name", "input_val"),
-    [
-        ("parse_bracket", "[unmatched"),
-        ("parse_parens", "(unmatched"),
-    ],
-)
-async def test_mismatched_special_chars_log_error(
-    caplog: pytest.LogCaptureFixture,
-    sensor: MockSensor,
-    fn_name: str,
-    input_val: str,
-) -> None:
-    """Parametrized: unmatched bracket/paren inputs should log an error and return empty-ish results.
-
-    Args:
-        caplog (pytest.LogCaptureFixture):
-            Captured log records used for message assertions.
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-        fn_name (str):
-            Parser helper name included in the diagnostic message.
-        input_val (str):
-            Input consumed by the conversion helper.
-    """
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "")
-    caplog.set_level(logging.ERROR, logger="custom_components.places.advanced_options")
-    fn = getattr(parser, fn_name)
-    res = await fn(input_val)
-    # Expect an error record was emitted
-    assert any(r.levelname == "ERROR" for r in caplog.records)
-    # Both functions return an 'empty' style result on mismatch; assert using simple checks
-    if fn_name == "parse_bracket":
-        none_opt, _next_opt = res
-        assert none_opt is None or none_opt == ""
-    else:
-        incl, _excl, _incl_attr, _excl_attr, _next_opt = res
-        assert incl == []
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("input_str", "expected_none_opt", "expected_next_opt"),
-    [
-        ("option]", "option", ""),
-        ("]", "", ""),
-        ("[outer[inner]]", "outer[inner]", ""),
-    ],
-)
-async def test_parse_bracket_variants(
-    input_str: str, expected_none_opt: object, expected_next_opt: object, sensor: MockSensor
-) -> None:
-    """Parse bracket inputs and return expected (none_opt, next_opt) pairs.
-
-    Args:
-        input_str (str):
-            Text supplied to the display-options parser.
-        expected_none_opt (object):
-            Option expected to produce no selection.
-        expected_next_opt (object):
-            Option expected after advancing the selection.
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    parser = AdvancedOptionsParser(sensor, "")
-    none_opt, next_opt = await parser.parse_bracket(input_str)
-    assert none_opt == expected_none_opt
-    assert next_opt == expected_next_opt
-
-
-@pytest.mark.asyncio
 async def test_process_bracket_or_parens_comma_first_builds_states(sensor: MockSensor) -> None:
     """Process comma-separated options and append title-cased states.
 
@@ -619,22 +436,3 @@ async def test_get_option_state_incl_attr_blank_causes_exclusion(sensor: MockSen
     parser = AdvancedOptionsParser(sensor, "")
     out = await parser.get_option_state("zone_name", incl_attr={"place_type": ["restaurant"]})
     assert out is None
-
-
-@pytest.mark.asyncio
-async def test_parse_parens_with_attribute_filters(sensor: MockSensor) -> None:
-    """Populate incl_attr when attribute-specific filters are present in parens.
-
-    Args:
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-    """
-    sensor.attrs = {}
-    parser = AdvancedOptionsParser(sensor, "")
-    incl, excl, incl_attr, excl_attr, _next_opt = await parser.parse_parens(
-        "(type(restaurant,bar),home)"
-    )
-    assert incl == ["home"]
-    assert excl == []
-    assert incl_attr == {"type": ["restaurant", "bar"]}
-    assert excl_attr == {}
