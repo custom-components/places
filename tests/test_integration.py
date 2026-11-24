@@ -270,6 +270,33 @@ async def test_async_migrate_entry_preserves_literal_in_malformed_rule(hass: Hom
 
 
 @pytest.mark.asyncio
+async def test_async_migrate_entry_keeps_filter_role_after_wrong_closer(
+    hass: HomeAssistant,
+) -> None:
+    """A mismatched closer does not cause a filter value to be migrated as a field.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the config entry.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=1,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DISPLAY_OPTIONS: "type(house], formatted_address), formatted_address",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.data == {
+        CONF_NAME: "Test Place",
+        CONF_DISPLAY_OPTIONS: "type(house], formatted_address), osm_formatted_address",
+    }
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("display_options", "expected_options"),
     [

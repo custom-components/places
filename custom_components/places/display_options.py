@@ -81,7 +81,10 @@ class Item:
             attribute_group = item.groups.get("(")
             if attribute_group is None:
                 continue
-            if any("(" in value.groups for value in attribute_group.items):
+            attribute_source = source[item.start : item.end]
+            if attribute_source.count("(") > 1 or any(
+                "(" in value.groups for value in attribute_group.items
+            ):
                 _LOGGER.error("Parenthesis Mismatch: %s", source[item.start : item.end].strip())
                 continue
             include, values = attribute_group.filter_values(source, attribute=True)
@@ -210,7 +213,7 @@ def parse_display_options(source: str) -> DisplayOptions:
             if group.opener != _CLOSERS[delimiter]:
                 bracket_mismatch = True
                 structural_error = structural_error or "bracket_mismatch"
-            if len(stack) > 1:
+            elif len(stack) > 1:
                 stack.pop()
             item.end = index
         else:

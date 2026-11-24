@@ -187,7 +187,7 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
         return errors
 
     parsed = parse_display_options(display_options)
-    if parsed.has_groups:
+    if parsed.has_groups or parsed.bracket_mismatch:
         if parsed.error:
             errors["base"] = parsed.error
         elif any(identifier.name not in DISPLAY_OPTIONS_MAP for identifier in parsed.identifiers):

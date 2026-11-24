@@ -537,6 +537,11 @@ async def test_options_flow_handler_shows_form_when_no_user_input(
             id="unmatched-bracket",
         ),
         pytest.param(
+            "city]",
+            {"base": "bracket_mismatch"},
+            id="unmatched-closing-bracket-only",
+        ),
+        pytest.param(
             "route_number(type(+, motorway, trunk,))",
             {"base": "invalid_syntax"},
             id="trailing-comma-in-parens",
@@ -658,6 +663,7 @@ async def test_config_flow_user_step_no_input_shows_form(mock_hass: MagicMock) -
     [
         (" ", "invalid_syntax"),
         ("unknown[,city", "bracket_mismatch"),
+        ("city]", "bracket_mismatch"),
         ("unknown[,city]", "invalid_syntax"),
         ("zone,[place,(zone]", "invalid_syntax"),
         ("name(city_missing(building))[city[county]]", "invalid_option"),

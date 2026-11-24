@@ -350,7 +350,7 @@ async def test_coordinator_normalizes_and_validates_map_provider(mock_hass: Magi
 
 @pytest.mark.parametrize(
     "display_options",
-    ["zone_name[", "   ", "x" * (MAX_LENGTH_STATE_STATE + 1)],
+    ["zone_name[", "city]", "   ", "x" * (MAX_LENGTH_STATE_STATE + 1)],
 )
 async def test_coordinator_rejects_invalid_display_options(
     mock_hass: MagicMock, display_options: str
