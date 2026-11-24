@@ -13,7 +13,6 @@ from urllib.parse import parse_qs, urlparse
 import aiohttp
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
-    ATTR_GPS_ACCURACY,
     CONF_API_KEY,
     CONF_FRIENDLY_NAME,
     CONF_LATITUDE,
@@ -63,7 +62,6 @@ from custom_components.places.const import (
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
     CONF_SHOW_TIME,
-    CONF_USE_GPS,
     DOMAIN,
     OSM_CACHE,
     OSM_THROTTLE,
@@ -848,109 +846,6 @@ async def test_check_device_tracker_and_update_coords_param(
     assert result == expected
     mocks["update_coordinates"].assert_awaited_once()
     mocks["get_gps_accuracy"].assert_awaited_once()
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("tracker_attrs", "expected"),
-    [
-        ({ATTR_GPS_ACCURACY: 5.0}, UpdateStatus.PROCEED),
-        ({ATTR_GPS_ACCURACY: 0}, UpdateStatus.SKIP),
-        (None, UpdateStatus.PROCEED),
-    ],
-    ids=["valid-accuracy", "zero-accuracy", "missing-tracker"],
-)
-async def test_get_gps_accuracy_variants(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    sensor: MockSensor,
-    tracker_attrs: dict[str, object] | None,
-    expected: object,
-) -> None:
-    """Parametrized variants for get_gps_accuracy: valid accuracy, zero accuracy, and missing tracker.
-
-    Args:
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
-        mock_config_entry (MockConfigEntry):
-            Places configuration entry used by the test.
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-        tracker_attrs (dict[str, object] | None):
-            Attributes exposed by the source tracker.
-        expected (object):
-            Expected result for this parametrized case.
-    """
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-
-    tracker_state = MagicMock() if tracker_attrs is not None else None
-    if tracker_attrs is not None:
-        tracker_state.attributes = tracker_attrs
-    mock_hass.states.get.return_value = tracker_state
-
-    # Populate required attributes where relevant
-    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.attrs[CONF_USE_GPS] = True
-
-    # is_attr_blank should evaluate based on actual attrs
-    sensor.is_attr_blank.side_effect = lambda k: (
-        k not in sensor.attrs
-        or sensor.attrs.get(k)
-        in (
-            None,
-            "",
-        )
-    )
-
-    result = await updater.get_gps_accuracy()
-    assert result == expected
-    if tracker_attrs is not None:
-        assert sensor.attrs[ATTR_GPS_ACCURACY] == float(tracker_attrs[ATTR_GPS_ACCURACY])
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "tracker_attrs",
-    [
-        {},
-        {ATTR_GPS_ACCURACY: None},
-        {ATTR_GPS_ACCURACY: "invalid"},
-        {ATTR_GPS_ACCURACY: -1.0},
-        {ATTR_GPS_ACCURACY: float("nan")},
-        {ATTR_GPS_ACCURACY: float("inf")},
-    ],
-    ids=["absent", "none", "non-numeric", "negative", "nan", "infinite"],
-)
-async def test_get_gps_accuracy_clears_stale_zero(
-    mock_hass: MagicMock,
-    mock_config_entry: MockConfigEntry,
-    sensor: MockSensor,
-    tracker_attrs: dict[str, object],
-) -> None:
-    """Invalid current accuracy should clear a stale zero and proceed.
-
-    Args:
-        mock_hass (MagicMock):
-            Mocked Home Assistant runtime.
-        mock_config_entry (MockConfigEntry):
-            Places configuration entry used by the test.
-        sensor (MockSensor):
-            Places sensor fixture whose state is asserted.
-        tracker_attrs (dict[str, object]):
-            Attributes exposed by the source tracker.
-    """
-    updater = PlacesUpdater(mock_hass, mock_config_entry, sensor)
-    tracker_state = MagicMock()
-    tracker_state.attributes = tracker_attrs
-    mock_hass.states.get.return_value = tracker_state
-    sensor.attrs[CONF_DEVICETRACKER_ID] = "device_tracker.test"
-    sensor.attrs[CONF_USE_GPS] = True
-    sensor.attrs[ATTR_GPS_ACCURACY] = 0.0
-
-    result = await updater.get_gps_accuracy()
-
-    assert result == UpdateStatus.PROCEED
-    assert ATTR_GPS_ACCURACY not in sensor.attrs
 
 
 @pytest.mark.asyncio

@@ -32,6 +32,8 @@ from .const import (
     ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_DISTANCE_FROM_HOME,
     ATTR_DISTANCE_TRAVELED,
+    ATTR_GPS_ACCURACY_SOURCES,
+    ATTR_GPS_ACCURACY_TRACKED_ENTITY,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LOCATION,
     ATTR_HOME_LONGITUDE,
@@ -193,7 +195,7 @@ class PlacesUpdater:
         return None
 
     def _retain_place(self, accepted: MutableMapping[str, Any], *, keep_zone: bool) -> None:
-        """Discard the candidate Place and carry over permitted zone changes.
+        """Discard the candidate Place, keeping learned GPS accuracy and permitted zone changes.
 
         Args:
             accepted (MutableMapping[str, Any]): Attributes of the last accepted Place.
@@ -201,6 +203,12 @@ class PlacesUpdater:
         """
         candidate = self.state
         self.state = PlacesState(self._hass, dict(accepted))
+        # What the tracker reported is learned whether or not the Place changes.
+        for attr in (ATTR_GPS_ACCURACY_SOURCES, ATTR_GPS_ACCURACY_TRACKED_ENTITY):
+            if candidate.is_attr_blank(attr):
+                self.state.clear_attr(attr)
+            else:
+                self.state.set_attr(attr, candidate.get_attr(attr))
         if keep_zone:
             for attr in (ATTR_DEVICETRACKER_ZONE, ATTR_DEVICETRACKER_ZONE_NAME):
                 value = candidate.get_attr(attr)
@@ -385,40 +393,50 @@ class PlacesUpdater:
         return proceed_with_update
 
     async def get_gps_accuracy(self) -> UpdateStatus:
-        """Read GPS accuracy and optionally skip zero-accuracy GPS updates.
+        """Decide whether a GPS accuracy of 0 from the tracked entity skips this Update.
+
+        A 0 reading is treated as not reported until its source tracker has reported
+        a positive GPS accuracy, which is then recorded with the Places entry. A 0
+        reading from a recorded source tracker skips the Update. With Use GPS
+        Accuracy off, accuracy is ignored and nothing is recorded.
 
         Returns:
             UpdateStatus:
-                ``SKIP`` when GPS mode is enabled and accuracy is zero, otherwise
-                ``PROCEED``.
+                ``SKIP`` for a 0 reading from a source tracker recorded as reporting
+                accuracy, otherwise ``PROCEED``.
         """
         tracker_id = self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID)
-        gps_accuracy = TrackerSnapshot.from_hass(self._hass, tracker_id).gps_accuracy
-        if gps_accuracy is not None:
-            self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
-        else:
+        tracker_snapshot = TrackerSnapshot.from_hass(self._hass, tracker_id)
+        gps_accuracy = tracker_snapshot.gps_accuracy
+        if gps_accuracy is None:
             self.state.clear_attr(ATTR_GPS_ACCURACY)
             _LOGGER.debug(
                 "(%s) GPS Accuracy attribute not found in: %s",
                 self.state.get_attr(CONF_NAME),
                 self.state.get_attr(CONF_DEVICETRACKER_ID),
             )
-        proceed_with_update = UpdateStatus.PROCEED
+            return UpdateStatus.PROCEED
 
-        if not self.state.is_attr_blank(ATTR_GPS_ACCURACY):
-            if self.state.get_attr(CONF_USE_GPS) and self.state.get_attr(ATTR_GPS_ACCURACY) == 0:
-                proceed_with_update = UpdateStatus.SKIP
-                _LOGGER.info(
-                    "(%s) GPS Accuracy is 0.0, not performing update",
-                    self.state.get_attr(CONF_NAME),
-                )
-            else:
-                _LOGGER.debug(
-                    "(%s) GPS Accuracy: %s",
-                    self.state.get_attr(CONF_NAME),
-                    round(self.state.get_attr_safe_float(ATTR_GPS_ACCURACY), 3),
-                )
-        return proceed_with_update
+        self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
+        if not self.state.get_attr(CONF_USE_GPS):
+            return UpdateStatus.PROCEED
+
+        source_tracker = tracker_snapshot.source_tracker or tracker_id
+        if gps_accuracy > 0:
+            self.state.add_gps_accuracy_source(source_tracker)
+            _LOGGER.debug(
+                "(%s) GPS Accuracy: %s",
+                self.state.get_attr(CONF_NAME),
+                round(gps_accuracy, 3),
+            )
+            return UpdateStatus.PROCEED
+        if source_tracker in self.state.get_gps_accuracy_sources():
+            _LOGGER.info(
+                "(%s) GPS Accuracy is 0.0, not performing update",
+                self.state.get_attr(CONF_NAME),
+            )
+            return UpdateStatus.SKIP
+        return UpdateStatus.PROCEED
 
     async def update_coordinates(self) -> None:
         """Copy latitude and longitude from the tracked entity state."""

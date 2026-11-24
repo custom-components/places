@@ -66,7 +66,7 @@ Key | Required | Default | Description |
 `Map Provider` | `No` | `apple` | `google`, `apple`, `osm` |
 `Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20> |
 `Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) |
-`Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor (if 0, don't update the places sensor). By not updating when GPS Accuracy is 0, should prevent inaccurate locations from being set in the places sensors.<br /><br />**Set this to `False` if your Device Tracker has a GPS Accuracy (`gps_accuracy`) attribute, but it always shows 0 even if the latitude and longitude are correct.** |
+`Use GPS Accuracy` | `No` | `True` | Use GPS Accuracy when determining whether to update the places sensor. A GPS Accuracy (`gps_accuracy`) of `0` means not reported until the device tracker reports a positive GPS Accuracy; after that, a `0` reading from that tracker does not update the places sensor, which keeps inaccurate locations out of the places sensors. Trackers that never report GPS Accuracy keep updating normally, so most users can leave this on. Set this to `False` to ignore GPS Accuracy completely. |
 `Extended Attributes` | `No` | `False` | When enabled, this option creates an enabled diagnostic `Extended data` sensor and fetches raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped. The extended sensor's raw attributes are excluded from recorder. |
 `Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)` |
 

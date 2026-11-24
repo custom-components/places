@@ -29,7 +29,7 @@
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
-                    "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
+                    "use_gps_accuracy": "Přesnost GPS 0 znamená, že není hlášena, dokud sledovací zařízení neohlásí kladnou přesnost GPS (gps_accuracy). Poté se aktualizace při hodnotě 0 z něj neprovede. Vypněte pro úplné ignorování přesnosti GPS."
                   }
             }
         }
@@ -95,7 +95,7 @@
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
-                    "use_gps_accuracy": "Tuto možnost vypněte, pokud má váš nástroj pro sledování zařízení atribut přesnosti GPS (gps_accuracy), ale vždy zobrazuje 0, i když jsou zeměpisná šířka a délka správné."
+                    "use_gps_accuracy": "Přesnost GPS 0 znamená, že není hlášena, dokud sledovací zařízení neohlásí kladnou přesnost GPS (gps_accuracy). Poté se aktualizace při hodnotě 0 z něj neprovede. Vypněte pro úplné ignorování přesnosti GPS."
                   }
             }
         }

@@ -43,6 +43,7 @@ from .config_schema import MAP_PROVIDER_OPTIONS
 from .const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_DISPLAY_OPTIONS,
+    ATTR_GPS_ACCURACY_TRACKED_ENTITY,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
@@ -148,6 +149,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         )
         self._initialize_config_attributes()
         self.import_persisted_attributes(imported_attributes)
+        self._discard_stale_gps_accuracy_sources()
         self.async_set_updated_data(self.snapshot())
 
     @property
@@ -463,6 +465,18 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                 self.get_attr(CONF_NAME),
                 persisted_attr,
             )
+
+    def _discard_stale_gps_accuracy_sources(self) -> None:
+        """Forget restored GPS accuracy sources that do not apply to this entry.
+
+        The record applies only while Use GPS Accuracy is on and it was learned for
+        the currently configured tracked entity.
+        """
+        recorded_entity = self.get_attr_safe_str(ATTR_GPS_ACCURACY_TRACKED_ENTITY)
+        if not self.get_attr(CONF_USE_GPS) or recorded_entity != self.get_attr_safe_str(
+            CONF_DEVICETRACKER_ID
+        ):
+            self.clear_gps_accuracy_sources()
 
     async def async_persist_attributes(self) -> None:
         """Persist the current runtime attributes."""
