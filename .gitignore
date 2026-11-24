@@ -29,3 +29,4 @@ venv.bak/
 venv/
 places.egg-info/
 .worktrees/
+.scratch/
