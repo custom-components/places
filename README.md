@@ -12,7 +12,7 @@
 | custom\_components/places/config\_flow.py      |       95 |        0 |       46 |        1 |     99% |   87-\>83 |
 | custom\_components/places/config\_schema.py    |       18 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/const.py             |      105 |        0 |        0 |        0 |    100% |           |
-| custom\_components/places/coordinator.py       |      288 |       17 |       80 |       13 |     91% |207, 313-319, 415-416, 437-\>440, 455, 508-\>510, 518, 520-\>530, 551, 554, 574, 586, 618 |
+| custom\_components/places/coordinator.py       |      291 |       17 |       82 |       13 |     91% |207, 313-319, 421-422, 443-\>446, 461, 514-\>516, 524, 526-\>536, 557, 560, 580, 592, 624 |
 | custom\_components/places/display\_options.py  |      150 |        0 |       46 |        1 |     99% | 217-\>219 |
 | custom\_components/places/entity.py            |       38 |        2 |        2 |        1 |     92% |   88, 130 |
 | custom\_components/places/helpers.py           |       16 |        0 |        2 |        0 |    100% |           |
@@ -28,7 +28,7 @@
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |       86 |        0 |       16 |        0 |    100% |           |
 | custom\_components/places/update\_sensor.py    |      476 |       16 |      186 |       18 |     95% |178, 319, 444-\>exit, 445-\>447, 447-\>exit, 538-\>540, 544-\>547, 554, 664, 665-\>667, 669-673, 790, 813-\>exit, 833-\>exit, 925-\>936, 1024, 1119, 1120-\>1130, 1122-1128, 1132-1134, 1139-\>exit |
-| **TOTAL**                                      | **2318** |   **61** |  **684** |   **53** | **96%** |           |
+| **TOTAL**                                      | **2321** |   **61** |  **686** |   **53** | **96%** |           |
 
 
 ## Setup coverage badge
