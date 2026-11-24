@@ -120,7 +120,7 @@ class PlacesStorage:
         return {}
 
     async def async_save(self, attributes: Mapping[str, Any]) -> None:
-        """Persist the current sensor attributes immediately.
+        """Save sensor attributes, with Store deferring the write during STOP.
 
         Args:
             attributes (Mapping[str, Any]):

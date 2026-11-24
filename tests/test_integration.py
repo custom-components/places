@@ -18,7 +18,11 @@ from urllib.parse import parse_qs, urlparse
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import EVENT_HOMEASSISTANT_FINAL_WRITE, STATE_UNAVAILABLE
+from homeassistant.const import (
+    EVENT_HOMEASSISTANT_FINAL_WRITE,
+    EVENT_HOMEASSISTANT_STOP,
+    STATE_UNAVAILABLE,
+)
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
@@ -2401,6 +2405,53 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
         json.loads((tmp_path / "places-store.json").read_text())["data"][ATTR_NATIVE_VALUE]
         == "Oxford"
     )
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_tracker_update_does_not_announce_a_deferred_stop_write(
+    hass: HomeAssistant,
+    loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+) -> None:
+    """Save a Place accepted during STOP without inviting a premature entry reload.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
+        loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+    """
+    entry, storage, session = loaded_lifecycle_entry
+    session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
+    assert hass.states.get("sensor.lifecycle").state == "London"
+    announcements: list[str] = []
+
+    @callback
+    def move_during_stop(_event: Event) -> None:
+        """Move the tracked entity once Home Assistant is stopping.
+
+        Args:
+            _event (Event): Home Assistant stop event.
+        """
+        hass.states.async_set(
+            "device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1}
+        )
+
+    @callback
+    def reload_on_announcement(event: Event) -> None:
+        """Reload once a Places event subscriber is told about the accepted Place.
+
+        Args:
+            event (Event): Places state update event.
+        """
+        announcements.append(event.data["to_state"])
+        if len(announcements) == 1:
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, move_during_stop)
+    hass.bus.async_listen(EVENT_TYPE, reload_on_announcement)
+    await asyncio.wait_for(hass.async_stop(), timeout=5)
+
+    assert announcements == []
+    assert hass.states.get("sensor.lifecycle").state == "Oxford"
+    assert (await storage.async_load())[ATTR_NATIVE_VALUE] == "Oxford"
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

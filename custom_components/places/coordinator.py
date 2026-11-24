@@ -328,10 +328,16 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         Args:
             event_data (dict[str, Any]): Places event for the accepted snapshot.
         """
+        # Store queues saves made during STOP for FINAL_WRITE. A reload triggered
+        # by an announcement would still load the previous snapshot, and waiting
+        # for FINAL_WRITE here would block the STOP listener.
+        save_deferred = self.hass.state is CoreState.stopping
         await self.async_persist_attributes()
         if self._is_shutting_down:
             return
         self._pending_place_event = None
+        if save_deferred:
+            return
         self.hass.bus.async_fire(EVENT_TYPE, event_data)
         _LOGGER.info("(%s) Event Fired [event_type: %s]", self.get_attr(CONF_NAME), EVENT_TYPE)
 
