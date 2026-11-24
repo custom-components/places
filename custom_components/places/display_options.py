@@ -15,11 +15,12 @@ _MARKERS = {"+", "-"}
 
 @dataclass(frozen=True, slots=True)
 class Identifier:
-    """One identifier and its half-open span in the original expression."""
+    """A token checked by validation, with its source span and field role."""
 
     name: str
     start: int
     end: int
+    is_field: bool
 
 
 @dataclass(slots=True)
@@ -52,8 +53,11 @@ class Item:
         group = self.groups.get("[")
         return group.items if group else []
 
-    def filters(self) -> Filters:
+    def filters(self, source: str) -> Filters:
         """Interpret this item's filter group.
+
+        Args:
+            source (str): The original Display options expression.
 
         Returns:
             Filters:
@@ -64,7 +68,7 @@ class Item:
         if group is None:
             return filters
 
-        include, values = group.filter_values()
+        include, values = group.filter_values(source)
         if include:
             filters.include = values
         else:
@@ -73,7 +77,7 @@ class Item:
         for item in group.items:
             attribute_group = item.groups.get("(")
             if attribute_group is not None:
-                include, values = attribute_group.filter_values(attribute=True)
+                include, values = attribute_group.filter_values(source, attribute=True)
                 attributes = filters.include_attributes if include else filters.exclude_attributes
                 attributes[item.token] = values
         return filters
@@ -85,11 +89,13 @@ class Group:
 
     opener: str
     items: list[Item]
+    in_literal: bool = False
 
-    def filter_values(self, *, attribute: bool = False) -> tuple[bool, list[str]]:
+    def filter_values(self, source: str, *, attribute: bool = False) -> tuple[bool, list[str]]:
         """Return the include mode and literal values in a filter group.
 
         Args:
+            source (str): The original Display options expression.
             attribute (bool):
                 Whether values are compared against an attribute filter.
 
@@ -97,11 +103,15 @@ class Group:
             tuple[bool, list[str]]:
                 The inclusion mode and normalized literal values.
         """
-        first = self.items[0].token
+        literals = [
+            None if "(" in item.groups else source[item.start : item.end].strip()
+            for item in self.items
+        ]
+        first = literals[0]
         values = [
-            item.token.lower().strip("'\"") if attribute else item.token.lower()
-            for item in self.items[int(first in _MARKERS) :]
-            if not item.groups and (item.token or attribute)
+            value.lower().strip("'\"") if attribute else value.lower()
+            for value in literals[int(first in _MARKERS) :]
+            if value is not None and (value or attribute)
         ]
         return first != "-", values
 
@@ -113,6 +123,7 @@ class DisplayOptions:
     source: str
     items: list[Item]
     identifiers: list[Identifier]
+    event_options: list[str]
     has_groups: bool
     bracket_mismatch: bool
     error: SyntaxErrorKey | None
@@ -144,6 +155,8 @@ def parse_display_options(source: str) -> DisplayOptions:
     root = Group("", [Item(0)])
     stack = [root]
     identifiers: list[Identifier] = []
+    event_options: list[str] = []
+    event_option_start = 0
     chunk_start = 0
     previous = ""
     has_groups = False
@@ -163,14 +176,18 @@ def parse_display_options(source: str) -> DisplayOptions:
         opening = delimiter in "[("
         if token and token not in _MARKERS and (opening or group.opener != "("):
             start = chunk_start + len(chunk) - len(chunk.lstrip())
-            identifiers.append(Identifier(token, start, start + len(token)))
+            # Validation historically checks bracketed literal text in pieces.
+            # Migration can rewrite only display fields and attribute-filter names.
+            is_field = not group.in_literal and (group.opener != "(" or delimiter == "(")
+            identifiers.append(Identifier(token, start, start + len(token), is_field))
 
         # Structural errors retain precedence over comma and token syntax errors.
         if opening:
             has_groups = True
             if not token and (not index or source[index - 1] not in "])"):
                 structural_error = structural_error or "invalid_syntax"
-            nested = Group(delimiter, [Item(index + 1)])
+            in_literal = group.in_literal or (group.opener == "(" and delimiter == "[")
+            nested = Group(delimiter, [Item(index + 1)], in_literal)
             item.groups.setdefault(delimiter, nested)
             stack.append(nested)
         elif delimiter in _CLOSERS:
@@ -183,6 +200,9 @@ def parse_display_options(source: str) -> DisplayOptions:
         else:
             item.end = index
             group.items.append(Item(index + 1))
+            # The event formatter has historically matched comma-delimited text.
+            event_options.append(source[event_option_start:index].strip())
+            event_option_start = index + 1
 
         invalid_syntax |= (
             " " in token
@@ -201,7 +221,7 @@ def parse_display_options(source: str) -> DisplayOptions:
         group.items[-1].token = token
     if token and token not in _MARKERS and group.opener != "(":
         start = chunk_start + len(chunk) - len(chunk.lstrip())
-        identifiers.append(Identifier(token, start, start + len(token)))
+        identifiers.append(Identifier(token, start, start + len(token), not group.in_literal))
     if len(stack) > 1:
         bracket_mismatch = True
         structural_error = structural_error or "bracket_mismatch"
@@ -209,4 +229,8 @@ def parse_display_options(source: str) -> DisplayOptions:
     error = structural_error
     if error is None and (invalid_syntax or " " in token):
         error = "invalid_syntax"
-    return DisplayOptions(source, root.items, identifiers, has_groups, bracket_mismatch, error)
+    if source:
+        event_options.append(source[event_option_start:].strip())
+    return DisplayOptions(
+        source, root.items, identifiers, event_options, has_groups, bracket_mismatch, error
+    )

@@ -97,7 +97,7 @@ def _migrate_display_options(source: str) -> str:
     chunks: list[str] = []
     start = 0
     for identifier in parsed.identifiers:
-        if identifier.name.lower() == "formatted_address":
+        if identifier.is_field and identifier.name.lower() == "formatted_address":
             chunks.extend((source[start : identifier.start], "osm_formatted_address"))
             start = identifier.end
     if chunks:

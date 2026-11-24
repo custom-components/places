@@ -741,7 +741,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         display_options = (
             [option.strip() for option in parsed.top_level_options()] if source else []
         )
-        self.set_attr(ATTR_DISPLAY_OPTIONS_LIST, display_options)
+        self.set_attr(ATTR_DISPLAY_OPTIONS_LIST, parsed.event_options)
 
         await self.get_driving_status()
 
@@ -749,7 +749,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             basic_parser = BasicOptionsParser(
                 coordinator=self,
                 internal_attr=self.get_internal_attr(),
-                display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
+                display_options=display_options,
             )
             formatted_place = await basic_parser.build_formatted_place()
             self.set_attr(ATTR_FORMATTED_PLACE, formatted_place)
@@ -771,7 +771,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
             basic_parser = BasicOptionsParser(
                 coordinator=self,
                 internal_attr=self.get_internal_attr(),
-                display_options=self.get_attr_safe_list(ATTR_DISPLAY_OPTIONS_LIST),
+                display_options=display_options,
             )
             state = await basic_parser.build_display()
             if state:

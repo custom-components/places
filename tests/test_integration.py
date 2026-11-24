@@ -287,6 +287,11 @@ async def test_async_migrate_entry_preserves_literal_in_malformed_rule(hass: Hom
             id="filter-value-formatted-address",
         ),
         ("formatted_address[city]", "osm_formatted_address[city]"),
+        pytest.param(
+            "formatted_address[name], name(formatted_address[city], city[formatted_address])",
+            "osm_formatted_address[name], name(formatted_address[city], city[formatted_address])",
+            id="bracketed-filter-values",
+        ),
         (
             "type(formatted_address(formatted_address), city)",
             "type(osm_formatted_address(formatted_address), city)",

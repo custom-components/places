@@ -45,22 +45,20 @@ class AdvancedOptionsParser:
             parse_display_options(curr_options) if isinstance(curr_options, str) else curr_options
         )
         self.state_list: list[str] = []
-        self._street_num_i = -1
-        self._street_i = -1
-        self._temp_i = 0
 
     async def build_from_advanced_options(self) -> None:
-        """Append available values in display order, following fallbacks as needed."""
+        """Append available values in display order and join adjacent address pairs."""
         if self.options.bracket_mismatch:
             _LOGGER.error("Mismatched delimiters in Display options: %s", self.options.source)
             return
 
         pending = list(reversed(self.options.items))
+        previous_field: str | None = None
         while pending:
             item = pending.pop()
             if not item.token:
                 continue
-            filters = item.filters()
+            filters = item.filters(self.options.source)
             state = await self.get_option_state(
                 item.token,
                 filters.include,
@@ -68,10 +66,18 @@ class AdvancedOptionsParser:
                 filters.include_attributes,
                 filters.exclude_attributes,
             )
-            if state:
-                self.state_list.append(state)
-            else:
+            if not state:
                 pending.extend(reversed(item.fallback))
+                continue
+            mapped_field = DISPLAY_OPTIONS_MAP.get(item.token.lower())
+            if previous_field == ATTR_STREET_NUMBER and mapped_field in {
+                ATTR_STREET,
+                ATTR_ROUTE_NUMBER,
+            }:
+                self.state_list[-1] += f" {state}"
+            else:
+                self.state_list.append(state)
+            previous_field = mapped_field
 
     async def get_option_state(
         self,
@@ -188,13 +194,7 @@ class AdvancedOptionsParser:
                 ATTR_PLACE_CATEGORY,
             }:
                 out = out.title()
-            out = out.strip()
-            if mapped_opt in {ATTR_STREET, ATTR_ROUTE_NUMBER}:
-                self._street_i = self._temp_i
-            if mapped_opt == ATTR_STREET_NUMBER:
-                self._street_num_i = self._temp_i
-            self._temp_i += 1
-            return out
+            return out.strip()
         return None
 
     async def compile_state(self) -> str:
@@ -205,19 +205,4 @@ class AdvancedOptionsParser:
                 Comma-separated state string, with street number and street joined
                 by a space when they are adjacent.
         """
-        self._street_num_i += 1
-        first = True
-        result = ""
-        for i, out in enumerate(self.state_list):
-            if out:
-                out = out.strip()
-                if first:
-                    result = str(out)
-                    first = False
-                else:
-                    if i == self._street_i and i == self._street_num_i:
-                        result += " "
-                    else:
-                        result += ", "
-                    result += out
-        return result
+        return ", ".join(self.state_list)

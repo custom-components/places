@@ -6,7 +6,7 @@ import copy
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.const import MAX_LENGTH_STATE_STATE
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
@@ -24,9 +24,11 @@ from custom_components.places.const import (
     CONF_NAME,
     CONF_SHOW_TIME,
     DOMAIN,
+    EVENT_TYPE,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.persistence import PlacesStorage
+from custom_components.places.update_sensor import PlacesUpdater
 
 # Semantic location attributes used by the display-option cases below.
 BASE_INTERNAL_ATTR = {
@@ -205,6 +207,26 @@ FILTERED_FALLBACK = (
         (REPEATED_FALLBACK, FALLBACK_PLACE, REPEATED_STATE),
         (LONG_RULE, FALLBACK_PLACE, REPEATED_STATE),
         (
+            "name[house_number, neighborhood, street], type[house_number, neighborhood, street]",
+            FALLBACK_PLACE,
+            "1 Bridge Plaza North, 1 Bridge Plaza North",
+        ),
+        (
+            "name(+, city[county])[street]",
+            FALLBACK_PLACE | {"place_name": "Corner Cafe"},
+            "Bridge Plaza North",
+        ),
+        (
+            "name(-, city[county])[street]",
+            FALLBACK_PLACE | {"place_name": "City[County]"},
+            "Bridge Plaza North",
+        ),
+        (
+            "name(category(city[county]))[street]",
+            FALLBACK_PLACE | {"place_name": "Corner Cafe", "place_category": "city[county]"},
+            "Corner Cafe",
+        ),
+        (
             FILTERED_FALLBACK,
             FALLBACK_PLACE | {"place_type": "city", "place_category": "building"},
             "City, NJ",
@@ -251,6 +273,10 @@ FILTERED_FALLBACK = (
     ids=(
         "repeated-fallback",
         "long-rule",
+        "repeated-address-with-omitted-field",
+        "bracketed-include-miss",
+        "bracketed-exclude-match",
+        "bracketed-attribute-match",
         "matching-primary",
         "literal-mismatch",
         "attribute-mismatch",
@@ -293,6 +319,57 @@ async def test_config_flow_renders_restored_place(
     state = hass.states.get("sensor.test_place")
     assert state is not None
     assert state.state == expected
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
+    ("rule", "expected_formatted"),
+    [
+        ("zone_name[city, driving, county]", "Driving, Bergen County"),
+        ("zone_name[driving, county]", "Bergen County"),
+    ],
+)
+async def test_display_options_event_driving(
+    hass: HomeAssistant, rule: str, expected_formatted: str
+) -> None:
+    """Publish the main sensor state and the established Formatted place event value.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the Places entry.
+        rule (str): Advanced display options for a Place outside a zone.
+        expected_formatted (str): Formatted place value in the state-update event.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_DISPLAY_OPTIONS: rule,
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    await PlacesStorage(hass, entry.entry_id, "Test Place").async_save(
+        {
+            "zone": "not_home",
+            "place_category": "highway",
+            "place_type": "motorway",
+            "county": "Bergen County",
+            ATTR_NATIVE_VALUE: "Earlier display text",
+        }
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.is_state("sensor.test_place", "Driving, Bergen County")
+
+    events: list[Event] = []
+    hass.bus.async_listen_once(EVENT_TYPE, events.append)
+    await PlacesUpdater(hass, entry, entry.runtime_data).fire_event_data("")
+    await hass.async_block_till_done()
+
+    assert events[0].data["to_state"] == "Driving, Bergen County"
+    assert events[0].data["formatted_place"] == expected_formatted
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
