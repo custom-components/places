@@ -1,13 +1,16 @@
 """Integration tests for the custom_components.places module."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+import json
 import logging
 from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import parse_qs, urlparse
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
+from homeassistant.core import Event, HomeAssistant, callback
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -24,6 +27,12 @@ from custom_components.places.const import (
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_LAST_CHANGED,
+    ATTR_LAST_UPDATED,
+    ATTR_LATITUDE,
+    ATTR_LATITUDE_OLD,
+    ATTR_LONGITUDE,
+    ATTR_LONGITUDE_OLD,
+    ATTR_MAP_LINK,
     ATTR_NATIVE_VALUE,
     CONF_API_KEY,
     CONF_DEVICETRACKER_ID,
@@ -33,12 +42,193 @@ from custom_components.places.const import (
     CONF_SHOW_TIME,
     DEFAULT_DISPLAY_OPTIONS,
     DOMAIN,
+    EVENT_TYPE,
     OSM_CACHE,
     OSM_THROTTLE,
     PLATFORMS,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
+from custom_components.places.persistence import PlacesStorage
 from tests.conftest import assert_awaited_count
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("blank_payload", ["{}", "[]"])
+@pytest.mark.parametrize("restored", [False, True], ids=["new-entry", "restored-entry"])
+async def test_entry_keeps_accepted_place_until_lookup_recovers(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    blank_payload: str,
+    *,
+    restored: bool,
+) -> None:
+    """Keep the sensors and Store coherent from the first Place through OSM recovery.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the clock and HTTP boundary.
+        blank_payload (str): Empty JSON body returned for the moved coordinates.
+        restored (bool): Whether to seed the accepted Place through Store before setup.
+    """
+    now = datetime(2026, 11, 24, 12, tzinfo=UTC)
+    scan_clock = 1000.0
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(side_effect=lambda: now),
+    )
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Probe",
+        data={
+            CONF_NAME: "Probe",
+            CONF_DEVICETRACKER_ID: "device_tracker.probe",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: False,
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    accepted_link = "https://maps.apple.com/?q=51.5%2C-0.1&z=18"
+    if restored:
+        await storage.async_save(
+            {
+                ATTR_NATIVE_VALUE: "Stale display text",
+                ATTR_CITY: "London",
+                ATTR_LATITUDE: 51.5,
+                ATTR_LONGITUDE: -0.1,
+                ATTR_LATITUDE_OLD: 51.4,
+                ATTR_LONGITUDE_OLD: -0.2,
+                ATTR_MAP_LINK: accepted_link,
+                ATTR_LAST_CHANGED: "2026-11-24 11:00:00+00:00",
+            }
+        )
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set("device_tracker.probe", "not_home", {"latitude": 51.5, "longitude": -0.1})
+
+    requests: list[str] = []
+    in_flight: list[tuple[str | None, float, str]] = []
+
+    def get_response(url: str, **_kwargs: object) -> MagicMock:
+        """Return the appropriate OSM response and observe the accepted snapshot.
+
+        Args:
+            url (str): Requested reverse-geocode URL.
+            _kwargs (object): HTTP request options.
+
+        Returns:
+            MagicMock: Async response context for the requested coordinates.
+        """
+        latitude = parse_qs(urlparse(url).query)["lat"][0]
+        requests.append(latitude)
+        if latitude == "51.7" and requests.count(latitude) == 1:
+            snapshot = entry.runtime_data.snapshot()
+            in_flight.append(
+                (
+                    snapshot.native_value,
+                    snapshot.attributes[ATTR_LATITUDE],
+                    snapshot.attributes[ATTR_MAP_LINK],
+                )
+            )
+            body = blank_payload
+        else:
+            body = json.dumps(
+                {
+                    "osm_id": 1,
+                    "osm_type": "node",
+                    "category": "place",
+                    "type": "city",
+                    "address": {"city": "London" if latitude == "51.5" else "Oxford"},
+                }
+            )
+        response = MagicMock(status=200, text=AsyncMock(return_value=body))
+        return MagicMock(__aenter__=AsyncMock(return_value=response))
+
+    session = MagicMock()
+    session.get.side_effect = get_response
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+
+    events: list[tuple[dict[str, object], str, str]] = []
+
+    @callback
+    def record_event(event: Event) -> None:
+        """Read published sensor states from the Places event listener.
+
+        Args:
+            event (Event): Places state update event.
+        """
+        main = hass.states.get("sensor.probe")
+        city = hass.states.get("sensor.probe_city")
+        assert main is not None and city is not None
+        events.append((event.data, main.state, city.state))
+
+    hass.bus.async_listen(EVENT_TYPE, record_event)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    main = hass.states.get("sensor.probe")
+    city = hass.states.get("sensor.probe_city")
+    link = hass.states.get("sensor.probe_map_link")
+    assert main is not None and city is not None and link is not None
+    assert main.state == city.state == "London"
+    assert main.attributes[ATTR_LATITUDE] == 51.5
+    assert link.state == accepted_link
+    assert requests == ([] if restored else ["51.5"])
+    assert len(events) == (0 if restored else 1)
+    events.clear()
+    accepted = await storage.async_load()
+
+    now += timedelta(minutes=10)
+    hass.states.async_set("device_tracker.probe", "away", {"latitude": 51.7, "longitude": -0.1})
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe") == main
+    assert hass.states.get("sensor.probe_city") == city
+    assert hass.states.get("sensor.probe_map_link") == link
+    failed = await storage.async_load()
+    assert failed == {**accepted, ATTR_LAST_UPDATED: "2026-11-24 12:10:00+00:00"}
+    assert not events
+
+    now += timedelta(minutes=10)
+    scan_clock += 600
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+    assert len(events) == 1
+    event, main_state, city_state = events[0]
+    assert event["from_state"] == "London"
+    assert event["to_state"] == main_state == city_state == "Oxford"
+    assert event["latitude"] == 51.7
+    assert event["longitude"] == -0.1
+    assert event["previous_latitude"] == 51.5
+    assert event["previous_longitude"] == -0.1
+    assert event["zone"] == "away"
+    assert event["last_changed"] == "2026-11-24 12:20:00+00:00"
+    assert "osm_dict" not in event
+    assert "street" not in event
+    recovered = await storage.async_load()
+    assert recovered[ATTR_NATIVE_VALUE] == recovered[ATTR_CITY] == "Oxford"
+    assert recovered[ATTR_LAST_UPDATED] == recovered[ATTR_LAST_CHANGED] == event["last_changed"]
+    assert recovered[ATTR_LATITUDE] == 51.7
+    assert recovered[ATTR_LONGITUDE] == -0.1
+    assert recovered[ATTR_LATITUDE_OLD] == 51.5
+    assert recovered[ATTR_LONGITUDE_OLD] == -0.1
+    assert recovered[ATTR_MAP_LINK] == event["map_link"]
+    main = hass.states.get("sensor.probe")
+    link = hass.states.get("sensor.probe_map_link")
+    assert main is not None and link is not None
+    assert main.attributes[ATTR_LATITUDE] == 51.7
+    assert link.state == event["map_link"] == "https://maps.apple.com/?q=51.7%2C-0.1&z=18"
+
+    now += timedelta(minutes=10)
+    scan_clock += 600
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+    assert requests == (["51.7", "51.7"] if restored else ["51.5", "51.7", "51.7"])
+    assert len(events) == 1
+    assert in_flight == [("London", 51.5, accepted_link)]
 
 
 @pytest.fixture

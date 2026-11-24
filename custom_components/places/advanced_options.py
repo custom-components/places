@@ -25,7 +25,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from .coordinator import PlacesUpdateCoordinator
+    from .state import PlacesState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,12 +33,12 @@ _LOGGER = logging.getLogger(__name__)
 class AdvancedOptionsParser:
     """Parse bracketed and filtered display options into a coordinator state."""
 
-    def __init__(self, coordinator: PlacesUpdateCoordinator, curr_options: str) -> None:
+    def __init__(self, coordinator: PlacesState, curr_options: str) -> None:
         """Initialize the advanced-options parser.
 
         Args:
-            coordinator (PlacesUpdateCoordinator):
-                Places coordinator that provides attribute access helpers.
+            coordinator (PlacesState):
+                Place state that provides attribute access helpers.
             curr_options (str):
                 Raw advanced display option expression.
         """

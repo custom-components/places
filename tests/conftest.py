@@ -782,7 +782,7 @@ def stubbed_updater() -> Callable[
             ("get_current_time", {"return_value": dt}),
             ("update_previous_state", {}),
         ]):
-            await updater.do_update(...)
+            await updater.do_update("Example")
 
     Each tuple is (method_name, kwargs) where kwargs match stub_method's signature.
     """
