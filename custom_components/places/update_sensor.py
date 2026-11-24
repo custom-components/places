@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import MutableMapping
 import copy
 from datetime import UTC, datetime
@@ -68,7 +67,6 @@ from .const import (
     CONF_USE_GPS,
     DOMAIN,
     EVENT_ATTRIBUTE_MAP,
-    EVENT_TYPE,
     OSM_CACHE,
     RESET_ATTRIBUTE_LIST,
     UpdateStatus,
@@ -144,18 +142,9 @@ class PlacesUpdater:
         self.state.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
         coordinator.replace_attributes(self.state.get_internal_attr())
         if event_data is not None:
-            coordinator.publish_update()
-            # Let Home Assistant finish dispatching sensor changes before firing the
-            # Places event. A sensor listener may have started unloading the entry.
-            await asyncio.sleep(0)
-            if coordinator.is_shutting_down:
-                return
-            self._hass.bus.async_fire(EVENT_TYPE, event_data)
-            _LOGGER.info(
-                "(%s) Event Fired [event_type: %s]", coordinator.get_attr(CONF_NAME), EVENT_TYPE
-            )
-        await coordinator.async_persist_attributes()
-        if event_data is None:
+            await coordinator.async_publish_accepted_place(event_data)
+        else:
+            await coordinator.async_persist_attributes()
             coordinator.publish_update()
         _LOGGER.info("(%s) End of Update", coordinator.get_attr(CONF_NAME))
 

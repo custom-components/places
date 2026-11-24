@@ -2183,19 +2183,119 @@ def _lifecycle_response(body: str | Callable[[], Awaitable[str]]) -> MagicMock:
     return MagicMock(__aenter__=AsyncMock(return_value=MagicMock(status=200, text=read)))
 
 
+@pytest.mark.parametrize("interruption", ["cancel", "reload"])
+async def test_force_update_finalizes_published_place(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    monkeypatch: pytest.MonkeyPatch,
+    interruption: str,
+) -> None:
+    """Save and announce an accepted Place once across a cancellation or reload.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Entry with Force update enabled.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the HTTP boundary.
+        interruption (str): Lifecycle action triggered by publication or the event.
+    """
+    session = MagicMock()
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    session.get.return_value = _lifecycle_response('{"address":{"city":"London"}}')
+    entry_id = force_update_entry.entry_id
+    assert await hass.config_entries.async_setup(entry_id)
+    await hass.async_block_till_done()
+    session.get.return_value = _lifecycle_response("{}")
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 5}
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.probe").state == "London"
+
+    session.get.reset_mock()
+    session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
+    storage = PlacesStorage(hass, entry_id, "Probe")
+    announcements: list[tuple[str, str]] = []
+    reload_tasks: list[asyncio.Task[bool]] = []
+
+    @callback
+    def cancel_on_publish(event: Event[EventStateChangedData]) -> None:
+        """Cancel the service caller as Oxford is published.
+
+        Args:
+            event (Event[EventStateChangedData]): Main sensor state change.
+        """
+        state = event.data["new_state"]
+        if state is not None and state.state == "Oxford":
+            service_call.cancel()
+
+    @callback
+    def observe_event(event: Event) -> None:
+        """Read the sensor on every event and optionally reload the entry once.
+
+        Args:
+            event (Event): Places state update event.
+        """
+        announcements.append((event.data["to_state"], hass.states.get("sensor.probe").state))
+        if interruption == "reload" and not reload_tasks:
+            reload_tasks.append(hass.async_create_task(hass.config_entries.async_reload(entry_id)))
+
+    hass.bus.async_listen(EVENT_TYPE, observe_event)
+    if interruption == "cancel":
+        async_track_state_change_event(hass, "sensor.probe", cancel_on_publish)
+    service_call = hass.async_create_task(
+        hass.services.async_call(
+            "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+        ),
+        eager_start=False,
+    )
+    if interruption == "cancel":
+        with pytest.raises(asyncio.CancelledError):
+            await service_call
+    else:
+        await service_call
+    await hass.async_block_till_done()
+
+    if interruption == "reload":
+        (reload_task,) = reload_tasks
+        assert reload_task.result()
+    assert announcements == [("Oxford", "Oxford")]
+    assert hass.states.get("sensor.probe").state == "Oxford"
+    snapshot = await storage.async_load()
+    assert snapshot[ATTR_LATITUDE] == 51.7
+    assert snapshot[ATTR_NATIVE_VALUE] == "Oxford"
+    session.get.assert_called_once()
+
+
 @pytest.mark.usefixtures("enable_custom_integrations")
-@pytest.mark.parametrize("unload_timing", ["during-publish", "after-publish", "nested-bus"])
-async def test_places_event_does_not_dispatch_after_unload_starts(
+@pytest.mark.parametrize(
+    ("unload_timing", "unload_succeeds"),
+    [
+        ("during-publish", True),
+        ("after-publish", True),
+        ("nested-bus", True),
+        ("force-after-publish", True),
+        ("during-publish", False),
+    ],
+)
+async def test_places_event_waits_for_unload_outcome(
     hass: HomeAssistant,
     loaded_lifecycle_entry: tuple[MockConfigEntry, PlacesStorage, MagicMock],
+    monkeypatch: pytest.MonkeyPatch,
     unload_timing: str,
+    *,
+    unload_succeeds: bool,
 ) -> None:
-    """Keep Place event dispatch on the publication side of the unload boundary.
+    """Suppress the published Place event during unload and recover it if unload fails.
 
     Args:
         hass (HomeAssistant): Home Assistant runtime with the Places entry loaded.
         loaded_lifecycle_entry (tuple[MockConfigEntry, PlacesStorage, MagicMock]): Entry fixture.
+        monkeypatch (pytest.MonkeyPatch): Replacement for Home Assistant platform unload.
         unload_timing (str): How sensor publication overlaps unload and bus dispatch.
+        unload_succeeds (bool): Whether the platforms agree to unload.
     """
     entry, storage, session = loaded_lifecycle_entry
     accepted = await storage.async_load()
@@ -2218,6 +2318,21 @@ async def test_places_event_does_not_dispatch_after_unload_starts(
     )
     events = async_capture_events(hass, EVENT_TYPE)
     unload_tasks: list[asyncio.Task[bool]] = []
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+
+    async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
+        """Check finalization is suspended while the platforms decide whether to unload.
+
+        Args:
+            _entry (object): Entry Home Assistant is unloading.
+            _platforms (object): Platforms Home Assistant should unload.
+
+        Returns:
+            bool: Platform unload result.
+        """
+        assert not events
+        assert await storage.async_load() == accepted
+        return False
 
     @callback
     def unload_on_publish(event: Event[EventStateChangedData]) -> None:
@@ -2231,21 +2346,42 @@ async def test_places_event_does_not_dispatch_after_unload_starts(
             unload_tasks.append(
                 hass.async_create_task(
                     hass.config_entries.async_unload(entry.entry_id),
-                    eager_start=unload_timing != "after-publish",
+                    eager_start=unload_timing not in {"after-publish", "force-after-publish"},
                 )
             )
 
-    async_track_state_change_event(hass, "sensor.lifecycle", unload_on_publish)
-    hass.states.async_set("device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1})
-    if unload_timing != "nested-bus":
-        await asyncio.wait_for(request_started.wait(), timeout=2)
-        release_request.set()
-    await hass.async_block_till_done()
+    with monkeypatch.context() as patch:
+        if not unload_succeeds:
+            patch.setattr(hass.config_entries, "async_unload_platforms", refuse_platform_unload)
+        async_track_state_change_event(hass, "sensor.lifecycle", unload_on_publish)
+        force = None
+        if unload_timing == "force-after-publish":
+            force = hass.async_create_task(coordinator.async_force_update())
+        else:
+            hass.states.async_set(
+                "device_tracker.lifecycle", "away", {"latitude": 51.7, "longitude": -0.1}
+            )
+        if unload_timing != "nested-bus":
+            await asyncio.wait_for(request_started.wait(), timeout=2)
+            release_request.set()
+        await hass.async_block_till_done()
 
     (unload_task,) = unload_tasks
-    assert unload_task.result()
-    assert not events
-    assert await storage.async_load() == accepted
+    assert unload_task.result() is unload_succeeds
+    if force is not None:
+        await force
+    if unload_succeeds:
+        assert not events
+        assert await storage.async_load() == accepted
+    else:
+        # Allow the resumed scan to run, then drain the refresh debouncer on the failed entry.
+        async_fire_time_changed(hass, datetime.now(UTC) + timedelta(seconds=11))
+        await hass.async_block_till_done()
+        await coordinator.async_shutdown()
+        assert hass.states.get("sensor.lifecycle").state == "Oxford"
+        assert [event.data["to_state"] for event in events] == ["Oxford"]
+        assert (await storage.async_load())[ATTR_LATITUDE] == 51.7
+        session.get.assert_called_once()
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

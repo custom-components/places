@@ -65,6 +65,7 @@ from .const import (
     DEFAULT_MAP_ZOOM,
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
+    EVENT_TYPE,
     MAIN_STATE_ATTRIBUTE_LIST,
 )
 from .helpers import is_float
@@ -125,6 +126,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         self._tracker_unsubscribe: Callable[[], None] | None = None
         self._update_lock = asyncio.Lock()
         self._is_shutting_down = False
+        self._pending_place_event: dict[str, Any] | None = None
         self._tracker_update_tasks: set[asyncio.Task[None]] = set()
         self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
@@ -252,6 +254,56 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         if self._is_shutting_down:
             return
         self.async_set_updated_data(self.snapshot())
+
+    async def async_publish_accepted_place(self, event_data: dict[str, Any]) -> None:
+        """Publish the accepted Place and finalize it while the caller holds the update lock.
+
+        Args:
+            event_data (dict[str, Any]): Places event for the accepted snapshot.
+        """
+        self._pending_place_event = event_data
+        self.publish_update()
+        await self._async_finalize_published_place()
+
+    async def _async_finalize_published_place(self) -> None:
+        """Save and announce the pending Place before releasing the update lock.
+
+        Raises:
+            asyncio.CancelledError: The caller was cancelled during finalization.
+        """
+        event_data = self._pending_place_event
+        if event_data is None:
+            return
+
+        # Let queued sensor listeners start unload before saving or firing the event.
+        finalization = asyncio.create_task(
+            self._async_save_and_announce(event_data), eager_start=False
+        )
+        try:
+            await asyncio.shield(finalization)
+        except asyncio.CancelledError:
+            # A published Place outlives caller cancellation. Keep the lock until
+            # finalization has stopped, even if the caller is cancelled again.
+            while not finalization.done():
+                try:
+                    await asyncio.shield(finalization)
+                except asyncio.CancelledError:
+                    continue
+            finalization.result()
+            raise
+
+    async def _async_save_and_announce(self, event_data: dict[str, Any]) -> None:
+        """Save the accepted snapshot before event subscribers can reload the entry.
+
+        Args:
+            event_data (dict[str, Any]): Places event for the accepted snapshot.
+        """
+        await self.async_persist_attributes()
+        if self._is_shutting_down:
+            return
+        self._pending_place_event = None
+        self.hass.bus.async_fire(EVENT_TYPE, event_data)
+        _LOGGER.info("(%s) Event Fired [event_type: %s]", self.get_attr(CONF_NAME), EVENT_TYPE)
 
     async def async_update_setting(self, key: str, value: str | bool) -> None:
         """Persist one configuration entity value and recalculate local state.
@@ -390,6 +442,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
     async def async_shutdown(self) -> None:
         """Unsubscribe coordinator callbacks during entry unload."""
         await self.async_prepare_unload()
+        self._pending_place_event = None
         await super().async_shutdown()
 
     async def async_prepare_unload(self) -> None:
@@ -418,21 +471,23 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             pass
 
     async def async_resume_after_failed_unload(self) -> None:
-        """Restart coordinator work after Home Assistant rejects platform unload."""
-        if not self._is_shutting_down:
-            return
-        self._is_shutting_down = False
-        if self._tracker_unsubscribe is None:
-            try:
-                await self.async_added_to_hass()
-            except Exception:
-                # Recovery from a failed unload is best-effort; still refresh
-                # so the loaded coordinator can publish current in-memory state.
-                _LOGGER.exception(
-                    "(%s) Failed to resubscribe tracker listener after failed unload",
-                    self.get_attr(CONF_NAME),
-                )
-        self._last_scan_update = None
+        """Finalize any published Place and resume Updates after a failed unload."""
+        async with self._update_lock:
+            if not self._is_shutting_down:
+                return
+            self._is_shutting_down = False
+            if self._tracker_unsubscribe is None:
+                try:
+                    await self.async_added_to_hass()
+                except Exception:
+                    # Recovery from a failed unload is best-effort; still refresh
+                    # so the loaded coordinator can publish current in-memory state.
+                    _LOGGER.exception(
+                        "(%s) Failed to resubscribe tracker listener after failed unload",
+                        self.get_attr(CONF_NAME),
+                    )
+            self._last_scan_update = None
+            await self._async_finalize_published_place()
         await self.async_request_refresh()
 
     async def _async_update_data(self) -> PlacesData:
