@@ -16,7 +16,7 @@ from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 import pytest
@@ -2326,7 +2326,7 @@ async def test_places_event_waits_for_unload_outcome(
     )
     events = async_capture_events(hass, EVENT_TYPE)
     unload_tasks: list[asyncio.Task[bool]] = []
-    setting_errors: list[HomeAssistantError] = []
+    setting_errors: list[ServiceValidationError] = []
     coordinator: PlacesUpdateCoordinator = entry.runtime_data
 
     async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
@@ -2348,7 +2348,7 @@ async def test_places_event_waits_for_unload_outcome(
                 {"entity_id": "switch.lifecycle_show_last_updated"},
                 blocking=True,
             )
-        except HomeAssistantError as error:
+        except ServiceValidationError as error:
             setting_errors.append(error)
         return False
 
@@ -2396,7 +2396,13 @@ async def test_places_event_waits_for_unload_outcome(
         async_fire_time_changed(hass, datetime.now(UTC) + timedelta(seconds=11))
         await hass.async_block_till_done()
         await coordinator.async_shutdown()
-        assert [str(error) for error in setting_errors] == ["Places entry is unloading"]
+        (setting_error,) = setting_errors
+        assert setting_error.translation_domain == "homeassistant"
+        assert setting_error.translation_key == "service_config_entry_not_loaded"
+        assert setting_error.translation_placeholders == {
+            "domain": DOMAIN,
+            "entry_title": entry.title,
+        }
         assert entry.data[CONF_SHOW_TIME] is False
         assert hass.states.get("sensor.lifecycle").state == "Oxford"
         assert [event.data["to_state"] for event in events] == ["Oxford"]

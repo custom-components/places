@@ -23,8 +23,8 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import Throttle
@@ -315,8 +315,10 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                 New text, select, or switch value.
 
         Raises:
+            ServiceValidationError:
+                If the entry is unloading.
             HomeAssistantError:
-                If the entry is unloading or a setting fails validation.
+                If display options or the map provider fail validation.
             Exception:
                 Propagated when the operation fails.
             asyncio.CancelledError:
@@ -324,7 +326,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         """
         async with self._update_lock:
             if self._is_shutting_down:
-                raise HomeAssistantError("Places entry is unloading")
+                raise ServiceValidationError(
+                    translation_domain=HOMEASSISTANT_DOMAIN,
+                    translation_key="service_config_entry_not_loaded",
+                    translation_placeholders={
+                        "domain": self.config_entry.domain,
+                        "entry_title": self.config_entry.title,
+                    },
+                )
             previous_config: MutableMapping[str, Any] = copy.deepcopy(self.config)
             previous_data = self.snapshot()
             config_entry_updated = False
