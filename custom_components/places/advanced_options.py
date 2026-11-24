@@ -1,15 +1,10 @@
-"""Parser for advanced options in a coordinator configuration.
-
-This module provides functionality to parse complex coordinator options
-that may include brackets, parentheses, and commas, allowing for
-flexible configuration of coordinator states.
-"""
+"""Render Advanced display options from the current Place data."""
 
 from __future__ import annotations
 
-from collections.abc import MutableMapping
+from collections.abc import Mapping, Sequence
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from homeassistant.const import CONF_NAME
 
@@ -23,6 +18,7 @@ from .const import (
     ATTR_STREET_NUMBER,
     DISPLAY_OPTIONS_MAP,
 )
+from .display_options import DisplayOptions, parse_display_options
 
 if TYPE_CHECKING:
     from .coordinator import PlacesUpdateCoordinator
@@ -31,106 +27,72 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AdvancedOptionsParser:
-    """Parse bracketed and filtered display options into a coordinator state."""
+    """Render bracketed and filtered Display options into a main sensor state."""
 
-    def __init__(self, coordinator: PlacesUpdateCoordinator, curr_options: str) -> None:
-        """Initialize the advanced-options parser.
+    def __init__(
+        self, coordinator: PlacesUpdateCoordinator, curr_options: str | DisplayOptions
+    ) -> None:
+        """Initialize the renderer for a single Display options expression.
 
         Args:
             coordinator (PlacesUpdateCoordinator):
                 Places coordinator that provides attribute access helpers.
-            curr_options (str):
-                Raw advanced display option expression.
+            curr_options (str | DisplayOptions):
+                Display options expression or its parsed representation.
         """
         self.coordinator = coordinator
-        self.curr_options = curr_options
-        self.state_list: list = []
+        self.options = (
+            parse_display_options(curr_options) if isinstance(curr_options, str) else curr_options
+        )
+        self.state_list: list[str] = []
         self._street_num_i = -1
         self._street_i = -1
-        self._temp_i: int = 0
-        self._processed_options: set[str] = set()
+        self._temp_i = 0
 
-    async def build_from_advanced_options(self, curr_options: str | None = None) -> None:
-        """Parse an option expression and append matching values to ``state_list``.
-
-        Args:
-            curr_options (str | None):
-                Option expression to parse. When omitted, the parser's
-                configured root expression is used and recursion tracking is
-                reset.
-        """
-        if curr_options is None:
-            curr_options = self.curr_options
-            self._processed_options = set()
-        curr_options = curr_options.strip()
-        # Prevent infinite recursion for any substring
-        if curr_options in self._processed_options:
-            _LOGGER.error("Infinite recursion detected for options: %s", curr_options)
+    async def build_from_advanced_options(self) -> None:
+        """Append available values in display order, following fallbacks as needed."""
+        if self.options.bracket_mismatch:
+            _LOGGER.error("Mismatched delimiters in Display options: %s", self.options.source)
             return
-        self._processed_options.add(curr_options)
-        if not await self.do_brackets_and_parens_count_match(curr_options) or not curr_options:
-            return
-        if "[" in curr_options or "(" in curr_options:
-            await self.process_bracket_or_parens(curr_options)
-            return
-        if "," in curr_options:
-            await self.process_only_commas(curr_options)
-            return
-        await self.process_single_term(curr_options)
 
-    async def build_next_option(self, next_opt: str | None) -> None:
-        """Continue parsing after a comma-prefixed next expression.
-
-        Args:
-            next_opt (str | None):
-                Remaining option expression, including the leading comma.
-        """
-        if not next_opt or len(next_opt) <= 1 or next_opt[0] != ",":
-            return
-        next_opt = next_opt[1:].strip()
-        if next_opt:
-            await self.build_from_advanced_options(next_opt)
-
-    async def do_brackets_and_parens_count_match(self, curr_options: str) -> bool:
-        """Check whether an option expression has balanced delimiters.
-
-        Args:
-            curr_options (str):
-                Option expression to inspect.
-
-        Returns:
-            bool:
-                ``True`` when opening and closing brackets and parentheses have the
-                same counts.
-        """
-        if curr_options.count("[") != curr_options.count("]"):
-            _LOGGER.error("Bracket Count Mismatch: %s", curr_options)
-            return False
-        if curr_options.count("(") != curr_options.count(")"):
-            _LOGGER.error("Parenthesis Count Mismatch: %s", curr_options)
-            return False
-        return True
+        pending = list(reversed(self.options.items))
+        while pending:
+            item = pending.pop()
+            if not item.token:
+                continue
+            filters = item.filters()
+            state = await self.get_option_state(
+                item.token,
+                filters.include,
+                filters.exclude,
+                filters.include_attributes,
+                filters.exclude_attributes,
+            )
+            if state:
+                self.state_list.append(state)
+            else:
+                pending.extend(reversed(item.fallback))
 
     async def get_option_state(
         self,
         opt: str,
-        incl: list | None = None,
-        excl: list | None = None,
-        incl_attr: MutableMapping[str, Any] | None = None,
-        excl_attr: MutableMapping[str, Any] | None = None,
+        incl: Sequence[str] | None = None,
+        excl: Sequence[str] | None = None,
+        incl_attr: Mapping[str, Sequence[str]] | None = None,
+        excl_attr: Mapping[str, Sequence[str]] | None = None,
     ) -> str | None:
         """Return an option value after applying zone and filter constraints.
 
         Args:
             opt (str):
                 Display option name to resolve through ``DISPLAY_OPTIONS_MAP``.
-            incl (list | None):
+            incl (Sequence[str] | None):
                 Lowercase option values that are allowed.
-            excl (list | None):
+            excl (Sequence[str] | None):
                 Lowercase option values that are suppressed.
-            incl_attr (MutableMapping[str, Any] | None):
+            incl_attr (Mapping[str, Sequence[str]] | None):
                 Attribute filters that must match before ``opt`` is used.
-            excl_attr (MutableMapping[str, Any] | None):
+            excl_attr (Mapping[str, Sequence[str]] | None):
                 Attribute filters that suppress ``opt`` when matched.
 
         Returns:
@@ -229,265 +191,11 @@ class AdvancedOptionsParser:
             out = out.strip()
             if mapped_opt in {ATTR_STREET, ATTR_ROUTE_NUMBER}:
                 self._street_i = self._temp_i
-                # _LOGGER.debug(
-                #     "(%s) [get_option_state] street_i: %s",
-                #     self.coordinator.get_attr(CONF_NAME),
-                #     self._street_i,
-                # )
             if mapped_opt == ATTR_STREET_NUMBER:
                 self._street_num_i = self._temp_i
-                # _LOGGER.debug(
-                #     "(%s) [get_option_state] street_num_i: %s",
-                #     self.coordinator.get_attr(CONF_NAME),
-                #     self._street_num_i,
-                # )
             self._temp_i += 1
             return out
         return None
-
-    async def process_bracket_or_parens(self, curr_options: str) -> None:
-        """Process the next advanced option segment with filters or fallback text.
-
-        Args:
-            curr_options (str):
-                Remaining option expression containing at least one
-                bracket, parenthesis, or comma.
-        """
-        comma_num: int = curr_options.find(",")
-        bracket_num: int = curr_options.find("[")
-        paren_num: int = curr_options.find("(")
-        none_opt: str | None = None
-        next_opt: str | None = None
-
-        # Comma is first symbol
-        if (
-            comma_num != -1
-            and (bracket_num == -1 or comma_num < bracket_num)
-            and (paren_num == -1 or comma_num < paren_num)
-        ):
-            opt = curr_options[:comma_num]
-            if opt:
-                ret_state = await self.get_option_state(opt.strip())
-                if ret_state:
-                    self.state_list.append(ret_state)
-            next_opt = curr_options[(comma_num + 1) :]
-            if next_opt:
-                await self.build_from_advanced_options(next_opt.strip())
-            return
-
-        # Bracket is first symbol
-        if (
-            bracket_num != -1
-            and (comma_num == -1 or bracket_num < comma_num)
-            and (paren_num == -1 or bracket_num < paren_num)
-        ):
-            opt = curr_options[:bracket_num]
-            none_opt, next_opt = await self.parse_bracket(curr_options[bracket_num:])
-            incl: list = []
-            excl: list = []
-            incl_attr: MutableMapping[str, Any] = {}
-            excl_attr: MutableMapping[str, Any] = {}
-            if next_opt and len(next_opt) > 1 and next_opt[0] == "(":
-                incl, excl, incl_attr, excl_attr, next_opt = await self.parse_parens(next_opt)
-            if opt:
-                ret_state = await self.get_option_state(
-                    opt.strip(), incl, excl, incl_attr, excl_attr
-                )
-                if ret_state:
-                    self.state_list.append(ret_state)
-                elif none_opt:
-                    await self.build_from_advanced_options(none_opt.strip())
-            await self.build_next_option(next_opt)
-            return
-
-        # Parenthesis is first symbol
-        if (
-            paren_num != -1
-            and (comma_num == -1 or paren_num < comma_num)
-            and (bracket_num == -1 or paren_num < bracket_num)
-        ):
-            opt = curr_options[:paren_num]
-            incl, excl, incl_attr, excl_attr, next_opt = await self.parse_parens(
-                curr_options[paren_num:]
-            )
-            none_opt = None
-            if next_opt and len(next_opt) > 1 and next_opt[0] == "[":
-                none_opt, next_opt = await self.parse_bracket(next_opt)
-            if opt:
-                ret_state = await self.get_option_state(
-                    opt.strip(), incl, excl, incl_attr, excl_attr
-                )
-                if ret_state:
-                    self.state_list.append(ret_state)
-                elif none_opt:
-                    await self.build_from_advanced_options(none_opt.strip())
-            await self.build_next_option(next_opt)
-
-    async def process_only_commas(self, curr_options: str) -> None:
-        """Append values for a comma-separated list of simple options.
-
-        Args:
-            curr_options (str):
-                Option names separated by commas.
-        """
-        for opt in curr_options.split(","):
-            if opt:
-                ret_state = await self.get_option_state(opt.strip())
-                if ret_state:
-                    self.state_list.append(ret_state)
-
-    async def process_single_term(self, curr_options: str) -> None:
-        """Append a resolved value for one simple option name.
-
-        Args:
-            curr_options (str):
-                Single display option name.
-        """
-        ret_state = await self.get_option_state(curr_options.strip())
-        if ret_state:
-            self.state_list.append(ret_state)
-
-    def parse_attribute_parentheses(self, item: str) -> tuple[str, list[str], bool]:
-        """Parse an attribute-scoped include/exclude filter.
-
-        Args:
-            item (str):
-                Filter expression such as ``place_type(cafe,park)`` or
-                ``place_type(-,house)``.
-
-        Returns:
-            tuple[str, list[str], bool]:
-                Attribute option name, normalized filter values, and ``True`` for
-                include mode or ``False`` for exclude mode.
-        """
-        paren_attr = item[: item.find("(")]
-        paren_attr_first = True
-        paren_attr_incl = True
-        paren_attr_list = []
-        for attr_item in item[(item.find("(") + 1) : item.find(")")].split(","):
-            if paren_attr_first:
-                paren_attr_first = False
-                if attr_item == "-":
-                    paren_attr_incl = False
-                    continue
-                if attr_item == "+":
-                    continue
-            cleaned = str(attr_item).strip().lower().strip("'\"")
-            paren_attr_list.append(cleaned)
-        return paren_attr, paren_attr_list, paren_attr_incl
-
-    async def parse_parens(
-        self, curr_options: str
-    ) -> tuple[list, list, MutableMapping[str, Any], MutableMapping[str, Any], str | None]:
-        """Parse value filters from a parenthesized expression.
-
-        Args:
-            curr_options (str):
-                Expression beginning with ``(``.
-
-        Returns:
-            tuple[list, list, MutableMapping[str, Any], MutableMapping[str, Any], str | None]:
-                Included values, excluded values, included attribute filters,
-                excluded attribute filters, and the remaining expression after the
-                closing parenthesis.
-        """
-        incl, excl = [], []
-        incl_attr, excl_attr = {}, {}
-        incl_excl_list = []
-        empty_paren = False
-        next_opt = None
-        paren_count = 1
-        close_paren_num = 0
-        last_comma = -1
-        if curr_options[0] == "(":
-            curr_options = curr_options[1:]
-        if curr_options and curr_options[0] == ")":
-            empty_paren = True
-            close_paren_num = 0
-        else:
-            for i, c in enumerate(curr_options):
-                if c in {",", ")"} and paren_count == 1:
-                    incl_excl_list.append(curr_options[(last_comma + 1) : i].strip())
-                    last_comma = i
-                if c == "(":
-                    paren_count += 1
-                elif c == ")":
-                    paren_count -= 1
-                if paren_count == 0:
-                    close_paren_num = i
-                    break
-
-        if close_paren_num > 0 and paren_count == 0 and incl_excl_list:
-            paren_first = True
-            paren_incl = True
-            for item in incl_excl_list:
-                if paren_first:
-                    paren_first = False
-                    if item == "-":
-                        paren_incl = False
-                        continue
-                    if item == "+":
-                        continue
-                if item:
-                    if "(" in item:
-                        if ")" not in item or item.count("(") > 1 or item.count(")") > 1:
-                            _LOGGER.error("Parenthesis Mismatch: %s", item)
-                            continue
-                        paren_attr, paren_attr_list, paren_attr_incl = (
-                            self.parse_attribute_parentheses(item)
-                        )
-                        if paren_attr_incl:
-                            incl_attr.update({paren_attr: paren_attr_list})
-                        else:
-                            excl_attr.update({paren_attr: paren_attr_list})
-                    elif paren_incl:
-                        incl.append(str(item).strip().lower())
-                    else:
-                        excl.append(str(item).strip().lower())
-        elif not empty_paren:
-            _LOGGER.error("Parenthesis Mismatch: %s", curr_options)
-        next_opt = curr_options[(close_paren_num + 1) :]
-        return incl, excl, incl_attr, excl_attr, next_opt
-
-    async def parse_bracket(self, curr_options: str) -> tuple[str | None, str | None]:
-        """Parse a bracketed fallback expression.
-
-        Args:
-            curr_options (str):
-                Expression beginning with ``[``.
-
-        Returns:
-            tuple[str | None, str | None]:
-                Fallback option expression to use when the primary option is blank,
-                plus the remaining expression after the closing bracket.
-        """
-        empty_bracket: bool = False
-        none_opt: str | None = None
-        next_opt: str | None = None
-        bracket_count: int = 1
-        close_bracket_num: int = 0
-        if curr_options[0] == "[":
-            curr_options = curr_options[1:]
-        if curr_options and curr_options[0] == "]":
-            empty_bracket = True
-            close_bracket_num = 0
-            bracket_count = 0
-        else:
-            for i, c in enumerate(curr_options):
-                if c == "[":
-                    bracket_count += 1
-                elif c == "]":
-                    bracket_count -= 1
-                if bracket_count == 0:
-                    close_bracket_num = i
-                    break
-
-        if empty_bracket or (close_bracket_num > 0 and bracket_count == 0):
-            none_opt = curr_options[:close_bracket_num].strip()
-            next_opt = curr_options[(close_bracket_num + 1) :].strip()
-        else:
-            _LOGGER.error("Bracket Mismatch Error: %s", curr_options)
-        return none_opt, next_opt
 
     async def compile_state(self) -> str:
         """Join resolved option values into the final coordinator state.

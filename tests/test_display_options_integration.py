@@ -5,18 +5,28 @@ from __future__ import annotations
 import copy
 from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.const import MAX_LENGTH_STATE_STATE
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
+from custom_components.places.config_flow import PlacesConfigFlow
 from custom_components.places.const import (
     ATTR_DISPLAY_OPTIONS,
     ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_NATIVE_VALUE,
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
+    CONF_HOME_ZONE,
     CONF_NAME,
+    CONF_SHOW_TIME,
+    DOMAIN,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
+from custom_components.places.persistence import PlacesStorage
 
 # Semantic location attributes used by the display-option cases below.
 BASE_INTERNAL_ATTR = {
@@ -167,3 +177,197 @@ async def test_basic_place_option_includes_neighborhood(
 
     assert basic_state
     assert "Koreatown" in basic_state
+
+
+REPEATED_FALLBACK = (
+    "name[city[county],country_code], type[city[county],country_code], "
+    "house_number, street, state_abbr"
+)
+LONG_RULE = f"{REPEATED_FALLBACK}, name(-, {'x' * MAX_LENGTH_STATE_STATE})"
+REPEATED_STATE = "Bergen County, US, Bergen County, US, 1 Bridge Plaza North, NJ"
+FALLBACK_PLACE = {
+    "county": "Bergen County",
+    "country_code": "US",
+    "street_number": "1",
+    "street": "Bridge Plaza North",
+    "state_abbr": "NJ",
+}
+FILTERED_FALLBACK = (
+    "place_type[city_clean[county], house_number, street](+, city, category(building)), "
+    "neighborhood(-, city)[postal_town[]], state_abbr"
+)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
+    ("rule", "place", "expected"),
+    [
+        (REPEATED_FALLBACK, FALLBACK_PLACE, REPEATED_STATE),
+        (LONG_RULE, FALLBACK_PLACE, REPEATED_STATE),
+        (
+            FILTERED_FALLBACK,
+            FALLBACK_PLACE | {"place_type": "city", "place_category": "building"},
+            "City, NJ",
+        ),
+        (
+            FILTERED_FALLBACK,
+            FALLBACK_PLACE
+            | {
+                "place_type": "house",
+                "place_category": "building",
+                "city_clean": "Fort Lee",
+                "neighborhood": "city",
+                "postal_town": "Edgewater",
+            },
+            "Fort Lee, 1 Bridge Plaza North, Edgewater, NJ",
+        ),
+        (
+            FILTERED_FALLBACK,
+            FALLBACK_PLACE
+            | {"place_type": "city", "place_category": "highway", "neighborhood": "Koreatown"},
+            "Bergen County, 1 Bridge Plaza North, Koreatown, NJ",
+        ),
+        (
+            README_FORMATTED_PLACE_ADVANCED,
+            BASE_INTERNAL_ATTR
+            | {
+                "place_name_no_dupe": None,
+                "place_type": "unclassified",
+                "place_category": "building",
+            },
+            "Building, 1 Bridge Plaza North, Fort Lee, NJ",
+        ),
+        (
+            "formatted_place, driving",
+            BASE_INTERNAL_ATTR | {"place_type": "motorway", "place_category": "highway"},
+            "Driving, Roy Spiegel MSW, Fort Lee, NJ",
+        ),
+        (
+            "formatted_place, driving",
+            BASE_INTERNAL_ATTR | {"zone": "work", "zone_name": "Work"},
+            "Work",
+        ),
+    ],
+    ids=(
+        "repeated-fallback",
+        "long-rule",
+        "matching-primary",
+        "literal-mismatch",
+        "attribute-mismatch",
+        "documented-rule",
+        "formatted-place-driving",
+        "formatted-place-in-zone",
+    ),
+)
+async def test_config_flow_renders_restored_place(
+    hass: HomeAssistant, rule: str, place: dict[str, str | None], expected: str
+) -> None:
+    """Render the accepted config flow rule against restored Place data.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the Places entry.
+        rule (str): Display options submitted to the config flow.
+        place (dict[str, str | None]): Place data restored from Store.
+        expected (str): Main sensor state produced from the accepted rule.
+    """
+    flow = PlacesConfigFlow()
+    flow.hass = hass
+    result = await flow.async_step_user(
+        {
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_DISPLAY_OPTIONS: rule,
+            CONF_SHOW_TIME: False,
+        }
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    entry = MockConfigEntry(domain=DOMAIN, version=2, data=result["data"])
+    entry.add_to_hass(hass)
+    await PlacesStorage(hass, entry.entry_id, "Test Place").async_save(
+        place | {ATTR_NATIVE_VALUE: "Earlier display text"}
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.test_place")
+    assert state is not None
+    assert state.state == expected
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_display_options_entity_edits_and_reload(hass: HomeAssistant) -> None:
+    """Re-render a valid runtime edit immediately and retain it after rejection and reload.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime hosting the Places entry.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_DISPLAY_OPTIONS: "county",
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    text_id = (
+        er.async_get(hass)
+        .async_get_or_create(
+            "text",
+            DOMAIN,
+            f"{entry.entry_id}_{CONF_DISPLAY_OPTIONS}",
+            suggested_object_id="test_place_display_options",
+            config_entry=entry,
+            disabled_by=None,
+        )
+        .entity_id
+    )
+    storage = PlacesStorage(hass, entry.entry_id, "Test Place")
+    earlier_snapshot = FALLBACK_PLACE | {ATTR_NATIVE_VALUE: "Bergen County"}
+    await storage.async_save(earlier_snapshot)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.is_state("sensor.test_place", "Bergen County")
+
+    await hass.services.async_call(
+        "text", "set_value", {"entity_id": text_id, "value": REPEATED_FALLBACK}, blocking=True
+    )
+    assert entry.data[CONF_DISPLAY_OPTIONS] == REPEATED_FALLBACK
+    assert hass.states.is_state("sensor.test_place", REPEATED_STATE)
+
+    with pytest.raises(HomeAssistantError, match="Invalid display options"):
+        await hass.services.async_call(
+            "text",
+            "set_value",
+            {"entity_id": text_id, "value": "name(category_missing(building))[city[county]]"},
+            blocking=True,
+        )
+    assert entry.data[CONF_DISPLAY_OPTIONS] == REPEATED_FALLBACK
+    assert hass.states.is_state("sensor.test_place", REPEATED_STATE)
+
+    await storage.async_save(earlier_snapshot)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.is_state("sensor.test_place", REPEATED_STATE)
+
+    # The options flow accepts the same nested rule with a literal that exceeds
+    # the configuration text entity's maximum state length.
+    hass.states.async_set("device_tracker.test", "not_home")
+    hass.states.async_set("zone.home", "0")
+    options_form = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        options_form["flow_id"],
+        {
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_HOME_ZONE: "zone.home",
+            CONF_DISPLAY_OPTIONS: LONG_RULE,
+        },
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+    assert entry.data[CONF_DISPLAY_OPTIONS] == LONG_RULE
+    assert hass.states.is_state("sensor.test_place", REPEATED_STATE)

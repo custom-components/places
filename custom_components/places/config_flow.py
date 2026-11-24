@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import MutableMapping
 import logging
-import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
@@ -51,6 +50,7 @@ from .const import (
     TRACKING_DOMAINS,
     TRACKING_DOMAINS_NEED_LATLONG,
 )
+from .display_options import parse_display_options
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 COMPONENT_CONFIG_URL: str = "https://github.com/custom-components/places#configuration-options"
@@ -167,204 +167,6 @@ def get_home_zone_entities(hass: HomeAssistant) -> list[selector.SelectOptionDic
     return zone_list_sorted
 
 
-def _validate_brackets(display_options: str, errors: dict[str, Any]) -> bool:
-    """Validate bracket and parenthesis pairing in advanced display options.
-
-    Args:
-        display_options (str):
-            Raw display options string entered by the user.
-        errors (dict[str, Any]):
-            Mutable config-flow error mapping to populate on validation
-            failure.
-
-    Returns:
-        bool:
-            ``True`` when brackets and parentheses are balanced and placed after an
-            option token; otherwise ``False``.
-    """
-    stack = []
-    last_token = ""
-    i = 0
-    while i < len(display_options):
-        c = display_options[i]
-        if c in "[(":
-            valid_before = last_token.strip()
-            if not valid_before and i > 0 and display_options[i - 1] in "])":
-                pass
-            elif not valid_before:
-                _LOGGER.error(
-                    "Invalid syntax: Expected an item before '%s' at position %d in '%s'.",
-                    c,
-                    i,
-                    display_options,
-                )
-                errors["base"] = "invalid_syntax"
-                return False
-            elif valid_before[-1] in ",[":
-                _LOGGER.error(
-                    "Invalid syntax: Unexpected '%s' after '%s' before '%s' "
-                    "at position %d in '%s'.",
-                    c,
-                    valid_before[-1],
-                    c,
-                    i,
-                    display_options,
-                )
-                errors["base"] = "invalid_syntax"
-                return False
-            stack.append(c)
-            last_token = ""
-        elif c in "])":
-            if not stack:
-                _LOGGER.error(
-                    "Bracket mismatch: Unmatched closing '%s' at position %d in '%s'.",
-                    c,
-                    i,
-                    display_options,
-                )
-                errors["base"] = "bracket_mismatch"
-                return False
-            expected = "[" if c == "]" else "("
-            if stack[-1] != expected:
-                expected_closer = {"(": ")", "[": "]"}[stack[-1]]
-                _LOGGER.error(
-                    "Bracket mismatch: Expected closing '%s' but found '%s' "
-                    "at position %d in '%s'.",
-                    expected_closer,
-                    c,
-                    i,
-                    display_options,
-                )
-                errors["base"] = "bracket_mismatch"
-                return False
-            stack.pop()
-            last_token = ""
-        elif c == ",":
-            last_token = ""
-        else:
-            last_token += c
-        i += 1
-    if stack:
-        _LOGGER.error(
-            "Bracket mismatch: Unmatched opening '%s' in '%s'.", stack[-1], display_options
-        )
-        errors["base"] = "bracket_mismatch"
-        return False
-    return True
-
-
-def _validate_comma_syntax(display_options: str, errors: dict[str, Any]) -> bool:
-    """Reject empty list items and dangling commas in grouped options.
-
-    Args:
-        display_options (str):
-            Raw display options string entered by the user.
-        errors (dict[str, Any]):
-            Mutable config-flow error mapping to populate on validation
-            failure.
-
-    Returns:
-        bool:
-            ``True`` when comma placement is valid; otherwise ``False``.
-    """
-    if re.search(r"(,\s*,)", display_options):
-        _LOGGER.error("Invalid syntax: Empty item between commas in '%s'.", display_options)
-        errors["base"] = "invalid_syntax"
-        return False
-    if re.search(r"[\[\(]\s*,", display_options) or re.search(r",\s*[\]\)]", display_options):
-        _LOGGER.error(
-            "Invalid syntax: Leading or trailing comma in brackets/parentheses in '%s'.",
-            display_options,
-        )
-        errors["base"] = "invalid_syntax"
-        return False
-    return True
-
-
-def _validate_option_names(display_options: str, errors: dict[str, Any]) -> bool:
-    """Ensure parsed display option identifiers do not contain spaces.
-
-    Args:
-        display_options (str):
-            Raw display options string entered by the user.
-        errors (dict[str, Any]):
-            Mutable config-flow error mapping to populate on validation
-            failure.
-
-    Returns:
-        bool:
-            ``True`` when all parsed option identifiers are syntactically valid;
-            otherwise ``False``.
-    """
-    tokens = re.split(r"[\[\]\(\),]", display_options)
-    for token in tokens:
-        if " " in token.strip() and token.strip() not in ("", "-", "+"):
-            _LOGGER.error(
-                "Invalid syntax: Spaces in option name '%s' in '%s'.", token, display_options
-            )
-            errors["base"] = "invalid_syntax"
-            return False
-    return True
-
-
-def _validate_known_options(display_options: str, errors: dict[str, Any]) -> bool:
-    """Validate option identifiers while allowing literal filter values.
-
-    Args:
-        display_options (str):
-            Raw display options string entered by the user.
-        errors (dict[str, Any]):
-            Mutable config-flow error mapping to populate on validation
-            failure.
-
-    Returns:
-        bool:
-            ``True`` when option identifiers are known or are explicit include/
-            exclude markers; otherwise ``False``.
-    """
-    valid_options = set(DISPLAY_OPTIONS_MAP.keys())
-    stack: list[str] = []
-    i = 0
-    token = ""
-
-    def validate_token(option_name: str) -> bool:
-        option_name = option_name.strip()
-        if option_name and option_name not in valid_options and option_name not in ("-", "+"):
-            _LOGGER.error("Invalid option name '%s' in '%s'.", option_name, display_options)
-            errors["base"] = "invalid_option"
-            return False
-        return True
-
-    while i < len(display_options):
-        c = display_options[i]
-        if c in "[(":
-            if not validate_token(token):
-                return False
-            stack.append(c)
-            token = ""
-        elif c == ",":
-            if (not stack or stack[-1] != "(") and not validate_token(token):
-                return False
-            token = ""
-        elif c == "]":
-            if not validate_token(token):
-                return False
-            if stack:
-                stack.pop()
-            token = ""
-        elif c == ")":
-            if stack:
-                stack.pop()
-            token = ""
-        else:
-            token += c
-        i += 1
-    # Check last token
-    if (not stack or stack[-1] != "(") and not validate_token(token):
-        return False
-    return True
-
-
 async def validate_display_options(display_options: str, errors: dict[str, Any]) -> dict[str, Any]:
     """Validate advanced display option syntax for the config and options flows.
 
@@ -384,25 +186,14 @@ async def validate_display_options(display_options: str, errors: dict[str, Any])
         errors["base"] = "invalid_syntax"
         return errors
 
-    # Only run advanced validation if brackets or parentheses are present
-    if "[" in display_options or "(" in display_options:
-        # Check bracket/parenthesis matching
-        if not _validate_brackets(display_options, errors):
-            return errors
-
-        # Check for empty items and comma placement
-        if not _validate_comma_syntax(display_options, errors):
-            return errors
-
-        # Check for spaces in option names
-        if not _validate_option_names(display_options, errors):
-            return errors
-
-        # Validate against DISPLAY_OPTIONS_MAP
-        if not _validate_known_options(display_options, errors):
-            return errors
-
-    # For basic options, no advanced validation needed
+    parsed = parse_display_options(display_options)
+    if parsed.has_groups:
+        if parsed.error:
+            errors["base"] = parsed.error
+        elif any(identifier.name not in DISPLAY_OPTIONS_MAP for identifier in parsed.identifiers):
+            errors["base"] = "invalid_option"
+        if "base" in errors:
+            _LOGGER.error("Invalid Display options (%s): %s", errors["base"], display_options)
     return errors
 
 

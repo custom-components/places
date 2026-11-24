@@ -18,9 +18,6 @@ from custom_components.places.config_flow import (
     HOME_LOCATION_DOMAINS,
     PlacesConfigFlow,
     PlacesOptionsFlowHandler,
-    _validate_brackets,
-    _validate_comma_syntax,
-    _validate_option_names,
     get_devicetracker_id_entities,
     get_home_zone_entities,
     validate_display_options,
@@ -42,7 +39,6 @@ from custom_components.places.const import (
 )
 
 type ConfigData = dict[str, object]
-type Errors = dict[str, str]
 type LabelCheck = Callable[[dict[str, str]], bool]
 
 
@@ -476,35 +472,6 @@ async def test_options_flow_handler_shows_form_when_no_user_input(
     assert result["description_placeholders"]["component_config_url"]
 
 
-@pytest.mark.parametrize(
-    ("display_options", "expected"),
-    [
-        ("zone,place", True),  # Should be valid
-        ("zone,[place]", False),
-        ("zone,[place,zone]", False),
-        ("zone,[place,(zone)]", False),
-        ("zone,[place,(zone]", False),  # Unmatched bracket
-        ("zone,place]", False),  # Unmatched closing bracket
-        ("zone,[place,]", False),  # Trailing comma
-        ("zone,[,place]", False),  # Leading comma
-        ("zone,[place](city)", False),  # Still invalid: '[' directly after comma
-        ("zone,[place](zone)", False),  # Invalid per validator (item expected before '[')
-    ],
-)
-def test_validate_brackets(display_options: str, expected: bool) -> None:
-    """Test the _validate_brackets function to ensure it correctly validates bracket usage in display_options.
-
-    Args:
-        display_options (str):
-            Display options applied to state rendering.
-        expected (bool):
-            Expected result for this parametrized case.
-    """
-    errors: Errors = {}
-    result = _validate_brackets(display_options, errors)
-    assert result is expected
-
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("display_options", "expected_errors"),
@@ -686,19 +653,35 @@ async def test_config_flow_user_step_no_input_shows_form(mock_hass: MagicMock) -
 
 
 @pytest.mark.asyncio
-async def test_config_flow_user_step_invalid_display_options(mock_hass: MagicMock) -> None:
+@pytest.mark.parametrize(
+    ("rule", "error"),
+    [
+        (" ", "invalid_syntax"),
+        ("unknown[,city", "bracket_mismatch"),
+        ("unknown[,city]", "invalid_syntax"),
+        ("zone,[place,(zone]", "invalid_syntax"),
+        ("name(city_missing(building))[city[county]]", "invalid_option"),
+    ],
+)
+async def test_config_flow_user_step_invalid_display_options(
+    mock_hass: MagicMock, rule: str, error: str
+) -> None:
     """Invalid display options should return form with errors populated.
 
     Args:
         mock_hass (MagicMock):
             Mocked Home Assistant runtime.
+        rule (str):
+            Display options submitted to the config flow.
+        error (str):
+            Feedback expected before config entry creation.
     """
     flow = PlacesConfigFlow()
     flow.hass = mock_hass
     bad_input = {
         "name": "Bad Sensor",
         "devicetracker_id": "device.test",
-        CONF_DISPLAY_OPTIONS: "zone,[place,(zone]",
+        CONF_DISPLAY_OPTIONS: rule,
         "home_zone": "zone.home",
         "map_provider": "osm",
         "map_zoom": 10,
@@ -710,7 +693,7 @@ async def test_config_flow_user_step_invalid_display_options(mock_hass: MagicMoc
     }
     result = await flow.async_step_user(bad_input)
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == {"base": "invalid_syntax"}
+    assert result["errors"] == {"base": error}
     assert result["step_id"] == "user"
 
 
@@ -749,59 +732,3 @@ async def test_options_flow_invalid_display_options_shows_form(
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_syntax"}
     assert result["step_id"] == "init"
-
-
-@pytest.mark.parametrize(
-    ("display_options", "expected"),
-    [
-        ("zone,place", True),  # Valid: single comma
-        ("zone,,place", False),  # Invalid: double comma
-        ("zone,[place,zone]", True),  # Valid: comma inside brackets
-        ("zone,[place,]", False),  # Invalid: trailing comma in brackets
-        ("zone,[,place]", False),  # Invalid: leading comma in brackets
-        ("zone,(place,zone)", True),  # Valid: comma inside parentheses
-        ("zone,(place,)", False),  # Invalid: trailing comma in parentheses
-        ("zone,(,place)", False),  # Invalid: leading comma in parentheses
-        ("zone, place", True),  # Valid: space after comma
-        ("zone,[place , zone]", True),  # Valid: spaces around comma inside brackets
-    ],
-)
-def test_validate_comma_syntax(display_options: str, expected: bool) -> None:
-    """Test the _validate_comma_syntax function to ensure it correctly validates comma usage in display_options.
-
-    Args:
-        display_options (str):
-            The display options string to validate.
-        expected (bool):
-            The expected result of the validation.
-    """
-    errors: Errors = {}
-    result = _validate_comma_syntax(display_options, errors)
-    assert result is expected
-
-
-@pytest.mark.parametrize(
-    ("display_options", "expected"),
-    [
-        ("zone,place", True),  # Valid: no spaces
-        ("zone, place", True),  # Valid: space after comma is allowed
-        ("zone name,place", False),  # Invalid: space in option name
-        ("zone,[place,zone name]", False),  # Invalid: space in option name inside brackets
-        ("zone,[place , zone]", True),  # Valid: spaces around comma inside brackets
-        ("zone,place-name", True),  # Valid: dash allowed
-        ("zone,place+name", True),  # Valid: plus allowed
-        ("zone, place + name", False),  # Invalid: space in option name with plus
-    ],
-)
-def test_validate_option_names(display_options: str, expected: bool) -> None:
-    """Test the _validate_option_names function to ensure it correctly validates option names in display_options.
-
-    Args:
-        display_options (str):
-            The display options string to validate.
-        expected (bool):
-            The expected result of the validation.
-    """
-    errors: Errors = {}
-    result = _validate_option_names(display_options, errors)
-    assert result is expected
