@@ -12,7 +12,7 @@ import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.core import Event, HomeAssistant, callback
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry, async_capture_events
 
 from custom_components.places import (
     _ensure_osm_runtime_state,
@@ -26,6 +26,7 @@ from custom_components.places.const import (
     ATTR_CITY,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
+    ATTR_DIRECTION_OF_TRAVEL,
     ATTR_LAST_CHANGED,
     ATTR_LAST_UPDATED,
     ATTR_LATITUDE,
@@ -34,7 +35,9 @@ from custom_components.places.const import (
     ATTR_LONGITUDE_OLD,
     ATTR_MAP_LINK,
     ATTR_NATIVE_VALUE,
+    ATTR_SHOW_DATE,
     CONF_API_KEY,
+    CONF_DATE_FORMAT,
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
     CONF_EXTENDED_ATTR,
@@ -229,6 +232,190 @@ async def test_entry_keeps_accepted_place_until_lookup_recovers(
     assert requests == (["51.7", "51.7"] if restored else ["51.5", "51.7", "51.7"])
     assert len(events) == 1
     assert in_flight == [("London", 51.5, accepted_link)]
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_entry_maintains_zone_and_time_while_retaining_place(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Publish retained Place maintenance and keep using the accepted coordinates.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        monkeypatch (pytest.MonkeyPatch): Replacements for the clocks and HTTP boundary.
+    """
+    now = datetime(2026, 11, 24, 12, tzinfo=UTC)
+    scan_clock = 1000.0
+    monkeypatch.setattr(
+        "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
+        AsyncMock(side_effect=lambda: now),
+    )
+    monkeypatch.setattr("homeassistant.util.utcnow", lambda: now)
+    monkeypatch.setattr("custom_components.places.coordinator.monotonic", lambda: scan_clock)
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Probe",
+        data={
+            CONF_NAME: "Probe",
+            CONF_DEVICETRACKER_ID: "device_tracker.probe",
+            CONF_DISPLAY_OPTIONS: "city",
+            CONF_EXTENDED_ATTR: False,
+            CONF_SHOW_TIME: True,
+            CONF_DATE_FORMAT: "dd/mm",
+        },
+    )
+    entry.add_to_hass(hass)
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set("zone.work", "0", {"friendly_name": "Office"})
+    hass.states.async_set("device_tracker.probe", "away", {"latitude": 51.5, "longitude": -0.1})
+
+    requests: list[str] = []
+
+    def get_response(url: str, **_kwargs: object) -> MagicMock:
+        """Return the same Place text with fresh OSM details, or an empty result.
+
+        Args:
+            url (str): Requested reverse-geocode URL.
+            _kwargs (object): HTTP request options.
+
+        Returns:
+            MagicMock: Async response context for the requested coordinates.
+        """
+        latitude = parse_qs(urlparse(url).query)["lat"][0]
+        requests.append(latitude)
+        body = (
+            "{}"
+            if latitude == "51.50023"
+            else json.dumps(
+                {
+                    "osm_id": len(requests),
+                    "osm_type": "node",
+                    "category": "place",
+                    "type": "city",
+                    "address": {"city": "London"},
+                }
+            )
+        )
+        response = MagicMock(status=200, text=AsyncMock(return_value=body))
+        return MagicMock(__aenter__=AsyncMock(return_value=response))
+
+    session = MagicMock()
+    session.get.side_effect = get_response
+    monkeypatch.setattr(
+        "custom_components.places.osm_client.async_get_clientsession", lambda _hass: session
+    )
+    events = async_capture_events(hass, EVENT_TYPE)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    accepted = await storage.async_load()
+    assert len(events) == 1
+    events.clear()
+
+    async def assert_retained(expected: dict[str, object], zone_name: str) -> None:
+        """Compare the retained snapshot and its Home Assistant states.
+
+        Args:
+            expected (dict[str, object]): Snapshot with only permitted maintenance changes.
+            zone_name (str): Published Current zone name, or unknown after clearing.
+        """
+        assert await storage.async_load() == expected
+        main = hass.states.get("sensor.probe")
+        assert main is not None
+        assert main.state == expected[ATTR_NATIVE_VALUE]
+        assert main.attributes[ATTR_LATITUDE] == 51.5
+        assert main.attributes[ATTR_LONGITUDE] == -0.1
+        for entity_id, value in (
+            ("sensor.probe_city", "London"),
+            ("sensor.probe_map_link", "https://maps.apple.com/?q=51.5%2C-0.1&z=18"),
+            ("sensor.probe_zone_name", zone_name),
+            ("sensor.probe_direction_of_travel", expected[ATTR_DIRECTION_OF_TRAVEL]),
+        ):
+            state = hass.states.get(entity_id)
+            assert state is not None and state.state == value
+        assert not events
+
+    assert accepted[ATTR_LAST_CHANGED] == "2026-11-24 12:00:00+00:00"
+    assert accepted[ATTR_NATIVE_VALUE] == "London (since 12:00)"
+    assert accepted[ATTR_DIRECTION_OF_TRAVEL] == "away from home"
+
+    # About 3 metres from the accepted coordinates, still inside the movement gate.
+    now += timedelta(seconds=30)
+    hass.states.async_set("device_tracker.probe", "work", {"latitude": 51.50003, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected = {
+        **accepted,
+        ATTR_DEVICETRACKER_ZONE: "work",
+        ATTR_DEVICETRACKER_ZONE_NAME: "Office",
+        ATTR_LAST_UPDATED: "2026-11-24 12:00:30+00:00",
+    }
+    await assert_retained(expected, "Office")
+    assert requests == ["51.5"]
+
+    now += timedelta(seconds=30)
+    hass.states.async_set("device_tracker.probe", "work", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_DIRECTION_OF_TRAVEL: "stationary",
+            ATTR_LAST_CHANGED: "2026-11-24 12:01:00+00:00",
+            ATTR_LAST_UPDATED: "2026-11-24 12:01:00+00:00",
+        }
+    )
+    await assert_retained(expected, "Office")
+    assert requests == ["51.5"]
+
+    now += timedelta(days=1)
+    scan_clock += 86400
+    await coordinator.async_scan_update()
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_NATIVE_VALUE: "London (since 24/11)",
+            ATTR_LAST_UPDATED: "2026-11-25 12:01:00+00:00",
+            ATTR_SHOW_DATE: True,
+        }
+    )
+    await assert_retained(expected, "Office")
+    assert requests == ["51.5"]
+
+    now += timedelta(minutes=1)
+    hass.states.async_set(
+        "device_tracker.probe", "not_home", {"latitude": 51.5002, "longitude": -0.1}
+    )
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_DEVICETRACKER_ZONE: "not_home",
+            ATTR_DEVICETRACKER_ZONE_NAME: "not_home",
+            ATTR_LAST_UPDATED: "2026-11-25 12:02:00+00:00",
+        }
+    )
+    await assert_retained(expected, "not_home")
+    assert requests == ["51.5", "51.5002"]
+
+    # Only about 3 metres from the suppressed candidate, but over 10 from the accepted Place.
+    now += timedelta(minutes=1)
+    hass.states.async_set("device_tracker.probe", "work", {"latitude": 51.50023, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected[ATTR_LAST_UPDATED] = "2026-11-25 12:03:00+00:00"
+    await assert_retained(expected, "not_home")
+    assert requests == ["51.5", "51.5002", "51.50023"]
+
+    now += timedelta(minutes=1)
+    hass.states.async_set("device_tracker.probe", "", {"latitude": 51.5, "longitude": -0.1})
+    await hass.async_block_till_done()
+    expected.update(
+        {
+            ATTR_DEVICETRACKER_ZONE: None,
+            ATTR_DEVICETRACKER_ZONE_NAME: None,
+            ATTR_LAST_UPDATED: "2026-11-25 12:04:00+00:00",
+        }
+    )
+    await assert_retained(expected, "unknown")
+    assert requests == ["51.5", "51.5002", "51.50023"]
 
 
 @pytest.fixture
