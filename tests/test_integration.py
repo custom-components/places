@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
+from homeassistant.core import HomeAssistant
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -23,8 +24,10 @@ from custom_components.places.const import (
     ATTR_CITY,
     ATTR_DEVICETRACKER_ZONE,
     ATTR_DEVICETRACKER_ZONE_NAME,
+    ATTR_DIRECTION_OF_TRAVEL,
     ATTR_LAST_CHANGED,
     ATTR_NATIVE_VALUE,
+    ATTR_PLACE_CATEGORY,
     CONF_API_KEY,
     CONF_DEVICETRACKER_ID,
     CONF_DISPLAY_OPTIONS,
@@ -38,6 +41,7 @@ from custom_components.places.const import (
     PLATFORMS,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
+from custom_components.places.persistence import PlacesStorage
 from tests.conftest import assert_awaited_count
 
 
@@ -181,6 +185,60 @@ def reset_fake_storage() -> None:
     _FakeSetupPlacesStorage.instances = []
     _FakeSetupPlacesStorage.load_result = {}
     _FakeCoordinator.instances = []
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
+    ("direction", "in_zone", "display_options", "expected_state"),
+    [
+        pytest.param(None, False, "driving, city", "Metro", id="no-saved-direction"),
+        pytest.param("towards home", False, "driving, city", "Driving, Metro", id="moving"),
+        pytest.param("away from home", True, "driving, city", "Work", id="current-zone"),
+        pytest.param("away from home", False, "city", "Metro", id="driving-omitted"),
+    ],
+)
+async def test_render_restored_road_place(
+    hass: HomeAssistant,
+    direction: str | None,
+    in_zone: bool,
+    display_options: str,
+    expected_state: str,
+) -> None:
+    """Render the saved road Place while the tracked entity is unavailable at setup.
+
+    Args:
+        hass (HomeAssistant): Home Assistant instance loading the Places entry.
+        direction (str | None): Saved direction of travel, if present.
+        in_zone (bool): Whether the snapshot includes an active Current zone.
+        display_options (str): Display options for the Places entry.
+        expected_state (str): Expected state of the main sensor after setup.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=2,
+        minor_version=1,
+        data={
+            CONF_NAME: "Test Place",
+            CONF_DEVICETRACKER_ID: "device_tracker.test",
+            CONF_DISPLAY_OPTIONS: display_options,
+            CONF_SHOW_TIME: False,
+        },
+    )
+    entry.add_to_hass(hass)
+    snapshot = {ATTR_PLACE_CATEGORY: "highway", ATTR_CITY: "Metro"}
+    if direction is not None:
+        snapshot[ATTR_DIRECTION_OF_TRAVEL] = direction
+    if in_zone:
+        hass.states.async_set("zone.work", "0", {"passive": False})
+        snapshot.update({ATTR_DEVICETRACKER_ZONE: "work", ATTR_DEVICETRACKER_ZONE_NAME: "Work"})
+    await PlacesStorage(hass, entry.entry_id, "Test Place").async_save(snapshot)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.test_place")
+    assert state is not None
+    assert state.state == expected_state
 
 
 @pytest.mark.asyncio

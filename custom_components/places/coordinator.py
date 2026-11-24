@@ -722,7 +722,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData]):
         is_driving = False
         if (
             not await self.in_zone()
-            and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) != "stationary"
+            and self.get_attr(ATTR_DIRECTION_OF_TRAVEL) not in (None, "stationary")
             and (
                 self.get_attr(ATTR_PLACE_CATEGORY) == "highway"
                 or self.get_attr(ATTR_PLACE_TYPE) == "motorway"
