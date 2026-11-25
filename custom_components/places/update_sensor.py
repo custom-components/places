@@ -96,7 +96,7 @@ class SourceTrackerHistory:
     Attributes:
         latitude (float): Latitude of the last reading.
         longitude (float): Longitude of the last reading.
-        gps_accuracy (float): GPS accuracy of the last reading.
+        gps_accuracy (float | None): GPS accuracy of the last reading, when reported.
         moving_zero_readings (int):
             Consecutive 0 GPS accuracy readings that each moved more than
             ``MOVEMENT_THRESHOLD_M`` from the reading before them.
@@ -104,7 +104,7 @@ class SourceTrackerHistory:
 
     latitude: float
     longitude: float
-    gps_accuracy: float
+    gps_accuracy: float | None
     moving_zero_readings: int = 0
 
 
@@ -419,8 +419,9 @@ class PlacesUpdater:
 
         A 0 reading is treated as not reported until its source tracker has reported
         a positive GPS accuracy, which is then recorded with the Places entry. A 0
-        reading from a recorded source tracker skips the Update. With Use GPS
-        Accuracy off, accuracy is ignored and nothing is recorded.
+        reading from a recorded source tracker skips the Update. A reading without
+        accuracy interrupts its run of moving 0 readings. With Use GPS Accuracy off,
+        accuracy is ignored and nothing is recorded.
 
         Returns:
             UpdateStatus:
@@ -437,9 +438,9 @@ class PlacesUpdater:
                 self.state.get_attr(CONF_NAME),
                 self.state.get_attr(CONF_DEVICETRACKER_ID),
             )
-            return UpdateStatus.PROCEED
+        else:
+            self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
 
-        self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
         if not self.state.get_attr(CONF_USE_GPS):
             return UpdateStatus.PROCEED
 
@@ -455,7 +456,7 @@ class PlacesUpdater:
         source_tracker: str,
         latitude: float | None,
         longitude: float | None,
-        gps_accuracy: float,
+        gps_accuracy: float | None,
     ) -> UpdateStatus:
         """Judge one reading from a source tracker with Use GPS Accuracy on.
 
@@ -467,14 +468,14 @@ class PlacesUpdater:
             source_tracker (str): Entity ID of the source tracker that sent the reading.
             latitude (float | None): Latitude of the reading, when usable.
             longitude (float | None): Longitude of the reading, when usable.
-            gps_accuracy (float): Zero or positive GPS accuracy of the reading.
+            gps_accuracy (float | None): Zero, positive, or absent GPS accuracy of the reading.
 
         Returns:
             UpdateStatus:
                 ``SKIP`` for a 0 reading from a source tracker recorded as reporting
                 accuracy, otherwise ``PROCEED``.
         """
-        if gps_accuracy > 0:
+        if gps_accuracy is not None and gps_accuracy > 0:
             self.state.add_gps_accuracy_source(source_tracker)
             self._remember_reading(source_tracker, latitude, longitude, gps_accuracy, 0)
             _LOGGER.debug(
@@ -484,6 +485,9 @@ class PlacesUpdater:
             )
             return UpdateStatus.PROCEED
         if source_tracker not in self.state.get_gps_accuracy_sources():
+            return UpdateStatus.PROCEED
+        if gps_accuracy is None:
+            self._remember_reading(source_tracker, latitude, longitude, None, 0)
             return UpdateStatus.PROCEED
 
         previous = self.coordinator.source_tracker_history.get(source_tracker)
@@ -541,7 +545,7 @@ class PlacesUpdater:
         source_tracker: str,
         latitude: float | None,
         longitude: float | None,
-        gps_accuracy: float,
+        gps_accuracy: float | None,
         moving_zero_readings: int,
     ) -> None:
         """Keep the last reading seen from a source tracker in memory.
@@ -553,7 +557,7 @@ class PlacesUpdater:
             source_tracker (str): Entity ID of the source tracker.
             latitude (float | None): Latitude of the reading, when usable.
             longitude (float | None): Longitude of the reading, when usable.
-            gps_accuracy (float): GPS accuracy of the reading.
+            gps_accuracy (float | None): GPS accuracy of the reading, when reported.
             moving_zero_readings (int): Run of moving 0 readings to keep.
         """
         if latitude is None or longitude is None:
