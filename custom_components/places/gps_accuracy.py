@@ -19,12 +19,12 @@ from .const import (
     UpdateStatus,
 )
 from .location import CoordinatePair, LocationSnapshot
+from .tracker import TrackerSnapshot
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from homeassistant.core import State
 
     from .state import PlacesState
-    from .tracker import TrackerSnapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,6 +54,8 @@ class GPSAccuracyHistory:
         # Restored sources have no preceding reading or active run.
         self._sources: dict[str, _SourceTrackerHistory | None] = {}
         self._staged: dict[str, _SourceTrackerHistory | None] | None = None
+        self._pending_readings: list[tuple[State, TrackerSnapshot]] = []
+        self._staged_reading_count = 0
         if (
             self._enabled
             and state.get_attr_safe_str(ATTR_GPS_ACCURACY_TRACKED_ENTITY) == self._tracked_entity
@@ -65,13 +67,24 @@ class GPSAccuracyHistory:
             for attr in GPS_ACCURACY_RECORD_ATTRIBUTES:
                 state.clear_attr(attr)
 
+    def capture(self, state: State) -> None:
+        """Queue an available tracked entity reading with usable coordinates.
+
+        Args:
+            state (State): Home Assistant state from the tracked entity event.
+        """
+        if self._enabled:
+            reading = TrackerSnapshot.from_state(self._tracked_entity, state)
+            if reading.has_valid_coordinates:
+                self._pending_readings.append((state, reading))
+
     def stage_readings(
-        self, earlier: Iterable[TrackerSnapshot], candidate: TrackerSnapshot
+        self, current_state: State | None, candidate: TrackerSnapshot
     ) -> UpdateStatus:
         """Stage readings in arrival order and check the current candidate's accuracy.
 
         Args:
-            earlier (Iterable[TrackerSnapshot]): Earlier readings included in this Update.
+            current_state (State | None): Exact Home Assistant state used for the candidate.
             candidate (TrackerSnapshot): The reading being considered for a reverse lookup.
 
         Returns:
@@ -79,15 +92,22 @@ class GPSAccuracyHistory:
         """
         if not self._enabled:
             return UpdateStatus.PROCEED
+
+        # The candidate is evaluated separately. Remove its exact event now so it
+        # cannot be replayed as an earlier reading if this attempt fails.
+        if self._pending_readings and self._pending_readings[-1][0] is current_state:
+            self._pending_readings.pop()
+        self._staged_reading_count = len(self._pending_readings)
+
         staged = self._sources.copy()
-        for reading in earlier:
+        for _, reading in self._pending_readings:
             self._evaluate_reading(staged, reading)
         status = self._evaluate_reading(staged, candidate)
         self._staged = staged
         return status
 
     def commit(self, state: PlacesState) -> None:
-        """Accept staged history and write membership into the attributes to be saved.
+        """Accept staged history, consume its readings, and record source membership.
 
         Args:
             state (PlacesState): Place attributes to publish and persist for this Update.
@@ -101,11 +121,14 @@ class GPSAccuracyHistory:
             for attr in GPS_ACCURACY_RECORD_ATTRIBUTES:
                 state.clear_attr(attr)
         self._sources = self._staged
+        # Preserve readings that arrived while the lookup was in flight.
+        del self._pending_readings[: self._staged_reading_count]
         self.discard()
 
     def discard(self) -> None:
-        """Discard the current attempt's readings and retain committed history."""
+        """Discard staged changes, keeping committed history and pending readings."""
         self._staged = None
+        self._staged_reading_count = 0
 
     def _evaluate_reading(
         self, sources: dict[str, _SourceTrackerHistory | None], reading: TrackerSnapshot

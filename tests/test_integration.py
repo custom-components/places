@@ -33,7 +33,7 @@ from pytest_homeassistant.common import (
     async_capture_events,
     async_fire_time_changed,
 )
-from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker, AiohttpClientMockResponse
 
 from custom_components.places import (
     _ensure_osm_runtime_state,
@@ -3864,6 +3864,82 @@ async def test_failed_update_retries_earlier_throttled_reading(
     await _report_zero_readings(hass, gps_clock, [52.5])
     assert hass.states.get("sensor.probe").state == "Chelmsford"
     assert aioclient_mock.call_count == 3
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("lookup_succeeds", [True, False], ids=["success", "http-error"])
+async def test_reading_during_lookup_counts_once_on_next_update(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    *,
+    lookup_succeeds: bool,
+) -> None:
+    """Count a moving zero received during an older reverse lookup exactly once.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with a configured Places entry.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        lookup_succeeds (bool): Whether the suspended lookup succeeds.
+    """
+    tracker_id = "device_tracker.probe"
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    request_started = asyncio.Event()
+    release_request = asyncio.Event()
+    response = aioclient_mock.request(
+        "get",
+        f"{_REVERSE_URL}?lat=51.70001",
+        status=200 if lookup_succeeds else 503,
+        json=_OXFORD_RESPONSE,
+    )
+
+    async def wait_for_reading(*_request: object) -> AiohttpClientMockResponse:
+        """Hold the response until the tracked entity has delivered another reading.
+
+        Args:
+            *_request (object): HTTP request details supplied by the mock.
+
+        Returns:
+            AiohttpClientMockResponse: The registered response for the suspended lookup.
+        """
+        request_started.set()
+        await release_request.wait()
+        return response
+
+    response.side_effect = wait_for_reading
+    await _report_zero_readings(hass, gps_clock, [51.55])
+    # Queue a positive reading before the lookup so replaying it later changes the run.
+    hass.states.async_set(
+        tracker_id, "not_home", {"latitude": 51.6, "longitude": -0.1, "gps_accuracy": 5}
+    )
+    gps_clock["now"] += timedelta(minutes=10)
+    hass.states.async_set(
+        tracker_id, "not_home", {"latitude": 51.70001, "longitude": -0.1, "gps_accuracy": 5}
+    )
+    try:
+        await asyncio.wait_for(request_started.wait(), timeout=2)
+        hass.states.async_set(
+            tracker_id, "not_home", {"latitude": 51.8, "longitude": -0.1, "gps_accuracy": 0}
+        )
+    finally:
+        release_request.set()
+    await hass.async_block_till_done()
+
+    accepted_place = "Oxford" if lookup_succeeds else "London"
+    assert hass.states.get("sensor.probe").state == accepted_place
+    assert aioclient_mock.call_count == 2
+
+    await _report_zero_readings(hass, gps_clock, [51.9, 52.0, 52.1])
+    assert hass.states.get("sensor.probe").state == accepted_place
+    assert aioclient_mock.call_count == 2
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    await _report_zero_readings(hass, gps_clock, [52.2])
+    assert hass.states.get("sensor.probe").state == "Norwich"
+    assert aioclient_mock.call_count == 3
+    assert tracker_id not in (await storage.async_load()).get(ATTR_GPS_ACCURACY_SOURCES, [])
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

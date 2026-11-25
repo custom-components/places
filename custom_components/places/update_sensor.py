@@ -141,14 +141,14 @@ class PlacesUpdater:
                 return
             self.state.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
             if accept_history:
-                coordinator.commit_gps_accuracy_history(self.state)
+                coordinator.gps_accuracy_history.commit(self.state)
             coordinator.replace_attributes(self.state.get_internal_attr())
         except Exception:
             # Leave the accepted Place intact for failures in any processing phase.
             _LOGGER.exception("(%s) Error during Places update", coordinator.get_attr(CONF_NAME))
             raise
         finally:
-            coordinator.discard_staged_gps_accuracy_history()
+            coordinator.gps_accuracy_history.discard()
         if event_data is not None:
             await coordinator.async_publish_accepted_place(event_data)
         else:
@@ -424,7 +424,9 @@ class PlacesUpdater:
         else:
             self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
 
-        status = self.coordinator.stage_gps_accuracy(current_state, tracker_snapshot)
+        status = self.coordinator.gps_accuracy_history.stage_readings(
+            current_state, tracker_snapshot
+        )
         if not self.state.get_attr(CONF_USE_GPS):
             return status
 
