@@ -43,6 +43,11 @@ OSM_CACHE_MAX_AGE_HOURS = 4
 OSM_CACHE_MAX_SIZE = 500
 OSM_THROTTLE_INTERVAL_SECONDS = 1.0
 
+# Distance a reading must move from the accepted Place to count as movement.
+MOVEMENT_THRESHOLD_M = 10
+# Consecutive moving 0 GPS accuracy readings after which a source tracker is forgotten.
+GPS_ACCURACY_FORGET_COUNT = 5
+
 # Settings
 
 TRACKING_DOMAINS: list[str] = [

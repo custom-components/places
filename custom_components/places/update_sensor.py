@@ -70,6 +70,8 @@ from .const import (
     CONF_USE_GPS,
     DOMAIN,
     EVENT_ATTRIBUTE_MAP,
+    GPS_ACCURACY_FORGET_COUNT,
+    MOVEMENT_THRESHOLD_M,
     OSM_CACHE,
     RESET_ATTRIBUTE_LIST,
     UpdateStatus,
@@ -85,11 +87,6 @@ if TYPE_CHECKING:
     from .coordinator import PlacesUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
-
-# Distance a reading must move from the accepted Place to count as movement.
-MOVEMENT_THRESHOLD_M = 10
-# Consecutive moving 0 GPS accuracy readings after which a source tracker is forgotten.
-GPS_ACCURACY_FORGET_COUNT = 5
 
 
 @dataclass(slots=True)
