@@ -35,7 +35,8 @@ from pytest_homeassistant.common import (
     async_capture_events,
     async_fire_time_changed,
 )
-from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker, AiohttpClientMockResponse
+from yarl import URL
 
 from custom_components.places import (
     _ensure_osm_runtime_state,
@@ -3957,6 +3958,137 @@ async def test_failed_update_retries_earlier_throttled_reading(
     await _report_zero_readings(hass, gps_clock, [52.5])
     assert hass.states.get("sensor.probe").state == "Chelmsford"
     assert aioclient_mock.call_count == 3
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_outage_bounds_gps_readings_and_keeps_history_on_recovery(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+) -> None:
+    """Keep one source's readings bounded through a burst of 503s and recovery.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+    """
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    coordinator: PlacesUpdateCoordinator = entry.runtime_data
+    tracker_id = "device_tracker.probe"
+    for step in range(50):
+        latitude = round(52.6 + step / 1000, 3)
+        aioclient_mock.get(f"{_REVERSE_URL}?lat={latitude}", status=503)
+        gps_clock["now"] += timedelta(seconds=1)
+        hass.states.async_set(
+            tracker_id, "not_home", {"latitude": latitude, "longitude": -0.1, "gps_accuracy": 5}
+        )
+        await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count > 2
+    assert hass.states.get("sensor.probe").state == "London"
+    assert coordinator._pending_gps_accuracy is not None
+    assert list(coordinator._pending_gps_accuracy.readings) == [tracker_id]
+    assert coordinator._staged_gps_accuracy is None
+    assert coordinator._pending_gps_accuracy_after_commit is None
+
+    call_count = aioclient_mock.call_count
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
+    assert aioclient_mock.call_count == call_count
+    assert hass.states.get("sensor.probe").state == "London"
+    await _report_zero_readings(hass, gps_clock, [52.0])
+    assert aioclient_mock.call_count == call_count + 1
+    assert hass.states.get("sensor.probe").state == "Cambridge"
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("status", [200, 503], ids=["success", "failure"])
+async def test_gps_readings_during_lookup_follow_its_outcome(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    status: int,
+) -> None:
+    """Apply readings received during a lookup after its candidate commits or rolls back.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        status (int): HTTP status of the lookup held open during the readings.
+    """
+    request_started = asyncio.Event()
+    release_request = asyncio.Event()
+    tracker_id = "device_tracker.probe"
+
+    async def wait_for_readings(
+        _method: str, _url: URL, _data: object
+    ) -> AiohttpClientMockResponse:
+        """Hold the fifth zero reading's lookup open while new readings arrive.
+
+        Args:
+            _method (str): HTTP method of the reverse lookup.
+            _url (URL): URL of the reverse lookup.
+            _data (object): Request body, if any.
+
+        Returns:
+            AiohttpClientMockResponse: Mocked response after the new readings arrive.
+        """
+        request_started.set()
+        await release_request.wait()
+        return response
+
+    response = aioclient_mock.request(
+        "get",
+        f"{_REVERSE_URL}?lat=52.0",
+        status=status,
+        json={**_LONDON_RESPONSE, "address": {"city": "Cambridge"}},
+        side_effect=wait_for_readings,
+    )
+    aioclient_mock.get(
+        f"{_REVERSE_URL}?lat=52.6", json={**_LONDON_RESPONSE, "address": {"city": "Newmarket"}}
+    )
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
+
+    gps_clock["now"] += timedelta(minutes=10)
+    hass.states.async_set(
+        tracker_id, "not_home", {"latitude": 52.0, "longitude": -0.1, "gps_accuracy": 0}
+    )
+    try:
+        await asyncio.wait_for(request_started.wait(), timeout=5)
+        # Repeat the last committed zero, then reset its streak with a nearby fix.
+        for latitude in [51.9, 51.90001, 52.2, 52.3]:
+            gps_clock["now"] += timedelta(seconds=1)
+            hass.states.async_set(
+                tracker_id,
+                "not_home",
+                {"latitude": latitude, "longitude": -0.1, "gps_accuracy": 0},
+            )
+            await asyncio.sleep(0)
+    finally:
+        release_request.set()
+        await hass.async_block_till_done()
+
+    expected_place = "Cambridge" if status == 200 else "London"
+    assert hass.states.get("sensor.probe").state == expected_place
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    assert (await storage.async_load()).get(ATTR_GPS_ACCURACY_SOURCES) == (
+        None if status == 200 else [tracker_id]
+    )
+
+    await _report_zero_readings(hass, gps_clock, [52.4])
+    if status == 200:
+        assert aioclient_mock.call_count == 3
+        assert hass.states.get("sensor.probe").state == "Colchester"
+        return
+
+    await _report_zero_readings(hass, gps_clock, [52.5])
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == expected_place
+    await _report_zero_readings(hass, gps_clock, [52.6])
+    assert aioclient_mock.call_count == 3
+    assert hass.states.get("sensor.probe").state == "Newmarket"
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

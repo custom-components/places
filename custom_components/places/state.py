@@ -228,35 +228,19 @@ class PlacesState:
         """
         return [str(source) for source in self.get_attr_safe_list(ATTR_GPS_ACCURACY_SOURCES)]
 
-    def add_gps_accuracy_source(self, source_tracker: str) -> None:
-        """Record that a source tracker reports GPS accuracy for the tracked entity.
+    def set_gps_accuracy_sources(self, sources: list[str]) -> None:
+        """Save the source trackers that report GPS accuracy for the tracked entity.
 
         Args:
-            source_tracker (str):
-                Entity ID of the source tracker that reported a positive GPS accuracy.
+            sources (list[str]): Entity IDs of source trackers reporting positive GPS accuracy.
         """
-        sources = self.get_gps_accuracy_sources()
-        if source_tracker in sources:
+        if not sources:
+            self.clear_gps_accuracy_sources()
             return
-        self.set_attr(ATTR_GPS_ACCURACY_SOURCES, [*sources, source_tracker])
+        self.set_attr(ATTR_GPS_ACCURACY_SOURCES, sources)
         self.set_attr(
             ATTR_GPS_ACCURACY_TRACKED_ENTITY, self.get_attr_safe_str(CONF_DEVICETRACKER_ID)
         )
-
-    def remove_gps_accuracy_source(self, source_tracker: str) -> None:
-        """Forget one source tracker recorded as reporting GPS accuracy.
-
-        The record is cleared entirely when no source tracker remains in it.
-
-        Args:
-            source_tracker (str):
-                Entity ID of the source tracker to forget.
-        """
-        sources = [source for source in self.get_gps_accuracy_sources() if source != source_tracker]
-        if sources:
-            self.set_attr(ATTR_GPS_ACCURACY_SOURCES, sources)
-        else:
-            self.clear_gps_accuracy_sources()
 
     def clear_gps_accuracy_sources(self) -> None:
         """Forget every source tracker recorded as reporting GPS accuracy."""
