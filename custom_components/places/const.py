@@ -85,6 +85,7 @@ ATTR_COUNTRY_CODE = "country_code"
 ATTR_COUNTY = "county"
 ATTR_DEVICETRACKER_ID = "devicetracker_entityid"
 ATTR_DEVICETRACKER_ZONE = "zone"
+ATTR_DEVICETRACKER_ZONE_ID = "devicetracker_zone_id"
 ATTR_DEVICETRACKER_ZONE_NAME = "zone_name"
 ATTR_GPS_ACCURACY_SOURCES = "gps_accuracy_sources"
 ATTR_GPS_ACCURACY_TRACKED_ENTITY = "gps_accuracy_tracked_entity"
@@ -100,9 +101,12 @@ ATTR_HOME_LOCATION = "home_location"
 ATTR_HOME_LONGITUDE = "home_longitude"
 ATTR_HOME_ZONE = "home_zone"
 ATTR_INITIAL_UPDATE = "initial_update"
+# Optional Home Assistant state attribute; older versions may not expose it.
+ATTR_IN_ZONES = "in_zones"
 ATTR_LAST_CHANGED = "last_changed"
 ATTR_LAST_PLACE_NAME = "last_place_name"
 ATTR_LAST_RESOLVED_ZONE = "last_resolved_zone"
+ATTR_LAST_RESOLVED_ZONE_ID = "last_resolved_zone_id"
 ATTR_LAST_UPDATED = "last_updated"
 ATTR_LATITUDE = "latitude"
 ATTR_LATITUDE_OLD = "previous_latitude"
@@ -226,6 +230,7 @@ PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_COUNTRY_CODE,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_ID,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DISTANCE_FROM_HOME,
     ATTR_DISTANCE_TRAVELED,
@@ -236,6 +241,7 @@ PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
     ATTR_LAST_RESOLVED_ZONE,
+    ATTR_LAST_RESOLVED_ZONE_ID,
     ATTR_LAST_UPDATED,
     ATTR_LATITUDE_OLD,
     ATTR_LATITUDE,
