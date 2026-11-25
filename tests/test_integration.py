@@ -2061,10 +2061,20 @@ async def test_active_zone_changes_use_base_movement_threshold(
 
 @pytest.mark.usefixtures("enable_custom_integrations")
 @pytest.mark.parametrize("arriving", [True, False], ids=["arrival", "departure"])
-async def test_active_zone_name_takes_precedence_over_colliding_slug(
+@pytest.mark.parametrize(
+    ("passive_name", "active_name", "active_id"),
+    [
+        pytest.param("Cafe", "Café", "zone.cafe_2", id="colliding-slugs"),
+        pytest.param("Office Park", "Office Park", "zone.office_park_2", id="duplicate-names"),
+    ],
+)
+async def test_active_zone_updates_with_colliding_zone_slugs(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     monkeypatch: pytest.MonkeyPatch,
+    passive_name: str,
+    active_name: str,
+    active_id: str,
     *,
     arriving: bool,
 ) -> None:
@@ -2074,6 +2084,9 @@ async def test_active_zone_name_takes_precedence_over_colliding_slug(
         hass (HomeAssistant): Home Assistant runtime with real zone and Places entities.
         aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
         monkeypatch (pytest.MonkeyPatch): Replacement for the OSM throttle interval.
+        passive_name (str): Display name of the passive zone.
+        active_name (str): Display name of the active zone.
+        active_id (str): Entity ID Home Assistant assigns to the active zone.
         arriving (bool): Whether the tracker enters or leaves the active zone.
     """
     monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
@@ -2093,8 +2106,8 @@ async def test_active_zone_name_takes_precedence_over_colliding_slug(
         "zone",
         {
             "zone": [
-                {**zone_location, "name": "Cafe", "passive": True},
-                {**zone_location, "name": "Café"},
+                {**zone_location, "name": passive_name, "passive": True},
+                {**zone_location, "name": active_name},
             ]
         },
     )
@@ -2103,8 +2116,8 @@ async def test_active_zone_name_takes_precedence_over_colliding_slug(
     assert async_active_zone(hass, outside, longitude, 80) is None
     active_zone = async_active_zone(hass, inside, longitude, 80)
     assert active_zone is not None
-    assert active_zone.entity_id == "zone.cafe_2"
-    assert active_zone.name == "Café"
+    assert active_zone.entity_id == active_id
+    assert active_zone.name == active_name
 
     before, after = (outside, inside) if arriving else (inside, outside)
     state_before, state_after = (
@@ -2128,7 +2141,7 @@ async def test_active_zone_name_takes_precedence_over_colliding_slug(
 
     assert aioclient_mock.call_count == 1
     main = hass.states.get("sensor.probe")
-    assert main.state == ("Café" if arriving else "not_home, Oxford")
+    assert main.state == (active_name if arriving else "not_home, Oxford")
     assert main.attributes[ATTR_LATITUDE] == after
 
 

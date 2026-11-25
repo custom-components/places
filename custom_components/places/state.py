@@ -47,12 +47,15 @@ def async_resolve_zone(hass: HomeAssistant, label: str) -> State | None:
     """
     if not label:
         return None
-    slug_match = hass.states.get(f"{CONF_ZONE}.{slugify(label)}")
-    if label == STATE_HOME or (slug_match is not None and slug_match.name == label):
-        return slug_match
+    if label == STATE_HOME:
+        return hass.states.get(f"{CONF_ZONE}.{STATE_HOME}")
     # Home Assistant trackers can report names whose entity IDs have a numeric suffix.
     name_matches = [zone for zone in hass.states.async_all(CONF_ZONE) if zone.name == label]
-    return name_matches[0] if len(name_matches) == 1 else slug_match
+    if len(name_matches) == 1:
+        return name_matches[0]
+    # Duplicate names are ambiguous. Keep the original object-ID lookup for those labels.
+    zone_key = label.lower() if name_matches else slugify(label)
+    return hass.states.get(f"{CONF_ZONE}.{zone_key}")
 
 
 class PlacesState:
