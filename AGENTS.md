@@ -12,6 +12,7 @@
 - Focus on a single conceptual change at a time when public APIs or multiple modules are affected.
 - Maintain project style and Python 3.14+ compatibility. Target latest Home Assistant core.
 - If deviating from these guidelines, explicitly state which guideline is deviated from and why.
+- **Address-field issues** (city, postal town, neighbourhood wrong or missing): [`docs/agents/nominatim-debugging.md`](./docs/agents/nominatim-debugging.md).
 
 ## Agent permissions and venv policy
 
