@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping, MutableMapping
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from homeassistant.const import ATTR_ATTRIBUTION, CONF_NAME
 
@@ -231,41 +231,14 @@ class OSMParser:
             address (MutableMapping[str, Any]):
                 Nominatim ``address`` mapping from the current response.
         """
-        city_types_to_skip: list[str] = []
-        for city_type in CITY_LIST:
-            if city_type in address:
-                self.coordinator.set_attr(
-                    ATTR_CITY,
-                    address.get(city_type),
-                )
-                city_types_to_skip = _prioritized_types_through_match(CITY_LIST, city_type)
-                break
-
-        postal_town_types = _without_prioritized_types(POSTAL_TOWN_LIST, city_types_to_skip)
-        postal_town_types_to_skip: list[str] = []
-        for postal_town_type in postal_town_types:
-            if postal_town_type in address:
-                self.coordinator.set_attr(
-                    ATTR_POSTAL_TOWN,
-                    address.get(postal_town_type),
-                )
-                postal_town_types_to_skip = _prioritized_types_through_match(
-                    postal_town_types,
-                    postal_town_type,
-                )
-                break
-
-        neighbourhood_types = _without_prioritized_types(
-            NEIGHBOURHOOD_LIST,
-            [*city_types_to_skip, *postal_town_types_to_skip],
-        )
-        for neighbourhood_type in neighbourhood_types:
-            if neighbourhood_type in address:
-                self.coordinator.set_attr(
-                    ATTR_PLACE_NEIGHBOURHOOD,
-                    address.get(neighbourhood_type),
-                )
-                break
+        matched_types = match_city_types(address)
+        for attr, address_type in (
+            (ATTR_CITY, matched_types.city),
+            (ATTR_POSTAL_TOWN, matched_types.postal_town),
+            (ATTR_PLACE_NEIGHBOURHOOD, matched_types.neighbourhood),
+        ):
+            if address_type is not None:
+                self.coordinator.set_attr(attr, address.get(address_type))
 
         if not self.coordinator.is_attr_blank(ATTR_CITY):
             self.coordinator.set_attr(
@@ -433,6 +406,49 @@ class OSMParser:
             self.coordinator.get_attr(CONF_NAME),
             self.coordinator.get_attr(ATTR_LAST_PLACE_NAME),
         )
+
+
+class CityTypeMatch(NamedTuple):
+    """Nominatim ``address`` keys chosen for the city, postal town, and neighbourhood sensors."""
+
+    city: str | None
+    postal_town: str | None
+    neighbourhood: str | None
+
+
+def match_city_types(address: Mapping[str, Any]) -> CityTypeMatch:
+    """Choose which Nominatim ``address`` keys fill city, postal town, and neighbourhood.
+
+    City takes the first ``CITY_LIST`` key present. Postal town takes the first
+    ``POSTAL_TOWN_LIST`` key present that city precedence has not already claimed.
+    Neighbourhood takes the first ``NEIGHBOURHOOD_LIST`` key present that neither
+    earlier group claimed.
+
+    Args:
+        address (Mapping[str, Any]):
+            Nominatim ``address`` mapping from a reverse-geocode response.
+
+    Returns:
+        CityTypeMatch:
+            The matched ``address`` key for each field, or ``None`` when no key matched.
+    """
+    city: str | None = next((key for key in CITY_LIST if key in address), None)
+    city_types_to_skip = [] if city is None else _prioritized_types_through_match(CITY_LIST, city)
+
+    postal_town_types = _without_prioritized_types(POSTAL_TOWN_LIST, city_types_to_skip)
+    postal_town: str | None = next((key for key in postal_town_types if key in address), None)
+    postal_town_types_to_skip = (
+        []
+        if postal_town is None
+        else _prioritized_types_through_match(postal_town_types, postal_town)
+    )
+
+    neighbourhood_types = _without_prioritized_types(
+        NEIGHBOURHOOD_LIST,
+        [*city_types_to_skip, *postal_town_types_to_skip],
+    )
+    neighbourhood: str | None = next((key for key in neighbourhood_types if key in address), None)
+    return CityTypeMatch(city, postal_town, neighbourhood)
 
 
 def _without_prioritized_types(types: list[str], prioritized_types: list[str]) -> list[str]:

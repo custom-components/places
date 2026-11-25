@@ -190,6 +190,9 @@ ignore = [
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
+"tools/*" = [
+    "T201",    # print is the developer tools' output
+]
 "tests/*" = [
     "B017",    # Don't assert blind Exception
     "C90",     # mccabe, complexity
