@@ -68,6 +68,31 @@ class OSMClient:
         return f"{base_url}&{urlencode(params)}"
 
     @staticmethod
+    def search_url(query: str, language: str | None, email: str | None) -> str:
+        """Build the Nominatim forward-geocode (search) URL for a free-form query.
+
+        Args:
+            query (str):
+                Free-form address or place text to geocode.
+            language (str | None):
+                Accept-Language value to request localized results.
+            email (str | None):
+                Nominatim contact email value.
+
+        Returns:
+            str:
+                Fully encoded search URL starting with ``search?q=``.
+        """
+        base_url = "https://nominatim.openstreetmap.org/search?format=json"
+        params = {
+            "q": query,
+            "accept-language": language or "",
+            "limit": "1",
+            "email": email or "",
+        }
+        return f"{base_url}&{urlencode(params)}"
+
+    @staticmethod
     def details_url(
         osm_type_abbr: str, osm_id: object, language: str | None, email: str | None
     ) -> str:

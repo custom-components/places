@@ -49,6 +49,7 @@ from .const import (
     ATTR_NATIVE_VALUE,
     ATTR_OSM_DETAILS_DICT,
     ATTR_OSM_DICT,
+    ATTR_OSM_FORWARD_DICT,
     ATTR_OSM_ID,
     ATTR_OSM_TYPE,
     ATTR_PLACE_NAME,
@@ -59,6 +60,7 @@ from .const import (
     CONF_DATE_FORMAT,
     CONF_DEVICETRACKER_ID,
     CONF_EXTENDED_ATTR,
+    CONF_GEOCODING_MODE,
     CONF_HOME_ZONE,
     CONF_LANGUAGE,
     CONF_MAP_PROVIDER,
@@ -67,6 +69,7 @@ from .const import (
     CONF_USE_GPS,
     DOMAIN,
     EVENT_ATTRIBUTE_MAP,
+    GEOCODING_MODE_FORWARD,
     OSM_CACHE,
     RESET_ATTRIBUTE_LIST,
     UpdateStatus,
@@ -112,6 +115,17 @@ class PlacesUpdater:
             sensor_name=str(self.state.get_attr(CONF_NAME)),
         )
         self._use_cache = True
+
+    @property
+    def is_forward_geocoding(self) -> bool:
+        """Return whether this sensor geocodes the tracked entity state to coordinates.
+
+        Returns:
+            bool:
+                ``True`` in forward (address to coordinates) mode, ``False`` for the
+                default reverse (coordinates to address) mode.
+        """
+        return self.state.get_attr(CONF_GEOCODING_MODE) == GEOCODING_MODE_FORWARD
 
     async def do_update(self, reason: str, *, force: bool = False) -> None:
         """Resolve and commit one Update under the coordinator lock, propagating cancellation.
@@ -375,13 +389,21 @@ class PlacesUpdater:
             proceed_with_update,
         )
         if proceed_with_update == UpdateStatus.PROCEED:
-            await self.update_coordinates()
-            proceed_with_update = await self.get_gps_accuracy()
-            _LOGGER.debug(
-                "(%s) [check_device_tracker_and_update_coords] proceed_with_update: %s",
-                self.state.get_attr(CONF_NAME),
-                proceed_with_update,
-            )
+            if self.is_forward_geocoding:
+                proceed_with_update = await self.query_forward_osm()
+                _LOGGER.debug(
+                    "(%s) [check_device_tracker_and_update_coords f] proceed_with_update: %s",
+                    self.state.get_attr(CONF_NAME),
+                    proceed_with_update,
+                )
+            else:
+                await self.update_coordinates()
+                proceed_with_update = await self.get_gps_accuracy()
+                _LOGGER.debug(
+                    "(%s) [check_device_tracker_and_update_coords r] proceed_with_update: %s",
+                    self.state.get_attr(CONF_NAME),
+                    proceed_with_update,
+                )
         return proceed_with_update
 
     async def get_gps_accuracy(self) -> UpdateStatus:
@@ -693,6 +715,27 @@ class PlacesUpdater:
             self.state.clear_attr(attr)
         await self.state.async_cleanup_attributes()
 
+    async def query_forward_osm(self) -> UpdateStatus:
+        """Obtain lat/lon value from nominatim.
+
+        Returns:
+            UpdateStatus:
+                Status indicating whether the update should continue or be skipped.
+        """
+        osm_search_url: str = await self.build_osm_search_url()
+        await self.get_dict_from_url(
+            url=osm_search_url, name="OpenStreetMaps", dict_name=ATTR_OSM_FORWARD_DICT
+        )
+
+        osm_dict: MutableMapping[str, Any] | None = self.state.get_attr(ATTR_OSM_FORWARD_DICT)
+        if not osm_dict:
+            return UpdateStatus.SKIP
+
+        parser = OSMParser(coordinator=self.state)
+        await parser.parse_location(osm_dict)
+
+        return UpdateStatus.PROCEED
+
     async def query_osm_and_finalize(self, now: datetime) -> None:
         """Fetch reverse-geocode data and render the display state.
 
@@ -775,6 +818,20 @@ class PlacesUpdater:
             self.state.get_attr_safe_float(ATTR_LONGITUDE),
             self.state.get_attr(CONF_LANGUAGE) or "",
             self.state.get_attr(CONF_API_KEY) or "",
+        )
+
+    async def build_osm_search_url(self) -> str:
+        """Build the Nominatim search/geocode URL for the tracked entity's address.
+
+        Returns:
+            str:
+                Fully encoded Nominatim search lookup URL.
+        """
+        tracker_state = self._hass.states.get(self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID))
+        return OSMClient.search_url(
+            query=tracker_state.state if tracker_state is not None else "",
+            language=self.state.get_attr(CONF_LANGUAGE) or "",
+            email=self.state.get_attr(CONF_API_KEY) or "",
         )
 
     async def get_extended_attr(self) -> None:
@@ -1188,6 +1245,9 @@ class PlacesUpdater:
         """
         if not await self.is_tracker_available():
             return UpdateStatus.SKIP
+
+        if self.is_forward_geocoding:
+            return UpdateStatus.PROCEED
 
         if not await self.has_valid_coordinates():
             return UpdateStatus.SKIP

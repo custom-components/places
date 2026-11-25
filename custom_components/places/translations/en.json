@@ -6,7 +6,8 @@
             "bracket_mismatch": "Bracket or Parenthesis count mismatch in advanced display options",
             "invalid_characters": "Invalid characters in advanced display options",
             "invalid_syntax": "Invalid syntax in advanced display options",
-            "invalid_option": "Invalid option in advanced display options"
+            "invalid_option": "Invalid option in advanced display options",
+            "tracker_needs_coordinates": "Reverse geocoding requires entity with latitude and longitude values"
         },
         "step": {
             "user": {
@@ -14,6 +15,7 @@
                 "data": {
                     "name": "Sensor Name",
                     "devicetracker_id": "Tracked Entity ID",
+                    "geocoding_mode": "Geocoding Mode",
                     "home_zone": "Home Zone",
                     "options": "Display Options",
                     "map_provider": "Map Provider",
@@ -28,9 +30,11 @@
                 "description": "Create a new sensor\nSee [Configuration Options]({component_config_url}) on GitHub for details",
                 "data_description": {
                     "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
+                    "devicetracker_id": "Reverse mode: an entity with latitude/longitude attributes. Forward mode: any entity whose state is an address.",
+                    "geocoding_mode": "Reverse looks up the address for the entity's coordinates. Forward looks up coordinates for the address in the entity's state.",
                     "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
                     "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
-                  }
+                }
             }
         }
     },
@@ -93,13 +97,15 @@
             "bracket_mismatch": "Bracket or Parenthesis count mismatch in advanced display options",
             "invalid_characters": "Invalid characters in advanced display options",
             "invalid_syntax": "Invalid syntax in advanced display options",
-            "invalid_option": "Invalid option in advanced display options"
+            "invalid_option": "Invalid option in advanced display options",
+            "tracker_needs_coordinates": "Reverse geocoding requires entity with latitude and longitude values"
         },
         "step": {
             "init": {
                 "title": "Places: OpenStreetMap Sensor",
                 "data": {
                     "devicetracker_id": "Tracked Entity ID",
+                    "geocoding_mode": "Geocoding Mode",
                     "home_zone": "Home Zone",
                     "options": "Display Options",
                     "map_provider": "Map Provider",
@@ -114,9 +120,11 @@
                 "description": "**Updating sensor:&nbsp;{sensor_name}**\nSee [Configuration Options]({component_config_url}) on GitHub for details",
                 "data_description": {
                     "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
+                    "devicetracker_id": "Reverse mode: an entity with latitude/longitude attributes. Forward mode: any entity whose state is an address.",
+                    "geocoding_mode": "Reverse looks up the address for the entity's coordinates. Forward looks up coordinates for the address in the entity's state.",
                     "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
                     "use_gps_accuracy": "Set this to False if your Device Tracker has a GPS Accuracy (gps_accuracy) attribute, but it always shows 0 even if the latitude and longitude are correct."
-                  }
+                }
             }
         }
     }
