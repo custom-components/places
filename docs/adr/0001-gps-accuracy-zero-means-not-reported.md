@@ -4,6 +4,8 @@ Home Assistant Core reports `gps_accuracy: 0` whenever an integration does not s
 
 We decided that an accuracy of 0 means "not reported" until the source tracker has reported a positive GPS accuracy. After that, a 0 reading from that source tracker is treated as a bad fix and skips the Update. For a person entity, the source tracker is its `source` attribute, so a phone that reports accuracy does not cause a router tracker's 0-accuracy home readings to be skipped. Places saves which source trackers have reported accuracy with the Places entry, and forgets a source tracker after 5 consecutive 0 readings that each moved more than 10 m from the previous reading, so a tracker whose integration stops reporting accuracy cannot get stuck. An identical repeat of the previous reading is ignored: it neither counts nor restarts the run.
 
+Places summarizes earlier readings in order using a fixed amount of history per source tracker. A failed reverse lookup discards the candidate's effect on GPS accuracy history. Earlier readings and readings received during the lookup still count toward the next Update.
+
 Reported accuracy also raises the stationary threshold to `max(10 m, accuracy)`, so movement within the accuracy radius is treated as noise. Because of this, Places has no separate cut-off for very imprecise readings. For a device tracker or person, the threshold stays at 10 m while its Current zone differs from the zone at the last successful reverse lookup. A closer reading can publish the Current zone while retaining the Place. Places saves the last resolved zone separately so the 10 m threshold still applies to later readings in the new zone.
 
 ## Considered Options
