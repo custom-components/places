@@ -43,7 +43,6 @@ from .config_schema import MAP_PROVIDER_OPTIONS
 from .const import (
     ATTR_DEVICETRACKER_ID,
     ATTR_DISPLAY_OPTIONS,
-    ATTR_GPS_ACCURACY_TRACKED_ENTITY,
     ATTR_HOME_LATITUDE,
     ATTR_HOME_LONGITUDE,
     ATTR_INITIAL_UPDATE,
@@ -74,109 +73,21 @@ from .const import (
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
     EVENT_TYPE,
-    GPS_ACCURACY_FORGET_COUNT,
     MAIN_STATE_ATTRIBUTE_LIST,
-    MOVEMENT_THRESHOLD_M,
 )
+from .gps_accuracy import GPSAccuracyHistory
 from .helpers import is_float
-from .location import CoordinatePair, LocationSnapshot
+from .location import CoordinatePair
 from .state import PlacesState
-from .tracker import TrackerSnapshot
 from .update_sensor import PlacesUpdater
 
 if TYPE_CHECKING:
-    from homeassistant.core import State
-
     from .persistence import PlacesStorage
 
 _LOGGER = logging.getLogger(__name__)
 MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
-
-
-@dataclass(frozen=True, slots=True)
-class SourceTrackerHistory:
-    """Last reading seen from one source tracker during this runtime.
-
-    Attributes:
-        latitude (float): Latitude of the last reading.
-        longitude (float): Longitude of the last reading.
-        gps_accuracy (float | None): GPS accuracy of the last reading, when reported.
-        moving_zero_readings (int):
-            Consecutive 0 GPS accuracy readings that each moved more than
-            ``MOVEMENT_THRESHOLD_M`` from the reading before them.
-    """
-
-    latitude: float
-    longitude: float
-    gps_accuracy: float | None
-    moving_zero_readings: int
-
-
-@dataclass(slots=True)
-class GPSAccuracyHistory:
-    """Summarize an ordered run of readings with one history entry per source tracker."""
-
-    sources: dict[str, None]
-    readings: dict[str, SourceTrackerHistory] = field(default_factory=dict)
-    forgotten_sources: dict[str, None] = field(default_factory=dict)
-
-    def fork(self) -> GPSAccuracyHistory:
-        """Copy current readings and source membership for a new run.
-
-        Returns:
-            GPSAccuracyHistory: Independent summary with fresh forgetting notifications.
-        """
-        return GPSAccuracyHistory(self.sources.copy(), self.readings.copy())
-
-    def record(self, reading: TrackerSnapshot) -> bool:
-        """Apply one reading to the source's GPS accuracy history.
-
-        Args:
-            reading (TrackerSnapshot): Reading from the tracked entity.
-
-        Returns:
-            bool: Whether this reading is a 0 that must skip its lookup.
-        """
-        source = reading.source_tracker
-        accuracy = reading.gps_accuracy
-        if accuracy is not None and accuracy > 0:
-            self.sources[source] = None
-        elif source not in self.sources:
-            return False
-
-        is_zero = accuracy == 0
-        latitude = reading.latitude
-        longitude = reading.longitude
-        if latitude is None or longitude is None:
-            return is_zero
-
-        moving_zero_readings = 0
-        previous = self.readings.get(source)
-        if is_zero and previous is not None:
-            if (latitude, longitude, accuracy) == (
-                previous.latitude,
-                previous.longitude,
-                previous.gps_accuracy,
-            ):
-                return True
-            movement = LocationSnapshot(
-                current=CoordinatePair(latitude=latitude, longitude=longitude),
-                previous=CoordinatePair(latitude=previous.latitude, longitude=previous.longitude),
-            )
-            movement.calculate()
-            if (movement.distance_traveled or 0.0) > MOVEMENT_THRESHOLD_M:
-                moving_zero_readings = previous.moving_zero_readings + 1
-
-        should_forget = moving_zero_readings >= GPS_ACCURACY_FORGET_COUNT
-        self.readings[source] = SourceTrackerHistory(
-            latitude, longitude, accuracy, 0 if should_forget else moving_zero_readings
-        )
-        if should_forget:
-            self.sources.pop(source)
-            self.forgotten_sources[source] = None
-        return is_zero and not should_forget
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,11 +136,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         self._is_shutting_down = False
         self._pending_place_event: dict[str, Any] | None = None
         self._tracker_update_tasks: set[asyncio.Task[None]] = set()
-        # Defer only the latest valid event because it may be the next Place candidate.
-        self._latest_tracker_reading: tuple[State, TrackerSnapshot] | None = None
-        self._pending_gps_accuracy: GPSAccuracyHistory | None = None
-        self._staged_gps_accuracy: GPSAccuracyHistory | None = None
-        self._pending_gps_accuracy_after_commit: GPSAccuracyHistory | None = None
         self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
         self.entity_id: str | None = None
@@ -243,10 +149,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         )
         self._initialize_config_attributes()
         self.import_persisted_attributes(imported_attributes)
-        self._discard_stale_gps_accuracy_sources()
-        self._committed_gps_accuracy = GPSAccuracyHistory(
-            sources=dict.fromkeys(self.get_gps_accuracy_sources())
-        )
+        self.gps_accuracy_history = GPSAccuracyHistory(self)
         self.async_set_updated_data(self.snapshot())
 
     @property
@@ -262,60 +165,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             for attr in MAIN_STATE_ATTRIBUTE_LIST
             if not self.is_attr_blank(attr)
         }
-
-    def discard_staged_gps_accuracy_history(self) -> None:
-        """Discard the candidate while keeping earlier and in-flight readings."""
-        self._staged_gps_accuracy = None
-        self._pending_gps_accuracy_after_commit = None
-
-    def commit_gps_accuracy_history(self) -> None:
-        """Commit the candidate and keep readings received during its lookup."""
-        if self._staged_gps_accuracy is not None:
-            self._committed_gps_accuracy = self._staged_gps_accuracy
-            self._pending_gps_accuracy = self._pending_gps_accuracy_after_commit
-
-    def stage_gps_accuracy(
-        self, current_state: State | None, reading: TrackerSnapshot
-    ) -> tuple[bool, list[str], list[str]]:
-        """Apply earlier event summaries and stage the current Place candidate.
-
-        Args:
-            current_state (State | None): Exact Home Assistant state selected as the candidate.
-            reading (TrackerSnapshot): GPS reading for the candidate.
-
-        Returns:
-            tuple[bool, list[str], list[str]]: Whether the candidate must skip its lookup,
-                the staged sources reporting accuracy, and the sources forgotten this attempt.
-        """
-        self._fold_latest_tracker_reading(current_state)
-        earlier = self._pending_gps_accuracy or self._committed_gps_accuracy
-        candidate = earlier.fork()
-        skip = candidate.record(reading)
-        forgotten = list(earlier.forgotten_sources | candidate.forgotten_sources)
-        candidate.forgotten_sources.clear()
-        self._staged_gps_accuracy = candidate
-        return skip, list(candidate.sources), forgotten
-
-    def _fold_latest_tracker_reading(self, current_state: State | None = None) -> None:
-        """Summarize the previous event unless that exact event is the current candidate.
-
-        Args:
-            current_state (State | None): State to leave out of the earlier readings.
-        """
-        latest = self._latest_tracker_reading
-        self._latest_tracker_reading = None
-        if latest is None or latest[0] is current_state:
-            return
-
-        # While a lookup is in flight, fold readings against both possible outcomes.
-        # The candidate may change the next reading's movement, streak or source membership.
-        if self._pending_gps_accuracy is None:
-            self._pending_gps_accuracy = self._committed_gps_accuracy.fork()
-        self._pending_gps_accuracy.record(latest[1])
-        if self._staged_gps_accuracy is not None:
-            if self._pending_gps_accuracy_after_commit is None:
-                self._pending_gps_accuracy_after_commit = self._staged_gps_accuracy.fork()
-            self._pending_gps_accuracy_after_commit.record(latest[1])
 
     @property
     def is_shutting_down(self) -> bool:
@@ -617,18 +466,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                 persisted_attr,
             )
 
-    def _discard_stale_gps_accuracy_sources(self) -> None:
-        """Forget restored GPS accuracy sources that do not apply to this entry.
-
-        The record applies only while Use GPS Accuracy is on and it was learned for
-        the currently configured tracked entity.
-        """
-        recorded_entity = self.get_attr_safe_str(ATTR_GPS_ACCURACY_TRACKED_ENTITY)
-        if not self.get_attr(CONF_USE_GPS) or recorded_entity != self.get_attr_safe_str(
-            CONF_DEVICETRACKER_ID
-        ):
-            self.clear_gps_accuracy_sources()
-
     async def async_persist_attributes(self) -> None:
         """Persist the current runtime attributes."""
         if self._is_shutting_down:
@@ -654,8 +491,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
     async def async_shutdown(self) -> None:
         """Unsubscribe callbacks and discard pending readings during final teardown."""
         await self.async_prepare_unload()
-        self._latest_tracker_reading = None
-        self._pending_gps_accuracy = None
+        self.gps_accuracy_history.clear_pending_readings()
         self._pending_place_event = None
         await super().async_shutdown()
 
@@ -793,12 +629,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             isinstance(new_state.state, str)
             and new_state.state.lower() in {"none", STATE_UNKNOWN, STATE_UNAVAILABLE}
         )
-        if new_state is not None and tracker_available and self.get_attr(CONF_USE_GPS):
-            tracker_id = self.get_attr_safe_str(CONF_DEVICETRACKER_ID)
-            reading = TrackerSnapshot.from_state(tracker_id, new_state)
-            if reading.has_valid_coordinates:
-                self._fold_latest_tracker_reading()
-                self._latest_tracker_reading = (new_state, reading)
+        if new_state is not None and tracker_available:
+            self.gps_accuracy_history.capture(new_state)
         self._schedule_tracker_update(tracker_available=tracker_available)
 
     @Throttle(MIN_THROTTLE_INTERVAL)

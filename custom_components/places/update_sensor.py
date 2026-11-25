@@ -71,7 +71,6 @@ from .const import (
     CONF_USE_GPS,
     DOMAIN,
     EVENT_ATTRIBUTE_MAP,
-    GPS_ACCURACY_FORGET_COUNT,
     MOVEMENT_THRESHOLD_M,
     OSM_CACHE,
     PERSON_DOMAIN,
@@ -143,20 +142,19 @@ class PlacesUpdater:
         now = await self.get_current_time()
 
         try:
-            event_data = await self._prepare_update(accepted, now, force=force)
+            event_data, accept_history = await self._prepare_update(accepted, now, force=force)
+            if coordinator.is_shutting_down:
+                return
+            self.state.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
+            if accept_history:
+                coordinator.gps_accuracy_history.commit(self.state)
+            coordinator.replace_attributes(self.state.get_internal_attr())
         except Exception:
             # Leave the accepted Place intact for failures in any processing phase.
             _LOGGER.exception("(%s) Error during Places update", coordinator.get_attr(CONF_NAME))
             raise
-        else:
-            if coordinator.is_shutting_down:
-                return
-            self.state.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
-            coordinator.replace_attributes(self.state.get_internal_attr())
-            coordinator.commit_gps_accuracy_history()
         finally:
-            coordinator.discard_staged_gps_accuracy_history()
-
+            coordinator.gps_accuracy_history.discard()
         if event_data is not None:
             await coordinator.async_publish_accepted_place(event_data)
         else:
@@ -166,7 +164,7 @@ class PlacesUpdater:
 
     async def _prepare_update(
         self, accepted: MutableMapping[str, Any], now: datetime, *, force: bool
-    ) -> dict[str, Any] | None:
+    ) -> tuple[dict[str, Any] | None, bool]:
         """Resolve a candidate or prepare maintenance for the accepted Place.
 
         Args:
@@ -175,7 +173,8 @@ class PlacesUpdater:
             force (bool): Bypass movement and accept fresh details for unchanged text.
 
         Returns:
-            dict[str, Any] | None: Event data when accepting a new Place.
+            tuple[dict[str, Any] | None, bool]:
+                Event data for a new Place and whether to accept staged GPS accuracy history.
         """
         await self.update_entity_name_and_cleanup()
         self._osm_client.update_sensor_name(str(self.state.get_attr(CONF_NAME)))
@@ -191,7 +190,7 @@ class PlacesUpdater:
         if status == UpdateStatus.PROCEED:
             await self.process_osm_update(now=now)
             if self.coordinator.is_shutting_down:
-                return None
+                return None, False
             if not self.state.is_attr_blank(ATTR_OSM_DICT):
                 # The zone has been resolved even if the display text stays the same.
                 if not self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
@@ -199,8 +198,8 @@ class PlacesUpdater:
                 if force or await self.should_update_state(now=now):
                     await self.prepare_accepted_place(now)
                     if self.coordinator.is_shutting_down:
-                        return None
-                    return await self.build_event_data(prev_last_place_name)
+                        return None, False
+                    return await self.build_event_data(prev_last_place_name), True
                 _LOGGER.info(
                     "(%s) No entity update needed, Previous State = New State",
                     self.state.get_attr(CONF_NAME),
@@ -209,22 +208,20 @@ class PlacesUpdater:
 
         self._retain_place(accepted, keep_bookkeeping=keep_bookkeeping)
         await self.maintain_retained_place(now, status)
-        return None
+        return None, keep_bookkeeping
 
     def _retain_place(self, accepted: MutableMapping[str, Any], *, keep_bookkeeping: bool) -> None:
-        """Retain the accepted Place and roll back bookkeeping if the lookup failed.
+        """Retain the accepted Place and keep eligible zone bookkeeping.
 
         Args:
             accepted (MutableMapping[str, Any]): Attributes of the last accepted Place.
-            keep_bookkeeping (bool): Whether to keep the candidate accuracy and zone data.
+            keep_bookkeeping (bool): Whether to keep the candidate zone data.
         """
         candidate = self.state
         self.state = PlacesState(self._hass, dict(accepted))
         if not keep_bookkeeping:
-            self.coordinator.discard_staged_gps_accuracy_history()
             return
 
-        self.state.copy_gps_accuracy_record_from(candidate)
         for attr in (
             ATTR_LAST_RESOLVED_ZONE,
             ATTR_LAST_RESOLVED_ZONE_ID,
@@ -417,20 +414,10 @@ class PlacesUpdater:
         return proceed_with_update
 
     async def get_gps_accuracy(self) -> UpdateStatus:
-        """Decide whether a GPS accuracy of 0 from the tracked entity skips this Update.
-
-        A 0 reading is treated as not reported until its source tracker has reported
-        a positive GPS accuracy, which is then recorded with the Places entry. A 0
-        reading from a recorded source tracker skips the Update until enough moving
-        0 readings have been recorded to forget the source tracker. A reading without
-        accuracy interrupts that run. With Use GPS Accuracy off, accuracy is ignored
-        and nothing is recorded.
+        """Copy the candidate's GPS accuracy and ask whether it permits an Update.
 
         Returns:
-            UpdateStatus:
-                ``SKIP`` for a 0 reading from a source tracker recorded as reporting
-                accuracy, unless the reading causes Places to forget that source
-                tracker. Otherwise, ``PROCEED``.
+            UpdateStatus: Whether the candidate passes the GPS accuracy check.
         """
         tracker_id = self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID)
         current_state = self._hass.states.get(tracker_id) if tracker_id else None
@@ -446,34 +433,24 @@ class PlacesUpdater:
         else:
             self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
 
-        if not self.state.get_attr(CONF_USE_GPS):
-            return UpdateStatus.PROCEED
-
-        skip, sources, forgotten_sources = self.coordinator.stage_gps_accuracy(
-            current_state, tracker_snapshot
+        status = self.coordinator.gps_accuracy_history.stage_readings(
+            current_state, tracker_snapshot, self.state.get_attr_safe_str(CONF_NAME)
         )
-        self.state.set_gps_accuracy_sources(sources)
-        for source in forgotten_sources:
-            _LOGGER.warning(
-                "(%s) %s sent %s GPS accuracy 0 readings in a row, each moving more than %s m, "
-                "so Places is trying the latest reading",
-                self.state.get_attr(CONF_NAME),
-                source,
-                GPS_ACCURACY_FORGET_COUNT,
-                MOVEMENT_THRESHOLD_M,
-            )
+        if not self.state.get_attr(CONF_USE_GPS):
+            return status
+
         if gps_accuracy is not None and gps_accuracy > 0:
             _LOGGER.debug(
                 "(%s) GPS Accuracy: %s",
                 self.state.get_attr(CONF_NAME),
                 round(gps_accuracy, 3),
             )
-        elif skip:
+        elif status == UpdateStatus.SKIP:
             _LOGGER.info(
                 "(%s) GPS Accuracy is 0.0, not performing update",
                 self.state.get_attr(CONF_NAME),
             )
-        return UpdateStatus.SKIP if skip else UpdateStatus.PROCEED
+        return status
 
     async def update_coordinates(self) -> None:
         """Copy latitude and longitude from the tracked entity state."""

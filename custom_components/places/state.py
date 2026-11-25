@@ -22,14 +22,11 @@ from .const import (
     ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_DRIVING,
     ATTR_FORMATTED_PLACE,
-    ATTR_GPS_ACCURACY_SOURCES,
-    ATTR_GPS_ACCURACY_TRACKED_ENTITY,
     ATTR_IN_ZONES,
     ATTR_NATIVE_VALUE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_TYPE,
     CONF_DEVICETRACKER_ID,
-    GPS_ACCURACY_RECORD_ATTRIBUTES,
     PERSON_DOMAIN,
 )
 from .display_options import parse_display_options
@@ -286,47 +283,6 @@ class PlacesState:
             return
         self._native_value = str(value)
         self.set_attr(ATTR_NATIVE_VALUE, self._native_value)
-
-    def get_gps_accuracy_sources(self) -> list[str]:
-        """Return the source trackers recorded as reporting GPS accuracy.
-
-        Returns:
-            list[str]:
-                Entity IDs of source trackers that reported a positive GPS accuracy,
-                or an empty list when none are recorded.
-        """
-        return [str(source) for source in self.get_attr_safe_list(ATTR_GPS_ACCURACY_SOURCES)]
-
-    def set_gps_accuracy_sources(self, sources: list[str]) -> None:
-        """Save the source trackers that report GPS accuracy for the tracked entity.
-
-        Args:
-            sources (list[str]): Entity IDs of source trackers reporting positive GPS accuracy.
-        """
-        if not sources:
-            self.clear_gps_accuracy_sources()
-            return
-        self.set_attr(ATTR_GPS_ACCURACY_SOURCES, sources)
-        self.set_attr(
-            ATTR_GPS_ACCURACY_TRACKED_ENTITY, self.get_attr_safe_str(CONF_DEVICETRACKER_ID)
-        )
-
-    def clear_gps_accuracy_sources(self) -> None:
-        """Forget every source tracker recorded as reporting GPS accuracy."""
-        for attr in GPS_ACCURACY_RECORD_ATTRIBUTES:
-            self.clear_attr(attr)
-
-    def copy_gps_accuracy_record_from(self, candidate: PlacesState) -> None:
-        """Keep the learned GPS accuracy record when retaining the accepted Place.
-
-        Args:
-            candidate (PlacesState): State of the current Update attempt.
-        """
-        for attr in GPS_ACCURACY_RECORD_ATTRIBUTES:
-            if candidate.is_attr_blank(attr):
-                self.clear_attr(attr)
-            else:
-                self.set_attr(attr, candidate.get_attr(attr))
 
     async def async_cleanup_attributes(self) -> None:
         """Remove blank runtime attributes."""
