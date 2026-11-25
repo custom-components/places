@@ -179,7 +179,7 @@ class PlacesUpdater:
         if status == UpdateStatus.PROCEED:
             status = await self.determine_update_criteria(force=force)
 
-        keep_zone = status in (UpdateStatus.SKIP, UpdateStatus.SKIP_SET_STATIONARY)
+        keep_bookkeeping = status in (UpdateStatus.SKIP, UpdateStatus.SKIP_SET_STATIONARY)
         if status == UpdateStatus.PROCEED:
             await self.process_osm_update(now=now)
             if self.coordinator.is_shutting_down:
@@ -197,22 +197,25 @@ class PlacesUpdater:
                     "(%s) No entity update needed, Previous State = New State",
                     self.state.get_attr(CONF_NAME),
                 )
-                keep_zone = True
+                keep_bookkeeping = True
 
-        self._retain_place(accepted, keep_zone=keep_zone)
+        self._retain_place(accepted, keep_bookkeeping=keep_bookkeeping)
         await self.maintain_retained_place(now, status)
         return None
 
-    def _retain_place(self, accepted: MutableMapping[str, Any], *, keep_zone: bool) -> None:
-        """Discard the candidate Place, keeping movement bookkeeping and permitted zone changes.
+    def _retain_place(self, accepted: MutableMapping[str, Any], *, keep_bookkeeping: bool) -> None:
+        """Retain the accepted Place and roll back bookkeeping if the lookup failed.
 
         Args:
             accepted (MutableMapping[str, Any]): Attributes of the last accepted Place.
-            keep_zone (bool): Whether to keep the candidate Current zone.
+            keep_bookkeeping (bool): Whether to keep the candidate accuracy and zone data.
         """
         candidate = self.state
         self.state = PlacesState(self._hass, dict(accepted))
-        # Preserve movement bookkeeping even when the displayed Place is retained.
+        if not keep_bookkeeping:
+            self.coordinator.discard_staged_gps_accuracy_history()
+            return
+
         self.state.copy_gps_accuracy_record_from(candidate)
         if candidate.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
             self.state.clear_attr(ATTR_LAST_RESOLVED_ZONE)
@@ -220,11 +223,10 @@ class PlacesUpdater:
             self.state.set_attr(
                 ATTR_LAST_RESOLVED_ZONE, candidate.get_attr(ATTR_LAST_RESOLVED_ZONE)
             )
-        if keep_zone:
-            for attr in (ATTR_DEVICETRACKER_ZONE, ATTR_DEVICETRACKER_ZONE_NAME):
-                value = candidate.get_attr(attr)
-                if value != self.state.get_attr(attr):
-                    self.state.set_attr(attr, value)
+        for attr in (ATTR_DEVICETRACKER_ZONE, ATTR_DEVICETRACKER_ZONE_NAME):
+            value = candidate.get_attr(attr)
+            if value != self.state.get_attr(attr):
+                self.state.set_attr(attr, value)
 
     async def log_update_start(self, reason: str) -> None:
         """Log a consistent update-start message.
