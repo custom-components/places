@@ -3375,6 +3375,47 @@ async def test_zone_entry_updates_after_moving_from_retained_place(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+async def test_zone_entry_updates_after_reload_from_retained_place(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+) -> None:
+    """Keep the last resolved zone across an entry reload.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+    """
+    _register_gps_places(aioclient_mock)
+    tracked_entity = "device_tracker.probe"
+    entry = _gps_entry(hass, tracked_entity)
+    hass.states.async_set("zone.work", "0", {"friendly_name": "Work"})
+    attributes = {"longitude": -0.1, "gps_accuracy": 65}
+    hass.states.async_set(tracked_entity, "not_home", {"latitude": 51.5, **attributes})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    await _report_tracker(
+        hass, gps_clock, tracked_entity, "Work", {"latitude": 51.50003, **attributes}
+    )
+    assert aioclient_mock.call_count == 1
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    hass.states.async_set(tracked_entity, "Work", {"latitude": 51.50003, **attributes})
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    latitude = round(51.5 + 44 / _METRES_PER_DEGREE_LATITUDE, 7)
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={latitude}", json=_OXFORD_RESPONSE)
+    await _report_tracker(
+        hass, gps_clock, tracked_entity, "Work", {"latitude": latitude, **attributes}
+    )
+
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == "Work"
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_tracker_without_real_accuracy_updates_on_every_move(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
