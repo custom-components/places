@@ -431,41 +431,60 @@ class PlacesUpdater:
             )
         else:
             self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
+
+        readings = self.coordinator.take_tracker_readings()
         if not self.state.get_attr(CONF_USE_GPS):
             return UpdateStatus.PROCEED
 
-        source_tracker = tracker_snapshot.source_tracker
-        if gps_accuracy is not None and gps_accuracy > 0:
-            self.state.add_gps_accuracy_source(source_tracker)
-        elif source_tracker not in self.state.get_gps_accuracy_sources():
-            return UpdateStatus.PROCEED
+        # Replay earlier event readings for history. Only the current reading can resolve a Place.
+        if readings and readings[-1] == tracker_snapshot:
+            readings.pop()
+        for reading in readings:
+            self._stage_gps_accuracy(reading)
 
-        should_forget = self.coordinator.record_gps_accuracy(
-            tracker_snapshot, count_moving_zero=gps_accuracy == 0
-        )
-        if gps_accuracy is None:
-            return UpdateStatus.PROCEED
-        if gps_accuracy > 0:
+        status = self._stage_gps_accuracy(tracker_snapshot)
+        if gps_accuracy is not None and gps_accuracy > 0:
             _LOGGER.debug(
                 "(%s) GPS Accuracy: %s",
                 self.state.get_attr(CONF_NAME),
                 round(gps_accuracy, 3),
             )
-        elif should_forget:
+        elif status == UpdateStatus.SKIP:
+            _LOGGER.info(
+                "(%s) GPS Accuracy is 0.0, not performing update",
+                self.state.get_attr(CONF_NAME),
+            )
+        return status
+
+    def _stage_gps_accuracy(self, reading: TrackerSnapshot) -> UpdateStatus:
+        """Stage one reading and return whether its GPS accuracy permits a lookup.
+
+        Args:
+            reading (TrackerSnapshot): Snapshot of a tracker reading with valid coordinates.
+
+        Returns:
+            UpdateStatus: Whether this reading passes the GPS accuracy gate.
+        """
+        source_tracker = reading.source_tracker
+        gps_accuracy = reading.gps_accuracy
+        if gps_accuracy is not None and gps_accuracy > 0:
+            self.state.add_gps_accuracy_source(source_tracker)
+        elif source_tracker not in self.state.get_gps_accuracy_sources():
+            return UpdateStatus.PROCEED
+
+        is_zero = gps_accuracy == 0
+        should_forget = self.coordinator.record_gps_accuracy(reading, count_moving_zero=is_zero)
+        if should_forget:
             self.state.remove_gps_accuracy_source(source_tracker)
             _LOGGER.warning(
                 "(%s) %s sent %s GPS accuracy 0 readings in a row, each moving more than %s m, "
-                "so it is no longer treated as reporting GPS accuracy; using this reading",
+                "so it is no longer treated as reporting GPS accuracy",
                 self.state.get_attr(CONF_NAME),
                 source_tracker,
                 GPS_ACCURACY_FORGET_COUNT,
                 MOVEMENT_THRESHOLD_M,
             )
-        else:
-            _LOGGER.info(
-                "(%s) GPS Accuracy is 0.0, not performing update",
-                self.state.get_attr(CONF_NAME),
-            )
+        elif is_zero:
             return UpdateStatus.SKIP
         return UpdateStatus.PROCEED
 

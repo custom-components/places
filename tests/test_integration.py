@@ -3823,6 +3823,84 @@ async def test_forgetting_survives_a_stationary_update_skip(
 
 @pytest.mark.usefixtures("enable_custom_integrations")
 @pytest.mark.parametrize(
+    "accuracy_attributes", [{"gps_accuracy": 5}, {}], ids=["positive", "missing"]
+)
+async def test_throttled_reading_interrupts_moving_zero_run(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    accuracy_attributes: dict[str, object],
+) -> None:
+    """Count consecutive readings even when the interrupting event cannot start an Update.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        accuracy_attributes (dict[str, object]): Accuracy attributes of the interrupting reading.
+    """
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    tracker_id = "device_tracker.probe"
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
+    assert aioclient_mock.call_count == 1
+
+    gps_clock["now"] += timedelta(seconds=1)
+    hass.states.async_set(
+        tracker_id, "not_home", {"latitude": 51.9, "longitude": -0.1, **accuracy_attributes}
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+
+    await _report_zero_readings(hass, gps_clock, [52.0])
+    assert hass.states.get("sensor.probe").state == "London"
+    assert aioclient_mock.call_count == 1
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    await _report_zero_readings(hass, gps_clock, [52.1, 52.2, 52.3])
+    assert aioclient_mock.call_count == 1
+    await _report_zero_readings(hass, gps_clock, [52.4])
+    assert hass.states.get("sensor.probe").state == "Colchester"
+    assert aioclient_mock.call_count == 2
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_throttled_moving_zero_readings_count_once_each(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+) -> None:
+    """Count distinct zero readings in a burst while ignoring a repeated reading.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+    """
+    await _setup_recorded_tracker(hass, aioclient_mock)
+    await _report_zero_readings(hass, gps_clock, [51.6])
+
+    for latitude in [51.7, 51.7, 51.8]:
+        gps_clock["now"] += timedelta(seconds=1)
+        hass.states.async_set(
+            "device_tracker.probe",
+            "not_home",
+            {"latitude": latitude, "longitude": -0.1, "gps_accuracy": 0},
+            force_update=True,
+        )
+    await hass.async_block_till_done()
+
+    await _report_zero_readings(hass, gps_clock, [51.9])
+    assert hass.states.get("sensor.probe").state == "London"
+    assert aioclient_mock.call_count == 1
+
+    await _report_zero_readings(hass, gps_clock, [52.0])
+    assert hass.states.get("sensor.probe").state == "Cambridge"
+    assert aioclient_mock.call_count == 2
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
     "accuracy_attributes",
     [{}, {"gps_accuracy": None}, {"gps_accuracy": "unknown"}],
     ids=["missing", "none", "non-numeric"],
