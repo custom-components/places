@@ -362,7 +362,7 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
 # 1. CITY_LIST (highest priority)
 # 2. POSTAL_TOWN_LIST (items already matched in CITY_LIST are skipped)
 # 3. NEIGHBOURHOOD_LIST (items already matched in previous lists are skipped)
-# Rationale and exact skip rules: docs/adr/0001-address-field-precedence.md
+# Rationale and exact skip rules: docs/adr/0002-address-field-precedence.md
 CITY_LIST = [
     "city",
     "town",

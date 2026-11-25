@@ -6,7 +6,7 @@ Use this when a Place's city, postal town, or neighbourhood is wrong or missing.
 
 ## How address keys become Places fields
 
-`match_city_types` in `custom_components/places/parse_osm.py` picks one Nominatim `address` key each for city, postal town, and neighbourhood, from the overlapping precedence lists in `custom_components/places/const.py`. The rules and their history are in [ADR 0001: address-field precedence](../adr/0001-address-field-precedence.md).
+`match_city_types` in `custom_components/places/parse_osm.py` picks one Nominatim `address` key each for city, postal town, and neighbourhood, from the overlapping precedence lists in `custom_components/places/const.py`. The rules and their history are in [ADR 0002: address-field precedence](../adr/0002-address-field-precedence.md).
 
 So a field is empty when the keys that would feed it are absent from the `address`. Example: when `address` has `city` but no `town`, postal town stays empty.
 
