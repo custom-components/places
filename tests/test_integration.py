@@ -3320,7 +3320,7 @@ async def test_coarse_gps_readings_hold_place_until_movement_exceeds_accuracy(
     """
     _register_gps_places(aioclient_mock)
     aioclient_mock.get(
-        f"{GPS_REVERSE_URL}?lat=51.532",
+        f"{_REVERSE_URL}?lat=51.532",
         json={"osm_id": 2, "osm_type": "node", "address": {"city": "Camden"}},
     )
     tracked_entity = "device_tracker.probe"
