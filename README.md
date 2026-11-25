@@ -23,12 +23,12 @@
 | custom\_components/places/persistence.py       |       52 |        0 |        8 |        0 |    100% |           |
 | custom\_components/places/select.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/sensor.py            |       69 |        0 |       10 |        0 |    100% |           |
-| custom\_components/places/state.py             |      116 |        3 |       32 |        2 |     97% |345-347, 349-\>exit |
+| custom\_components/places/state.py             |      118 |        3 |       32 |        2 |     97% |351-353, 355-\>exit |
 | custom\_components/places/switch.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |       98 |        0 |       20 |        0 |    100% |           |
-| custom\_components/places/update\_sensor.py    |      510 |       15 |      204 |       17 |     96% |186, 338, 487-\>exit, 488-\>490, 490-\>exit, 599-\>601, 605-\>608, 725, 726-\>728, 730-734, 851, 874-\>exit, 894-\>exit, 1009-\>1020, 1108, 1203, 1204-\>1214, 1206-1212, 1216-1218, 1223-\>exit |
-| **TOTAL**                                      | **2432** |   **61** |  **722** |   **53** | **96%** |           |
+| custom\_components/places/update\_sensor.py    |      511 |       15 |      204 |       17 |     96% |186, 338, 487-\>exit, 488-\>490, 490-\>exit, 600-\>602, 606-\>609, 726, 727-\>729, 731-735, 852, 875-\>exit, 895-\>exit, 1011-\>1022, 1110, 1205, 1206-\>1216, 1208-1214, 1218-1220, 1225-\>exit |
+| **TOTAL**                                      | **2435** |   **61** |  **722** |   **53** | **96%** |           |
 
 
 ## Setup coverage badge
