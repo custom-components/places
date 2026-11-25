@@ -248,7 +248,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         return should_forget
 
     def discard_staged_gps_accuracy_history(self) -> None:
-        """Discard staged history while leaving earlier event readings queued."""
+        """Discard staged history while keeping committed history and queued readings."""
         self._staged_source_tracker_history.clear()
         self._staged_tracker_reading_count = 0
 

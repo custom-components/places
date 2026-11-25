@@ -1764,7 +1764,10 @@ async def test_force_update_preserves_place_when_inputs_are_unusable(
         "custom_components.places.update_sensor.PlacesUpdater.get_current_time",
         AsyncMock(side_effect=lambda: now),
     )
-    aioclient_mock.get("https://nominatim.openstreetmap.org/reverse", json={})
+    aioclient_mock.get(
+        "https://nominatim.openstreetmap.org/reverse",
+        json=_LONDON_RESPONSE if invalid_input == "accuracy" else {},
+    )
     entry_id = force_update_entry.entry_id
     storage = PlacesStorage(hass, entry_id, "Probe")
     await storage.async_save(
@@ -1783,7 +1786,7 @@ async def test_force_update_preserves_place_when_inputs_are_unusable(
     assert accepted[ATTR_LAST_UPDATED] == "2026-11-24 12:00:00+00:00"
     events = async_capture_events(hass, EVENT_TYPE)
     if invalid_input == "accuracy":
-        # The tracker reported a positive accuracy at setup, so its 0 reading is not reported.
+        # A successful setup lookup recorded the tracker's positive accuracy.
         hass.states.async_set("device_tracker.probe", "not_home", {**attributes, "gps_accuracy": 0})
         await hass.async_block_till_done()
         aioclient_mock.clear_requests()
@@ -3841,6 +3844,52 @@ async def test_failed_update_retries_earlier_throttled_reading(
     await _report_zero_readings(hass, gps_clock, [52.5])
     assert hass.states.get("sensor.probe").state == "Chelmsford"
     assert aioclient_mock.call_count == 3
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_http_lookup_failure_preserves_gps_accuracy_record_and_history(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failed fifth moving 0 reading leaves the fourth reading committed.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        caplog (pytest.LogCaptureFixture): Captured log records.
+    """
+    aioclient_mock.get(f"{_REVERSE_URL}?lat=52.00001", status=503)
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
+    assert aioclient_mock.call_count == 1
+
+    await _report_zero_readings(hass, gps_clock, [52.00001])
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == "London"
+    saved = await storage.async_load()
+    assert saved[ATTR_GPS_ACCURACY_SOURCES] == ["device_tracker.probe"]
+    assert any(
+        record.levelno == logging.WARNING
+        and "device_tracker.probe" in record.getMessage()
+        and "trying the latest reading" in record.getMessage()
+        for record in caplog.records
+    )
+
+    # Repeating the fourth reading should neither count as movement nor reset the streak.
+    await _report_zero_readings(hass, gps_clock, [51.9])
+    assert hass.states.get("sensor.probe").state == "London"
+    assert aioclient_mock.call_count == 2
+
+    # The next moving reading still qualifies as the fifth, even near the failed lookup.
+    await _report_zero_readings(hass, gps_clock, [52.0])
+    assert aioclient_mock.call_count == 3
+    assert hass.states.get("sensor.probe").state == "Cambridge"
+    saved = await storage.async_load()
+    assert "device_tracker.probe" not in saved.get(ATTR_GPS_ACCURACY_SOURCES, [])
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
