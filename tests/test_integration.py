@@ -3762,27 +3762,37 @@ async def test_fifth_moving_zero_reading_forgets_source_tracker(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_failed_unload_drops_throttled_readings(
+@pytest.mark.parametrize("throttle_fourth_reading", [True, False], ids=["buffered", "committed"])
+async def test_failed_unload_breaks_moving_zero_run(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     gps_clock: dict[str, datetime],
     monkeypatch: pytest.MonkeyPatch,
+    throttle_fourth_reading: bool,
 ) -> None:
-    """A subscription gap prevents replay of a throttled reading after unload fails.
+    """A subscription gap breaks a run of moving zeros while keeping learned accuracy.
 
     Args:
         hass (HomeAssistant): Home Assistant runtime with real Places entities.
         aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
         gps_clock (dict[str, datetime]): Mutable Update clock.
         monkeypatch (pytest.MonkeyPatch): Replaces the platform unload boundary.
+        throttle_fourth_reading (bool): Buffer the fourth zero instead of committing it.
     """
     entry = await _setup_recorded_tracker(hass, aioclient_mock)
     await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8])
     tracker_id = "device_tracker.probe"
-    hass.states.async_set(
-        tracker_id, "not_home", {"latitude": 51.9, "longitude": -0.1, "gps_accuracy": 0}
-    )
-    await hass.async_block_till_done()
+    if throttle_fourth_reading:
+        hass.states.async_set(
+            tracker_id, "not_home", {"latitude": 51.9, "longitude": -0.1, "gps_accuracy": 0}
+        )
+        await hass.async_block_till_done()
+    else:
+        await _report_zero_readings(hass, gps_clock, [51.9])
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
 
     async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
         """Publish an intervening positive and final zero while unsubscribed.
@@ -3810,8 +3820,18 @@ async def test_failed_unload_drops_throttled_readings(
     await hass.async_block_till_done()
     assert aioclient_mock.call_count == 1
     assert hass.states.get("sensor.probe").state == "London"
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
     assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    # The resumed reading is the baseline for a new run.
+    await _report_zero_readings(hass, gps_clock, [52.1, 52.2, 52.3, 52.4])
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    await _report_zero_readings(hass, gps_clock, [52.5])
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == "Chelmsford"
+    assert tracker_id not in (await storage.async_load()).get(ATTR_GPS_ACCURACY_SOURCES, [])
 
 
 async def test_failed_update_preserves_moving_zero_readings(

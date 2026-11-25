@@ -509,7 +509,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                     "(%s) Failed to unsubscribe tracker listener during unload",
                     self.get_attr(CONF_NAME),
                 )
-        self.gps_accuracy_history.clear_pending_readings()
         if self._tracker_update_tasks:
             for task in list(self._tracker_update_tasks):
                 if not task.done():
@@ -518,7 +517,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                 await asyncio.gather(*self._tracker_update_tasks, return_exceptions=True)
             self._tracker_update_tasks.clear()
         async with self._update_lock:
-            pass
+            self.gps_accuracy_history.reset_observation_history()
 
     async def async_resume_after_failed_unload(self) -> None:
         """Finalize any published Place and resume Updates after a failed unload."""

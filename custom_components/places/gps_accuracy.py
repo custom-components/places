@@ -123,9 +123,10 @@ class GPSAccuracyHistory:
         del self._pending_readings[: self._staged_reading_count]
         self.discard()
 
-    def clear_pending_readings(self) -> None:
-        """Drop buffered readings when the tracker subscription ends."""
+    def reset_observation_history(self) -> None:
+        """Drop readings and movement runs across a gap while keeping learned sources."""
         self._pending_readings.clear()
+        self._sources = dict.fromkeys(self._sources)
 
     def discard(self) -> None:
         """Discard staged changes, keeping committed history and pending readings."""
