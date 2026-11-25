@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
+from homeassistant.components.device_tracker.const import DOMAIN as DEVICE_TRACKER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_FRIENDLY_NAME,
@@ -19,6 +20,7 @@ from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_NAME,
     CONF_ZONE,
+    STATE_NOT_HOME,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
@@ -41,6 +43,7 @@ from .const import (
     ATTR_INITIAL_UPDATE,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
+    ATTR_LAST_RESOLVED_ZONE,
     ATTR_LAST_UPDATED,
     ATTR_LATITUDE,
     ATTR_LATITUDE_OLD,
@@ -73,6 +76,7 @@ from .const import (
     GPS_ACCURACY_FORGET_COUNT,
     MOVEMENT_THRESHOLD_M,
     OSM_CACHE,
+    PERSON_DOMAIN,
     RESET_ATTRIBUTE_LIST,
     UpdateStatus,
 )
@@ -201,6 +205,9 @@ class PlacesUpdater:
             if self.coordinator.is_shutting_down:
                 return None
             if not self.state.is_attr_blank(ATTR_OSM_DICT):
+                # The zone has been resolved even if the display text stays the same.
+                if not self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
+                    self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._movement_zone())
                 if force or await self.should_update_state(now=now):
                     await self.prepare_accepted_place(now)
                     if self.coordinator.is_shutting_down:
@@ -217,7 +224,7 @@ class PlacesUpdater:
         return None
 
     def _retain_place(self, accepted: MutableMapping[str, Any], *, keep_zone: bool) -> None:
-        """Discard the candidate Place, keeping learned GPS accuracy and permitted zone changes.
+        """Discard the candidate Place, keeping movement bookkeeping and permitted zone changes.
 
         Args:
             accepted (MutableMapping[str, Any]): Attributes of the last accepted Place.
@@ -225,8 +232,12 @@ class PlacesUpdater:
         """
         candidate = self.state
         self.state = PlacesState(self._hass, dict(accepted))
-        # What the tracker reported is learned whether or not the Place changes.
-        for attr in (ATTR_GPS_ACCURACY_SOURCES, ATTR_GPS_ACCURACY_TRACKED_ENTITY):
+        # Preserve movement bookkeeping even when the displayed Place is retained.
+        for attr in (
+            ATTR_GPS_ACCURACY_SOURCES,
+            ATTR_GPS_ACCURACY_TRACKED_ENTITY,
+            ATTR_LAST_RESOLVED_ZONE,
+        ):
             if candidate.is_attr_blank(attr):
                 self.state.clear_attr(attr)
             else:
@@ -598,7 +609,12 @@ class PlacesUpdater:
             UpdateStatus:
                 Status indicating whether the update should continue or be skipped.
         """
-        accepted_zone = self.state.get_attr(ATTR_DEVICETRACKER_ZONE)
+        tracked_domain = self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID).partition(".")[0]
+        tracks_zone = tracked_domain in (DEVICE_TRACKER_DOMAIN, PERSON_DOMAIN)
+        if tracks_zone and self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
+            # Older snapshots only save the published Current zone.
+            self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._movement_zone())
+
         await self.get_initial_last_place_name()
         await self.get_zone_details()
         proceed_with_update = await self.update_coordinates_and_distance()
@@ -609,7 +625,8 @@ class PlacesUpdater:
         )
         if proceed_with_update == UpdateStatus.PROCEED and not force:
             proceed_with_update = await self.determine_if_update_needed(
-                zone_changed=accepted_zone != self.state.get_attr(ATTR_DEVICETRACKER_ZONE)
+                zone_changed=tracks_zone
+                and self.state.get_attr(ATTR_LAST_RESOLVED_ZONE) != self._movement_zone()
             )
             _LOGGER.debug(
                 "(%s) [determine_update_criteria] proceed_with_update: %s",
@@ -617,6 +634,15 @@ class PlacesUpdater:
                 proceed_with_update,
             )
         return proceed_with_update
+
+    def _movement_zone(self) -> str:
+        """Return the zone used for movement checks, treating away as outside a zone.
+
+        Returns:
+            str: Current zone or ``not_home`` when unset or away.
+        """
+        zone = self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
+        return STATE_NOT_HOME if zone in ("", "away") else zone
 
     async def get_initial_last_place_name(self) -> None:
         """Set the pre-update last-place value from the old place or zone."""
@@ -1019,8 +1045,8 @@ class PlacesUpdater:
 
         Args:
             zone_changed (bool):
-                ``True`` when the tracked entity's zone differs from the accepted
-                Place's zone. The movement threshold then stays at 10 m instead of
+                ``True`` when a device tracker or person's zone differs from the
+                last resolved zone. The movement threshold then stays at 10 m instead of
                 the GPS accuracy radius, so a zone change inside that radius updates.
 
         Returns:
