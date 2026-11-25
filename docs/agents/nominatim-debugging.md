@@ -6,11 +6,7 @@ Use this when a Place's city, postal town, or neighbourhood is wrong or missing.
 
 ## How address keys become Places fields
 
-`match_city_types` in `custom_components/places/parse_osm.py` is the single source of truth. It picks one Nominatim `address` key per field, in precedence order from `CITY_LIST`, `POSTAL_TOWN_LIST`, and `NEIGHBOURHOOD_LIST` in `custom_components/places/const.py`:
-
-- city takes the first `CITY_LIST` key present;
-- postal town takes the first `POSTAL_TOWN_LIST` key present that city precedence has not already claimed;
-- neighbourhood takes the first remaining `NEIGHBOURHOOD_LIST` key present.
+`match_city_types` in `custom_components/places/parse_osm.py` picks one Nominatim `address` key each for city, postal town, and neighbourhood, from the overlapping precedence lists in `custom_components/places/const.py`. The rules and their history are in [ADR 0001: address-field precedence](../adr/0001-address-field-precedence.md).
 
 So a field is empty when the keys that would feed it are absent from the `address`. Example: when `address` has `city` but no `town`, postal town stays empty.
 
@@ -22,7 +18,7 @@ Run the probe. It prints the reverse `address`, the key Places picks for each fi
 ./.venv/bin/python -m tools.nominatim_probe --point LAT,LON --relation OSM_RELATION_ID
 ```
 
-`--point` and `--relation` repeat. The probe spaces requests 1.2 s apart (Nominatim allows 1 request per second), times each out after 12 s, flushes every line, and exits `1` if any request failed. These are live network calls, so the network-consent rule in `AGENTS.md` applies.
+`--point` and `--relation` repeat. The probe spaces requests 1.2 s apart (Nominatim allows 1 request per second), times each out after 12 s, flushes every line, and exits `1` if any request failed.
 
 For ad-hoc calls beyond the probe, keep the same discipline: a generic User-Agent, a request timeout, ≥1 s spacing, and unbuffered output (`python -u` or `print(..., flush=True)`). A loop without a timeout and with buffered output can hang in the background showing nothing.
 
