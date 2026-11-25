@@ -24,7 +24,6 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.util import slugify
 
 from .basic_options import BasicOptionsParser
 from .const import (
@@ -81,7 +80,7 @@ from .helpers import clear_since_from_state, is_float, safe_truncate
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .osm_client import OSMClient
 from .parse_osm import OSMParser
-from .state import PlacesState
+from .state import PlacesState, async_resolve_zone
 from .tracker import TrackerSnapshot, TrackerStatus
 
 if TYPE_CHECKING:
@@ -132,7 +131,6 @@ class PlacesUpdater:
         coordinator = self.coordinator
         accepted = coordinator.get_internal_attr()
         self.state = PlacesState(self._hass, copy.deepcopy(accepted))
-        coordinator.discard_staged_gps_accuracy_history()
         self._use_cache = not force
         await self.log_update_start(reason)
         now = await self.get_current_time()
@@ -143,12 +141,15 @@ class PlacesUpdater:
             # Leave the accepted Place intact for failures in any processing phase.
             _LOGGER.exception("(%s) Error during Places update", coordinator.get_attr(CONF_NAME))
             raise
+        else:
+            if coordinator.is_shutting_down:
+                return
+            self.state.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
+            coordinator.replace_attributes(self.state.get_internal_attr())
+            coordinator.commit_gps_accuracy_history()
+        finally:
+            coordinator.discard_staged_gps_accuracy_history()
 
-        if coordinator.is_shutting_down:
-            return
-        self.state.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
-        coordinator.replace_attributes(self.state.get_internal_attr())
-        coordinator.commit_gps_accuracy_history()
         if event_data is not None:
             await coordinator.async_publish_accepted_place(event_data)
         else:
@@ -435,59 +436,34 @@ class PlacesUpdater:
         else:
             self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
 
-        readings = self.coordinator.stage_tracker_readings(current_state)
         if not self.state.get_attr(CONF_USE_GPS):
             return UpdateStatus.PROCEED
 
-        # Replay earlier event readings for history. Only the current reading can resolve a Place.
-        for reading in readings:
-            self._stage_gps_accuracy(reading)
-
-        status = self._stage_gps_accuracy(tracker_snapshot)
+        skip, sources, forgotten_sources = self.coordinator.stage_gps_accuracy(
+            current_state, tracker_snapshot
+        )
+        self.state.set_gps_accuracy_sources(sources)
+        for source in forgotten_sources:
+            _LOGGER.warning(
+                "(%s) %s sent %s GPS accuracy 0 readings in a row, each moving more than %s m, "
+                "so Places is trying the latest reading",
+                self.state.get_attr(CONF_NAME),
+                source,
+                GPS_ACCURACY_FORGET_COUNT,
+                MOVEMENT_THRESHOLD_M,
+            )
         if gps_accuracy is not None and gps_accuracy > 0:
             _LOGGER.debug(
                 "(%s) GPS Accuracy: %s",
                 self.state.get_attr(CONF_NAME),
                 round(gps_accuracy, 3),
             )
-        elif status == UpdateStatus.SKIP:
+        elif skip:
             _LOGGER.info(
                 "(%s) GPS Accuracy is 0.0, not performing update",
                 self.state.get_attr(CONF_NAME),
             )
-        return status
-
-    def _stage_gps_accuracy(self, reading: TrackerSnapshot) -> UpdateStatus:
-        """Stage one reading and return whether its GPS accuracy permits a lookup.
-
-        Args:
-            reading (TrackerSnapshot): Snapshot of a tracker reading with valid coordinates.
-
-        Returns:
-            UpdateStatus: Whether this reading passes the GPS accuracy gate.
-        """
-        source_tracker = reading.source_tracker
-        gps_accuracy = reading.gps_accuracy
-        if gps_accuracy is not None and gps_accuracy > 0:
-            self.state.add_gps_accuracy_source(source_tracker)
-        elif source_tracker not in self.state.get_gps_accuracy_sources():
-            return UpdateStatus.PROCEED
-
-        is_zero = gps_accuracy == 0
-        should_forget = self.coordinator.record_gps_accuracy(reading, count_moving_zero=is_zero)
-        if should_forget:
-            self.state.remove_gps_accuracy_source(source_tracker)
-            _LOGGER.warning(
-                "(%s) %s sent %s GPS accuracy 0 readings in a row, each moving more than %s m, "
-                "so Places is trying the latest reading",
-                self.state.get_attr(CONF_NAME),
-                source_tracker,
-                GPS_ACCURACY_FORGET_COUNT,
-                MOVEMENT_THRESHOLD_M,
-            )
-        elif is_zero:
-            return UpdateStatus.SKIP
-        return UpdateStatus.PROCEED
+        return UpdateStatus.SKIP if skip else UpdateStatus.PROCEED
 
     async def update_coordinates(self) -> None:
         """Copy latitude and longitude from the tracked entity state."""
@@ -614,18 +590,16 @@ class PlacesUpdater:
                 (tracker_state.state if tracker_state is not None else STATE_UNKNOWN),
             )
         if await self.state.in_zone():
-            devicetracker_zone_name_state = None
-            tracker_state = self._hass.states.get(tracker_id)
-            devicetracker_zone_id: str | None = None
-            if tracker_state is not None:
-                devicetracker_zone_id = tracker_state.attributes.get(CONF_ZONE)
-            if not devicetracker_zone_id and not self.state.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
-                devicetracker_zone_id = slugify(
-                    self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
+            devicetracker_zone_id = (
+                tracker_state.attributes.get(CONF_ZONE) if tracker_state is not None else None
+            )
+            devicetracker_zone_name_state = (
+                self._hass.states.get(f"{CONF_ZONE}.{devicetracker_zone_id}")
+                if devicetracker_zone_id
+                else async_resolve_zone(
+                    self._hass, self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
                 )
-            if devicetracker_zone_id:
-                devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
-                devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
+            )
             if devicetracker_zone_name_state:
                 if devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME):
                     self.state.set_attr(
