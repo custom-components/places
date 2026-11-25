@@ -242,7 +242,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         return should_forget
 
     def discard_staged_gps_accuracy_history(self) -> None:
-        """Drop readings staged by an earlier Update attempt."""
+        """Drop staged readings without changing committed history."""
         self._staged_source_tracker_history.clear()
 
     def commit_gps_accuracy_history(self) -> None:
