@@ -64,6 +64,14 @@ _Avoid_: device tracker, device
 The Home Assistant zone the tracked entity is in right now.
 _Avoid_: zone (unqualified), device tracker zone
 
+**Source tracker**:
+The tracker a reading comes from: for a person entity, the tracker it is currently taking its coordinates from; for any other tracked entity, the tracked entity itself.
+_Avoid_: source, underlying tracker, device
+
+**GPS accuracy**:
+The radius, in meters, within which the tracked entity says its coordinates are correct. A value of 0 means accuracy was not reported, until the source tracker has reported a positive value.
+_Avoid_: location accuracy, accuracy radius
+
 **Home zone**:
 The reference zone that distance and direction of travel are measured against.
 _Avoid_: home, home location

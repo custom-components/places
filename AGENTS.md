@@ -15,8 +15,7 @@
 
 ## Agent permissions and venv policy
 
-- Agents may create and use a repository-local venv at `./.venv` and should reference `./.venv/bin/python` when running commands.
-- Installing packages from repo manifests (prefer `pyproject.toml`) into `./.venv` is allowed for running tests or local tooling.
+- Create or refresh the repository-local `./.venv` with `uv sync --frozen --group dev`, which installs the locked lint and pytest tooling, and run commands through `./.venv/bin/python`.
 
 ## Folder structure (repo-specific)
 

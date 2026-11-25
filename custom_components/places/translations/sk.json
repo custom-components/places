@@ -29,7 +29,7 @@
                 "data_description": {
                     "options": "Podrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvorí diagnostický senzor Rozšírené údaje a načíta nespracované podrobnosti OSM a údaje Wikidata. Keď je táto možnosť vypnutá, senzor sa odstráni a ďalšie vyhľadávania sa preskočia.",
-                    "use_gps_accuracy": "Túto možnosť vypnite, ak má váš sledovač zariadení atribút presnosti GPS (gps_accuracy), ale vždy zobrazuje 0, aj keď sú zemepisná šírka a dĺžka správne."
+                    "use_gps_accuracy": "Presnosť GPS 0 znamená, že nebola nahlásená, kým zdrojový sledovač nenahlási kladnú presnosť GPS (gps_accuracy). Potom údaj 0 z neho neaktualizuje záznam Places. Vypnite, ak chcete úplne ignorovať presnosť GPS."
                   }
             }
         }
@@ -95,7 +95,7 @@
                 "data_description": {
                     "options": "Podrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvorí diagnostický senzor Rozšírené údaje a načíta nespracované podrobnosti OSM a údaje Wikidata. Keď je táto možnosť vypnutá, senzor sa odstráni a ďalšie vyhľadávania sa preskočia.",
-                    "use_gps_accuracy": "Túto možnosť vypnite, ak má váš sledovač zariadení atribút presnosti GPS (gps_accuracy), ale vždy zobrazuje 0, aj keď sú zemepisná šírka a dĺžka správne."
+                    "use_gps_accuracy": "Presnosť GPS 0 znamená, že nebola nahlásená, kým zdrojový sledovač nenahlási kladnú presnosť GPS (gps_accuracy). Potom údaj 0 z neho neaktualizuje záznam Places. Vypnite, ak chcete úplne ignorovať presnosť GPS."
                   }
             }
         }

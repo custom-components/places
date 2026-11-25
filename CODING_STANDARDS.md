@@ -50,6 +50,7 @@ Run them with `./.venv/bin/python -m prek run -a`.
 - Parameterize similar cases instead of writing near-duplicate tests, and delete placeholder tests the parameterized version replaces.
 - Add or update tests when they protect a meaningful behavioral contract or reproduce a bug that existing coverage would miss.
 - Test observable behavior at the real interface, including material failure paths. Do not add tests that mirror the implementation, assert configuration text, or duplicate existing checks.
+- Each behavior test goes red when the rule it names is broken. When reviewing a test that looks like it could pass without its rule, break the rule in a scratch copy and run the test.
 - Each integration source file has one test module. Add to the existing module, and split only past about 1000 lines. End-to-end tests belong in `test_integration.py`.
 - Use fixtures and mocks to isolate tests. Shared fixtures and helpers go in `conftest.py`. Tests are typed and documented in Google style.
 - For documentation, declarative configuration, and small workflow changes, run the relevant validators, linters, or focused runtime checks when they give enough confidence. Add automation tests only when executable logic or material operational risk warrants them, and keep those separate from unrelated integration tests.
