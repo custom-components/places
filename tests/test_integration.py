@@ -1934,20 +1934,7 @@ async def test_movement_threshold_scales_with_gps_accuracy(
         expect_update (bool): Whether the move should trigger a reverse lookup and Update.
     """
     monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title="Probe",
-        data={
-            CONF_NAME: "Probe",
-            CONF_DEVICETRACKER_ID: "device_tracker.probe",
-            CONF_DISPLAY_OPTIONS: "city",
-            CONF_EXTENDED_ATTR: False,
-            CONF_SHOW_TIME: False,
-            CONF_USE_GPS: use_gps,
-        },
-    )
-    entry.add_to_hass(hass)
-    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    entry = _gps_entry(hass, "device_tracker.probe", use_gps=use_gps)
     hass.states.async_set(
         "device_tracker.probe",
         "not_home",
