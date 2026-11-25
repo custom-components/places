@@ -3306,6 +3306,49 @@ async def test_tracker_without_real_accuracy_updates_on_every_move(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+async def test_coarse_gps_readings_hold_place_until_movement_exceeds_accuracy(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+) -> None:
+    """Keep the accepted Place during a 2 km trip with 3 km GPS accuracy.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+    """
+    _register_gps_places(aioclient_mock)
+    aioclient_mock.get(
+        f"{GPS_REVERSE_URL}?lat=51.532",
+        json={"osm_id": 2, "osm_type": "node", "address": {"city": "Camden"}},
+    )
+    tracked_entity = "device_tracker.probe"
+    entry = _gps_entry(hass, tracked_entity)
+    reading = {"latitude": 51.5, "longitude": -0.1, "gps_accuracy": 3000}
+    hass.states.async_set(tracked_entity, "not_home", reading)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+
+    # Each latitude step is about 500 m, ending 2 km from the accepted Place.
+    for latitude in (51.5045, 51.509, 51.5135, 51.518):
+        await _report_tracker(
+            hass, gps_clock, tracked_entity, "not_home", {**reading, "latitude": latitude}
+        )
+        assert aioclient_mock.call_count == 1
+        assert hass.states.get("sensor.probe").state == "London"
+
+    # This reading is 3.6 km from the accepted Place and 1.6 km from the previous reading.
+    await _report_tracker(
+        hass, gps_clock, tracked_entity, "not_home", {**reading, "latitude": 51.532}
+    )
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == "Camden"
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_zero_reading_after_positive_reading_from_same_tracker_is_skipped(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
