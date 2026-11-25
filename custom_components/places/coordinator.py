@@ -509,6 +509,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                     "(%s) Failed to unsubscribe tracker listener during unload",
                     self.get_attr(CONF_NAME),
                 )
+        self.gps_accuracy_history.clear_pending_readings()
         if self._tracker_update_tasks:
             for task in list(self._tracker_update_tasks):
                 if not task.done():

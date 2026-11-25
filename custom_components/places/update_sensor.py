@@ -425,7 +425,7 @@ class PlacesUpdater:
             self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
 
         status = self.coordinator.gps_accuracy_history.stage_readings(
-            current_state, tracker_snapshot
+            current_state, tracker_snapshot, self.state.get_attr_safe_str(CONF_NAME)
         )
         if not self.state.get_attr(CONF_USE_GPS):
             return status

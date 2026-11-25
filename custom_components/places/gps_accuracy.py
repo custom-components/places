@@ -6,8 +6,6 @@ from dataclasses import dataclass
 import logging
 from typing import TYPE_CHECKING
 
-from homeassistant.const import CONF_NAME
-
 from .const import (
     ATTR_GPS_ACCURACY_SOURCES,
     ATTR_GPS_ACCURACY_TRACKED_ENTITY,
@@ -50,7 +48,6 @@ class GPSAccuracyHistory:
         """
         self._enabled = bool(state.get_attr(CONF_USE_GPS))
         self._tracked_entity = state.get_attr_safe_str(CONF_DEVICETRACKER_ID)
-        self._places_name = state.get_attr_safe_str(CONF_NAME)
         # Restored sources have no preceding reading or active run.
         self._sources: dict[str, _SourceTrackerHistory | None] = {}
         self._staged: dict[str, _SourceTrackerHistory | None] | None = None
@@ -79,13 +76,14 @@ class GPSAccuracyHistory:
                 self._pending_readings.append((state, reading))
 
     def stage_readings(
-        self, current_state: State | None, candidate: TrackerSnapshot
+        self, current_state: State | None, candidate: TrackerSnapshot, places_name: str
     ) -> UpdateStatus:
         """Stage readings in arrival order and check the current candidate's accuracy.
 
         Args:
             current_state (State | None): Exact Home Assistant state used for the candidate.
             candidate (TrackerSnapshot): The reading being considered for a reverse lookup.
+            places_name (str): Current friendly name of the Places entry for logging.
 
         Returns:
             UpdateStatus: Whether the current candidate passes the GPS accuracy check.
@@ -101,8 +99,8 @@ class GPSAccuracyHistory:
 
         staged = self._sources.copy()
         for _, reading in self._pending_readings:
-            self._evaluate_reading(staged, reading)
-        status = self._evaluate_reading(staged, candidate)
+            self._evaluate_reading(staged, reading, places_name)
+        status = self._evaluate_reading(staged, candidate, places_name)
         self._staged = staged
         return status
 
@@ -125,19 +123,27 @@ class GPSAccuracyHistory:
         del self._pending_readings[: self._staged_reading_count]
         self.discard()
 
+    def clear_pending_readings(self) -> None:
+        """Drop buffered readings when the tracker subscription ends."""
+        self._pending_readings.clear()
+
     def discard(self) -> None:
         """Discard staged changes, keeping committed history and pending readings."""
         self._staged = None
         self._staged_reading_count = 0
 
     def _evaluate_reading(
-        self, sources: dict[str, _SourceTrackerHistory | None], reading: TrackerSnapshot
+        self,
+        sources: dict[str, _SourceTrackerHistory | None],
+        reading: TrackerSnapshot,
+        places_name: str,
     ) -> UpdateStatus:
         """Apply one reading to staged source membership and movement history.
 
         Args:
             sources (dict[str, _SourceTrackerHistory | None]): Learned sources in this attempt.
             reading (TrackerSnapshot): Reading from the tracked entity.
+            places_name (str): Current friendly name of the Places entry for logging.
 
         Returns:
             UpdateStatus: Whether this reading passes the GPS accuracy check.
@@ -177,7 +183,7 @@ class GPSAccuracyHistory:
             _LOGGER.warning(
                 "(%s) %s sent %s GPS accuracy 0 readings in a row, each moving more than %s m, "
                 "so Places is trying the latest reading",
-                self._places_name,
+                places_name,
                 source,
                 GPS_ACCURACY_FORGET_COUNT,
                 MOVEMENT_THRESHOLD_M,

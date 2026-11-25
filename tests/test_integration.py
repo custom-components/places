@@ -3739,12 +3739,17 @@ async def test_fifth_moving_zero_reading_forgets_source_tracker(
     recorded = await PlacesStorage(hass, entry.entry_id, "Probe").async_load()
     assert recorded[ATTR_GPS_ACCURACY_SOURCES] == ["device_tracker.probe"]
 
+    er.async_get(hass).async_update_entity("sensor.probe", name="Renamed Probe")
+    await hass.async_block_till_done()
+    friendly_name = hass.states.get("sensor.probe").name
+    assert "Renamed Probe" in friendly_name
     with caplog.at_level(logging.WARNING, logger="custom_components.places"):
         await _report_zero_readings(hass, gps_clock, [52.0])
     assert aioclient_mock.call_count == 2
     assert hass.states.get("sensor.probe").state == "Cambridge"
     assert any(
-        record.levelno == logging.WARNING and "device_tracker.probe" in record.getMessage()
+        record.levelno == logging.WARNING
+        and f"({friendly_name}) device_tracker.probe" in record.getMessage()
         for record in caplog.records
     )
     saved = await PlacesStorage(hass, entry.entry_id, "Probe").async_load()
@@ -3753,6 +3758,59 @@ async def test_fifth_moving_zero_reading_forgets_source_tracker(
     await _report_zero_readings(hass, gps_clock, [52.1])
     assert aioclient_mock.call_count == 3
     assert hass.states.get("sensor.probe").state == "Ely"
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_failed_unload_drops_throttled_readings(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A subscription gap prevents replay of a throttled reading after unload fails.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        monkeypatch (pytest.MonkeyPatch): Replaces the platform unload boundary.
+    """
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8])
+    tracker_id = "device_tracker.probe"
+    hass.states.async_set(
+        tracker_id, "not_home", {"latitude": 51.9, "longitude": -0.1, "gps_accuracy": 0}
+    )
+    await hass.async_block_till_done()
+
+    async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
+        """Publish an intervening positive and final zero while unsubscribed.
+
+        Args:
+            _entry (object): Entry Home Assistant is unloading.
+            _platforms (object): Platforms Home Assistant should unload.
+
+        Returns:
+            bool: Platform unload result.
+        """
+        await _report_tracker(
+            hass,
+            gps_clock,
+            tracker_id,
+            "not_home",
+            {"latitude": 51.95, "longitude": -0.1, "gps_accuracy": 5},
+        )
+        await _report_zero_readings(hass, gps_clock, [52.0])
+        return False
+
+    with monkeypatch.context() as patch:
+        patch.setattr(hass.config_entries, "async_unload_platforms", refuse_platform_unload)
+        assert not await async_unload_entry(hass, entry)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
 
 
 async def test_failed_update_preserves_moving_zero_readings(
