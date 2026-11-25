@@ -50,10 +50,12 @@ from custom_components.places import (
 from custom_components.places.const import (
     ATTR_CITY,
     ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_ID,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_GPS_ACCURACY_SOURCES,
     ATTR_LAST_CHANGED,
+    ATTR_LAST_RESOLVED_ZONE,
     ATTR_LAST_RESOLVED_ZONE_ID,
     ATTR_LAST_UPDATED,
     ATTR_LATITUDE,
@@ -2210,6 +2212,147 @@ async def test_active_zone_updates_with_colliding_zone_slugs(
     assert saved.get(ATTR_LAST_RESOLVED_ZONE_ID) == (
         active_id if reports_membership and arriving else None
     )
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("reports_membership", [False, True], ids=["label-only", "other-zone"])
+async def test_person_switches_sources_between_same_zone_labels(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    reports_membership: bool,
+) -> None:
+    """Keep the active zone across a label-only source switch and honor a confirmed change.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real person and Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the OSM throttle interval.
+        reports_membership (bool): Whether the second source confirms a different active zone.
+    """
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = _gps_entry(hass, "person.probe", display_options="zone_name, city")
+    hass.states.async_remove("zone.home")
+    start = 51.5
+    offset = 40 / _METRES_PER_DEGREE_LATITUDE
+    end = round(start + offset, 7)
+    zone = {"friendly_name": "Office", "longitude": -0.1, "radius": 15}
+    hass.states.async_set("zone.office", "0", {**zone, "latitude": start, "passive": True})
+    hass.states.async_set(
+        "zone.office_2",
+        "0",
+        {**zone, "latitude": start - 2 * offset if reports_membership else start},
+    )
+    if reports_membership:
+        hass.states.async_set("zone.office_3", "0", {**zone, "latitude": start + 3 * offset})
+    assert await async_setup_component(hass, "device_tracker", {})
+    tracker = _GPSTracker()
+    tracker.entity_id = "device_tracker.primary"
+    await hass.data[DATA_COMPONENT].async_add_entities([tracker])
+    tracker.async_move_to(start, -0.1, 80)
+    backup = "device_tracker.backup"
+    assert await async_setup_component(
+        hass,
+        "person",
+        {
+            "person": [
+                {"name": "Probe", "id": "probe", "device_trackers": [tracker.entity_id, backup]}
+            ]
+        },
+    )
+    await hass.async_block_till_done()
+    aioclient_mock.get(_REVERSE_URL, json=_LONDON_RESPONSE)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "Office"
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    assert (await storage.async_load())[ATTR_LAST_RESOLVED_ZONE_ID] == "zone.office_2"
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={end}", json=_OXFORD_RESPONSE)
+    reading = {"latitude": end, "longitude": -0.1, "gps_accuracy": 80, "source_type": "gps"}
+    if reports_membership:
+        reading[ATTR_IN_ZONES] = ["zone.office", "zone.office_3"]
+    hass.states.async_set(backup, "Office", reading)
+    hass.states.async_set(tracker.entity_id, STATE_UNAVAILABLE)
+    await hass.async_block_till_done()
+
+    person = hass.states.get("person.probe")
+    assert person.state == "Office"
+    assert person.attributes["source"] == backup
+    assert person.attributes[ATTR_IN_ZONES] == reading.get(ATTR_IN_ZONES, [])
+    assert aioclient_mock.call_count == int(reports_membership)
+    assert hass.states.get("sensor.probe").state == "Office"
+    expected_zone = "zone.office_3" if reports_membership else "zone.office_2"
+    saved = await storage.async_load()
+    assert saved[ATTR_DEVICETRACKER_ZONE_ID] == expected_zone
+    assert saved[ATTR_LAST_RESOLVED_ZONE_ID] == expected_zone
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_departure_after_restoring_zone_label_without_id(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Confirm the restored Place's active zone on startup and detect the first departure.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real tracker and Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the OSM throttle interval.
+    """
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = _gps_entry(hass, "device_tracker.probe", display_options="zone_name, city")
+    hass.states.async_remove("zone.home")
+    outside = 51.5
+    inside = round(outside + 40 / _METRES_PER_DEGREE_LATITUDE, 7)
+    zone = {
+        "friendly_name": "Office",
+        "latitude": outside + 100 / _METRES_PER_DEGREE_LATITUDE,
+        "longitude": -0.1,
+        "radius": 15,
+    }
+    hass.states.async_set("zone.office", "0", {**zone, "passive": True})
+    hass.states.async_set("zone.office_2", "0", zone)
+    assert await async_setup_component(hass, "device_tracker", {})
+    tracker = _GPSTracker()
+    tracker.entity_id = "device_tracker.probe"
+    await hass.data[DATA_COMPONENT].async_add_entities([tracker])
+    tracker.async_move_to(inside, -0.1, 80)
+    assert hass.states.get(tracker.entity_id).attributes[ATTR_IN_ZONES] == [
+        "zone.office",
+        "zone.office_2",
+    ]
+
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    await storage.async_save(
+        {
+            ATTR_NATIVE_VALUE: "Office, London",
+            ATTR_CITY: "London",
+            ATTR_LATITUDE: inside,
+            ATTR_LONGITUDE: -0.1,
+            ATTR_DEVICETRACKER_ZONE: "Office",
+            ATTR_DEVICETRACKER_ZONE_NAME: "Office",
+            ATTR_LAST_RESOLVED_ZONE: "Office",
+        }
+    )
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 0
+    assert hass.states.get("sensor.probe").state == "Office, London"
+    saved = await storage.async_load()
+    assert saved[ATTR_DEVICETRACKER_ZONE_ID] == "zone.office_2"
+
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={outside}", json=_OXFORD_RESPONSE)
+    tracker.async_move_to(outside, -0.1, 80)
+    await hass.async_block_till_done()
+    assert hass.states.get(tracker.entity_id).state == "not_home"
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "not_home, Oxford"
+    assert saved[ATTR_LAST_RESOLVED_ZONE_ID] == "zone.office_2"
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

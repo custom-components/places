@@ -82,7 +82,12 @@ from .helpers import clear_since_from_state, is_float, safe_truncate
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .osm_client import OSMClient
 from .parse_osm import OSMParser
-from .state import PlacesState, async_reported_active_zone, async_resolve_zone
+from .state import (
+    PlacesState,
+    async_reported_active_zone,
+    async_resolve_zone,
+    async_retain_active_zone,
+)
 from .tracker import TrackerSnapshot, TrackerStatus
 
 if TYPE_CHECKING:
@@ -592,10 +597,11 @@ class PlacesUpdater:
         )
 
     async def get_zone_details(self) -> None:
-        """Store the Current zone label, confirmed entity ID, and display name."""
+        """Store Current zone details and confirm a matching restored Place's zone ID."""
         tracker_id = self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID)
         tracker_state = self._hass.states.get(tracker_id)
-        reported_zone = None
+        previous_label = self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
+        current_zone = None
         if tracker_id.split(".")[0] != CONF_ZONE:
             self.state.set_attr(
                 ATTR_DEVICETRACKER_ZONE,
@@ -605,16 +611,27 @@ class PlacesUpdater:
                 DEVICE_TRACKER_DOMAIN,
                 PERSON_DOMAIN,
             ):
-                reported_zone = async_reported_active_zone(self._hass, tracker_state)
-        if reported_zone is None:
+                current_zone = async_reported_active_zone(self._hass, tracker_state)
+                previous_id = self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE_ID)
+                if current_zone is None and previous_id and tracker_state.state == previous_label:
+                    current_zone = async_retain_active_zone(self._hass, tracker_state, previous_id)
+                elif current_zone is not None and (
+                    self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE_ID)
+                    and tracker_state.state == self.state.get_attr(ATTR_LAST_RESOLVED_ZONE)
+                    and self.state.get_attr(ATTR_LATITUDE) == self.state.get_attr(ATTR_LATITUDE_OLD)
+                    and self.state.get_attr(ATTR_LONGITUDE)
+                    == self.state.get_attr(ATTR_LONGITUDE_OLD)
+                ):
+                    self.state.set_attr(ATTR_LAST_RESOLVED_ZONE_ID, current_zone.entity_id)
+        if current_zone is None:
             self.state.clear_attr(ATTR_DEVICETRACKER_ZONE_ID)
         else:
-            self.state.set_attr(ATTR_DEVICETRACKER_ZONE_ID, reported_zone.entity_id)
+            self.state.set_attr(ATTR_DEVICETRACKER_ZONE_ID, current_zone.entity_id)
         if await self.state.in_zone():
             devicetracker_zone_id = (
                 tracker_state.attributes.get(CONF_ZONE) if tracker_state is not None else None
             )
-            devicetracker_zone_name_state = reported_zone or (
+            devicetracker_zone_name_state = current_zone or (
                 self._hass.states.get(f"{CONF_ZONE}.{devicetracker_zone_id}")
                 if devicetracker_zone_id
                 else async_resolve_zone(

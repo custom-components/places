@@ -30,10 +30,30 @@ from .const import (
     ATTR_PLACE_TYPE,
     CONF_DEVICETRACKER_ID,
     GPS_ACCURACY_RECORD_ATTRIBUTES,
+    PERSON_DOMAIN,
 )
 from .display_options import parse_display_options
 
 _AttrT = TypeVar("_AttrT", default=Any)
+
+
+@callback
+def _async_available_active_zone(hass: HomeAssistant, entity_id: str) -> State | None:
+    """Return a configured zone by ID if it is available and active.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the configured zone entities.
+        entity_id (str): Candidate zone entity ID.
+
+    Returns:
+        State | None: The available active zone, if any.
+    """
+    if not entity_id.startswith(f"{CONF_ZONE}."):
+        return None
+    zone = hass.states.get(entity_id)
+    if zone is None or zone.state == STATE_UNAVAILABLE or zone.attributes.get(ATTR_PASSIVE):
+        return None
+    return zone
 
 
 @callback
@@ -52,17 +72,35 @@ def async_reported_active_zone(hass: HomeAssistant, tracker: State) -> State | N
         return None
     # Home Assistant orders memberships by preference and includes passive zones.
     for entity_id in in_zones:
-        if not isinstance(entity_id, str) or not entity_id.startswith(f"{CONF_ZONE}."):
-            continue
-        if (
-            (zone := hass.states.get(entity_id)) is None
-            or zone.state == STATE_UNAVAILABLE
-            or zone.attributes.get(ATTR_PASSIVE)
-        ):
-            continue
-        label = STATE_HOME if entity_id == ENTITY_ID_HOME else zone.name
-        return zone if label == tracker.state else None
+        if isinstance(entity_id, str) and (zone := _async_available_active_zone(hass, entity_id)):
+            label = STATE_HOME if entity_id == ENTITY_ID_HOME else zone.name
+            return zone if label == tracker.state else None
     return None
+
+
+@callback
+def async_retain_active_zone(hass: HomeAssistant, tracker: State, entity_id: str) -> State | None:
+    """Keep a previously identified active zone when the same label has no membership data.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the zone and source tracker states.
+        tracker (State): Reading with the same label as the previous reading.
+        entity_id (str): Previously identified zone entity ID.
+
+    Returns:
+        State | None: The previous active zone if the current reading only supplies a label.
+    """
+    membership = tracker.attributes.get(ATTR_IN_ZONES)
+    if tracker.domain == PERSON_DOMAIN and membership == []:
+        # A person publishes [] both for absent source membership and for a reported [].
+        source_id = tracker.attributes.get("source")
+        source = hass.states.get(source_id) if isinstance(source_id, str) else None
+        if source is not None and source.state == tracker.state:
+            membership = source.attributes.get(ATTR_IN_ZONES)
+    if membership is not None or (zone := _async_available_active_zone(hass, entity_id)) is None:
+        return None
+    label = STATE_HOME if entity_id == ENTITY_ID_HOME else zone.name
+    return zone if label == tracker.state else None
 
 
 @callback
