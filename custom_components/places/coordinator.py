@@ -81,11 +81,13 @@ from .const import (
 from .helpers import is_float
 from .location import CoordinatePair, LocationSnapshot
 from .state import PlacesState
+from .tracker import TrackerSnapshot
 from .update_sensor import PlacesUpdater
 
 if TYPE_CHECKING:
+    from homeassistant.core import State
+
     from .persistence import PlacesStorage
-    from .tracker import TrackerSnapshot
 
 _LOGGER = logging.getLogger(__name__)
 MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
@@ -158,6 +160,8 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         self._is_shutting_down = False
         self._pending_place_event: dict[str, Any] | None = None
         self._tracker_update_tasks: set[asyncio.Task[None]] = set()
+        self._pending_tracker_readings: list[tuple[State, TrackerSnapshot]] = []
+        self._staged_tracker_reading_count = 0
         self._source_tracker_history: dict[str, SourceTrackerHistory] = {}
         self._staged_source_tracker_history: dict[str, SourceTrackerHistory] = {}
         self._last_scan_update: float | None = None
@@ -193,9 +197,9 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
     def record_gps_accuracy(self, reading: TrackerSnapshot, *, count_moving_zero: bool) -> bool:
         """Stage a reading and decide whether to forget its source tracker.
 
-        History starts empty on each entry setup. The reading is compared with the
-        committed history and staged until ``commit_gps_accuracy_history`` runs, so an
-        Update that fails or is aborted leaves the committed history unchanged.
+        History starts empty on each entry setup. Compare the reading with the latest
+        staged or committed reading. An Update that fails or is aborted leaves the
+        committed history unchanged.
         Readings without coordinates cannot show movement and are not staged. A reading
         without GPS accuracy is staged with its run of moving 0 readings reset. When
         counting moving 0 readings, identical readings neither count nor reset the run.
@@ -216,7 +220,9 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             return False
 
         moving_zero_readings = 0
-        previous = self._source_tracker_history.get(reading.source_tracker)
+        previous = self._staged_source_tracker_history.get(
+            reading.source_tracker
+        ) or self._source_tracker_history.get(reading.source_tracker)
         if count_moving_zero and previous is not None:
             if (latitude, longitude, gps_accuracy) == (
                 previous.latitude,
@@ -242,13 +248,35 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         return should_forget
 
     def discard_staged_gps_accuracy_history(self) -> None:
-        """Drop staged readings without changing committed history."""
+        """Discard staged history while keeping committed history and queued readings."""
         self._staged_source_tracker_history.clear()
+        self._staged_tracker_reading_count = 0
 
     def commit_gps_accuracy_history(self) -> None:
         """Keep the readings staged by the current Update attempt."""
         self._source_tracker_history.update(self._staged_source_tracker_history)
-        self._staged_source_tracker_history.clear()
+        # Keep any readings that arrived while the lookup was in flight.
+        del self._pending_tracker_readings[: self._staged_tracker_reading_count]
+        self.discard_staged_gps_accuracy_history()
+
+    def stage_tracker_readings(self, current_state: State | None) -> list[TrackerSnapshot]:
+        """Stage earlier event readings in order until this Update commits.
+
+        The current state is resolved separately. Remove only its exact event so a
+        failed candidate cannot be replayed as an earlier reading. A repeated reading
+        can have the same coordinates and accuracy while being a different event.
+
+        Args:
+            current_state (State | None): State selected as the current Place candidate.
+
+        Returns:
+            list[TrackerSnapshot]: Earlier readings to replay for GPS accuracy history.
+        """
+        readings = self._pending_tracker_readings
+        if readings and readings[-1][0] is current_state:
+            readings.pop()
+        self._staged_tracker_reading_count = len(readings)
+        return [reading for _, reading in readings]
 
     @property
     def is_shutting_down(self) -> bool:
@@ -593,6 +621,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
     async def async_prepare_unload(self) -> None:
         """Stop update work before Home Assistant unloads platform entities."""
         self._is_shutting_down = True
+        self._pending_tracker_readings.clear()
         if self._tracker_unsubscribe is not None:
             unsubscribe = self._tracker_unsubscribe
             self._tracker_unsubscribe = None
@@ -709,10 +738,9 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         else:
             await updater.do_update(reason=reason)
 
-    @Throttle(MIN_THROTTLE_INTERVAL)
     @callback
     def tsc_update(self, event: Event[EventStateChangedData]) -> None:
-        """Schedule an update from a tracked-entity state change.
+        """Capture tracker readings before throttling Update scheduling.
 
         Args:
             event (Event[EventStateChangedData]):
@@ -721,10 +749,25 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         if self._is_shutting_down:
             return
         new_state = event.data["new_state"]
-        if new_state is None or (
+        tracker_available = new_state is not None and not (
             isinstance(new_state.state, str)
             and new_state.state.lower() in {"none", STATE_UNKNOWN, STATE_UNAVAILABLE}
-        ):
+        )
+        if new_state is not None and tracker_available and self.get_attr(CONF_USE_GPS):
+            tracker_id = self.get_attr_safe_str(CONF_DEVICETRACKER_ID)
+            reading = TrackerSnapshot.from_state(tracker_id, new_state)
+            if reading.has_valid_coordinates:
+                self._pending_tracker_readings.append((new_state, reading))
+        self._schedule_tracker_update(tracker_available=tracker_available)
+
+    @Throttle(MIN_THROTTLE_INTERVAL)
+    def _schedule_tracker_update(self, *, tracker_available: bool) -> None:
+        """Start a tracker Update when the event passes the existing throttle.
+
+        Args:
+            tracker_available (bool): Whether the event reports an available tracker state.
+        """
+        if not tracker_available:
             return
 
         task = self.hass.async_create_task(

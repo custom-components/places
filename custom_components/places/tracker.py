@@ -18,7 +18,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
 
 from .const import PERSON_DOMAIN
 from .helpers import is_float
@@ -129,6 +129,19 @@ class TrackerSnapshot:
             TrackerSnapshot:
                 Snapshot describing tracker availability, state, and location data.
         """
+        return cls.from_state(entity_id, hass.states.get(entity_id) if entity_id else None)
+
+    @classmethod
+    def from_state(cls, entity_id: str | None, state_obj: State | str | None) -> TrackerSnapshot:
+        """Build a tracker snapshot from an event or state registry value.
+
+        Args:
+            entity_id (str | None): ID of the tracked entity.
+            state_obj (State | str | None): State to parse, if available.
+
+        Returns:
+            TrackerSnapshot: Captured location and GPS accuracy for this reading.
+        """
         if not entity_id:
             return cls(
                 entity_id=entity_id,
@@ -143,7 +156,6 @@ class TrackerSnapshot:
                 entity_picture=None,
             )
 
-        state_obj: Any = hass.states.get(entity_id)
         if state_obj is None:
             return cls(
                 entity_id=entity_id,
