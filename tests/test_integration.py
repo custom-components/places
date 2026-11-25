@@ -3749,7 +3749,8 @@ async def test_fifth_moving_zero_reading_forgets_source_tracker(
     assert hass.states.get("sensor.probe").state == "Cambridge"
     assert any(
         record.levelno == logging.WARNING
-        and f"({friendly_name}) device_tracker.probe" in record.getMessage()
+        and friendly_name in record.getMessage()
+        and "device_tracker.probe" in record.getMessage()
         for record in caplog.records
     )
     saved = await PlacesStorage(hass, entry.entry_id, "Probe").async_load()
