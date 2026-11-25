@@ -187,7 +187,7 @@ class PlacesUpdater:
             if not self.state.is_attr_blank(ATTR_OSM_DICT):
                 # The zone has been resolved even if the display text stays the same.
                 if not self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
-                    self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._movement_zone())
+                    self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._current_zone_for_storage())
                 if force or await self.should_update_state(now=now):
                     await self.prepare_accepted_place(now)
                     if self.coordinator.is_shutting_down:
@@ -506,7 +506,7 @@ class PlacesUpdater:
         tracks_zone = tracked_domain in (DEVICE_TRACKER_DOMAIN, PERSON_DOMAIN)
         if tracks_zone and self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
             # Older snapshots only save the published Current zone.
-            self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._movement_zone())
+            self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._current_zone_for_storage())
 
         await self.get_initial_last_place_name()
         await self.get_zone_details()
@@ -519,7 +519,8 @@ class PlacesUpdater:
         if proceed_with_update == UpdateStatus.PROCEED and not force:
             proceed_with_update = await self.determine_if_update_needed(
                 zone_changed=tracks_zone
-                and self.state.get_attr(ATTR_LAST_RESOLVED_ZONE) != self._movement_zone()
+                and self.state.active_zone(self.state.get_attr_safe_str(ATTR_LAST_RESOLVED_ZONE))
+                != self.state.active_zone(self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE))
             )
             _LOGGER.debug(
                 "(%s) [determine_update_criteria] proceed_with_update: %s",
@@ -528,8 +529,8 @@ class PlacesUpdater:
             )
         return proceed_with_update
 
-    def _movement_zone(self) -> str:
-        """Return the zone used for movement checks, treating away as outside a zone.
+    def _current_zone_for_storage(self) -> str:
+        """Return the Current zone in the persisted resolved-zone format.
 
         Returns:
             str: Current zone or ``not_home`` when unset or away.

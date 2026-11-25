@@ -1969,12 +1969,16 @@ async def test_movement_threshold_scales_with_gps_accuracy(
     ("zone_before", "zone_after", "moved_m", "expect_update"),
     [
         pytest.param("not_home", "work", 44, True, id="zone-entry-inside-accuracy-radius-updates"),
+        pytest.param("work", "not_home", 40, True, id="zone-exit-inside-accuracy-radius-updates"),
         pytest.param(
             "work", "work", 40, False, id="same-zone-jitter-inside-accuracy-radius-stationary"
         ),
+        pytest.param("not_home", "stationary", 40, False, id="outside-to-stationary"),
+        pytest.param("ic3_statzone_probe", "not_home", 40, False, id="stationary-to-outside"),
+        pytest.param("not_home", "passive", 40, False, id="outside-to-passive"),
     ],
 )
-async def test_zone_change_inside_accuracy_radius_is_not_stationary(
+async def test_active_zone_changes_use_base_movement_threshold(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     monkeypatch: pytest.MonkeyPatch,
@@ -1983,10 +1987,7 @@ async def test_zone_change_inside_accuracy_radius_is_not_stationary(
     moved_m: float,
     expect_update: bool,
 ) -> None:
-    """Update when the tracked entity enters a zone within its GPS accuracy radius.
-
-    A zone change is a Place change even when the move is inside the reading's
-    accuracy radius; movement within the same zone stays stationary.
+    """Apply the base threshold to arrivals and departures from active zones.
 
     Args:
         hass (HomeAssistant): Home Assistant runtime with real Places entities.
@@ -2009,7 +2010,8 @@ async def test_zone_change_inside_accuracy_radius_is_not_stationary(
             "radius": 100,
         },
     )
-    tracker_attributes = {"gps_accuracy": 65, "longitude": -0.1}
+    hass.states.async_set("zone.passive", "0", {"passive": True})
+    tracker_attributes = {"gps_accuracy": 80, "longitude": -0.1}
     hass.states.async_set(
         "device_tracker.probe", zone_before, {"latitude": 51.5, **tracker_attributes}
     )
@@ -2017,6 +2019,7 @@ async def test_zone_change_inside_accuracy_radius_is_not_stationary(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert aioclient_mock.call_count == 1
+    initial_place = hass.states.get("sensor.probe").state
 
     latitude = round(51.5 + moved_m / _METRES_PER_DEGREE_LATITUDE, 7)
     aioclient_mock.clear_requests()
@@ -2029,11 +2032,11 @@ async def test_zone_change_inside_accuracy_radius_is_not_stationary(
     main = hass.states.get("sensor.probe")
     if expect_update:
         assert aioclient_mock.call_count == 1
-        assert main.state == "Work"
+        assert main.state == ("Work" if zone_after == "work" else "not_home, Oxford")
         assert main.attributes[ATTR_LATITUDE] == latitude
     else:
         assert aioclient_mock.call_count == 0
-        assert main.state == "Work"
+        assert main.state == initial_place
         assert main.attributes[ATTR_LATITUDE] == 51.5
 
 
