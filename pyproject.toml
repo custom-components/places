@@ -65,7 +65,6 @@ override-dependencies = ["cryptography>=50.0.0", "Pillow>=13.0.0", "PyJWT[crypto
 asyncio_default_fixture_loop_scope = "function"
 addopts = """
   -p no:respx
-  --quiet
   --timeout=20
   --durations=10
   -o console_output_style=progress

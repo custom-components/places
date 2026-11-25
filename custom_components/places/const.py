@@ -17,6 +17,7 @@ from homeassistant.const import (
 DOMAIN = "places"
 VERSION = "3.0.3"  # x-release-please-version
 EVENT_TYPE = DOMAIN + "_state_update"
+PERSON_DOMAIN = "person"
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
     Platform.SELECT,
@@ -41,6 +42,11 @@ OSM_THROTTLE = "osm_throttle"
 OSM_CACHE_MAX_AGE_HOURS = 4
 OSM_CACHE_MAX_SIZE = 500
 OSM_THROTTLE_INTERVAL_SECONDS = 1.0
+
+# Distance a reading must move from the accepted Place to count as movement.
+MOVEMENT_THRESHOLD_M = 10
+# Consecutive moving 0 GPS accuracy readings after which a source tracker is forgotten.
+GPS_ACCURACY_FORGET_COUNT = 5
 
 # Settings
 
@@ -80,6 +86,8 @@ ATTR_COUNTY = "county"
 ATTR_DEVICETRACKER_ID = "devicetracker_entityid"
 ATTR_DEVICETRACKER_ZONE = "zone"
 ATTR_DEVICETRACKER_ZONE_NAME = "zone_name"
+ATTR_GPS_ACCURACY_SOURCES = "gps_accuracy_sources"
+ATTR_GPS_ACCURACY_TRACKED_ENTITY = "gps_accuracy_tracked_entity"
 ATTR_DIRECTION_OF_TRAVEL = "direction_of_travel"
 ATTR_DISTANCE_FROM_HOME = "distance_from_home"
 ATTR_DISPLAY_OPTIONS_LIST = "display_options_list"
@@ -207,6 +215,8 @@ PERSISTENCE_IGNORE_ATTRIBUTE_LIST: list[str] = [
     ATTR_LOCATION_PREVIOUS,
     ATTR_PREVIOUS_STATE,
 ]
+GPS_ACCURACY_RECORD_ATTRIBUTES = (ATTR_GPS_ACCURACY_SOURCES, ATTR_GPS_ACCURACY_TRACKED_ENTITY)
+
 PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_CITY,
     ATTR_CITY_CLEAN,
@@ -221,6 +231,7 @@ PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
     ATTR_GPS_ACCURACY,
+    *GPS_ACCURACY_RECORD_ATTRIBUTES,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
     ATTR_LAST_UPDATED,
@@ -351,6 +362,7 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
 # 1. CITY_LIST (highest priority)
 # 2. POSTAL_TOWN_LIST (items already matched in CITY_LIST are skipped)
 # 3. NEIGHBOURHOOD_LIST (items already matched in previous lists are skipped)
+# Rationale and exact skip rules: docs/adr/0001-address-field-precedence.md
 CITY_LIST = [
     "city",
     "town",
