@@ -74,20 +74,42 @@ from .const import (
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
     EVENT_TYPE,
+    GPS_ACCURACY_FORGET_COUNT,
     MAIN_STATE_ATTRIBUTE_LIST,
+    MOVEMENT_THRESHOLD_M,
 )
 from .helpers import is_float
-from .location import CoordinatePair
+from .location import CoordinatePair, LocationSnapshot
 from .state import PlacesState
-from .update_sensor import PlacesUpdater, SourceTrackerHistory
+from .update_sensor import PlacesUpdater
 
 if TYPE_CHECKING:
     from .persistence import PlacesStorage
+    from .tracker import TrackerSnapshot
 
 _LOGGER = logging.getLogger(__name__)
 MIN_THROTTLE_INTERVAL = timedelta(seconds=10)
 THROTTLE_INTERVAL = timedelta(seconds=600)
 SCAN_INTERVAL = timedelta(seconds=30)
+
+
+@dataclass(slots=True)
+class SourceTrackerHistory:
+    """Last reading seen from one source tracker during this runtime.
+
+    Attributes:
+        latitude (float): Latitude of the last reading.
+        longitude (float): Longitude of the last reading.
+        gps_accuracy (float | None): GPS accuracy of the last reading, when reported.
+        moving_zero_readings (int):
+            Consecutive 0 GPS accuracy readings that each moved more than
+            ``MOVEMENT_THRESHOLD_M`` from the reading before them.
+    """
+
+    latitude: float
+    longitude: float
+    gps_accuracy: float | None
+    moving_zero_readings: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +159,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         self._pending_place_event: dict[str, Any] | None = None
         self._tracker_update_tasks: set[asyncio.Task[None]] = set()
         self._source_tracker_history: dict[str, SourceTrackerHistory] = {}
+        self._staged_source_tracker_history: dict[str, SourceTrackerHistory] = {}
         self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
         self.entity_id: str | None = None
@@ -167,18 +190,65 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
             if not self.is_attr_blank(attr)
         }
 
-    @property
-    def source_tracker_history(self) -> dict[str, SourceTrackerHistory]:
-        """Return the in-memory readings kept per source tracker.
+    def record_gps_accuracy(self, reading: TrackerSnapshot, *, count_moving_zero: bool) -> bool:
+        """Stage a reading and decide whether to forget its source tracker.
 
-        The map starts empty for each runtime, so a restart, entry reload, or change
-        to the setting starts it again.
+        History starts empty on each entry setup. The reading is compared with the
+        committed history and staged until ``commit_gps_accuracy_history`` runs, so an
+        Update that fails or is aborted leaves the committed history unchanged.
+        Readings without coordinates cannot show movement and are not staged. A reading
+        without GPS accuracy is staged with its run of moving 0 readings reset. When
+        counting moving 0 readings, identical readings neither count nor reset the run.
+
+        Args:
+            reading (TrackerSnapshot): Reading from the tracked entity.
+            count_moving_zero (bool):
+                Whether this is a 0 reading from a source tracker recorded as
+                reporting GPS accuracy.
 
         Returns:
-            dict[str, SourceTrackerHistory]:
-                Last reading and moving 0 reading run for each source tracker seen.
+            bool: Whether the run reached the threshold for forgetting the source tracker.
         """
-        return self._source_tracker_history
+        latitude = reading.latitude
+        longitude = reading.longitude
+        gps_accuracy = reading.gps_accuracy
+        if latitude is None or longitude is None:
+            return False
+
+        moving_zero_readings = 0
+        previous = self._source_tracker_history.get(reading.source_tracker)
+        if count_moving_zero and previous is not None:
+            if (latitude, longitude, gps_accuracy) == (
+                previous.latitude,
+                previous.longitude,
+                previous.gps_accuracy,
+            ):
+                return False
+            movement = LocationSnapshot(
+                current=CoordinatePair(latitude=latitude, longitude=longitude),
+                previous=CoordinatePair(latitude=previous.latitude, longitude=previous.longitude),
+            )
+            movement.calculate()
+            if (movement.distance_traveled or 0.0) > MOVEMENT_THRESHOLD_M:
+                moving_zero_readings = previous.moving_zero_readings + 1
+
+        should_forget = moving_zero_readings >= GPS_ACCURACY_FORGET_COUNT
+        self._staged_source_tracker_history[reading.source_tracker] = SourceTrackerHistory(
+            latitude=latitude,
+            longitude=longitude,
+            gps_accuracy=gps_accuracy,
+            moving_zero_readings=0 if should_forget else moving_zero_readings,
+        )
+        return should_forget
+
+    def discard_staged_gps_accuracy_history(self) -> None:
+        """Drop readings staged by an earlier Update attempt."""
+        self._staged_source_tracker_history.clear()
+
+    def commit_gps_accuracy_history(self) -> None:
+        """Keep the readings staged by the current Update attempt."""
+        self._source_tracker_history.update(self._staged_source_tracker_history)
+        self._staged_source_tracker_history.clear()
 
     @property
     def is_shutting_down(self) -> bool:

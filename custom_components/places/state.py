@@ -26,6 +26,7 @@ from .const import (
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_TYPE,
     CONF_DEVICETRACKER_ID,
+    GPS_ACCURACY_RECORD_ATTRIBUTES,
 )
 from .display_options import parse_display_options
 
@@ -234,8 +235,20 @@ class PlacesState:
 
     def clear_gps_accuracy_sources(self) -> None:
         """Forget every source tracker recorded as reporting GPS accuracy."""
-        self.clear_attr(ATTR_GPS_ACCURACY_SOURCES)
-        self.clear_attr(ATTR_GPS_ACCURACY_TRACKED_ENTITY)
+        for attr in GPS_ACCURACY_RECORD_ATTRIBUTES:
+            self.clear_attr(attr)
+
+    def copy_gps_accuracy_record_from(self, candidate: PlacesState) -> None:
+        """Keep the learned GPS accuracy record when retaining the accepted Place.
+
+        Args:
+            candidate (PlacesState): State of the current Update attempt.
+        """
+        for attr in GPS_ACCURACY_RECORD_ATTRIBUTES:
+            if candidate.is_attr_blank(attr):
+                self.clear_attr(attr)
+            else:
+                self.set_attr(attr, candidate.get_attr(attr))
 
     async def async_cleanup_attributes(self) -> None:
         """Remove blank runtime attributes."""
