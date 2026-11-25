@@ -3574,6 +3574,55 @@ async def test_fifth_moving_zero_reading_forgets_source_tracker(
     assert hass.states.get("sensor.probe").state == "Ely"
 
 
+async def test_failed_update_preserves_moving_zero_readings(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+) -> None:
+    """A failed fifth moving 0 reading leaves the next reading eligible to Update.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+    """
+    tracker_id = "device_tracker.probe"
+    aioclient_mock.get(f"{_REVERSE_URL}?lat=52.10001", exc=ValueError("Reverse lookup failed"))
+    _register_gps_places(aioclient_mock)
+    attributes = {"longitude": -0.1, "gps_accuracy": 0}
+    assert await hass.config_entries.async_setup(force_update_entry.entry_id)
+    await hass.async_block_till_done()
+
+    for latitude in (51.6, 51.7, 51.8, 51.9):
+        await _report_tracker(
+            hass, gps_clock, tracker_id, "not_home", {**attributes, "latitude": latitude}
+        )
+    assert aioclient_mock.call_count == 1
+    storage = PlacesStorage(hass, force_update_entry.entry_id, "Probe")
+    saved = await storage.async_load()
+    assert saved[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    # Keep the clock fixed so the tracker listener throttles this state change.
+    hass.states.async_set(tracker_id, "not_home", {**attributes, "latitude": 52.10001})
+    with pytest.raises(ValueError, match="Reverse lookup failed"):
+        await hass.services.async_call(
+            "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+        )
+
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == "London"
+    assert await storage.async_load() == saved
+
+    # This reading is within 10 m of the failed reading and far from the committed one.
+    await _report_tracker(hass, gps_clock, tracker_id, "not_home", {**attributes, "latitude": 52.1})
+
+    assert hass.states.get("sensor.probe").state == "Ely"
+    recovered = await storage.async_load()
+    assert tracker_id not in recovered.get(ATTR_GPS_ACCURACY_SOURCES, [])
+
+
 @pytest.mark.usefixtures("enable_custom_integrations")
 @pytest.mark.parametrize(
     ("readings", "updates"),

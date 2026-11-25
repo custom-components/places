@@ -159,6 +159,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         self._pending_place_event: dict[str, Any] | None = None
         self._tracker_update_tasks: set[asyncio.Task[None]] = set()
         self._source_tracker_history: dict[str, SourceTrackerHistory] = {}
+        self._staged_source_tracker_history: dict[str, SourceTrackerHistory] = {}
         self._last_scan_update: float | None = None
         self.warn_if_device_tracker_prob = False
         self.entity_id: str | None = None
@@ -190,11 +191,13 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         }
 
     def record_gps_accuracy(self, reading: TrackerSnapshot, *, count_moving_zero: bool) -> bool:
-        """Record a reading and decide whether to forget its source tracker.
+        """Stage a reading and decide whether to forget its source tracker.
 
-        History starts empty on each entry setup. Incomplete readings cannot show
-        movement. When counting moving 0 readings, identical readings neither count
-        nor reset the run.
+        History starts empty on each entry setup. The reading is compared with the
+        committed history and staged until ``commit_gps_accuracy_history`` runs, so an
+        Update that fails or is aborted leaves the committed history unchanged.
+        Incomplete readings cannot show movement. When counting moving 0 readings,
+        identical readings neither count nor reset the run.
 
         Args:
             reading (TrackerSnapshot): Reading from the tracked entity.
@@ -229,13 +232,22 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                 moving_zero_readings = previous.moving_zero_readings + 1
 
         should_forget = moving_zero_readings >= GPS_ACCURACY_FORGET_COUNT
-        self._source_tracker_history[reading.source_tracker] = SourceTrackerHistory(
+        self._staged_source_tracker_history[reading.source_tracker] = SourceTrackerHistory(
             latitude=latitude,
             longitude=longitude,
             gps_accuracy=gps_accuracy,
             moving_zero_readings=0 if should_forget else moving_zero_readings,
         )
         return should_forget
+
+    def discard_staged_gps_accuracy_history(self) -> None:
+        """Drop readings staged by an earlier Update attempt."""
+        self._staged_source_tracker_history.clear()
+
+    def commit_gps_accuracy_history(self) -> None:
+        """Keep the readings staged by the current Update attempt."""
+        self._source_tracker_history.update(self._staged_source_tracker_history)
+        self._staged_source_tracker_history.clear()
 
     @property
     def is_shutting_down(self) -> bool:
