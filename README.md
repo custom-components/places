@@ -12,9 +12,10 @@
 | custom\_components/places/config\_flow.py      |       95 |        0 |       46 |        1 |     99% |   87-\>83 |
 | custom\_components/places/config\_schema.py    |       18 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/const.py             |      115 |        0 |        0 |        0 |    100% |           |
-| custom\_components/places/coordinator.py       |      381 |       18 |      112 |       15 |     93% |153, 360, 466-472, 574-575, 596-\>599, 614, 679-\>678, 681-\>683, 691, 693-\>703, 724, 727, 747, 759, 790 |
+| custom\_components/places/coordinator.py       |      299 |       17 |       84 |       13 |     92% |209, 315-321, 423-424, 445-\>448, 463, 517-\>519, 527, 529-\>539, 560, 563, 583, 595, 626 |
 | custom\_components/places/display\_options.py  |      150 |        0 |       46 |        1 |     99% | 217-\>219 |
 | custom\_components/places/entity.py            |       38 |        2 |        2 |        1 |     92% |   88, 130 |
+| custom\_components/places/gps\_accuracy.py     |      109 |        1 |       40 |        1 |     99% |        76 |
 | custom\_components/places/helpers.py           |       16 |        0 |        2 |        0 |    100% |           |
 | custom\_components/places/location.py          |       29 |        1 |       10 |        1 |     95% |        71 |
 | custom\_components/places/migration.py         |       86 |        2 |       16 |        0 |     98% |   207-208 |
@@ -23,12 +24,12 @@
 | custom\_components/places/persistence.py       |       52 |        0 |        8 |        0 |    100% |           |
 | custom\_components/places/select.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/sensor.py            |       69 |        0 |       10 |        0 |    100% |           |
-| custom\_components/places/state.py             |      161 |        6 |       56 |        7 |     94% |52, 94-\>100, 98-\>100, 101, 118, 446-448, 450-\>exit |
+| custom\_components/places/state.py             |      145 |        6 |       48 |        7 |     93% |49, 91-\>97, 95-\>97, 98, 115, 402-404, 406-\>exit |
 | custom\_components/places/switch.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |      100 |        0 |       20 |        0 |    100% |           |
-| custom\_components/places/update\_sensor.py    |      515 |       15 |      206 |       15 |     96% |194, 351, 493-\>exit, 494-\>496, 496-\>exit, 758, 759-\>761, 763-767, 884, 907-\>exit, 927-\>exit, 1043-\>1054, 1142, 1237, 1238-\>1248, 1240-1246, 1250-1252, 1257-\>exit |
-| **TOTAL**                                      | **2541** |   **64** |  **768** |   **57** | **96%** |           |
+| custom\_components/places/update\_sensor.py    |      511 |       15 |      206 |       15 |     96% |193, 348, 470-\>exit, 471-\>473, 473-\>exit, 735, 736-\>738, 740-744, 861, 884-\>exit, 904-\>exit, 1020-\>1031, 1119, 1214, 1215-\>1225, 1217-1223, 1227-1229, 1234-\>exit |
+| **TOTAL**                                      | **2548** |   **64** |  **772** |   **56** | **96%** |           |
 
 
 ## Setup coverage badge
