@@ -29,7 +29,7 @@
                 "data_description": {
                     "options": "Consulta [Opzioni di configurazione]({component_config_url}) su GitHub per i dettagli",
                     "extended_attr": "Crea un sensore diagnostico Dati estesi e recupera i dettagli OSM grezzi e i dati Wikidata. Quando è disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono ignorate.",
-                    "use_gps_accuracy": "Una precisione GPS di 0 significa non segnalata finché il tracker di origine non segnala una precisione GPS positiva (gps_accuracy). Dopo, una lettura 0 da esso non aggiorna la voce di Places. Imposta su falso per ignorare completamente la precisione GPS."
+                    "use_gps_accuracy": "Finché il tracker di origine non segnala una precisione GPS positiva, 0 indica che la precisione non è stata segnalata. Poi le letture a 0 non aggiornano la voce di Places fino alla quinta lettura consecutiva con valore 0 e uno spostamento di oltre 10 m. Con una precisione positiva, la soglia di movimento è il maggiore tra la precisione GPS e 10 m. Se l'entità tracciata cambia zona, la soglia è di 10 m."
                   }
             }
         }
@@ -95,7 +95,7 @@
                 "data_description": {
                     "options": "Consulta [Opzioni di configurazione]({component_config_url}) su GitHub per i dettagli",
                     "extended_attr": "Crea un sensore diagnostico Dati estesi e recupera i dettagli OSM grezzi e i dati Wikidata. Quando è disabilitato, il sensore viene rimosso e le richieste aggiuntive vengono ignorate.",
-                    "use_gps_accuracy": "Una precisione GPS di 0 significa non segnalata finché il tracker di origine non segnala una precisione GPS positiva (gps_accuracy). Dopo, una lettura 0 da esso non aggiorna la voce di Places. Imposta su falso per ignorare completamente la precisione GPS."
+                    "use_gps_accuracy": "Finché il tracker di origine non segnala una precisione GPS positiva, 0 indica che la precisione non è stata segnalata. Poi le letture a 0 non aggiornano la voce di Places fino alla quinta lettura consecutiva con valore 0 e uno spostamento di oltre 10 m. Con una precisione positiva, la soglia di movimento è il maggiore tra la precisione GPS e 10 m. Se l'entità tracciata cambia zona, la soglia è di 10 m."
                   }
             }
         }

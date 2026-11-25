@@ -29,7 +29,7 @@
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
-                    "use_gps_accuracy": "Přesnost GPS 0 znamená, že není hlášena, dokud zdrojový tracker neohlásí kladnou přesnost GPS (gps_accuracy). Poté se aktualizace při hodnotě 0 z něj neprovede. Vypněte pro úplné ignorování přesnosti GPS."
+                    "use_gps_accuracy": "Dokud zdrojový tracker nenahlásí kladnou přesnost GPS, hodnota 0 znamená, že přesnost nebyla hlášena. Poté se aktualizace přeskočí až do pátého měření v řadě s hodnotou 0 a posunem větším než 10 m. Při kladné přesnosti se za pohyb počítá posun alespoň o hodnotu přesnosti GPS nebo 10 m (podle toho, co je větší). Při změně zóny sledované entity je hranice 10 m."
                   }
             }
         }
@@ -95,7 +95,7 @@
                 "data_description": {
                     "options": "Podrobnosti najdete v [Možnosti konfigurace]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvoří diagnostický senzor Rozšířená data a načte nezpracované podrobnosti OSM a data Wikidata. Když je tato možnost vypnutá, senzor se odstraní a další vyhledávání se přeskočí.",
-                    "use_gps_accuracy": "Přesnost GPS 0 znamená, že není hlášena, dokud zdrojový tracker neohlásí kladnou přesnost GPS (gps_accuracy). Poté se aktualizace při hodnotě 0 z něj neprovede. Vypněte pro úplné ignorování přesnosti GPS."
+                    "use_gps_accuracy": "Dokud zdrojový tracker nenahlásí kladnou přesnost GPS, hodnota 0 znamená, že přesnost nebyla hlášena. Poté se aktualizace přeskočí až do pátého měření v řadě s hodnotou 0 a posunem větším než 10 m. Při kladné přesnosti se za pohyb počítá posun alespoň o hodnotu přesnosti GPS nebo 10 m (podle toho, co je větší). Při změně zóny sledované entity je hranice 10 m."
                   }
             }
         }
