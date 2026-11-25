@@ -4,7 +4,7 @@ Home Assistant Core reports `gps_accuracy: 0` whenever an integration does not s
 
 We decided that an accuracy of 0 means "not reported" until the source tracker has reported a positive GPS accuracy. After that, a 0 reading from that source tracker is treated as a bad fix and skips the Update. For a person entity, the source tracker is its `source` attribute, so a phone that reports accuracy does not cause a router tracker's 0-accuracy home readings to be skipped. Places saves which source trackers have reported accuracy with the Places entry, and forgets a source tracker after 5 consecutive 0 readings that each moved more than 10 m, so a tracker whose integration stops reporting accuracy cannot get stuck.
 
-Reported accuracy also raises the stationary threshold to `max(10 m, accuracy)`, so movement within the accuracy radius is treated as noise. Because of this, Places has no separate cut-off for very imprecise readings.
+Reported accuracy also raises the stationary threshold to `max(10 m, accuracy)`, so movement within the accuracy radius is treated as noise. Because of this, Places has no separate cut-off for very imprecise readings. A zone change keeps the 10 m threshold, so arriving at a zone is not hidden by the accuracy radius.
 
 ## Considered Options
 
