@@ -420,7 +420,8 @@ class PlacesUpdater:
                 tracker. Otherwise, ``PROCEED``.
         """
         tracker_id = self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID)
-        tracker_snapshot = TrackerSnapshot.from_hass(self._hass, tracker_id)
+        current_state = self._hass.states.get(tracker_id) if tracker_id else None
+        tracker_snapshot = TrackerSnapshot.from_state(tracker_id, current_state)
         gps_accuracy = tracker_snapshot.gps_accuracy
         if gps_accuracy is None:
             self.state.clear_attr(ATTR_GPS_ACCURACY)
@@ -432,13 +433,11 @@ class PlacesUpdater:
         else:
             self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
 
-        readings = self.coordinator.take_tracker_readings()
+        readings = self.coordinator.stage_tracker_readings(current_state)
         if not self.state.get_attr(CONF_USE_GPS):
             return UpdateStatus.PROCEED
 
         # Replay earlier event readings for history. Only the current reading can resolve a Place.
-        if readings and readings[-1] == tracker_snapshot:
-            readings.pop()
         for reading in readings:
             self._stage_gps_accuracy(reading)
 

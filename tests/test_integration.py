@@ -3795,6 +3795,54 @@ async def test_failed_update_preserves_moving_zero_readings(
     assert tracker_id not in recovered.get(ATTR_GPS_ACCURACY_SOURCES, [])
 
 
+async def test_failed_update_retries_earlier_throttled_reading(
+    hass: HomeAssistant,
+    force_update_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+) -> None:
+    """A failed lookup leaves an earlier throttled accuracy reset eligible for replay.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        force_update_entry (MockConfigEntry): Places entry with its button enabled.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+    """
+    tracker_id = "device_tracker.probe"
+    aioclient_mock.get(f"{_REVERSE_URL}?lat=52.10001", exc=ValueError("Reverse lookup failed"))
+    _register_gps_places(aioclient_mock)
+    assert await hass.config_entries.async_setup(force_update_entry.entry_id)
+    await hass.async_block_till_done()
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
+    storage = PlacesStorage(hass, force_update_entry.entry_id, "Probe")
+    saved = await storage.async_load()
+
+    gps_clock["now"] += timedelta(seconds=1)
+    hass.states.async_set(
+        tracker_id, "not_home", {"latitude": 51.9, "longitude": -0.1, "gps_accuracy": 5}
+    )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+
+    hass.states.async_set(tracker_id, "not_home", {"latitude": 52.10001, "longitude": -0.1})
+    with pytest.raises(ValueError, match="Reverse lookup failed"):
+        await hass.services.async_call(
+            "button", "press", {"entity_id": "button.probe_force_update"}, blocking=True
+        )
+    assert aioclient_mock.call_count == 2
+    assert await storage.async_load() == saved
+
+    await _report_zero_readings(hass, gps_clock, [52.1, 52.2, 52.3, 52.4])
+    assert hass.states.get("sensor.probe").state == "London"
+    assert aioclient_mock.call_count == 2
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    await _report_zero_readings(hass, gps_clock, [52.5])
+    assert hass.states.get("sensor.probe").state == "Chelmsford"
+    assert aioclient_mock.call_count == 3
+
+
 @pytest.mark.usefixtures("enable_custom_integrations")
 async def test_forgetting_survives_a_stationary_update_skip(
     hass: HomeAssistant,
