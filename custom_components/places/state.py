@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 from homeassistant.components.zone import ATTR_PASSIVE
 from homeassistant.const import CONF_ZONE
 from homeassistant.core import HomeAssistant
+from homeassistant.util import slugify
 
 from .advanced_options import AdvancedOptionsParser
 from .attributes import PlacesAttributes
@@ -270,7 +271,8 @@ class PlacesState:
             zone (str): Zone label reported by the tracked entity.
 
         Returns:
-            str | None: The original label for an active zone, or ``None`` when outside.
+            str | None: The active zone entity ID if resolved, the original label if
+                unresolved, or ``None`` when outside or in a passive zone.
         """
         zone_key = zone.lower()
         if (
@@ -281,10 +283,13 @@ class PlacesState:
             or zone_key in {"away", "not_home", "notset", "not_set"}
         ):
             return None
-        zone_state = self.hass.states.get(f"{CONF_ZONE}.{zone_key}")
-        if zone_state is not None and zone_state.attributes.get(ATTR_PASSIVE, False) is True:
+        zone_id = f"{CONF_ZONE}.{slugify(zone)}"
+        zone_state = self.hass.states.get(zone_id)
+        if zone_state is None:
+            return zone
+        if zone_state.attributes.get(ATTR_PASSIVE, False) is True:
             return None
-        return zone
+        return zone_id
 
     async def get_driving_status(self) -> None:
         """Set the driving marker when movement implies road travel."""

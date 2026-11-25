@@ -1982,6 +1982,11 @@ async def test_movement_threshold_scales_with_gps_accuracy(
         pytest.param("not_home", "stationary", 40, False, id="outside-to-stationary"),
         pytest.param("ic3_statzone_probe", "not_home", 40, False, id="stationary-to-outside"),
         pytest.param("not_home", "passive", 40, False, id="outside-to-passive"),
+        pytest.param("not_home", "Office Park", 40, False, id="outside-to-passive-label"),
+        pytest.param("Office Park", "not_home", 40, False, id="saved-passive-label-to-outside"),
+        pytest.param("not_home", "Business Park", 44, True, id="outside-to-active-label"),
+        pytest.param("Business Park", "not_home", 40, True, id="saved-active-label-to-outside"),
+        pytest.param("Business Park", "business_park", 40, False, id="same-active-zone-alias"),
     ],
 )
 async def test_active_zone_changes_use_base_movement_threshold(
@@ -2017,6 +2022,10 @@ async def test_active_zone_changes_use_base_movement_threshold(
         },
     )
     hass.states.async_set("zone.passive", "0", {"passive": True})
+    hass.states.async_set(
+        "zone.office_park", "0", {"friendly_name": "Office Park", "passive": True}
+    )
+    hass.states.async_set("zone.business_park", "0", {"friendly_name": "Business Park"})
     tracker_attributes = {"gps_accuracy": 80, "longitude": -0.1}
     hass.states.async_set(
         "device_tracker.probe", zone_before, {"latitude": 51.5, **tracker_attributes}
@@ -2038,7 +2047,9 @@ async def test_active_zone_changes_use_base_movement_threshold(
     main = hass.states.get("sensor.probe")
     if expect_update:
         assert aioclient_mock.call_count == 1
-        assert main.state == ("Work" if zone_after == "work" else "not_home, Oxford")
+        assert main.state == {"work": "Work", "Business Park": "Business Park"}.get(
+            zone_after, "not_home, Oxford"
+        )
         assert main.attributes[ATTR_LATITUDE] == latitude
     else:
         assert aioclient_mock.call_count == 0
