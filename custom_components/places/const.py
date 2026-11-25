@@ -102,6 +102,7 @@ ATTR_HOME_ZONE = "home_zone"
 ATTR_INITIAL_UPDATE = "initial_update"
 ATTR_LAST_CHANGED = "last_changed"
 ATTR_LAST_PLACE_NAME = "last_place_name"
+ATTR_LAST_RESOLVED_ZONE = "last_resolved_zone"
 ATTR_LAST_UPDATED = "last_updated"
 ATTR_LATITUDE = "latitude"
 ATTR_LATITUDE_OLD = "previous_latitude"
@@ -234,6 +235,7 @@ PERSISTED_ATTRIBUTE_LIST: list[str] = [
     *GPS_ACCURACY_RECORD_ATTRIBUTES,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
+    ATTR_LAST_RESOLVED_ZONE,
     ATTR_LAST_UPDATED,
     ATTR_LATITUDE_OLD,
     ATTR_LATITUDE,
