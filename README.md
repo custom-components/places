@@ -66,7 +66,7 @@ Key | Required | Default | Description |
 `Map Provider` | `No` | `apple` | `google`, `apple`, `osm` |
 `Map Zoom` | `No` | `18` | Level of zoom for the generated map link <1-20> |
 `Language` | `No` |location's local language | Requested<sup>\*</sup> language(s) for state and attributes. Two-Letter language code(s), separated by commas.<br /><sup>\*</sup>Refer to [Notes](#notes) |
-`Use GPS Accuracy` | `No` | `True` | Ignore moves smaller than the reported GPS accuracy, with a minimum threshold of 10 m. Active zone changes for people and device trackers use 10 m. After a source reports positive accuracy, Places skips its `0` readings until five consecutive `0` readings each move more than 10 m. Turn off to ignore GPS accuracy. |
+`Use GPS Accuracy` | `No` | `True` | Ignore moves smaller than the reported GPS accuracy, with a minimum threshold of 10 m. Active zone changes for people and device trackers use 10 m. After a source reports positive accuracy, Places skips its `0` readings until five consecutive `0` readings each move more than 10 m. A repeated `0` reading at the same coordinates neither advances nor resets this count. Turn off to ignore GPS accuracy. |
 `Extended Attributes` | `No` | `False` | When enabled, this option creates an enabled diagnostic `Extended data` sensor and fetches raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped. The extended sensor's raw attributes are excluded from recorder. |
 `Show Last Updated` | `No` | `False` | Show last updated time at end of state `(since xx:yy)` |
 
