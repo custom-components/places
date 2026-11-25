@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlparse
 
 import cachetools
 from homeassistant.components.recorder import DATA_INSTANCE
+from homeassistant.components.zone import async_active_zone
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     EVENT_HOMEASSISTANT_FINAL_WRITE,
@@ -27,6 +28,7 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
+from homeassistant.setup import async_setup_component
 import pytest
 from pytest_homeassistant.common import (
     MockConfigEntry,
@@ -2055,6 +2057,79 @@ async def test_active_zone_changes_use_base_movement_threshold(
         assert aioclient_mock.call_count == 0
         assert main.state == initial_place
         assert main.attributes[ATTR_LATITUDE] == 51.5
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("arriving", [True, False], ids=["arrival", "departure"])
+async def test_active_zone_name_takes_precedence_over_colliding_slug(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    arriving: bool,
+) -> None:
+    """Publish active-zone transitions when a passive zone shares the name's slug.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real zone and Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the OSM throttle interval.
+        arriving (bool): Whether the tracker enters or leaves the active zone.
+    """
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    tracker_id = "device_tracker.probe"
+    entry = _gps_entry(hass, tracker_id, display_options="zone_name, city")
+    hass.states.async_remove("zone.home")
+    outside = 51.5
+    inside = round(outside + 40 / _METRES_PER_DEGREE_LATITUDE, 7)
+    longitude = -0.1
+    zone_location = {
+        "latitude": outside + 100 / _METRES_PER_DEGREE_LATITUDE,
+        "longitude": longitude,
+        "radius": 15,
+    }
+    assert await async_setup_component(
+        hass,
+        "zone",
+        {
+            "zone": [
+                {**zone_location, "name": "Cafe", "passive": True},
+                {**zone_location, "name": "Café"},
+            ]
+        },
+    )
+    await hass.async_block_till_done()
+    tracker_attributes = {"gps_accuracy": 80, "longitude": longitude}
+    assert async_active_zone(hass, outside, longitude, 80) is None
+    active_zone = async_active_zone(hass, inside, longitude, 80)
+    assert active_zone is not None
+    assert active_zone.entity_id == "zone.cafe_2"
+    assert active_zone.name == "Café"
+
+    before, after = (outside, inside) if arriving else (inside, outside)
+    state_before, state_after = (
+        ("not_home", active_zone.name)
+        if arriving
+        else (
+            active_zone.name,
+            "not_home",
+        )
+    )
+    hass.states.async_set(tracker_id, state_before, {"latitude": before, **tracker_attributes})
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={before}", json=_LONDON_RESPONSE)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={after}", json=_OXFORD_RESPONSE)
+    hass.states.async_set(tracker_id, state_after, {"latitude": after, **tracker_attributes})
+    await hass.async_block_till_done()
+
+    assert aioclient_mock.call_count == 1
+    main = hass.states.get("sensor.probe")
+    assert main.state == ("Café" if arriving else "not_home, Oxford")
+    assert main.attributes[ATTR_LATITUDE] == after
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

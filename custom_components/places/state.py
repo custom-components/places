@@ -6,8 +6,8 @@ from collections.abc import MutableMapping
 from typing import Any, TypeVar
 
 from homeassistant.components.zone import ATTR_PASSIVE
-from homeassistant.const import CONF_ZONE
-from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_ZONE, STATE_HOME
+from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.util import slugify
 
 from .advanced_options import AdvancedOptionsParser
@@ -32,6 +32,27 @@ from .const import (
 from .display_options import parse_display_options
 
 _AttrT = TypeVar("_AttrT", default=Any)
+
+
+@callback
+def async_resolve_zone(hass: HomeAssistant, label: str) -> State | None:
+    """Resolve a tracker label to a Home Assistant zone state.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the configured zone entities.
+        label (str): Current or previously reported zone label.
+
+    Returns:
+        State | None: The matching zone state, if one can be resolved.
+    """
+    if not label:
+        return None
+    slug_match = hass.states.get(f"{CONF_ZONE}.{slugify(label)}")
+    if label == STATE_HOME or (slug_match is not None and slug_match.name == label):
+        return slug_match
+    # Home Assistant trackers can report names whose entity IDs have a numeric suffix.
+    name_matches = [zone for zone in hass.states.async_all(CONF_ZONE) if zone.name == label]
+    return name_matches[0] if len(name_matches) == 1 else slug_match
 
 
 class PlacesState:
@@ -283,13 +304,12 @@ class PlacesState:
             or zone_key in {"away", "not_home", "notset", "not_set"}
         ):
             return None
-        zone_id = f"{CONF_ZONE}.{slugify(zone)}"
-        zone_state = self.hass.states.get(zone_id)
+        zone_state = async_resolve_zone(self.hass, zone)
         if zone_state is None:
             return zone
         if zone_state.attributes.get(ATTR_PASSIVE, False) is True:
             return None
-        return zone_id
+        return zone_state.entity_id
 
     async def get_driving_status(self) -> None:
         """Set the driving marker when movement implies road travel."""
