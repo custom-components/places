@@ -4430,6 +4430,48 @@ async def test_forgetting_count_sequences(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+async def test_failed_unload_preserves_throttled_gps_readings(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A positive reading received before a failed unload still interrupts moving zeros.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        monkeypatch (pytest.MonkeyPatch): Simulated platform unload failure.
+    """
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
+
+    # Both readings arrive inside the throttle window of the fourth moving zero.
+    for latitude, accuracy in [(51.9, 5), (52.0, 0)]:
+        gps_clock["now"] += timedelta(seconds=1)
+        hass.states.async_set(
+            "device_tracker.probe",
+            "not_home",
+            {"latitude": latitude, "longitude": -0.1, "gps_accuracy": accuracy},
+        )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+
+    with monkeypatch.context() as patch:
+        patch.setattr(hass.config_entries, "async_unload_platforms", AsyncMock(return_value=False))
+        assert not await hass.config_entries.async_unload(entry.entry_id)
+    async_fire_time_changed(hass, datetime.now(UTC) + timedelta(seconds=11))
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.probe").state == "London"
+    assert aioclient_mock.call_count == 1
+    saved = await PlacesStorage(hass, entry.entry_id, "Probe").async_load()
+    assert saved[ATTR_GPS_ACCURACY_SOURCES] == ["device_tracker.probe"]
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_forgetting_count_starts_again_after_restart(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
