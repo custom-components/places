@@ -29,7 +29,7 @@
                 "data_description": {
                     "options": "Podrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvorí diagnostický senzor Rozšírené údaje a načíta nespracované podrobnosti OSM a údaje Wikidata. Keď je táto možnosť vypnutá, senzor sa odstráni a ďalšie vyhľadávania sa preskočia.",
-                    "use_gps_accuracy": "Presnosť GPS 0 znamená, že nebola nahlásená, kým zdrojový sledovač nenahlási kladnú presnosť GPS (gps_accuracy). Potom údaj 0 z neho neaktualizuje záznam Places. Vypnite, ak chcete úplne ignorovať presnosť GPS."
+                    "use_gps_accuracy": "Kým zdrojový sledovač nenahlási kladnú presnosť GPS, hodnota 0 znamená, že presnosť nebola nahlásená. Potom sa pri hodnote 0 aktualizácia preskočí, kým nepríde päť údajov s hodnotou 0 za sebou, každý s posunom o viac než 10 m. Pri kladnej presnosti sa posun pod hranicou presnosti GPS alebo 10 m (podľa toho, čo je viac) považuje za zotrvanie na mieste. Pri zmene zóny sledovanej entity je hranica 10 m."
                   }
             }
         }
@@ -95,7 +95,7 @@
                 "data_description": {
                     "options": "Podrobnosti nájdete v [Možnosti konfigurácie]({component_config_url}) na GitHub",
                     "extended_attr": "Vytvorí diagnostický senzor Rozšírené údaje a načíta nespracované podrobnosti OSM a údaje Wikidata. Keď je táto možnosť vypnutá, senzor sa odstráni a ďalšie vyhľadávania sa preskočia.",
-                    "use_gps_accuracy": "Presnosť GPS 0 znamená, že nebola nahlásená, kým zdrojový sledovač nenahlási kladnú presnosť GPS (gps_accuracy). Potom údaj 0 z neho neaktualizuje záznam Places. Vypnite, ak chcete úplne ignorovať presnosť GPS."
+                    "use_gps_accuracy": "Kým zdrojový sledovač nenahlási kladnú presnosť GPS, hodnota 0 znamená, že presnosť nebola nahlásená. Potom sa pri hodnote 0 aktualizácia preskočí, kým nepríde päť údajov s hodnotou 0 za sebou, každý s posunom o viac než 10 m. Pri kladnej presnosti sa posun pod hranicou presnosti GPS alebo 10 m (podľa toho, čo je viac) považuje za zotrvanie na mieste. Pri zmene zóny sledovanej entity je hranica 10 m."
                   }
             }
         }

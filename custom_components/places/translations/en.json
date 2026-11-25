@@ -29,7 +29,7 @@
                 "data_description": {
                     "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
                     "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
-                    "use_gps_accuracy": "A GPS Accuracy of 0 means not reported until the source tracker reports a positive GPS Accuracy (gps_accuracy). After that, a 0 reading from it does not update the Places entry. Set this to False to ignore GPS Accuracy completely."
+                    "use_gps_accuracy": "Until a source tracker reports positive GPS accuracy, 0 means accuracy was not reported. After that, 0 readings skip the Update until five in a row each move more than 10 m. With positive accuracy, movement below the greater of the GPS accuracy and 10 m counts as stationary. If the tracked entity changes zones, the threshold is 10 m."
                   }
             }
         }
@@ -115,7 +115,7 @@
                 "data_description": {
                     "options": "See [Configuration Options]({component_config_url}) on GitHub for details",
                     "extended_attr": "Create an Extended data diagnostic sensor and fetch raw OSM details/Wikidata payloads. When disabled, the sensor is removed and the extra lookups are skipped.",
-                    "use_gps_accuracy": "A GPS Accuracy of 0 means not reported until the source tracker reports a positive GPS Accuracy (gps_accuracy). After that, a 0 reading from it does not update the Places entry. Set this to False to ignore GPS Accuracy completely."
+                    "use_gps_accuracy": "Until a source tracker reports positive GPS accuracy, 0 means accuracy was not reported. After that, 0 readings skip the Update until five in a row each move more than 10 m. With positive accuracy, movement below the greater of the GPS accuracy and 10 m counts as stationary. If the tracked entity changes zones, the threshold is 10 m."
                   }
             }
         }
