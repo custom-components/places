@@ -261,24 +261,30 @@ class PlacesState:
             bool:
                 ``True`` when the tracker is currently in an active HA zone.
         """
-        if not self.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
-            zone = self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE).lower()
-            zone_state = self.hass.states.get(f"{CONF_ZONE}.{zone}")
-            if (
-                self.get_attr_safe_str(CONF_DEVICETRACKER_ID).split(".")[0] == CONF_ZONE
-                or (
-                    "stationary" in zone
-                    or zone.startswith(("statzon", "ic3_statzone_"))
-                    or zone in {"away", "not_home", "notset", "not_set"}
-                )
-                or (
-                    zone_state is not None
-                    and zone_state.attributes.get(ATTR_PASSIVE, False) is True
-                )
-            ):
-                return False
-            return True
-        return False
+        return self.active_zone(self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)) is not None
+
+    def active_zone(self, zone: str) -> str | None:
+        """Identify an active zone from a current or saved tracker state.
+
+        Args:
+            zone (str): Zone label reported by the tracked entity.
+
+        Returns:
+            str | None: The original label for an active zone, or ``None`` when outside.
+        """
+        zone_key = zone.lower()
+        if (
+            not zone_key
+            or self.get_attr_safe_str(CONF_DEVICETRACKER_ID).partition(".")[0] == CONF_ZONE
+            or "stationary" in zone_key
+            or zone_key.startswith(("statzon", "ic3_statzone_"))
+            or zone_key in {"away", "not_home", "notset", "not_set"}
+        ):
+            return None
+        zone_state = self.hass.states.get(f"{CONF_ZONE}.{zone_key}")
+        if zone_state is not None and zone_state.attributes.get(ATTR_PASSIVE, False) is True:
+            return None
+        return zone
 
     async def get_driving_status(self) -> None:
         """Set the driving marker when movement implies road travel."""
