@@ -16,6 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 
 import cachetools
+from homeassistant.components.device_tracker import ATTR_IN_ZONES, DATA_COMPONENT, TrackerEntity
 from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.components.zone import async_active_zone
 from homeassistant.config_entries import ConfigEntryState
@@ -53,6 +54,7 @@ from custom_components.places.const import (
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_GPS_ACCURACY_SOURCES,
     ATTR_LAST_CHANGED,
+    ATTR_LAST_RESOLVED_ZONE_ID,
     ATTR_LAST_UPDATED,
     ATTR_LATITUDE,
     ATTR_LATITUDE_OLD,
@@ -2060,13 +2062,34 @@ async def test_active_zone_changes_use_base_movement_threshold(
         assert main.attributes[ATTR_LATITUDE] == 51.5
 
 
+class _GPSTracker(TrackerEntity):
+    """Publish real Home Assistant GPS tracker states from test coordinates."""
+
+    def async_move_to(self, latitude: float, longitude: float, accuracy: float) -> None:
+        """Write a GPS reading through Home Assistant's tracker entity.
+
+        Args:
+            latitude (float): Latitude of the reading.
+            longitude (float): Longitude of the reading.
+            accuracy (float): The reading's GPS accuracy in meters.
+        """
+        self._attr_latitude = latitude
+        self._attr_longitude = longitude
+        self._attr_location_accuracy = accuracy
+        self.async_write_ha_state()
+
+
 @pytest.mark.usefixtures("enable_custom_integrations")
 @pytest.mark.parametrize("arriving", [True, False], ids=["arrival", "departure"])
 @pytest.mark.parametrize(
-    ("passive_name", "active_name", "active_id"),
+    ("passive_name", "active_name", "active_id", "reports_membership", "expect_update"),
     [
-        pytest.param("Cafe", "Café", "zone.cafe_2", id="colliding-slugs"),
-        pytest.param("Office Park", "Office Park", "zone.office_park_2", id="duplicate-names"),
+        pytest.param("Cafe", "Café", "zone.cafe_2", False, True, id="colliding-slugs"),
+        pytest.param(
+            "Office Park", "Office Park", "zone.office_park_2", False, True, id="duplicate-names"
+        ),
+        pytest.param("Office", "Office", "zone.office_2", False, False, id="label-only"),
+        pytest.param("Office", "Office", "zone.office_2", True, True, id="with-membership"),
     ],
 )
 async def test_active_zone_updates_with_colliding_zone_slugs(
@@ -2077,6 +2100,8 @@ async def test_active_zone_updates_with_colliding_zone_slugs(
     active_name: str,
     active_id: str,
     *,
+    reports_membership: bool,
+    expect_update: bool,
     arriving: bool,
 ) -> None:
     """Publish active-zone transitions when a passive zone shares the name's slug.
@@ -2088,6 +2113,8 @@ async def test_active_zone_updates_with_colliding_zone_slugs(
         passive_name (str): Display name of the passive zone.
         active_name (str): Display name of the active zone.
         active_id (str): Entity ID Home Assistant assigns to the active zone.
+        reports_membership (bool): Whether the tracker publishes Home Assistant zone IDs.
+        expect_update (bool): Whether Places can detect an active-zone transition.
         arriving (bool): Whether the tracker enters or leaves the active zone.
     """
     monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
@@ -2129,21 +2156,60 @@ async def test_active_zone_updates_with_colliding_zone_slugs(
             "not_home",
         )
     )
-    hass.states.async_set(tracker_id, state_before, {"latitude": before, **tracker_attributes})
+    tracker = _GPSTracker()
+    if reports_membership:
+        assert await async_setup_component(hass, "device_tracker", {})
+        tracker.entity_id = tracker_id
+        await hass.data[DATA_COMPONENT].async_add_entities([tracker])
+        tracker.async_move_to(before, longitude, 80)
+        reading = hass.states.get(tracker_id)
+        assert reading.state == state_before
+        assert reading.attributes[ATTR_IN_ZONES] == ([] if arriving else ["zone.office", active_id])
+    else:
+        hass.states.async_set(tracker_id, state_before, {"latitude": before, **tracker_attributes})
     aioclient_mock.get(f"{_REVERSE_URL}?lat={before}", json=_LONDON_RESPONSE)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert aioclient_mock.call_count == 1
+    initial_place = hass.states.get("sensor.probe").state
+    if reports_membership:
+        assert initial_place == ("not_home, London" if arriving else active_name)
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    saved = await storage.async_load()
+    assert saved.get(ATTR_LAST_RESOLVED_ZONE_ID) == (
+        active_id if reports_membership and not arriving else None
+    )
 
     aioclient_mock.clear_requests()
+    if reports_membership and not arriving:
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        assert aioclient_mock.call_count == 0
+        assert hass.states.get("sensor.probe").state == active_name
+
     aioclient_mock.get(f"{_REVERSE_URL}?lat={after}", json=_OXFORD_RESPONSE)
-    hass.states.async_set(tracker_id, state_after, {"latitude": after, **tracker_attributes})
+    if reports_membership:
+        tracker.async_move_to(after, longitude, 80)
+        reading = hass.states.get(tracker_id)
+        assert reading.state == state_after
+        assert reading.attributes[ATTR_IN_ZONES] == (["zone.office", active_id] if arriving else [])
+    else:
+        hass.states.async_set(tracker_id, state_after, {"latitude": after, **tracker_attributes})
     await hass.async_block_till_done()
 
-    assert aioclient_mock.call_count == 1
     main = hass.states.get("sensor.probe")
-    assert main.state == (active_name if arriving else "not_home, Oxford")
-    assert main.attributes[ATTR_LATITUDE] == after
+    if expect_update:
+        assert aioclient_mock.call_count == 1
+        assert main.state == (active_name if arriving else "not_home, Oxford")
+        assert main.attributes[ATTR_LATITUDE] == after
+    else:
+        assert aioclient_mock.call_count == 0
+        assert main.state == initial_place
+        assert main.attributes[ATTR_LATITUDE] == before
+    saved = await storage.async_load()
+    assert saved.get(ATTR_LAST_RESOLVED_ZONE_ID) == (
+        active_id if reports_membership and arriving else None
+    )
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

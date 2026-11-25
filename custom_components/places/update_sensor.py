@@ -28,6 +28,7 @@ from homeassistant.core import HomeAssistant
 from .basic_options import BasicOptionsParser
 from .const import (
     ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_ID,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DISPLAY_OPTIONS_LIST,
@@ -40,6 +41,7 @@ from .const import (
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
     ATTR_LAST_RESOLVED_ZONE,
+    ATTR_LAST_RESOLVED_ZONE_ID,
     ATTR_LAST_UPDATED,
     ATTR_LATITUDE,
     ATTR_LATITUDE_OLD,
@@ -80,7 +82,7 @@ from .helpers import clear_since_from_state, is_float, safe_truncate
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .osm_client import OSMClient
 from .parse_osm import OSMParser
-from .state import PlacesState, async_resolve_zone
+from .state import PlacesState, async_reported_active_zone, async_resolve_zone
 from .tracker import TrackerSnapshot, TrackerStatus
 
 if TYPE_CHECKING:
@@ -188,7 +190,7 @@ class PlacesUpdater:
             if not self.state.is_attr_blank(ATTR_OSM_DICT):
                 # The zone has been resolved even if the display text stays the same.
                 if not self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
-                    self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._current_zone_for_storage())
+                    self._remember_resolved_zone()
                 if force or await self.should_update_state(now=now):
                     await self.prepare_accepted_place(now)
                     if self.coordinator.is_shutting_down:
@@ -218,12 +220,15 @@ class PlacesUpdater:
             return
 
         self.state.copy_gps_accuracy_record_from(candidate)
-        if candidate.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
-            self.state.clear_attr(ATTR_LAST_RESOLVED_ZONE)
-        else:
-            self.state.set_attr(
-                ATTR_LAST_RESOLVED_ZONE, candidate.get_attr(ATTR_LAST_RESOLVED_ZONE)
-            )
+        for attr in (
+            ATTR_LAST_RESOLVED_ZONE,
+            ATTR_LAST_RESOLVED_ZONE_ID,
+            ATTR_DEVICETRACKER_ZONE_ID,
+        ):
+            if candidate.is_attr_blank(attr):
+                self.state.clear_attr(attr)
+            else:
+                self.state.set_attr(attr, candidate.get_attr(attr))
         for attr in (ATTR_DEVICETRACKER_ZONE, ATTR_DEVICETRACKER_ZONE_NAME):
             value = candidate.get_attr(attr)
             if value != self.state.get_attr(attr):
@@ -502,7 +507,7 @@ class PlacesUpdater:
         tracks_zone = tracked_domain in (DEVICE_TRACKER_DOMAIN, PERSON_DOMAIN)
         if tracks_zone and self.state.is_attr_blank(ATTR_LAST_RESOLVED_ZONE):
             # Older snapshots only save the published Current zone.
-            self.state.set_attr(ATTR_LAST_RESOLVED_ZONE, self._current_zone_for_storage())
+            self._remember_resolved_zone()
 
         await self.get_initial_last_place_name()
         await self.get_zone_details()
@@ -515,8 +520,11 @@ class PlacesUpdater:
         if proceed_with_update == UpdateStatus.PROCEED and not force:
             proceed_with_update = await self.determine_if_update_needed(
                 zone_changed=tracks_zone
-                and self.state.active_zone(self.state.get_attr_safe_str(ATTR_LAST_RESOLVED_ZONE))
-                != self.state.active_zone(self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE))
+                and self.state.active_zone(
+                    self.state.get_attr_safe_str(ATTR_LAST_RESOLVED_ZONE),
+                    entity_id=self.state.get_attr_safe_str(ATTR_LAST_RESOLVED_ZONE_ID),
+                )
+                != self.state.current_active_zone()
             )
             _LOGGER.debug(
                 "(%s) [determine_update_criteria] proceed_with_update: %s",
@@ -525,14 +533,17 @@ class PlacesUpdater:
             )
         return proceed_with_update
 
-    def _current_zone_for_storage(self) -> str:
-        """Return the Current zone in the persisted resolved-zone format.
-
-        Returns:
-            str: Current zone or ``not_home`` when unset or away.
-        """
+    def _remember_resolved_zone(self) -> None:
+        """Save the Current zone label and any confirmed ID for later comparisons."""
         zone = self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
-        return STATE_NOT_HOME if zone in ("", "away") else zone
+        self.state.set_attr(
+            ATTR_LAST_RESOLVED_ZONE, STATE_NOT_HOME if zone in ("", "away") else zone
+        )
+        zone_id = self.state.get_attr(ATTR_DEVICETRACKER_ZONE_ID)
+        if zone_id is None:
+            self.state.clear_attr(ATTR_LAST_RESOLVED_ZONE_ID)
+        else:
+            self.state.set_attr(ATTR_LAST_RESOLVED_ZONE_ID, zone_id)
 
     async def get_initial_last_place_name(self) -> None:
         """Set the pre-update last-place value from the old place or zone."""
@@ -581,19 +592,29 @@ class PlacesUpdater:
         )
 
     async def get_zone_details(self) -> None:
-        """Store the tracked entity's zone state and friendly zone name."""
+        """Store the Current zone label, confirmed entity ID, and display name."""
         tracker_id = self.state.get_attr_safe_str(CONF_DEVICETRACKER_ID)
         tracker_state = self._hass.states.get(tracker_id)
+        reported_zone = None
         if tracker_id.split(".")[0] != CONF_ZONE:
             self.state.set_attr(
                 ATTR_DEVICETRACKER_ZONE,
                 (tracker_state.state if tracker_state is not None else STATE_UNKNOWN),
             )
+            if tracker_state is not None and tracker_state.domain in (
+                DEVICE_TRACKER_DOMAIN,
+                PERSON_DOMAIN,
+            ):
+                reported_zone = async_reported_active_zone(self._hass, tracker_state)
+        if reported_zone is None:
+            self.state.clear_attr(ATTR_DEVICETRACKER_ZONE_ID)
+        else:
+            self.state.set_attr(ATTR_DEVICETRACKER_ZONE_ID, reported_zone.entity_id)
         if await self.state.in_zone():
             devicetracker_zone_id = (
                 tracker_state.attributes.get(CONF_ZONE) if tracker_state is not None else None
             )
-            devicetracker_zone_name_state = (
+            devicetracker_zone_name_state = reported_zone or (
                 self._hass.states.get(f"{CONF_ZONE}.{devicetracker_zone_id}")
                 if devicetracker_zone_id
                 else async_resolve_zone(
