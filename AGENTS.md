@@ -12,11 +12,11 @@
 - Focus on a single conceptual change at a time when public APIs or multiple modules are affected.
 - Maintain project style and Python 3.14+ compatibility. Target latest Home Assistant core.
 - If deviating from these guidelines, explicitly state which guideline is deviated from and why.
+- **Address-field issues** (city, postal town, neighbourhood wrong or missing): [`docs/agents/nominatim-debugging.md`](./docs/agents/nominatim-debugging.md).
 
 ## Agent permissions and venv policy
 
-- Agents may create and use a repository-local venv at `./.venv` and should reference `./.venv/bin/python` when running commands.
-- Installing packages from repo manifests (prefer `pyproject.toml`) into `./.venv` is allowed for running tests or local tooling; avoid unrelated network operations without explicit consent.
+- Create or refresh the repository-local `./.venv` with `uv sync --frozen --group dev`, which installs the locked lint and pytest tooling, and run commands through `./.venv/bin/python`.
 
 ## Folder structure (repo-specific)
 
@@ -51,10 +51,10 @@
 - Every PR title must start with a [Conventional Commits](https://www.conventionalcommits.org/) prefix, such as `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `perf:`, `build:`, `ci:`, or `chore:`, with an optional scope like `fix(config_flow):`. Mark breaking changes with `!` before the colon.
 - Use the same Conventional Commits prefixes for commit messages.
 
-## Network / install consent
+## Network access
 
-- Obtain explicit consent before any network operations outside the repository not strictly needed to run local tests.
-- Package installs required for running tests are allowed when user approves.
+- Run read-only lookups that inform the task without asking: GitHub, OpenStreetMap and Nominatim, Home Assistant docs and core source, and PyPI.
+- Ask first for package installs beyond the repo manifests and for any write to an external service that this file does not already authorize.
 
 ## CI/CD
 

@@ -216,6 +216,8 @@ PERSISTENCE_IGNORE_ATTRIBUTE_LIST: list[str] = [
     ATTR_LOCATION_PREVIOUS,
     ATTR_PREVIOUS_STATE,
 ]
+GPS_ACCURACY_RECORD_ATTRIBUTES = (ATTR_GPS_ACCURACY_SOURCES, ATTR_GPS_ACCURACY_TRACKED_ENTITY)
+
 PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_CITY,
     ATTR_CITY_CLEAN,
@@ -230,8 +232,7 @@ PERSISTED_ATTRIBUTE_LIST: list[str] = [
     ATTR_FORMATTED_ADDRESS,
     ATTR_FORMATTED_PLACE,
     ATTR_GPS_ACCURACY,
-    ATTR_GPS_ACCURACY_SOURCES,
-    ATTR_GPS_ACCURACY_TRACKED_ENTITY,
+    *GPS_ACCURACY_RECORD_ATTRIBUTES,
     ATTR_LAST_CHANGED,
     ATTR_LAST_PLACE_NAME,
     ATTR_LAST_RESOLVED_ZONE,
@@ -363,6 +364,7 @@ DISPLAY_OPTIONS_MAP: MutableMapping[str, str] = {
 # 1. CITY_LIST (highest priority)
 # 2. POSTAL_TOWN_LIST (items already matched in CITY_LIST are skipped)
 # 3. NEIGHBOURHOOD_LIST (items already matched in previous lists are skipped)
+# Rationale and exact skip rules: docs/adr/0002-address-field-precedence.md
 CITY_LIST = [
     "city",
     "town",
