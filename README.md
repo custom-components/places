@@ -11,7 +11,7 @@
 | custom\_components/places/button.py            |       18 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/config\_flow.py      |       95 |        0 |       46 |        1 |     99% |   87-\>83 |
 | custom\_components/places/config\_schema.py    |       18 |        0 |        0 |        0 |    100% |           |
-| custom\_components/places/const.py             |      111 |        0 |        0 |        0 |    100% |           |
+| custom\_components/places/const.py             |      112 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/coordinator.py       |      327 |       18 |       92 |       14 |     92% |216, 293, 399-405, 507-508, 529-\>532, 547, 612-\>614, 622, 624-\>634, 655, 658, 678, 690, 722 |
 | custom\_components/places/display\_options.py  |      150 |        0 |       46 |        1 |     99% | 217-\>219 |
 | custom\_components/places/entity.py            |       38 |        2 |        2 |        1 |     92% |   88, 130 |
@@ -27,8 +27,8 @@
 | custom\_components/places/switch.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |       98 |        0 |       20 |        0 |    100% |           |
-| custom\_components/places/update\_sensor.py    |      498 |       15 |      198 |       17 |     95% |182, 325, 474-\>exit, 475-\>477, 477-\>exit, 571-\>573, 577-\>580, 697, 698-\>700, 702-706, 823, 846-\>exit, 866-\>exit, 981-\>992, 1080, 1175, 1176-\>1186, 1178-1184, 1188-1190, 1195-\>exit |
-| **TOTAL**                                      | **2419** |   **61** |  **716** |   **53** | **96%** |           |
+| custom\_components/places/update\_sensor.py    |      510 |       15 |      204 |       17 |     96% |186, 338, 487-\>exit, 488-\>490, 490-\>exit, 599-\>601, 605-\>608, 725, 726-\>728, 730-734, 851, 874-\>exit, 894-\>exit, 1009-\>1020, 1108, 1203, 1204-\>1214, 1206-1212, 1216-1218, 1223-\>exit |
+| **TOTAL**                                      | **2432** |   **61** |  **722** |   **53** | **96%** |           |
 
 
 ## Setup coverage badge
