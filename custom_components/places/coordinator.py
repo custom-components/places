@@ -100,7 +100,7 @@ class SourceTrackerHistory:
     Attributes:
         latitude (float): Latitude of the last reading.
         longitude (float): Longitude of the last reading.
-        gps_accuracy (float): GPS accuracy of the last reading.
+        gps_accuracy (float | None): GPS accuracy of the last reading, when reported.
         moving_zero_readings (int):
             Consecutive 0 GPS accuracy readings that each moved more than
             ``MOVEMENT_THRESHOLD_M`` from the reading before them.
@@ -108,7 +108,7 @@ class SourceTrackerHistory:
 
     latitude: float
     longitude: float
-    gps_accuracy: float
+    gps_accuracy: float | None
     moving_zero_readings: int
 
 
@@ -196,8 +196,9 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         History starts empty on each entry setup. The reading is compared with the
         committed history and staged until ``commit_gps_accuracy_history`` runs, so an
         Update that fails or is aborted leaves the committed history unchanged.
-        Incomplete readings cannot show movement. When counting moving 0 readings,
-        identical readings neither count nor reset the run.
+        Readings without coordinates cannot show movement and are not staged. A reading
+        without GPS accuracy is staged with its run of moving 0 readings reset. When
+        counting moving 0 readings, identical readings neither count nor reset the run.
 
         Args:
             reading (TrackerSnapshot): Reading from the tracked entity.
@@ -211,7 +212,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         latitude = reading.latitude
         longitude = reading.longitude
         gps_accuracy = reading.gps_accuracy
-        if latitude is None or longitude is None or gps_accuracy is None:
+        if latitude is None or longitude is None:
             return False
 
         moving_zero_readings = 0
