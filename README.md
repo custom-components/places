@@ -12,14 +12,14 @@
 | custom\_components/places/config\_flow.py      |       95 |        0 |       46 |        1 |     99% |   87-\>83 |
 | custom\_components/places/config\_schema.py    |       18 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/const.py             |      111 |        0 |        0 |        0 |    100% |           |
-| custom\_components/places/coordinator.py       |      321 |       18 |       92 |       14 |     92% |212, 280, 386-392, 494-495, 516-\>519, 534, 599-\>601, 609, 611-\>621, 642, 645, 665, 677, 709 |
+| custom\_components/places/coordinator.py       |      327 |       18 |       92 |       14 |     92% |215, 292, 398-404, 506-507, 528-\>531, 546, 611-\>613, 621, 623-\>633, 654, 657, 677, 689, 721 |
 | custom\_components/places/display\_options.py  |      150 |        0 |       46 |        1 |     99% | 217-\>219 |
 | custom\_components/places/entity.py            |       38 |        2 |        2 |        1 |     92% |   88, 130 |
 | custom\_components/places/helpers.py           |       16 |        0 |        2 |        0 |    100% |           |
 | custom\_components/places/location.py          |       29 |        1 |       10 |        1 |     95% |        71 |
 | custom\_components/places/migration.py         |       86 |        2 |       16 |        0 |     98% |   207-208 |
 | custom\_components/places/osm\_client.py       |       78 |        2 |       16 |        2 |     96% |  155, 226 |
-| custom\_components/places/parse\_osm.py        |      155 |        2 |       88 |        5 |     97% |75, 99-\>exit, 161-\>166, 184, 296-\>301 |
+| custom\_components/places/parse\_osm.py        |      154 |        2 |       80 |        5 |     97% |75, 99-\>exit, 161-\>166, 184, 269-\>274 |
 | custom\_components/places/persistence.py       |       52 |        0 |        8 |        0 |    100% |           |
 | custom\_components/places/select.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/sensor.py            |       69 |        0 |       10 |        0 |    100% |           |
@@ -27,8 +27,8 @@
 | custom\_components/places/switch.py            |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/text.py              |       24 |        0 |        0 |        0 |    100% |           |
 | custom\_components/places/tracker.py           |       98 |        0 |       20 |        0 |    100% |           |
-| custom\_components/places/update\_sensor.py    |      495 |       15 |      196 |       17 |     95% |180, 323, 470-\>exit, 471-\>473, 473-\>exit, 567-\>569, 573-\>576, 693, 694-\>696, 698-702, 819, 842-\>exit, 862-\>exit, 977-\>988, 1076, 1171, 1172-\>1182, 1174-1180, 1184-1186, 1191-\>exit |
-| **TOTAL**                                      | **2411** |   **62** |  **722** |   **54** | **96%** |           |
+| custom\_components/places/update\_sensor.py    |      497 |       15 |      196 |       17 |     95% |182, 325, 472-\>exit, 473-\>475, 475-\>exit, 569-\>571, 575-\>578, 695, 696-\>698, 700-704, 821, 844-\>exit, 864-\>exit, 979-\>990, 1078, 1173, 1174-\>1184, 1176-1182, 1186-1188, 1193-\>exit |
+| **TOTAL**                                      | **2418** |   **62** |  **714** |   **54** | **96%** |           |
 
 
 ## Setup coverage badge
