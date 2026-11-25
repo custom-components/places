@@ -64,8 +64,8 @@ def _gps_accuracy_or_none(value: Any) -> float | None:
         float | None:
             Zero or positive finite accuracy, or ``None`` when absent or invalid.
     """
-    accuracy = _float_or_none(value)
-    if accuracy is None or not isfinite(accuracy) or accuracy < 0:
+    accuracy = _finite_float_or_none(value)
+    if accuracy is None or accuracy < 0:
         return None
     return accuracy
 
