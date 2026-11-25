@@ -3152,9 +3152,6 @@ async def test_async_unload_entry_does_not_remove_store_data(
     assert _FakePlacesStorage.remove_calls == 0
 
 
-GPS_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
-
-
 def _register_gps_places(aioclient_mock: AiohttpClientMocker) -> None:
     """Answer reverse lookups for the latitudes used by the GPS accuracy scenarios.
 
@@ -3175,7 +3172,7 @@ def _register_gps_places(aioclient_mock: AiohttpClientMocker) -> None:
         ("52.5", "Chelmsford"),
     ):
         aioclient_mock.get(
-            f"{GPS_REVERSE_URL}?lat={latitude}",
+            f"{_REVERSE_URL}?lat={latitude}",
             json={
                 "osm_id": 1,
                 "osm_type": "node",
@@ -3405,7 +3402,7 @@ async def test_reading_without_accuracy_does_not_inherit_earlier_accuracy(
     assert hass.states.get("sensor.probe").state == "London"
 
     latitude = round(51.5 + 40 / _METRES_PER_DEGREE_LATITUDE, 7)
-    aioclient_mock.get(f"{GPS_REVERSE_URL}?lat={latitude}", json=_OXFORD_RESPONSE)
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={latitude}", json=_OXFORD_RESPONSE)
     await _report_tracker(
         hass,
         gps_clock,

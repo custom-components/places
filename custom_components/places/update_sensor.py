@@ -484,7 +484,6 @@ class PlacesUpdater:
             )
             return UpdateStatus.PROCEED
         if source_tracker not in self.state.get_gps_accuracy_sources():
-            self._remember_reading(source_tracker, latitude, longitude, gps_accuracy, 0)
             return UpdateStatus.PROCEED
 
         previous = self.coordinator.source_tracker_history.get(source_tracker)
