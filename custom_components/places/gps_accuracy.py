@@ -220,9 +220,13 @@ class GPSAccuracyHistory:
         self._pending = None
 
     def reset_observation_history(self) -> None:
-        """Drop readings and movement runs across a gap while keeping learned sources."""
-        self.clear_pending_readings()
+        """Restart movement tracking while retaining committed and pending sources."""
+        self._fold_latest_reading()
         self._committed.readings.clear()
+        if self._pending is not None:
+            # Keep newly learned sources pending until the next accepted Update.
+            # A pending forgetting decision cannot carry across the gap.
+            self._pending = _ReadingSummary(self._committed.sources | self._pending.sources)
 
     def discard(self) -> None:
         """Discard staged changes, keeping committed history and pending readings."""

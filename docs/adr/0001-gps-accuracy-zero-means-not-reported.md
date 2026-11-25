@@ -6,7 +6,7 @@ We decided that an accuracy of 0 means "not reported" until the source tracker h
 
 Places summarizes earlier readings in order using a fixed amount of history per source tracker. A failed reverse lookup discards the candidate's effect on GPS accuracy history. Earlier readings and readings received during the lookup still count toward the next Update.
 
-After a failed unload, Places keeps pending readings if the tracked entity still has the same Home Assistant state. If it changed or is missing, Places starts a fresh movement run and keeps the learned source tracker membership.
+After a failed unload, Places keeps pending readings if the tracked entity still has the same Home Assistant state. If it changed or is missing, Places starts a fresh movement run. Saved source tracker membership is preserved, and sources learned from pending readings can still be recorded with the next accepted Update.
 
 Reported accuracy also raises the stationary threshold to `max(10 m, accuracy)`, so movement within the accuracy radius is treated as noise. Because of this, Places has no separate cut-off for very imprecise readings. For a device tracker or person, the threshold stays at 10 m while its Current zone differs from the zone at the last successful reverse lookup. A closer reading can publish the Current zone while retaining the Place. Places saves the last resolved zone separately so the 10 m threshold still applies to later readings in the new zone.
 
