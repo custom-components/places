@@ -457,7 +457,7 @@ class PlacesUpdater:
             self.state.remove_gps_accuracy_source(source_tracker)
             _LOGGER.warning(
                 "(%s) %s sent %s GPS accuracy 0 readings in a row, each moving more than %s m, "
-                "so it is no longer treated as reporting GPS accuracy; using this reading",
+                "so Places is trying the latest reading",
                 self.state.get_attr(CONF_NAME),
                 source_tracker,
                 GPS_ACCURACY_FORGET_COUNT,

@@ -3797,6 +3797,7 @@ async def test_http_lookup_failure_preserves_gps_accuracy_record_and_history(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     gps_clock: dict[str, datetime],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A failed fifth moving 0 reading leaves the fourth reading committed.
 
@@ -3804,6 +3805,7 @@ async def test_http_lookup_failure_preserves_gps_accuracy_record_and_history(
         hass (HomeAssistant): Home Assistant runtime with real Places entities.
         aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
         gps_clock (dict[str, datetime]): Mutable Update clock.
+        caplog (pytest.LogCaptureFixture): Captured log records.
     """
     aioclient_mock.get(f"{_REVERSE_URL}?lat=52.00001", status=503)
     entry = await _setup_recorded_tracker(hass, aioclient_mock)
@@ -3816,6 +3818,12 @@ async def test_http_lookup_failure_preserves_gps_accuracy_record_and_history(
     assert hass.states.get("sensor.probe").state == "London"
     saved = await storage.async_load()
     assert saved[ATTR_GPS_ACCURACY_SOURCES] == ["device_tracker.probe"]
+    assert any(
+        record.levelno == logging.WARNING
+        and "device_tracker.probe" in record.getMessage()
+        and "trying the latest reading" in record.getMessage()
+        for record in caplog.records
+    )
 
     # Repeating the fourth reading should neither count as movement nor reset the streak.
     await _report_zero_readings(hass, gps_clock, [51.9])
