@@ -978,13 +978,14 @@ class PlacesUpdater:
 
         # A zone change is not hidden by the accuracy radius; the base threshold still applies.
         threshold_m = MOVEMENT_THRESHOLD_M if zone_changed else self._movement_threshold_m()
-        if int(self.state.get_attr_safe_float(ATTR_DISTANCE_TRAVELED)) < threshold_m:
+        distance_m = self.state.get_attr_safe_float(ATTR_DISTANCE_TRAVELED)
+        if distance_m < threshold_m:
             _LOGGER.info(
                 "(%s) Not performing update, distance traveled from last update is "
                 "less than %s m (%s m)",
                 self.state.get_attr(CONF_NAME),
                 threshold_m,
-                round(self.state.get_attr_safe_float(ATTR_DISTANCE_TRAVELED), 1),
+                round(distance_m, 1),
             )
             return UpdateStatus.SKIP_SET_STATIONARY
 

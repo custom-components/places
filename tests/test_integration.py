@@ -1899,6 +1899,9 @@ _OXFORD_RESPONSE = {**_LONDON_RESPONSE, "address": {"city": "Oxford"}}
     [
         pytest.param({"gps_accuracy": 80}, True, 40, False, id="inside-accuracy-radius"),
         pytest.param({"gps_accuracy": 80}, True, 200, True, id="beyond-accuracy-radius"),
+        pytest.param(
+            {"gps_accuracy": 80.5}, True, 80.851, True, id="beyond-fractional-accuracy-radius"
+        ),
         pytest.param({"gps_accuracy": 80}, False, 40, True, id="setting-off-ignores-accuracy"),
         pytest.param({}, True, 15, True, id="absent-accuracy-keeps-ten-metres"),
         pytest.param({}, True, 5, False, id="absent-accuracy-inside-ten-metres"),
