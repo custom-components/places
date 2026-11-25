@@ -409,8 +409,9 @@ class PlacesUpdater:
         A 0 reading is treated as not reported until its source tracker has reported
         a positive GPS accuracy, which is then recorded with the Places entry. A 0
         reading from a recorded source tracker skips the Update until enough moving
-        0 readings have been recorded to forget the source tracker. With Use GPS
-        Accuracy off, accuracy is ignored and nothing is recorded.
+        0 readings have been recorded to forget the source tracker. A reading without
+        accuracy interrupts that run. With Use GPS Accuracy off, accuracy is ignored
+        and nothing is recorded.
 
         Returns:
             UpdateStatus:
@@ -428,14 +429,13 @@ class PlacesUpdater:
                 self.state.get_attr(CONF_NAME),
                 self.state.get_attr(CONF_DEVICETRACKER_ID),
             )
-            return UpdateStatus.PROCEED
-
-        self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
+        else:
+            self.state.set_attr(ATTR_GPS_ACCURACY, gps_accuracy)
         if not self.state.get_attr(CONF_USE_GPS):
             return UpdateStatus.PROCEED
 
         source_tracker = tracker_snapshot.source_tracker
-        if gps_accuracy > 0:
+        if gps_accuracy is not None and gps_accuracy > 0:
             self.state.add_gps_accuracy_source(source_tracker)
         elif source_tracker not in self.state.get_gps_accuracy_sources():
             return UpdateStatus.PROCEED
@@ -443,6 +443,8 @@ class PlacesUpdater:
         should_forget = self.coordinator.record_gps_accuracy(
             tracker_snapshot, count_moving_zero=gps_accuracy == 0
         )
+        if gps_accuracy is None:
+            return UpdateStatus.PROCEED
         if gps_accuracy > 0:
             _LOGGER.debug(
                 "(%s) GPS Accuracy: %s",
