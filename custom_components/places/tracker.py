@@ -20,6 +20,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 
+from .const import PERSON_DOMAIN
 from .helpers import is_float
 
 
@@ -52,6 +53,42 @@ def _finite_float_or_none(value: Any) -> float | None:
     return converted_value if converted_value is not None and isfinite(converted_value) else None
 
 
+def _gps_accuracy_or_none(value: Any) -> float | None:
+    """Convert a GPS accuracy, treating negative and non-finite values as absent.
+
+    Args:
+        value (Any):
+            Candidate GPS accuracy in meters.
+
+    Returns:
+        float | None:
+            Zero or positive finite accuracy, or ``None`` when absent or invalid.
+    """
+    accuracy = _finite_float_or_none(value)
+    if accuracy is None or accuracy < 0:
+        return None
+    return accuracy
+
+
+def _source_tracker_or_entity(entity_id: str, source: object) -> str:
+    """Return the tracker a tracked entity takes its readings from.
+
+    Args:
+        entity_id (str):
+            Tracked entity ID.
+        source (object):
+            Value of the tracked entity's ``source`` attribute.
+
+    Returns:
+        str:
+            The ``source`` of a person entity when it is a non-empty string,
+            otherwise ``entity_id``.
+    """
+    if entity_id.partition(".")[0] == PERSON_DOMAIN and isinstance(source, str) and source:
+        return source
+    return entity_id
+
+
 class TrackerStatus(Enum):
     """Enumeration of tracker snapshot resolution states."""
 
@@ -73,6 +110,7 @@ class TrackerSnapshot:
     latitude: float | None
     longitude: float | None
     gps_accuracy: float | None
+    source_tracker: str
     zone: str | None
     zone_name: str | None
     entity_picture: str | None
@@ -99,6 +137,7 @@ class TrackerSnapshot:
                 latitude=None,
                 longitude=None,
                 gps_accuracy=None,
+                source_tracker=entity_id or "",
                 zone=None,
                 zone_name=None,
                 entity_picture=None,
@@ -113,6 +152,7 @@ class TrackerSnapshot:
                 latitude=None,
                 longitude=None,
                 gps_accuracy=None,
+                source_tracker=entity_id,
                 zone=None,
                 zone_name=None,
                 entity_picture=None,
@@ -144,6 +184,7 @@ class TrackerSnapshot:
                 latitude=None,
                 longitude=None,
                 gps_accuracy=None,
+                source_tracker=entity_id,
                 zone=None,
                 zone_name=None,
                 entity_picture=None,
@@ -159,11 +200,13 @@ class TrackerSnapshot:
                 latitude=None,
                 longitude=None,
                 gps_accuracy=None,
+                source_tracker=entity_id,
                 zone=None,
                 zone_name=None,
                 entity_picture=None,
             )
 
+        source_tracker = _source_tracker_or_entity(entity_id, get_attr("source"))
         zone = get_attr(CONF_ZONE)
         zone = zone if isinstance(zone, str) else None
         zone_name = get_attr(ATTR_FRIENDLY_NAME)
@@ -196,7 +239,7 @@ class TrackerSnapshot:
         status = TrackerStatus.OK
         latitude = _finite_float_or_none(latitude_value)
         longitude = _finite_float_or_none(longitude_value)
-        gps_accuracy = _float_or_none(gps_accuracy_value)
+        gps_accuracy = _gps_accuracy_or_none(gps_accuracy_value)
         if not has_latitude or not has_longitude:
             status = TrackerStatus.MISSING_COORDINATES
         elif latitude is None or longitude is None:
@@ -209,6 +252,7 @@ class TrackerSnapshot:
             latitude=latitude,
             longitude=longitude,
             gps_accuracy=gps_accuracy,
+            source_tracker=source_tracker,
             zone=zone,
             zone_name=zone_name,
             entity_picture=entity_picture,
