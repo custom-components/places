@@ -489,13 +489,14 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         )
 
     async def async_shutdown(self) -> None:
-        """Unsubscribe coordinator callbacks during entry unload."""
+        """Unsubscribe callbacks and discard pending readings during final teardown."""
         await self.async_prepare_unload()
+        self.gps_accuracy_history.clear_pending_readings()
         self._pending_place_event = None
         await super().async_shutdown()
 
     async def async_prepare_unload(self) -> None:
-        """Stop update work before Home Assistant unloads platform entities."""
+        """Pause updates while retaining pending readings in case platform unload fails."""
         self._is_shutting_down = True
         if self._tracker_unsubscribe is not None:
             unsubscribe = self._tracker_unsubscribe
@@ -509,7 +510,6 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                     "(%s) Failed to unsubscribe tracker listener during unload",
                     self.get_attr(CONF_NAME),
                 )
-        self.gps_accuracy_history.clear_pending_readings()
         if self._tracker_update_tasks:
             for task in list(self._tracker_update_tasks):
                 if not task.done():

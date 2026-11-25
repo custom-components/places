@@ -5,29 +5,123 @@ from __future__ import annotations
 from collections.abc import MutableMapping
 from typing import Any, TypeVar
 
-from homeassistant.components.zone import ATTR_PASSIVE
-from homeassistant.const import CONF_ZONE
-from homeassistant.core import HomeAssistant
+from homeassistant.components.zone import ATTR_PASSIVE, ENTITY_ID_HOME
+from homeassistant.const import CONF_ZONE, STATE_HOME, STATE_UNAVAILABLE
+from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.util import slugify
 
 from .advanced_options import AdvancedOptionsParser
 from .attributes import PlacesAttributes
 from .basic_options import BasicOptionsParser
 from .const import (
     ATTR_DEVICETRACKER_ZONE,
+    ATTR_DEVICETRACKER_ZONE_ID,
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_DISPLAY_OPTIONS,
     ATTR_DISPLAY_OPTIONS_LIST,
     ATTR_DRIVING,
     ATTR_FORMATTED_PLACE,
+    ATTR_IN_ZONES,
     ATTR_NATIVE_VALUE,
     ATTR_PLACE_CATEGORY,
     ATTR_PLACE_TYPE,
     CONF_DEVICETRACKER_ID,
+    PERSON_DOMAIN,
 )
 from .display_options import parse_display_options
 
 _AttrT = TypeVar("_AttrT", default=Any)
+
+
+@callback
+def _async_available_active_zone(hass: HomeAssistant, entity_id: str) -> State | None:
+    """Return a configured zone by ID if it is available and active.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the configured zone entities.
+        entity_id (str): Candidate zone entity ID.
+
+    Returns:
+        State | None: The available active zone, if any.
+    """
+    if not entity_id.startswith(f"{CONF_ZONE}."):
+        return None
+    zone = hass.states.get(entity_id)
+    if zone is None or zone.state == STATE_UNAVAILABLE or zone.attributes.get(ATTR_PASSIVE):
+        return None
+    return zone
+
+
+@callback
+def async_reported_active_zone(hass: HomeAssistant, tracker: State) -> State | None:
+    """Find the active zone identified by the tracked entity's membership list.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the configured zone entities.
+        tracker (State): Reading containing the label and optional zone entity IDs.
+
+    Returns:
+        State | None: The reported active zone if its label agrees with the reading.
+    """
+    in_zones = tracker.attributes.get(ATTR_IN_ZONES)
+    if not isinstance(in_zones, list):
+        return None
+    # Home Assistant orders memberships by preference and includes passive zones.
+    for entity_id in in_zones:
+        if isinstance(entity_id, str) and (zone := _async_available_active_zone(hass, entity_id)):
+            label = STATE_HOME if entity_id == ENTITY_ID_HOME else zone.name
+            return zone if label == tracker.state else None
+    return None
+
+
+@callback
+def async_retain_active_zone(hass: HomeAssistant, tracker: State, entity_id: str) -> State | None:
+    """Keep a previously identified active zone when the same label has no membership data.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the zone and source tracker states.
+        tracker (State): Reading with the same label as the previous reading.
+        entity_id (str): Previously identified zone entity ID.
+
+    Returns:
+        State | None: The previous active zone if the current reading only supplies a label.
+    """
+    membership = tracker.attributes.get(ATTR_IN_ZONES)
+    if tracker.domain == PERSON_DOMAIN and membership == []:
+        # A person publishes [] both for absent source membership and for a reported [].
+        source_id = tracker.attributes.get("source")
+        source = hass.states.get(source_id) if isinstance(source_id, str) else None
+        if source is not None and source.state == tracker.state:
+            membership = source.attributes.get(ATTR_IN_ZONES)
+    if membership is not None or (zone := _async_available_active_zone(hass, entity_id)) is None:
+        return None
+    label = STATE_HOME if entity_id == ENTITY_ID_HOME else zone.name
+    return zone if label == tracker.state else None
+
+
+@callback
+def async_resolve_zone(hass: HomeAssistant, label: str) -> State | None:
+    """Resolve a tracker label to a Home Assistant zone state.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the configured zone entities.
+        label (str): Current or previously reported zone label.
+
+    Returns:
+        State | None: The matching zone state, if one can be resolved.
+    """
+    if not label:
+        return None
+    if label == STATE_HOME:
+        return hass.states.get(f"{CONF_ZONE}.{STATE_HOME}")
+    # Home Assistant trackers can report names whose entity IDs have a numeric suffix.
+    name_matches = [zone for zone in hass.states.async_all(CONF_ZONE) if zone.name == label]
+    if len(name_matches) == 1:
+        return name_matches[0]
+    # Duplicate names are ambiguous. Keep the original object-ID lookup for those labels.
+    zone_key = label.lower() if name_matches else slugify(label)
+    return hass.states.get(f"{CONF_ZONE}.{zone_key}")
 
 
 class PlacesState:
@@ -201,16 +295,29 @@ class PlacesState:
             bool:
                 ``True`` when the tracker is currently in an active HA zone.
         """
-        return self.active_zone(self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)) is not None
+        return self.current_active_zone() is not None
 
-    def active_zone(self, zone: str) -> str | None:
+    def current_active_zone(self) -> str | None:
+        """Return the active zone for the current reading.
+
+        Returns:
+            str | None: Active zone entity ID or unresolved label, if any.
+        """
+        return self.active_zone(
+            self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE),
+            entity_id=self.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE_ID),
+        )
+
+    def active_zone(self, zone: str, *, entity_id: str = "") -> str | None:
         """Identify an active zone from a current or saved tracker state.
 
         Args:
             zone (str): Zone label reported by the tracked entity.
+            entity_id (str): Active zone entity ID confirmed for that reading, if known.
 
         Returns:
-            str | None: The original label for an active zone, or ``None`` when outside.
+            str | None: The active zone entity ID if resolved, the original label if
+                unresolved, or ``None`` when outside or in a passive zone.
         """
         zone_key = zone.lower()
         if (
@@ -221,10 +328,14 @@ class PlacesState:
             or zone_key in {"away", "not_home", "notset", "not_set"}
         ):
             return None
-        zone_state = self.hass.states.get(f"{CONF_ZONE}.{zone_key}")
-        if zone_state is not None and zone_state.attributes.get(ATTR_PASSIVE, False) is True:
+        if entity_id:
+            return entity_id
+        zone_state = async_resolve_zone(self.hass, zone)
+        if zone_state is None:
+            return zone
+        if zone_state.attributes.get(ATTR_PASSIVE, False) is True:
             return None
-        return zone
+        return zone_state.entity_id
 
     async def get_driving_status(self) -> None:
         """Set the driving marker when movement implies road travel."""
