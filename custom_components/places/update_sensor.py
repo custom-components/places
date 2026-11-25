@@ -24,7 +24,6 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.util import slugify
 
 from .basic_options import BasicOptionsParser
 from .const import (
@@ -81,7 +80,7 @@ from .helpers import clear_since_from_state, is_float, safe_truncate
 from .location import CoordinatePair, LocationSnapshot, direction_of_travel
 from .osm_client import OSMClient
 from .parse_osm import OSMParser
-from .state import PlacesState
+from .state import PlacesState, async_resolve_zone
 from .tracker import TrackerSnapshot, TrackerStatus
 
 if TYPE_CHECKING:
@@ -614,18 +613,16 @@ class PlacesUpdater:
                 (tracker_state.state if tracker_state is not None else STATE_UNKNOWN),
             )
         if await self.state.in_zone():
-            devicetracker_zone_name_state = None
-            tracker_state = self._hass.states.get(tracker_id)
-            devicetracker_zone_id: str | None = None
-            if tracker_state is not None:
-                devicetracker_zone_id = tracker_state.attributes.get(CONF_ZONE)
-            if not devicetracker_zone_id and not self.state.is_attr_blank(ATTR_DEVICETRACKER_ZONE):
-                devicetracker_zone_id = slugify(
-                    self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
+            devicetracker_zone_id = (
+                tracker_state.attributes.get(CONF_ZONE) if tracker_state is not None else None
+            )
+            devicetracker_zone_name_state = (
+                self._hass.states.get(f"{CONF_ZONE}.{devicetracker_zone_id}")
+                if devicetracker_zone_id
+                else async_resolve_zone(
+                    self._hass, self.state.get_attr_safe_str(ATTR_DEVICETRACKER_ZONE)
                 )
-            if devicetracker_zone_id:
-                devicetracker_zone_id = f"{CONF_ZONE}.{devicetracker_zone_id}"
-                devicetracker_zone_name_state = self._hass.states.get(devicetracker_zone_id)
+            )
             if devicetracker_zone_name_state:
                 if devicetracker_zone_name_state.attributes.get(CONF_FRIENDLY_NAME):
                     self.state.set_attr(

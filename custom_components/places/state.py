@@ -6,8 +6,9 @@ from collections.abc import MutableMapping
 from typing import Any, TypeVar
 
 from homeassistant.components.zone import ATTR_PASSIVE
-from homeassistant.const import CONF_ZONE
-from homeassistant.core import HomeAssistant
+from homeassistant.const import CONF_ZONE, STATE_HOME
+from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.util import slugify
 
 from .advanced_options import AdvancedOptionsParser
 from .attributes import PlacesAttributes
@@ -31,6 +32,30 @@ from .const import (
 from .display_options import parse_display_options
 
 _AttrT = TypeVar("_AttrT", default=Any)
+
+
+@callback
+def async_resolve_zone(hass: HomeAssistant, label: str) -> State | None:
+    """Resolve a tracker label to a Home Assistant zone state.
+
+    Args:
+        hass (HomeAssistant): Runtime containing the configured zone entities.
+        label (str): Current or previously reported zone label.
+
+    Returns:
+        State | None: The matching zone state, if one can be resolved.
+    """
+    if not label:
+        return None
+    if label == STATE_HOME:
+        return hass.states.get(f"{CONF_ZONE}.{STATE_HOME}")
+    # Home Assistant trackers can report names whose entity IDs have a numeric suffix.
+    name_matches = [zone for zone in hass.states.async_all(CONF_ZONE) if zone.name == label]
+    if len(name_matches) == 1:
+        return name_matches[0]
+    # Duplicate names are ambiguous. Keep the original object-ID lookup for those labels.
+    zone_key = label.lower() if name_matches else slugify(label)
+    return hass.states.get(f"{CONF_ZONE}.{zone_key}")
 
 
 class PlacesState:
@@ -270,7 +295,8 @@ class PlacesState:
             zone (str): Zone label reported by the tracked entity.
 
         Returns:
-            str | None: The original label for an active zone, or ``None`` when outside.
+            str | None: The active zone entity ID if resolved, the original label if
+                unresolved, or ``None`` when outside or in a passive zone.
         """
         zone_key = zone.lower()
         if (
@@ -281,10 +307,12 @@ class PlacesState:
             or zone_key in {"away", "not_home", "notset", "not_set"}
         ):
             return None
-        zone_state = self.hass.states.get(f"{CONF_ZONE}.{zone_key}")
-        if zone_state is not None and zone_state.attributes.get(ATTR_PASSIVE, False) is True:
+        zone_state = async_resolve_zone(self.hass, zone)
+        if zone_state is None:
+            return zone
+        if zone_state.attributes.get(ATTR_PASSIVE, False) is True:
             return None
-        return zone
+        return zone_state.entity_id
 
     async def get_driving_status(self) -> None:
         """Set the driving marker when movement implies road travel."""
