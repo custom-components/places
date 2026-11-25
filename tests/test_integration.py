@@ -4776,6 +4776,143 @@ async def test_failed_unload_preserves_throttled_gps_readings(
     saved = await PlacesStorage(hass, entry.entry_id, "Probe").async_load()
     assert saved[ATTR_GPS_ACCURACY_SOURCES] == ["device_tracker.probe"]
 
+    await _report_zero_readings(hass, gps_clock, [52.1, 52.2, 52.3])
+    assert aioclient_mock.call_count == 1
+    await _report_zero_readings(hass, gps_clock, [52.4])
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == "Colchester"
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("throttle_fourth_reading", [True, False], ids=["buffered", "committed"])
+async def test_failed_unload_breaks_moving_zero_run(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    monkeypatch: pytest.MonkeyPatch,
+    throttle_fourth_reading: bool,
+) -> None:
+    """A subscription gap breaks a run of moving zeros while keeping learned accuracy.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        monkeypatch (pytest.MonkeyPatch): Replaces the platform unload boundary.
+        throttle_fourth_reading (bool): Buffer the fourth zero instead of committing it.
+    """
+    entry = await _setup_recorded_tracker(hass, aioclient_mock)
+    await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8])
+    tracker_id = "device_tracker.probe"
+    if throttle_fourth_reading:
+        hass.states.async_set(
+            tracker_id, "not_home", {"latitude": 51.9, "longitude": -0.1, "gps_accuracy": 0}
+        )
+        await hass.async_block_till_done()
+    else:
+        await _report_zero_readings(hass, gps_clock, [51.9])
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
+        """Publish an intervening positive and final zero while unsubscribed.
+
+        Args:
+            _entry (object): Entry Home Assistant is unloading.
+            _platforms (object): Platforms Home Assistant should unload.
+
+        Returns:
+            bool: Platform unload result.
+        """
+        await _report_tracker(
+            hass,
+            gps_clock,
+            tracker_id,
+            "not_home",
+            {"latitude": 51.95, "longitude": -0.1, "gps_accuracy": 5},
+        )
+        await _report_zero_readings(hass, gps_clock, [52.0])
+        return False
+
+    with monkeypatch.context() as patch:
+        patch.setattr(hass.config_entries, "async_unload_platforms", refuse_platform_unload)
+        assert not await async_unload_entry(hass, entry)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    # The resumed reading is the baseline for a new run.
+    await _report_zero_readings(hass, gps_clock, [52.1, 52.2, 52.3, 52.4])
+    assert aioclient_mock.call_count == 1
+    assert hass.states.get("sensor.probe").state == "London"
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
+    await _report_zero_readings(hass, gps_clock, [52.5])
+    assert aioclient_mock.call_count == 2
+    assert hass.states.get("sensor.probe").state == "Chelmsford"
+    assert tracker_id not in (await storage.async_load()).get(ATTR_GPS_ACCURACY_SOURCES, [])
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize("later_zero", [False, True], ids=["latest-positive", "earlier-positive"])
+async def test_failed_unload_keeps_new_gps_accuracy_source(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    gps_clock: dict[str, datetime],
+    monkeypatch: pytest.MonkeyPatch,
+    later_zero: bool,
+) -> None:
+    """Learn from a queued positive reading even when unload interrupts observation.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OpenStreetMap reverse lookups.
+        gps_clock (dict[str, datetime]): Mutable Update clock.
+        monkeypatch (pytest.MonkeyPatch): Replaces the platform unload boundary.
+        later_zero (bool): Queue a zero after the positive reading before unload.
+    """
+    entry = await _setup_recorded_tracker(hass, aioclient_mock, gps_accuracy=0)
+    await _report_zero_readings(hass, gps_clock, [51.6])
+    assert hass.states.get("sensor.probe").state == "Swindon"
+
+    tracker_id = "device_tracker.probe"
+    hass.states.async_set(
+        tracker_id, "not_home", {"latitude": 51.7, "longitude": -0.1, "gps_accuracy": 5}
+    )
+    if later_zero:
+        hass.states.async_set(
+            tracker_id, "not_home", {"latitude": 51.8, "longitude": -0.1, "gps_accuracy": 0}
+        )
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 2
+    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    assert not (await storage.async_load()).get(ATTR_GPS_ACCURACY_SOURCES)
+
+    async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
+        """Report a zero while the tracker subscription is detached.
+
+        Args:
+            _entry (object): Entry Home Assistant is unloading.
+            _platforms (object): Platforms Home Assistant should unload.
+
+        Returns:
+            bool: Platform unload result.
+        """
+        await _report_zero_readings(hass, gps_clock, [52.0])
+        return False
+
+    with monkeypatch.context() as patch:
+        patch.setattr(hass.config_entries, "async_unload_platforms", refuse_platform_unload)
+        assert not await async_unload_entry(hass, entry)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.probe").state == "Swindon"
+    assert aioclient_mock.call_count == 2
+    assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
+
 
 @pytest.mark.usefixtures("enable_custom_integrations")
 async def test_forgetting_count_starts_again_after_restart(
