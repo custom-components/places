@@ -82,6 +82,8 @@ from .state import PlacesState
 from .update_sensor import PlacesUpdater
 
 if TYPE_CHECKING:
+    from homeassistant.core import State
+
     from .persistence import PlacesStorage
 
 _LOGGER = logging.getLogger(__name__)
@@ -132,6 +134,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         self._places_name = str(self.config.get(CONF_NAME, config_entry.entry_id))
         self._persistence = persistence
         self._tracker_unsubscribe: Callable[[], None] | None = None
+        self._tracker_state_before_unload: State | None = None
         self._update_lock = asyncio.Lock()
         self._is_shutting_down = False
         self._pending_place_event: dict[str, Any] | None = None
@@ -489,15 +492,19 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
         )
 
     async def async_shutdown(self) -> None:
-        """Unsubscribe coordinator callbacks during entry unload."""
+        """Unsubscribe callbacks and discard pending readings during final teardown."""
         await self.async_prepare_unload()
+        self._tracker_state_before_unload = None
+        self.gps_accuracy_history.clear_pending_readings()
         self._pending_place_event = None
         await super().async_shutdown()
 
     async def async_prepare_unload(self) -> None:
-        """Stop update work before Home Assistant unloads platform entities."""
+        """Pause updates while retaining pending readings in case platform unload fails."""
         self._is_shutting_down = True
         if self._tracker_unsubscribe is not None:
+            tracker_id = self.get_attr_safe_str(CONF_DEVICETRACKER_ID)
+            self._tracker_state_before_unload = self.hass.states.get(tracker_id)
             unsubscribe = self._tracker_unsubscribe
             self._tracker_unsubscribe = None
             try:
@@ -517,7 +524,7 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                 await asyncio.gather(*self._tracker_update_tasks, return_exceptions=True)
             self._tracker_update_tasks.clear()
         async with self._update_lock:
-            self.gps_accuracy_history.reset_observation_history()
+            pass
 
     async def async_resume_after_failed_unload(self) -> None:
         """Finalize any published Place and resume Updates after a failed unload."""
@@ -526,6 +533,11 @@ class PlacesUpdateCoordinator(DataUpdateCoordinator[PlacesData], PlacesState):
                 return
             self._is_shutting_down = False
             if self._tracker_unsubscribe is None:
+                tracker_id = self.get_attr_safe_str(CONF_DEVICETRACKER_ID)
+                tracker_state = self.hass.states.get(tracker_id)
+                if tracker_state is None or tracker_state is not self._tracker_state_before_unload:
+                    self.gps_accuracy_history.reset_observation_history()
+                self._tracker_state_before_unload = None
                 try:
                     await self.async_added_to_hass()
                 except Exception:
