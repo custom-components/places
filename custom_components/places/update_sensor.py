@@ -128,6 +128,7 @@ class PlacesUpdater:
         coordinator = self.coordinator
         accepted = coordinator.get_internal_attr()
         self.state = PlacesState(self._hass, copy.deepcopy(accepted))
+        coordinator.discard_staged_gps_accuracy_history()
         self._use_cache = not force
         await self.log_update_start(reason)
         now = await self.get_current_time()
@@ -143,6 +144,7 @@ class PlacesUpdater:
             return
         self.state.set_attr(ATTR_LAST_UPDATED, now.isoformat(sep=" ", timespec="seconds"))
         coordinator.replace_attributes(self.state.get_internal_attr())
+        coordinator.commit_gps_accuracy_history()
         if event_data is not None:
             await coordinator.async_publish_accepted_place(event_data)
         else:
