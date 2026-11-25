@@ -1981,6 +1981,92 @@ async def test_movement_threshold_scales_with_gps_accuracy(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+@pytest.mark.parametrize(
+    ("zone_before", "zone_after", "moved_m", "expect_update"),
+    [
+        pytest.param("not_home", "work", 44, True, id="zone-entry-inside-accuracy-radius-updates"),
+        pytest.param(
+            "work", "work", 40, False, id="same-zone-jitter-inside-accuracy-radius-stationary"
+        ),
+    ],
+)
+async def test_zone_change_inside_accuracy_radius_is_not_stationary(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    monkeypatch: pytest.MonkeyPatch,
+    zone_before: str,
+    zone_after: str,
+    moved_m: float,
+    expect_update: bool,
+) -> None:
+    """Update when the tracked entity enters a zone within its GPS accuracy radius.
+
+    A zone change is a Place change even when the move is inside the reading's
+    accuracy radius; movement within the same zone stays stationary.
+
+    Args:
+        hass (HomeAssistant): Home Assistant runtime with real Places entities.
+        aioclient_mock (AiohttpClientMocker): Mocked OSM HTTP responses.
+        monkeypatch (pytest.MonkeyPatch): Replacement for the OSM throttle interval.
+        zone_before (str): Tracked entity state before the move.
+        zone_after (str): Tracked entity state after the move.
+        moved_m (float): Distance moved north of the accepted Place, in metres.
+        expect_update (bool): Whether the move should trigger a reverse lookup and Update.
+    """
+    monkeypatch.setattr("custom_components.places.osm_client.OSM_THROTTLE_INTERVAL_SECONDS", 0)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Probe",
+        data={
+            CONF_NAME: "Probe",
+            CONF_DEVICETRACKER_ID: "device_tracker.probe",
+            CONF_DISPLAY_OPTIONS: "zone_name, city",
+            CONF_EXTENDED_ATTR: False,
+            CONF_SHOW_TIME: False,
+            CONF_USE_GPS: True,
+        },
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
+    hass.states.async_set(
+        "zone.work",
+        "0",
+        {
+            "friendly_name": "Work",
+            "latitude": round(51.5 + 44 / _METRES_PER_DEGREE_LATITUDE, 7),
+            "longitude": -0.1,
+            "radius": 100,
+        },
+    )
+    tracker_attributes = {"gps_accuracy": 65, "longitude": -0.1}
+    hass.states.async_set(
+        "device_tracker.probe", zone_before, {"latitude": 51.5, **tracker_attributes}
+    )
+    aioclient_mock.get(_REVERSE_URL, json=_LONDON_RESPONSE)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+
+    latitude = round(51.5 + moved_m / _METRES_PER_DEGREE_LATITUDE, 7)
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{_REVERSE_URL}?lat={latitude}", json=_OXFORD_RESPONSE)
+    hass.states.async_set(
+        "device_tracker.probe", zone_after, {"latitude": latitude, **tracker_attributes}
+    )
+    await hass.async_block_till_done()
+
+    main = hass.states.get("sensor.probe")
+    if expect_update:
+        assert aioclient_mock.call_count == 1
+        assert main.state == "Work"
+        assert main.attributes[ATTR_LATITUDE] == latitude
+    else:
+        assert aioclient_mock.call_count == 0
+        assert main.state == "Work"
+        assert main.attributes[ATTR_LATITUDE] == 51.5
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_force_update_bypasses_accuracy_radius_check(
     hass: HomeAssistant,
     force_update_entry: MockConfigEntry,

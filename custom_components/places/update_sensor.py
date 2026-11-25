@@ -602,6 +602,7 @@ class PlacesUpdater:
             UpdateStatus:
                 Status indicating whether the update should continue or be skipped.
         """
+        accepted_zone = self.state.get_attr(ATTR_DEVICETRACKER_ZONE)
         await self.get_initial_last_place_name()
         await self.get_zone_details()
         proceed_with_update = await self.update_coordinates_and_distance()
@@ -611,7 +612,9 @@ class PlacesUpdater:
             proceed_with_update,
         )
         if proceed_with_update == UpdateStatus.PROCEED and not force:
-            proceed_with_update = await self.determine_if_update_needed()
+            proceed_with_update = await self.determine_if_update_needed(
+                zone_changed=accepted_zone != self.state.get_attr(ATTR_DEVICETRACKER_ZONE)
+            )
             _LOGGER.debug(
                 "(%s) [determine_update_criteria] proceed_with_update: %s",
                 self.state.get_attr(CONF_NAME),
@@ -1015,8 +1018,14 @@ class PlacesUpdater:
             # Ensure no stale key survives when a normal lookup produced no payload.
             self._hass.data[DOMAIN][OSM_CACHE].pop(url, None)
 
-    async def determine_if_update_needed(self) -> UpdateStatus:
+    async def determine_if_update_needed(self, *, zone_changed: bool = False) -> UpdateStatus:
         """Decide whether movement since the last update warrants geocoding.
+
+        Args:
+            zone_changed (bool):
+                ``True`` when the tracked entity's zone differs from the accepted
+                Place's zone. The movement threshold then stays at 10 m instead of
+                the GPS accuracy radius, so a zone change inside that radius updates.
 
         Returns:
             UpdateStatus:
@@ -1052,7 +1061,8 @@ class PlacesUpdater:
             )
             return UpdateStatus.SKIP_SET_STATIONARY
 
-        threshold_m = self._movement_threshold_m()
+        # A zone change is not hidden by the accuracy radius; the base threshold still applies.
+        threshold_m = MOVEMENT_THRESHOLD_M if zone_changed else self._movement_threshold_m()
         if int(self.state.get_attr_safe_float(ATTR_DISTANCE_TRAVELED)) < threshold_m:
             _LOGGER.info(
                 "(%s) Not performing update, distance traveled from last update is "
