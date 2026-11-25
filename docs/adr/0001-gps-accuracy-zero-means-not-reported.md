@@ -8,6 +8,8 @@ Places summarizes earlier readings in order using a fixed amount of history per 
 
 Reported accuracy also raises the stationary threshold to `max(10 m, accuracy)`, so movement within the accuracy radius is treated as noise. Because of this, Places has no separate cut-off for very imprecise readings. For a device tracker or person, the threshold stays at 10 m while its Current zone differs from the zone at the last successful reverse lookup. A closer reading can publish the Current zone while retaining the Place. Places saves the last resolved zone separately so the 10 m threshold still applies to later readings in the new zone.
 
+When a reading keeps the same zone label and its source tracker supplies no zone membership, Places keeps the previous active zone ID if it still matches the label. Reported membership takes precedence. A reading can also fill in a missing last resolved zone ID when it confirms membership at the saved Place's coordinates and reports the saved label.
+
 ## Considered Options
 
 - **Always skip 0 (previous behavior)**: blocks every tracker that does not report accuracy, and users had to find the README note telling them to turn the setting off.
