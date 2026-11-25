@@ -444,7 +444,7 @@ class PlacesUpdater:
             return UpdateStatus.PROCEED
 
         return self._judge_gps_accuracy(
-            tracker_snapshot.source_tracker or tracker_id,
+            tracker_snapshot.source_tracker,
             tracker_snapshot.latitude,
             tracker_snapshot.longitude,
             gps_accuracy,

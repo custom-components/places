@@ -110,7 +110,7 @@ class TrackerSnapshot:
     latitude: float | None
     longitude: float | None
     gps_accuracy: float | None
-    source_tracker: str | None
+    source_tracker: str
     zone: str | None
     zone_name: str | None
     entity_picture: str | None
@@ -137,7 +137,7 @@ class TrackerSnapshot:
                 latitude=None,
                 longitude=None,
                 gps_accuracy=None,
-                source_tracker=entity_id,
+                source_tracker=entity_id or "",
                 zone=None,
                 zone_name=None,
                 entity_picture=None,
