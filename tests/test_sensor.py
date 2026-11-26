@@ -19,6 +19,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
@@ -109,12 +110,12 @@ def test_places_entity_device_info_uses_config_entry(mock_hass: MagicMock) -> No
     coordinator = PlacesUpdateCoordinator(mock_hass, entry, {}, MagicMock())
     entity = Places(coordinator)
 
-    assert entity.device_info == {
-        "identifiers": {("places", "entry123")},
-        "name": "TestSensor",
-        "manufacturer": "Places",
-        "model": "OpenStreetMap reverse geocode",
-    }
+    assert entity.device_info == DeviceInfo(
+        identifiers={("places", "entry123")},
+        name="TestSensor",
+        manufacturer="Places",
+        model="OpenStreetMap reverse geocode",
+    )
 
 
 def test_coordinator_main_attributes_are_location_context_only(
@@ -1784,13 +1785,23 @@ def test_places_entity_refreshes_device_info_after_coordinator_name_change(
     write_state = MagicMock()
     object.__setattr__(entity, "async_write_ha_state", write_state)
 
-    assert entity.device_info["name"] == "OldName"
+    assert entity.device_info == DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="OldName",
+        manufacturer="Places",
+        model="OpenStreetMap reverse geocode",
+    )
 
     coordinator.set_attr(CONF_NAME, "NewName")
     coordinator.publish_update()
     entity._handle_coordinator_update()
 
-    assert entity.device_info["name"] == "NewName"
+    assert entity.device_info == DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="NewName",
+        manufacturer="Places",
+        model="OpenStreetMap reverse geocode",
+    )
     write_state.assert_called_once_with()
 
 

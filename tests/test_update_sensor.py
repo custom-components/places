@@ -21,6 +21,7 @@ from homeassistant.const import (
     CONF_ZONE,
 )
 from homeassistant.core import State
+from homeassistant.helpers.device_registry import DeviceInfo
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -668,7 +669,12 @@ async def test_check_for_updated_entity_name_with_real_coordinator_entity(
     await updater.check_for_updated_entity_name()
 
     mock_hass.config_entries.async_update_entry.assert_called_once()
-    assert entity.device_info["name"] == "NewName"
+    assert entity.device_info == DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="NewName",
+        manufacturer="Places",
+        model="OpenStreetMap reverse geocode",
+    )
 
 
 @pytest.mark.asyncio
