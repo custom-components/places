@@ -26,7 +26,6 @@ lint = [
   "prek",
   "probatio",
   "pydoclint>=0.12.0",
-  "ruff",
   "types-cachetools",
   "types-cffi",
   "types-greenlet",
