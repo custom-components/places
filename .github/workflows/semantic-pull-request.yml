@@ -1,7 +1,7 @@
 name: Lint PR title
 
 on:
-  pull_request_target:
+  pull_request_target:  # zizmor: ignore[dangerous-triggers] Run the required title check from the base branch using read-only PR metadata.
     types:
       - opened
       - reopened

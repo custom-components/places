@@ -1,7 +1,7 @@
 name: pytest post coverage
 
 on:
-  workflow_run:
+  workflow_run:  # zizmor: ignore[dangerous-triggers] Post fork PR coverage without a checkout and publish reports only for verified default-branch runs.
     workflows: ['pytest check and post coverage']
     types:
       - completed

@@ -1,7 +1,7 @@
 name: prek-autofix fix
 
 on:
-  workflow_run:
+  workflow_run:  # zizmor: ignore[dangerous-triggers] Verify the source run and change artifact before applying fixes with the trusted token.
     workflows: [prek-autofix]
     types: [completed]
 
