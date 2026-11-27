@@ -34,7 +34,7 @@ rev = "v1.33.1"
 [[repos.hooks]]
 id = "zizmor"
 # Report existing findings during the pilot. Tool errors still fail the hook.
-args = ["--offline", "--no-progress", "--no-exit-codes"]
+args = ["--offline", "--no-progress", "--fix"]
 verbose = true
 
 [[repos]]

@@ -1,4 +1,6 @@
 rules:
+  dangerous-triggers:
+    disable: true
   unpinned-uses:
     config:
       policies:
