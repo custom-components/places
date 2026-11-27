@@ -3,13 +3,13 @@
 import asyncio
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, suppress
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 import homeassistant.helpers.entity_registry as er
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_NATIVE_VALUE,
@@ -23,14 +23,32 @@ from custom_components.places.const import (
     DOMAIN,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
+from custom_components.places.persistence import PlacesStorage
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
+from tests.common import MockConfigEntry
 
 type Attrs = MutableMapping[str, object]
 type StubMock = AsyncMock | MagicMock
 type MethodSpec = tuple[str, dict[str, object]]
 type StubMapping = dict[str, StubMock]
 type CoordinatorFactory = Callable[[str], tuple[MockConfigEntry, PlacesUpdateCoordinator]]
+
+
+class FreshPlacesStorage(PlacesStorage):
+    """PlacesStorage that reads every snapshot through a new Home Assistant Store.
+
+    Below Home Assistant 2026.11 the test plugin's storage mock keeps loaded data on
+    the Store instance, so a reused instance returns the first snapshot it read.
+    """
+
+    async def async_load(self) -> MutableMapping[str, Any]:
+        """Load the snapshot as it is currently saved.
+
+        Returns:
+            MutableMapping[str, Any]: Saved attribute mapping, or an empty mapping.
+        """
+        return await PlacesStorage(self._hass, self._entry_id, self._name).async_load()
 
 
 @pytest.fixture

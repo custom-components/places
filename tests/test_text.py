@@ -6,7 +6,6 @@ from homeassistant.const import MAX_LENGTH_STATE_STATE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     CONF_DEVICETRACKER_ID,
@@ -16,6 +15,7 @@ from custom_components.places.const import (
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.text import PlacesDisplayOptionsText, async_setup_entry
+from tests.common import MockConfigEntry
 
 
 async def test_display_options_text_setup_and_update() -> None:

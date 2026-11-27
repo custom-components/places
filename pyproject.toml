@@ -24,6 +24,7 @@ lint = [
   { include-group = "ha" },
   "mypy",
   "prek",
+  "probatio",
   "ruff",
   "types-cachetools",
   "types-cffi",
@@ -36,13 +37,18 @@ lint = [
   "types-setuptools",
   "uv>=0.13.4",
 ]
-pytest = [
+# Test dependencies without the Home Assistant test plugin. The minimum Home
+# Assistant CI job installs this group with the plugin that covers its version.
+pytest-base = [
   { include-group = "ha" },
   "pytest>=9",
   "pytest-asyncio",
   "pytest-cov",
-  "pytest-homeassistant>=2026.11.0",
   "pytest-timeout",
+]
+pytest = [
+  { include-group = "pytest-base" },
+  "pytest-homeassistant>=2026.11.0",
 ]
 dev = [
     { include-group = "lint" },
@@ -86,6 +92,8 @@ show_missing = true
 
 [tool.mypy]
 python_version = "3.14"
+# typings/voluptuous types voluptuous as probatio; see the stub for its limitations.
+mypy_path = "typings"
 platform = "linux"
 explicit_package_bases = true
 local_partial_types = true
@@ -116,6 +124,11 @@ disallow_incomplete_defs = false
 disable_error_code = ["import-untyped", "arg-type", "method-assign", "no-untyped-def", "index", "union-attr", "operator"]
 check_untyped_defs = false
 warn_unused_ignores = false
+
+# Each environment installs only one of the Home Assistant test plugins; see tests/common.py.
+[[tool.mypy.overrides]]
+module = ["pytest_homeassistant.*", "pytest_homeassistant_custom_component.*"]
+ignore_missing_imports = true
 
 [tool.ruff]
 line-length = 100
@@ -189,6 +202,9 @@ ignore = [
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
+"typings/voluptuous/__init__.pyi" = [
+    "F403",    # Re-export probatio as voluptuous for mypy
+]
 "tools/*" = [
     "T201",    # print is the developer tools' output
 ]

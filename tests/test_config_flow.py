@@ -12,7 +12,6 @@ from homeassistant.const import (
 from homeassistant.core import State
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.config_flow import (
     HOME_LOCATION_DOMAINS,
@@ -37,6 +36,7 @@ from custom_components.places.const import (
     DEFAULT_SHOW_TIME,
     DEFAULT_USE_GPS,
 )
+from tests.common import MockConfigEntry
 
 type ConfigData = dict[str, object]
 type LabelCheck = Callable[[dict[str, str]], bool]
