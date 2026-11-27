@@ -19,7 +19,7 @@ jobs:
     if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: Snuffy2/prek-autofix/fix@v1
+      - uses: Snuffy2/prek-autofix/fix@b77730b3f88b1f2c1a9de416fcd815e5c3cf6071 # v1.1.2
         with:
           autofix-token: ${{ secrets.PREK_AUTOFIX_TOKEN }}
           source-workflow: prek-autofix

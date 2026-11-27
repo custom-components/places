@@ -27,7 +27,7 @@ jobs:
       - name: Create or update the release pull request
         if: github.event_name == 'push'
         id: release
-        uses: googleapis/release-please-action@v5
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
@@ -37,7 +37,7 @@ jobs:
         if: >-
           github.event_name == 'workflow_dispatch' ||
           steps.release.outputs.release_created == 'true'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.release.outputs.tag_name || inputs.release_tag }}
           persist-credentials: false

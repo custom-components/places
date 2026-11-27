@@ -4,5 +4,6 @@ rules:
   unpinned-uses:
     config:
       policies:
-        # Places uses release tags for GitHub Actions.
-        "*": ref-pin
+        # Used from a branch: its release tags are old.
+        "hacs/action": ref-pin
+        "*": hash-pin

@@ -33,8 +33,18 @@ rev = "v1.33.1"
 
 [[repos.hooks]]
 id = "zizmor"
-# Report existing findings during the pilot. Tool errors still fail the hook.
-args = ["--offline", "--no-progress", "--fix"]
+# Pinning to a SHA needs a GitHub token and counts as an "unsafe" fix. Without a
+# token, as in the CI autofix review, zizmor runs offline and only reports.
+# Use a shell because prek does not expand `$(...)` in `args`.
+shell = "sh"
+entry = '''
+if token="$(gh auth token 2>/dev/null)" && [ -n "$token" ]; then
+  export GH_TOKEN="$token"
+  set -- --fix=all "$@"
+fi
+exec zizmor "$@"
+'''
+args = ["--no-progress"]
 verbose = true
 
 [[repos]]
