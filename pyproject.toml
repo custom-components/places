@@ -3,7 +3,7 @@ name = "places"
 dynamic = ["version"]
 description = "Places Home Assistant integration"
 readme = "README.md"
-requires-python = ">=3.14.2"
+requires-python = ">=3.14.2,<3.15"
 dependencies = [
   "aiohttp",
   "cachetools",
@@ -25,7 +25,7 @@ lint = [
   "mypy",
   "prek",
   "probatio",
-  "ruff",
+  "pydoclint>=0.12.0",
   "types-cachetools",
   "types-cffi",
   "types-greenlet",
@@ -91,7 +91,6 @@ parallel = false
 show_missing = true
 
 [tool.mypy]
-python_version = "3.14"
 # typings/voluptuous types voluptuous as probatio; see the stub for its limitations.
 mypy_path = "typings"
 platform = "linux"
