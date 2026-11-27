@@ -1,6 +1,6 @@
 name: 'Pull Request Labeler'
 on:
-  pull_request_target:
+  pull_request_target:  # zizmor: ignore[dangerous-triggers] Label fork PRs using the base repository config without checking out PR code.
 
 jobs:
   labeler:

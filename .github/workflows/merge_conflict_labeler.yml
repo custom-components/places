@@ -2,7 +2,7 @@ name: Merge Conflict Labeler
 
 on:
   push:
-  pull_request_target:
+  pull_request_target:  # zizmor: ignore[dangerous-triggers] Label and comment on fork PRs using GitHub metadata without checking out PR code.
     types: [synchronize]
 
 jobs:
