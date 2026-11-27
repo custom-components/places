@@ -28,6 +28,16 @@ rev = "v1.17"
 id = "actionlint-shellcheck"
 
 [[repos]]
+repo = "https://github.com/zizmorcore/zizmor-pre-commit"
+rev = "v1.33.1"
+
+[[repos.hooks]]
+id = "zizmor"
+# Report existing findings during the pilot. Tool errors still fail the hook.
+args = ["--offline", "--no-progress", "--no-exit-codes"]
+verbose = true
+
+[[repos]]
 repo = "https://github.com/codespell-project/codespell"
 rev = "v2.4.3"
 

@@ -1,0 +1,6 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # Places uses release tags for GitHub Actions.
+        "*": ref-pin
