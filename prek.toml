@@ -72,25 +72,24 @@ additional_dependencies = [
 [[repos]]
 repo = "local"
 
+# Keep the uv hooks unlocked so a local `prek run -a` can create `.venv`
+# and refresh a missing or stale lockfile. An exact sync prevents leftover
+# packages from affecting the checks. CI sets `UV_LOCKED=1` externally.
 [[repos.hooks]]
 id = "mypy"
 name = "mypy"
 language = "system"
-# Keep the hook itself unlocked so a local `prek run -a` can create `.venv`
-# and refresh a missing or stale lockfile. An exact sync prevents leftover
-# packages from changing the types mypy checks. CI sets `UV_LOCKED=1` externally.
-# Select Python here because the autofix action does not forward `UV_PYTHON`.
-entry = "uv run --python 3.14 --exact --group dev mypy --config-file=pyproject.toml"
+entry = "uv run --exact --group dev mypy --config-file=pyproject.toml"
 types = ["python"]
 require_serial = true
 
-[[repos]]
-repo = "https://github.com/jsh9/pydoclint"
-rev = "0.12.0"
-
 [[repos.hooks]]
 id = "pydoclint"
-language_version = "python3.14"
+name = "pydoclint"
+language = "system"
+entry = "uv run --exact --group dev pydoclint"
+types = ["python"]
+require_serial = true
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"

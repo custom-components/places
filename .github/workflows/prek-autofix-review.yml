@@ -25,7 +25,6 @@ jobs:
       - name: Setup uv (with caching)
         uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
-          python-version: "3.14"
           enable-cache: true
           ignore-nothing-to-cache: true
           cache-dependency-glob: uv.lock
