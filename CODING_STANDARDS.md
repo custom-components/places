@@ -46,7 +46,7 @@ Run them with `./.venv/bin/python -m prek run -a`.
 
 ## Tests
 
-- Use pytest and its plugins, not `unittest`. Use `pytest-homeassistant-custom-component` helpers, preferring `MockConfigEntry` for config entries.
+- Use pytest and its plugins, not `unittest`. Use Home Assistant test plugin helpers, preferring `MockConfigEntry` for config entries, and import them from `tests.common` so tests run on every supported Home Assistant version.
 - Parameterize similar cases instead of writing near-duplicate tests, and delete placeholder tests the parameterized version replaces.
 - Add or update tests when they protect a meaningful behavioral contract or reproduce a bug that existing coverage would miss.
 - Test observable behavior at the real interface, including material failure paths. Do not add tests that mirror the implementation, assert configuration text, or duplicate existing checks.

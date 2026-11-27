@@ -23,7 +23,6 @@ from homeassistant.const import (
 from homeassistant.core import State
 from homeassistant.helpers.device_registry import DeviceInfo
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_DEVICETRACKER_ZONE,
@@ -71,6 +70,7 @@ from custom_components.places.const import (
 )
 from custom_components.places.sensor import Places
 from custom_components.places.update_sensor import PlacesUpdater
+from tests.common import MockConfigEntry
 from tests.conftest import (
     CoordinatorFactory,
     MockSensor,

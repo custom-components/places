@@ -8,8 +8,6 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant.common import MockConfigEntry, async_capture_events
-from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.places.config_flow import PlacesConfigFlow
 from custom_components.places.const import (
@@ -23,6 +21,7 @@ from custom_components.places.const import (
     EVENT_TYPE,
 )
 from custom_components.places.persistence import PlacesStorage
+from tests.common import AiohttpClientMocker, MockConfigEntry, async_capture_events
 
 # Semantic location attributes used by the display-option cases below.
 BASE_INTERNAL_ATTR = {

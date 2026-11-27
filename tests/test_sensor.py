@@ -22,7 +22,6 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_ATTRIBUTION,
@@ -65,6 +64,7 @@ from custom_components.places.sensor import (
     async_setup_entry,
 )
 from custom_components.places.update_sensor import PlacesUpdater
+from tests.common import MockConfigEntry
 
 
 def _description(key: str) -> PlacesAttributeSensorEntityDescription:

@@ -12,7 +12,6 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_LATITUDE as PLACES_ATTR_LATITUDE,
@@ -22,6 +21,7 @@ from custom_components.places.const import (
 )
 from custom_components.places.tracker import TrackerSnapshot, TrackerStatus
 from custom_components.places.update_sensor import PlacesUpdater
+from tests.common import MockConfigEntry
 from tests.conftest import MockSensor
 
 

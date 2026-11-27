@@ -57,6 +57,14 @@ logger:
 
 Use [ruff](https://docs.astral.sh/ruff) to make sure the code follows the style.
 
+## Test against the supported Home Assistant versions
+
+CI runs the tests twice: once with the Home Assistant release locked in `uv.lock`, and once with the minimum declared in `hacs.json` (the `pytest Home Assistant minimum` leg of the matrix in `.github/workflows/pytest_check.yml`). That leg resolves the oldest Home Assistant release at or above that minimum, together with a test plugin that covers it: `pytest-homeassistant` from Home Assistant 2026.11, otherwise its predecessor `pytest-homeassistant-custom-component`. It installs them with the project dependencies and the `pytest-base` group in a separate environment. Raising the minimum in `hacs.json` is all it needs.
+
+Import Home Assistant test plugin helpers such as `MockConfigEntry` from `tests.common` so the tests work with either plugin.
+
+To reproduce it locally, run the workflow's minimum steps from a separate clone with `RUNNER_TEMP` set to a scratch directory. The steps create their own `.venv` in the current directory, so they fail in a checkout that already has one.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under its GPL-3.0 License.

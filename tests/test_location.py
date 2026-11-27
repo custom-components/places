@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.const import (
     ATTR_DIRECTION_OF_TRAVEL,
@@ -21,6 +20,7 @@ from custom_components.places.const import (
 )
 from custom_components.places.location import CoordinatePair
 from custom_components.places.update_sensor import PlacesUpdater
+from tests.common import MockConfigEntry
 from tests.conftest import MockSensor
 
 

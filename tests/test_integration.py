@@ -16,27 +16,25 @@ from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 
 import cachetools
-from homeassistant.components.device_tracker import ATTR_IN_ZONES, DATA_COMPONENT, TrackerEntity
+from homeassistant.components.device_tracker import DOMAIN as DEVICE_TRACKER_DOMAIN, TrackerEntity
 from homeassistant.components.recorder import DATA_INSTANCE
 from homeassistant.components.zone import async_active_zone
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     EVENT_HOMEASSISTANT_FINAL_WRITE,
     EVENT_HOMEASSISTANT_STOP,
+    EVENT_STATE_CHANGED,
+    MAJOR_VERSION,
+    MINOR_VERSION,
     STATE_UNAVAILABLE,
 )
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import EventStateChangedData, async_track_state_change_event
+from homeassistant.helpers.storage import Store
 from homeassistant.setup import async_setup_component
 import pytest
-from pytest_homeassistant.common import (
-    MockConfigEntry,
-    async_capture_events,
-    async_fire_time_changed,
-)
-from pytest_homeassistant.test_util.aiohttp import AiohttpClientMocker, AiohttpClientMockResponse
 from yarl import URL
 
 from custom_components.places import (
@@ -54,6 +52,7 @@ from custom_components.places.const import (
     ATTR_DEVICETRACKER_ZONE_NAME,
     ATTR_DIRECTION_OF_TRAVEL,
     ATTR_GPS_ACCURACY_SOURCES,
+    ATTR_IN_ZONES,
     ATTR_LAST_CHANGED,
     ATTR_LAST_RESOLVED_ZONE,
     ATTR_LAST_RESOLVED_ZONE_ID,
@@ -84,7 +83,23 @@ from custom_components.places.const import (
 from custom_components.places.coordinator import PlacesUpdateCoordinator
 from custom_components.places.migration import legacy_json_path
 from custom_components.places.persistence import PlacesStorage
-from tests.conftest import assert_awaited_count
+from tests.common import (
+    AiohttpClientMocker,
+    AiohttpClientMockResponse,
+    MockConfigEntry,
+    MockEntityPlatform,
+    async_capture_events,
+    async_fire_time_changed,
+)
+from tests.conftest import FreshPlacesStorage, assert_awaited_count
+
+# Captured at import, before the test plugin's per-test storage mock replaces it.
+_STORE_ASYNC_WRITE_DATA = Store._async_write_data
+
+_REQUIRES_ZONE_MEMBERSHIP = pytest.mark.skipif(
+    (MAJOR_VERSION, MINOR_VERSION) < (2026, 5),
+    reason="Home Assistant publishes tracker zone membership from 2026.5",
+)
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -125,7 +140,7 @@ async def test_entry_keeps_accepted_place_until_lookup_recovers(
         },
     )
     entry.add_to_hass(hass)
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     accepted_link = "https://maps.apple.com/?q=51.5%2C-0.1&z=18"
     if restored:
         await storage.async_save(
@@ -298,7 +313,7 @@ async def test_entry_maintains_zone_and_time_while_retaining_place(
         },
     )
     entry.add_to_hass(hass)
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     hass.states.async_set("zone.home", "0", {"latitude": 51.4, "longitude": -0.1})
     hass.states.async_set("zone.work", "0", {"friendly_name": "Office"})
     hass.states.async_set("device_tracker.probe", "away", {"latitude": 51.5, "longitude": -0.1})
@@ -626,7 +641,7 @@ async def test_async_migrate_entry_gates_migration_by_version(
     snapshot_path = legacy_json_path(hass, entry.entry_id)
     await hass.async_add_executor_job(snapshot_path.parent.mkdir, 0o777, True)
     await hass.async_add_executor_job(snapshot_path.write_text, '{"city": "Legacy City"}')
-    storage = PlacesStorage(hass, entry.entry_id, "Test Place")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Test Place")
 
     assert await async_migrate_entry(hass, entry)
 
@@ -1717,7 +1732,7 @@ async def test_force_update_accepts_fresh_details_with_unchanged_place_text(
     assert event["postal_code"] == published_postal_code == "SW1A 2AA"
     assert event["latitude"] == latitude
 
-    storage = PlacesStorage(hass, entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry_id, "Probe")
     saved = await storage.async_load()
     assert saved[ATTR_NATIVE_VALUE] == "London"
     assert saved[ATTR_POSTAL_CODE] == "SW1A 2AA"
@@ -1776,7 +1791,7 @@ async def test_force_update_preserves_place_when_inputs_are_unusable(
         json=_LONDON_RESPONSE if invalid_input == "accuracy" else {},
     )
     entry_id = force_update_entry.entry_id
-    storage = PlacesStorage(hass, entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry_id, "Probe")
     await storage.async_save(
         {
             ATTR_NATIVE_VALUE: "London",
@@ -1847,7 +1862,7 @@ async def test_failed_force_update_keeps_place_until_an_ordinary_scan_recovers(
         "device_tracker.probe", "not_home", {"latitude": 51.5, "longitude": -0.1, "gps_accuracy": 6}
     )
     await hass.async_block_till_done()
-    storage = PlacesStorage(hass, entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry_id, "Probe")
     accepted = await storage.async_load()
     events = async_capture_events(hass, EVENT_TYPE)
     aioclient_mock.clear_requests()
@@ -2091,7 +2106,15 @@ class _GPSTracker(TrackerEntity):
             "Office Park", "Office Park", "zone.office_park_2", False, True, id="duplicate-names"
         ),
         pytest.param("Office", "Office", "zone.office_2", False, False, id="label-only"),
-        pytest.param("Office", "Office", "zone.office_2", True, True, id="with-membership"),
+        pytest.param(
+            "Office",
+            "Office",
+            "zone.office_2",
+            True,
+            True,
+            id="with-membership",
+            marks=_REQUIRES_ZONE_MEMBERSHIP,
+        ),
     ],
 )
 async def test_active_zone_updates_with_colliding_zone_slugs(
@@ -2162,7 +2185,7 @@ async def test_active_zone_updates_with_colliding_zone_slugs(
     if reports_membership:
         assert await async_setup_component(hass, "device_tracker", {})
         tracker.entity_id = tracker_id
-        await hass.data[DATA_COMPONENT].async_add_entities([tracker])
+        await MockEntityPlatform(hass, domain=DEVICE_TRACKER_DOMAIN).async_add_entities([tracker])
         tracker.async_move_to(before, longitude, 80)
         reading = hass.states.get(tracker_id)
         assert reading.state == state_before
@@ -2176,7 +2199,7 @@ async def test_active_zone_updates_with_colliding_zone_slugs(
     initial_place = hass.states.get("sensor.probe").state
     if reports_membership:
         assert initial_place == ("not_home, London" if arriving else active_name)
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     saved = await storage.async_load()
     assert saved.get(ATTR_LAST_RESOLVED_ZONE_ID) == (
         active_id if reports_membership and not arriving else None
@@ -2214,6 +2237,7 @@ async def test_active_zone_updates_with_colliding_zone_slugs(
     )
 
 
+@_REQUIRES_ZONE_MEMBERSHIP
 @pytest.mark.usefixtures("enable_custom_integrations")
 @pytest.mark.parametrize("reports_membership", [False, True], ids=["label-only", "other-zone"])
 async def test_person_switches_sources_between_same_zone_labels(
@@ -2249,7 +2273,7 @@ async def test_person_switches_sources_between_same_zone_labels(
     assert await async_setup_component(hass, "device_tracker", {})
     tracker = _GPSTracker()
     tracker.entity_id = "device_tracker.primary"
-    await hass.data[DATA_COMPONENT].async_add_entities([tracker])
+    await MockEntityPlatform(hass, domain=DEVICE_TRACKER_DOMAIN).async_add_entities([tracker])
     tracker.async_move_to(start, -0.1, 80)
     backup = "device_tracker.backup"
     assert await async_setup_component(
@@ -2267,7 +2291,7 @@ async def test_person_switches_sources_between_same_zone_labels(
     await hass.async_block_till_done()
     assert aioclient_mock.call_count == 1
     assert hass.states.get("sensor.probe").state == "Office"
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     assert (await storage.async_load())[ATTR_LAST_RESOLVED_ZONE_ID] == "zone.office_2"
 
     aioclient_mock.clear_requests()
@@ -2277,6 +2301,8 @@ async def test_person_switches_sources_between_same_zone_labels(
         reading[ATTR_IN_ZONES] = ["zone.office", "zone.office_3"]
     hass.states.async_set(backup, "Office", reading)
     hass.states.async_set(tracker.entity_id, STATE_UNAVAILABLE)
+    # Older releases delay each tracked state change by a loop pass: person, then Places.
+    await asyncio.sleep(0)
     await hass.async_block_till_done()
 
     person = hass.states.get("person.probe")
@@ -2291,6 +2317,7 @@ async def test_person_switches_sources_between_same_zone_labels(
     assert saved[ATTR_LAST_RESOLVED_ZONE_ID] == expected_zone
 
 
+@_REQUIRES_ZONE_MEMBERSHIP
 @pytest.mark.usefixtures("enable_custom_integrations")
 async def test_departure_after_restoring_zone_label_without_id(
     hass: HomeAssistant,
@@ -2320,14 +2347,14 @@ async def test_departure_after_restoring_zone_label_without_id(
     assert await async_setup_component(hass, "device_tracker", {})
     tracker = _GPSTracker()
     tracker.entity_id = "device_tracker.probe"
-    await hass.data[DATA_COMPONENT].async_add_entities([tracker])
+    await MockEntityPlatform(hass, domain=DEVICE_TRACKER_DOMAIN).async_add_entities([tracker])
     tracker.async_move_to(inside, -0.1, 80)
     assert hass.states.get(tracker.entity_id).attributes[ATTR_IN_ZONES] == [
         "zone.office",
         "zone.office_2",
     ]
 
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     await storage.async_save(
         {
             ATTR_NATIVE_VALUE: "Office, London",
@@ -2703,7 +2730,7 @@ async def loaded_lifecycle_entry(
         },
     )
     entry.add_to_hass(hass)
-    storage = PlacesStorage(hass, entry.entry_id, "Lifecycle")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Lifecycle")
     er.async_get(hass).async_get_or_create(
         "switch",
         DOMAIN,
@@ -2775,7 +2802,7 @@ async def test_force_update_finalizes_published_place(
 
     session.get.reset_mock()
     session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
-    storage = PlacesStorage(hass, entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry_id, "Probe")
     announcements: list[tuple[str, str]] = []
     reload_tasks: list[asyncio.Task[bool]] = []
 
@@ -2846,18 +2873,24 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
     entry, _, session = loaded_lifecycle_entry
     storage: PlacesStorage = entry.runtime_data._persistence
     store = storage._store
-    file_io = store._io
-    file_io.path = str(tmp_path / "places-store.json")
-    async_write_attribute = "async_write"
-    production_async_write = getattr(type(file_io).__mro__[1], async_write_attribute).__get__(
-        file_io
-    )
-    monkeypatch.setattr(file_io, "async_write", production_async_write)
+    # Restore the production disk write that the test plugin's storage mock replaces.
+    # Home Assistant 2026.11 moved it from Store into a separate file I/O object.
+    file_io = getattr(store, "_io", None)
+    if file_io is None:
+        writer, write_name, async_write_name = store, "_write_data", "_async_write_data"
+        production_async_write = _STORE_ASYNC_WRITE_DATA.__get__(store)
+    else:
+        writer, write_name, async_write_name = file_io, "_write", "async_write"
+        production_async_write = getattr(type(file_io).__mro__[1], async_write_name).__get__(
+            file_io
+        )
+    writer.path = str(tmp_path / "places-store.json")
+    monkeypatch.setattr(writer, async_write_name, production_async_write)
     session.get.return_value = _lifecycle_response('{"address":{"city":"Oxford"}}')
     disk_started = ThreadEvent()
     release_disk_write = ThreadEvent()
     disk_write_finished = ThreadEvent()
-    original_disk_write = file_io._write
+    original_disk_write = getattr(writer, write_name)
 
     def hold_disk_write(*args: object) -> object:
         """Hold the production Store file write until the test releases it.
@@ -2879,7 +2912,7 @@ async def test_tracker_update_finalizes_during_home_assistant_stop(
         finally:
             disk_write_finished.set()
 
-    monkeypatch.setattr(file_io, "_write", hold_disk_write)
+    monkeypatch.setattr(writer, write_name, hold_disk_write)
     events = async_capture_events(hass, EVENT_TYPE)
     event_order: list[str] = []
     final_write_started = asyncio.Event()
@@ -3061,7 +3094,7 @@ async def test_places_event_waits_for_unload_outcome(
             event (Event[EventStateChangedData]): Main sensor state change.
         """
         state = event.data["new_state"]
-        if state is not None and state.state == "Oxford":
+        if state is not None and state.entity_id == "sensor.lifecycle" and state.state == "Oxford":
             unload_tasks.append(
                 hass.async_create_task(
                     hass.config_entries.async_unload(entry.entry_id),
@@ -3072,7 +3105,9 @@ async def test_places_event_waits_for_unload_outcome(
     with monkeypatch.context() as patch:
         if not unload_succeeds:
             patch.setattr(hass.config_entries, "async_unload_platforms", refuse_platform_unload)
-        async_track_state_change_event(hass, "sensor.lifecycle", unload_on_publish)
+        # Listen on the bus: older Home Assistant releases delay tracked state change
+        # helpers by a loop pass, so their listeners cannot start unload during publish.
+        hass.bus.async_listen(EVENT_STATE_CHANGED, unload_on_publish)
         force = None
         if unload_timing == "force-after-publish":
             force = hass.async_create_task(coordinator.async_force_update())
@@ -4096,7 +4131,7 @@ async def test_failed_update_preserves_moving_zero_readings(
             hass, gps_clock, tracker_id, "not_home", {**attributes, "latitude": latitude}
         )
     assert aioclient_mock.call_count == 1
-    storage = PlacesStorage(hass, force_update_entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, force_update_entry.entry_id, "Probe")
     saved = await storage.async_load()
     assert saved[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
 
@@ -4146,7 +4181,7 @@ async def test_failed_update_retries_earlier_throttled_reading(
     assert await hass.config_entries.async_setup(force_update_entry.entry_id)
     await hass.async_block_till_done()
     await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
-    storage = PlacesStorage(hass, force_update_entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, force_update_entry.entry_id, "Probe")
     saved = await storage.async_load()
 
     gps_clock["now"] += timedelta(seconds=1)
@@ -4157,6 +4192,8 @@ async def test_failed_update_retries_earlier_throttled_reading(
     assert aioclient_mock.call_count == 1
 
     hass.states.async_set(tracker_id, "not_home", {"latitude": 52.10001, "longitude": -0.1})
+    # Older Home Assistant releases dispatch tracked state changes on the next loop pass.
+    await asyncio.sleep(0)
     outcome = (
         pytest.raises(ValueError, match="Reverse lookup failed") if lookup_raises else nullcontext()
     )
@@ -4294,7 +4331,7 @@ async def test_gps_readings_during_lookup_follow_its_outcome(
 
     expected_place = "Cambridge" if status == 200 else "London"
     assert hass.states.get("sensor.probe").state == expected_place
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     assert (await storage.async_load()).get(ATTR_GPS_ACCURACY_SOURCES) == (
         None if status == 200 else [tracker_id]
     )
@@ -4332,7 +4369,7 @@ async def test_reading_during_lookup_counts_once_on_next_update(
     """
     tracker_id = "device_tracker.probe"
     entry = await _setup_recorded_tracker(hass, aioclient_mock)
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     request_started = asyncio.Event()
     release_request = asyncio.Event()
     response = aioclient_mock.request(
@@ -4406,7 +4443,7 @@ async def test_http_lookup_failure_preserves_gps_accuracy_record_and_history(
     """
     aioclient_mock.get(f"{_REVERSE_URL}?lat=52.00001", status=503)
     entry = await _setup_recorded_tracker(hass, aioclient_mock)
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
     assert aioclient_mock.call_count == 1
 
@@ -4452,7 +4489,7 @@ async def test_forgetting_survives_retaining_the_place(
         same_place_lookup (bool): Whether the fifth reading resolves to the same Place text.
     """
     entry = await _setup_recorded_tracker(hass, aioclient_mock)
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     await _report_zero_readings(hass, gps_clock, [51.6, 51.7, 51.8, 51.9])
     saved = await storage.async_load()
     assert saved[ATTR_GPS_ACCURACY_SOURCES] == ["device_tracker.probe"]
@@ -4508,7 +4545,7 @@ async def test_throttled_reading_interrupts_moving_zero_run(
     await _report_zero_readings(hass, gps_clock, [52.0])
     assert hass.states.get("sensor.probe").state == "London"
     assert aioclient_mock.call_count == 1
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
 
     await _report_zero_readings(hass, gps_clock, [52.1, 52.2, 52.3])
@@ -4621,7 +4658,7 @@ async def test_forgetting_one_source_tracker_keeps_the_other_recorded(
         "not_home",
         {"source": "device_tracker.phone", "latitude": 51.6, "longitude": -0.1, "gps_accuracy": 5},
     )
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     saved = await storage.async_load()
     assert set(saved[ATTR_GPS_ACCURACY_SOURCES]) == {
         "device_tracker.backup",
@@ -4781,6 +4818,9 @@ async def test_failed_unload_preserves_throttled_gps_readings(
     await _report_zero_readings(hass, gps_clock, [52.4])
     assert aioclient_mock.call_count == 2
     assert hass.states.get("sensor.probe").state == "Colchester"
+    # The failed entry keeps its refresh timer, which Home Assistant before 2026.10
+    # does not cancel at shutdown.
+    await entry.runtime_data.async_shutdown()
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -4813,7 +4853,7 @@ async def test_failed_unload_breaks_moving_zero_run(
         await _report_zero_readings(hass, gps_clock, [51.9])
     assert aioclient_mock.call_count == 1
     assert hass.states.get("sensor.probe").state == "London"
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     assert (await storage.async_load())[ATTR_GPS_ACCURACY_SOURCES] == [tracker_id]
 
     async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:
@@ -4888,7 +4928,7 @@ async def test_failed_unload_keeps_new_gps_accuracy_source(
         )
     await hass.async_block_till_done()
     assert aioclient_mock.call_count == 2
-    storage = PlacesStorage(hass, entry.entry_id, "Probe")
+    storage = FreshPlacesStorage(hass, entry.entry_id, "Probe")
     assert not (await storage.async_load()).get(ATTR_GPS_ACCURACY_SOURCES)
 
     async def refuse_platform_unload(_entry: object, _platforms: object) -> bool:

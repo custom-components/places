@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 from homeassistant.const import CONF_NAME
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.places.attributes import PlacesAttributes
 from custom_components.places.const import (
@@ -17,6 +16,7 @@ from custom_components.places.const import (
     CONF_DEVICETRACKER_ID,
 )
 from custom_components.places.coordinator import PlacesUpdateCoordinator
+from tests.common import MockConfigEntry
 
 
 def _coordinator(mock_hass: MagicMock) -> PlacesUpdateCoordinator:
