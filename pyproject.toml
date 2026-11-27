@@ -24,6 +24,7 @@ lint = [
   { include-group = "ha" },
   "mypy",
   "prek",
+  "probatio",
   "ruff",
   "types-cachetools",
   "types-cffi",
@@ -86,6 +87,8 @@ show_missing = true
 
 [tool.mypy]
 python_version = "3.14"
+# typings/voluptuous types voluptuous as probatio; see the stub for its limitations.
+mypy_path = "typings"
 platform = "linux"
 explicit_package_bases = true
 local_partial_types = true
@@ -189,6 +192,9 @@ ignore = [
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
+"typings/voluptuous/__init__.pyi" = [
+    "F403",    # Re-export probatio as voluptuous for mypy
+]
 "tools/*" = [
     "T201",    # print is the developer tools' output
 ]
