@@ -59,11 +59,11 @@ Use [ruff](https://docs.astral.sh/ruff) to make sure the code follows the style.
 
 ## Test against the supported Home Assistant versions
 
-CI runs the tests twice: once with the Home Assistant release locked in `uv.lock`, and once with the minimum declared in `hacs.json` (the `pytest Home Assistant minimum` leg of the matrix in `.github/workflows/pytest_check.yml`). That leg resolves the oldest Home Assistant release at or above that minimum, together with a test plugin that covers it: `pytest-homeassistant` from Home Assistant 2026.11, otherwise its predecessor `pytest-homeassistant-custom-component`. It installs them with the project dependencies and the `pytest-base` group in a separate environment. Raising the minimum in `hacs.json` is all it needs. Both legs require Python 3.14.2 or newer, check the installed test environment and print its Python, Home Assistant and test plugin versions.
+CI runs the tests twice: once with the Home Assistant release locked in `uv.lock`, and once with the oldest testable release for the minimum declared in `hacs.json` (the `pytest Home Assistant minimum` leg of the matrix in `.github/workflows/pytest_check.yml`). That leg resolves the oldest Home Assistant release at or above that minimum that a test plugin pins: `pytest-homeassistant` from Home Assistant 2026.11, otherwise its predecessor `pytest-homeassistant-custom-component`. This can be newer than the declared minimum, leaving the releases in between untested; the job log shows the version used. The leg installs both pins with the project dependencies and the `pytest-base` group in a separate environment. Raising the minimum in `hacs.json` is all it needs. Both legs require Python 3.14.2 or newer, below 3.15, check the installed test environment and print its Python, Home Assistant and test plugin versions.
 
 Import Home Assistant test plugin helpers such as `MockConfigEntry` from `tests.common` so the tests work with either plugin.
 
-To reproduce it locally, run the workflow's minimum steps from a separate clone with `RUNNER_TEMP` set to a scratch directory. The steps create their own `.venv` in the current directory, so they fail in a checkout that already has one.
+To reproduce it locally, run the workflow's minimum steps from a separate clone with `RUNNER_TEMP` set to a scratch directory. The steps create their own `.venv` in the current directory. If one already exists, `uv venv` fails without a terminal, but in a terminal it asks whether to replace it, and the default answer is yes.
 
 ## License
 
