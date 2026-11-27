@@ -21,13 +21,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Update prek hooks
         id: prek-autoupdate
-        uses: Snuffy2/prek-autoupdate@v2
+        uses: Snuffy2/prek-autoupdate@25c9b0c8c73674b9aec5dfd8eb01677aceb66b3b # v2.1.5
         with:
           token: ${{ secrets.PREK_AUTOUPDATE_TOKEN }}
           auto-merge: true

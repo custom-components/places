@@ -39,20 +39,20 @@ jobs:
         if: >-
           github.event_name == 'pull_request' &&
           github.event.pull_request.user.login == 'dependabot[bot]'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.base.sha }}
 
       - name: Checkout Repository
         if: env.RUN_TESTS == 'true'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup uv (with caching)
         if: env.RUN_TESTS == 'true'
-        uses: astral-sh/setup-uv@v10.4.0
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           enable-cache: true
           ignore-nothing-to-cache: true
@@ -109,7 +109,7 @@ jobs:
           github.event.pull_request.user.login != 'dependabot[bot]' &&
           !startsWith(github.event.pull_request.head.ref, 'release-please--')
         id: coverage_comment
-        uses: py-cov-action/python-coverage-comment-action@v4.7
+        uses: py-cov-action/python-coverage-comment-action@281cb0dcb5b15d4773037d51873558fddc5a7df8 # v4.7
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTIVITY: process_pr
@@ -120,7 +120,7 @@ jobs:
         if: >-
           matrix.ha-version == 'current' &&
           steps.coverage_comment.outputs.comment_file_written == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-coverage-comment-action
           path: python-coverage-comment-action.txt
@@ -128,7 +128,7 @@ jobs:
 
       - name: Store coverage data for trusted publication
         if: matrix.ha-version == 'current' && github.event_name == 'push'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-coverage-data
           path: .coverage

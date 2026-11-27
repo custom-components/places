@@ -1,0 +1,9 @@
+rules:
+  dangerous-triggers:
+    disable: true
+  unpinned-uses:
+    config:
+      policies:
+        # Used from a branch: its release tags are old.
+        "hacs/action": ref-pin
+        "*": hash-pin
