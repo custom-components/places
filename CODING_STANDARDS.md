@@ -42,7 +42,7 @@ Run them with `./.venv/bin/python -m prek run -a`.
 
 - Changing config or options text, or any user-visible string, means updating `translations/*.json` in the same change.
 - Changing install or configuration steps means updating `README.md` and `hacs.json` as needed.
-- Target the latest Home Assistant core and Python 3.14+.
+- Target the latest Home Assistant core and the Python range declared in [`pyproject.toml`](./pyproject.toml).
 
 ## Tests
 
