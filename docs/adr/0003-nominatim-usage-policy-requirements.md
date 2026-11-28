@@ -86,8 +86,6 @@ Places shows the response's `licence` string as the entity's `attribution` attri
 
 ## Open questions
 
-These conflict with the policy, or might, and are not settled:
-
 - **Mozilla prefix.** The User-Agent starts with `Mozilla/5.0`, a browser-style token, from commit `0b9b935`. The policy does not mention it and no operator has commented on it. Dropping it would make the header identify only Places.
 - **Hard-coded server.** `nominatim.openstreetmap.org` is hard-coded in `OSMClient`. The policy requires that an app can switch servers at the operators' request without a software update. A configurable base URL would also let users run their own Nominatim, which the operators recommend for heavy use.
 - **Empty `email` parameter.** When no email is set, Places sends `email=` with an empty value instead of leaving the parameter out.
