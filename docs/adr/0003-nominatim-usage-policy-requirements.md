@@ -17,7 +17,7 @@ The policy uses no RFC keywords. "Required" below means the policy or an operato
 | Requirement | Strength | Source and wording |
 | --- | --- | --- |
 | At most 1 request per second | Required | Policy: "No heavy uses (an absolute maximum of 1 request per second)." |
-| The limit covers all users of an application combined | Required | Policy: "the usage limits above apply per website/application: the sum of traffic by all your users should not exceed the limits." |
+| The limit applies per application | Required | Policy: "the usage limits above apply per website/application: the sum of traffic by all your users should not exceed the limits." Places reads "application" as one installed copy of Places (see decision 3). |
 | An identifying User-Agent or Referer | Required | Policy: "Provide a valid HTTP Referer or User-Agent identifying the application (stock User-Agents as set by http libraries will not do)." |
 | Cache results and do not repeat identical queries | Required | Policy: "Results must be cached on your side. Clients sending repeatedly the same query may be classified as faulty and blocked." |
 | Display attribution | Required | Policy: "Clearly display attribution as suitable for your medium." The data is ODbL licensed. |
@@ -53,6 +53,8 @@ The optional `Email Address` setting (`CONF_API_KEY`, labelled "Email to use as 
 
 All Places entries in one Home Assistant instance share a lock and a last-request time (`OSM_THROTTLE`). Each request waits until `OSM_THROTTLE_INTERVAL_SECONDS` (1 s) has passed since the previous one. Several tracked entities moving at once therefore queue up instead of bursting.
 
+We interpret the policy's per-application limit as applying to each installed application, so each Home Assistant instance running Places has its own limit of 1 request per second. The limit does not cover all installations of the integration combined. This throttle enforces that limit, and the cache and the movement check keep each install well below it.
+
 ### 4. A shared cache of responses
 
 Successful responses are stored in a shared in-memory `TTLCache` keyed by the full request URL. The cache holds `OSM_CACHE_MAX_SIZE` entries, and each entry expires after `OSM_CACHE_MAX_AGE_HOURS`. A repeat of the same query within that time is answered from the cache and does not reach Nominatim. Error responses and payloads with `error_message` are not cached. The cache is cleared when Home Assistant restarts. The Force Update button skips cache reads for one Update. It is triggered by the user, so the policy allows it.
@@ -80,7 +82,7 @@ Places shows the response's `licence` string as the entity's `attribution` attri
 ## Consequences
 
 - When you change the User-Agent, keep it identifying Places and its version. Never make it a stock library string, a placeholder, or a value that changes between requests.
-- Do not remove or shorten the throttle or the cache, and do not add retry loops, without checking the policy again. Traffic from every install counts toward the same per-application limit.
+- Do not remove or shorten the throttle or the cache, and do not add retry loops, without checking the policy again. The throttle is what keeps each install within its limit.
 - A new Nominatim endpoint or a new automatic request needs checking against the policy first. `/details` is the precedent for an endpoint the operators asked Places to stop using.
 - The cache key is the full URL, so any change in coordinates or language is a cache miss. The cache prevents identical repeats. It does not reduce lookups for an entity that keeps moving.
 
@@ -89,5 +91,4 @@ Places shows the response's `licence` string as the entity's `attribution` attri
 - **Mozilla prefix.** The User-Agent starts with `Mozilla/5.0`, a browser-style token, from commit `0b9b935`. The policy does not mention it and no operator has commented on it. Dropping it would make the header identify only Places.
 - **Hard-coded server.** `nominatim.openstreetmap.org` is hard-coded in `OSMClient`. The policy requires that an app can switch servers at the operators' request without a software update. A configurable base URL would also let users run their own Nominatim, which the operators recommend for heavy use.
 - **Empty `email` parameter.** When no email is set, Places sends `email=` with an empty value instead of leaving the parameter out.
-- **Per-application limit.** The throttle works per Home Assistant instance. The policy limit covers all Places installs together, and no client-side measure can enforce that. The cache, the movement check and the optional local server are what keep the total traffic down.
 - **Personal data.** Reverse lookups send tracked people's coordinates, and the `email` parameter is personal data. The policy asks clients not to send personal data, but reverse geocoding cannot work without coordinates, and Nominatim's own API docs ask for the email. No operator has raised this with Places.
