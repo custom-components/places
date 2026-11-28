@@ -53,7 +53,7 @@ The optional `Email Address` setting (`CONF_API_KEY`, labelled "Email to use as 
 
 All Places entries in one Home Assistant instance share a lock and a last-request time (`OSM_THROTTLE`). Each request waits until `OSM_THROTTLE_INTERVAL_SECONDS` (1 s) has passed since the previous one. Several tracked entities moving at once therefore queue up instead of bursting.
 
-We interpret the policy's per-application limit as applying to each installed application, so each Home Assistant instance running Places has its own limit of 1 request per second. The limit does not cover all installations of the integration combined. This throttle enforces that limit, and the cache and the movement check keep each install well below it.
+We interpret the policy's per-application limit as applying to each installed application, so each Home Assistant instance running Places has its own limit of 1 request per second. The limit does not cover all installations of the integration combined. The policy's "the sum of traffic by all your users should not exceed the limits" fits a hosted website or service, where one operator controls the access of every user of the page. Places has no such central point. Each install runs in the user's own Home Assistant and sends its own requests. This throttle enforces that limit, and the cache and the movement check keep each install well below it.
 
 ### 4. A shared cache of responses
 
