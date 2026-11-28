@@ -15,7 +15,7 @@ from homeassistant.const import (
 )
 
 DOMAIN = "places"
-VERSION = "3.0.3"  # x-release-please-version
+VERSION = "3.1.0"  # x-release-please-version
 EVENT_TYPE = DOMAIN + "_state_update"
 PERSON_DOMAIN = "person"
 PLATFORMS: list[Platform] = [
